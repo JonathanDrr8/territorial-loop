@@ -36,6 +36,11 @@ export interface Renderer {
   getBitmap(): HTMLCanvasElement
   /** Konvertiert eine Maus-Position (in CSS-Pixeln) in Welt-Koords. */
   screenToWorld(screenX: number, screenY: number): { readonly x: number; readonly y: number }
+  /**
+   * Legt einen expandierenden Klick-Ring an die Welt-Position. Wird über
+   * `MARKER_DURATION_MS` ausgeblendet und danach automatisch entfernt.
+   */
+  addClickMarker(worldX: number, worldY: number): void
   destroy(): void
 }
 
@@ -45,6 +50,16 @@ const NEUTRAL_B = 35
 const BG_FILL = '#0a0a10'
 
 const OWNER_MASK = 0x0fff
+
+const MARKER_DURATION_MS = 500
+const MARKER_RADIUS_START = 6
+const MARKER_RADIUS_END = 40
+
+interface ClickMarker {
+  worldX: number
+  worldY: number
+  startTime: number
+}
 
 function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d')
@@ -168,9 +183,63 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     }
   }
 
+  const markers: ClickMarker[] = []
+
+  function drawMarkers(): void {
+    if (markers.length === 0) return
+    const now = performance.now()
+    // Remove expired markers in-place (reverse loop for splice safety)
+    for (let i = markers.length - 1; i >= 0; i--) {
+      const m = markers[i]
+      if (m !== undefined && now - m.startTime >= MARKER_DURATION_MS) {
+        markers.splice(i, 1)
+      }
+    }
+    if (markers.length === 0) return
+
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const halfW = cssW / 2
+    const halfH = cssH / 2
+
+    screenCtx.save()
+    screenCtx.lineWidth = 3
+    for (const m of markers) {
+      const tRaw = (now - m.startTime) / MARKER_DURATION_MS
+      const t = Math.max(0, Math.min(1, tRaw))
+      const radius = MARKER_RADIUS_START + t * (MARKER_RADIUS_END - MARKER_RADIUS_START)
+      const alpha = 1 - t
+      screenCtx.strokeStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`
+
+      // Wegen Torus: Welt-Position kann mehrere Screen-Positionen erzeugen.
+      // Wir prüfen 3×3 Wrap-Offsets und zeichnen sichtbare.
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const wx = m.worldX + dx * mapW
+          const wy = m.worldY + dy * mapH
+          const sx = (wx - camera.x) * z + halfW
+          const sy = (wy - camera.y) * z + halfH
+          if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+          screenCtx.stroke()
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
   function render(): void {
     paintBitmap()
     drawTiled()
+    drawMarkers()
+  }
+
+  function addClickMarker(worldX: number, worldY: number): void {
+    markers.push({ worldX, worldY, startTime: performance.now() })
   }
 
   function screenToWorld(
@@ -194,5 +263,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     return offscreen
   }
 
-  return { canvas: screenCanvas, camera, render, screenToWorld, getBitmap, destroy }
+  return {
+    canvas: screenCanvas,
+    camera,
+    render,
+    screenToWorld,
+    getBitmap,
+    addClickMarker,
+    destroy,
+  }
 }

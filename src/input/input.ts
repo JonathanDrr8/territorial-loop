@@ -31,6 +31,11 @@ export interface InputDeps {
   readonly playerId: number
   readonly emit: (intent: Intent) => void
   readonly events: InputEvents
+  /**
+   * Optional: wird beim erfolgreichen Linksklick mit den Welt-Koords (vor `tileRef`)
+   * aufgerufen — z.B. für visuelles Klick-Feedback im Renderer.
+   */
+  readonly onAttackClick?: (worldX: number, worldY: number) => void
 }
 
 export interface InputHandler {
@@ -96,6 +101,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
           targetTile: target,
           troops: sendTroops,
         })
+        deps.onAttackClick?.(worldX, worldY)
       }
     }
   }

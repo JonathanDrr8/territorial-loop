@@ -126,6 +126,7 @@ function startMatch(
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
+    onAttackClick: (x, y) => renderer.addClickMarker(x, y),
     events: {
       pause(): void {
         paused = !paused
