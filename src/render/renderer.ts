@@ -1,20 +1,17 @@
 /**
- * Pixi.js-Renderer mit Torus-Wrap.
+ * Canvas-2D-Renderer mit Torus-Wrap.
  *
  * Ansatz:
- * - Wir halten einen Offscreen-Canvas in Map-Auflösung (z.B. 256×256), in den
- *   wir pro Frame die State-Bitmap rein-malen (Owner → Player-Farbe).
- * - Dieser Canvas wird als Pixi-Texture genutzt, eingespannt in eine `TilingSprite`
- *   die den gesamten Viewport bedeckt. TilingSprite repliziert die Texture
- *   automatisch in beide Achsen — **das ist unser Torus-Wrap**, ganz ohne Shader.
- * - Camera = `tilePosition` + `tileScale` der TilingSprite.
+ * - Ein Offscreen-Canvas in Map-Auflösung (z.B. 256×256) hält die State-Bitmap;
+ *   pro Frame wird Owner → Player-Farbe in eine `ImageData` gemalt.
+ * - Ein On-Screen-Canvas füllt den Viewport. Pro Frame: clear + tile-Drawloop
+ *   die den Offscreen-Canvas mit `drawImage` so oft kachelt wie nötig — das ist
+ *   der Torus-Wrap.
  *
- * Screen-to-World: invertiert die Camera-Transform; das Resultat sind float-
- * Welt-Koordinaten die der Caller noch via `tileRef(...)` in einen Tile-Index
- * umwandelt (TileRef wrappt selber).
+ * Warum nicht Pixi/WebGL: WebGL-Rendering kann auf einigen Linux/Compositor-
+ * Konfigurationen still ausfallen (Canvas bleibt schwarz). Canvas2D ist 100%
+ * portabel und für unsere Map-Größen mehr als schnell genug.
  */
-
-import { Application, TilingSprite, Texture } from 'pixi.js'
 
 import type { GameState } from '../core/game'
 
@@ -27,11 +24,12 @@ export interface Camera {
 }
 
 export interface Renderer {
-  readonly app: Application
+  /** Das On-Screen-Canvas das in den DOM eingehängt ist. */
+  readonly canvas: HTMLCanvasElement
   readonly camera: Camera
   /** Liest den aktuellen GameState aus und zeichnet einen Frame. */
   render(): void
-  /** Konvertiert eine Maus-Position (in CSS-Pixeln relativ zum Canvas) in Welt-Koords. */
+  /** Konvertiert eine Maus-Position (in CSS-Pixeln) in Welt-Koords. */
   screenToWorld(screenX: number, screenY: number): { readonly x: number; readonly y: number }
   destroy(): void
 }
@@ -39,41 +37,50 @@ export interface Renderer {
 const NEUTRAL_R = 30
 const NEUTRAL_G = 30
 const NEUTRAL_B = 35
+const BG_FILL = '#0a0a10'
 
 const OWNER_MASK = 0x0fff
 
-export async function createRenderer(container: HTMLElement, state: GameState): Promise<Renderer> {
-  const app = new Application()
-  await app.init({
-    width: container.clientWidth,
-    height: container.clientHeight,
-    background: '#0a0a10',
-    antialias: false,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true,
-  })
-  container.appendChild(app.canvas)
+function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D {
+  const ctx = canvas.getContext('2d')
+  if (ctx === null) {
+    throw new Error(`Renderer: 2D context for ${label} not available`)
+  }
+  return ctx
+}
+
+export function createRenderer(container: HTMLElement, state: GameState): Renderer {
+  // On-screen canvas, full container size
+  const screenCanvas = document.createElement('canvas')
+  screenCanvas.style.display = 'block'
+  screenCanvas.style.touchAction = 'none'
+  screenCanvas.style.cursor = 'crosshair'
+  container.appendChild(screenCanvas)
+
+  const screenCtx = get2dContext(screenCanvas, 'screen')
+  screenCtx.imageSmoothingEnabled = false
 
   // Offscreen canvas in Map-Auflösung
   const offscreen = document.createElement('canvas')
   offscreen.width = state.map.width
   offscreen.height = state.map.height
-  const maybeCtx = offscreen.getContext('2d')
-  if (maybeCtx === null) {
-    throw new Error('Renderer: 2D context not available')
+  const offscreenCtx = get2dContext(offscreen, 'offscreen')
+  const imageData = offscreenCtx.createImageData(state.map.width, state.map.height)
+
+  function resize(): void {
+    const dpr = window.devicePixelRatio || 1
+    const w = container.clientWidth
+    const h = container.clientHeight
+    screenCanvas.style.width = w + 'px'
+    screenCanvas.style.height = h + 'px'
+    screenCanvas.width = Math.floor(w * dpr)
+    screenCanvas.height = Math.floor(h * dpr)
+    // Reset transform — wir skalieren manuell pro frame
+    screenCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    screenCtx.imageSmoothingEnabled = false
   }
-  const ctx: CanvasRenderingContext2D = maybeCtx
-  const imageData = ctx.createImageData(state.map.width, state.map.height)
-
-  const texture = Texture.from(offscreen)
-  texture.source.scaleMode = 'nearest'
-
-  const sprite = new TilingSprite({
-    texture,
-    width: app.screen.width,
-    height: app.screen.height,
-  })
-  app.stage.addChild(sprite)
+  resize()
+  window.addEventListener('resize', resize)
 
   const camera: Camera = {
     x: state.map.width / 2,
@@ -111,7 +118,6 @@ export async function createRenderer(container: HTMLElement, state: GameState): 
       } else {
         const rgba = lut.get(owner)
         if (rgba === undefined) {
-          // Unknown owner — render bright magenta as a warning
           data[o] = 255
           data[o + 1] = 0
           data[o + 2] = 255
@@ -125,31 +131,49 @@ export async function createRenderer(container: HTMLElement, state: GameState): 
       }
     }
 
-    ctx.putImageData(imageData, 0, 0)
-    texture.source.update()
+    offscreenCtx.putImageData(imageData, 0, 0)
   }
 
-  function syncCamera(): void {
-    const halfW = app.screen.width / 2
-    const halfH = app.screen.height / 2
-    sprite.tileScale.set(camera.zoom)
-    sprite.tilePosition.x = halfW - camera.x * camera.zoom
-    sprite.tilePosition.y = halfH - camera.y * camera.zoom
-    sprite.width = app.screen.width
-    sprite.height = app.screen.height
+  function drawTiled(): void {
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+
+    // Welt-Koords der Screen-Ecke top-left
+    const worldLeft = camera.x - cssW / 2 / z
+    const worldTop = camera.y - cssH / 2 / z
+    const worldRight = worldLeft + cssW / z
+    const worldBottom = worldTop + cssH / z
+
+    // Linker und oberer Rand des ersten zu zeichnenden Map-Tiles
+    const xStart = Math.floor(worldLeft / mapW) * mapW
+    const yStart = Math.floor(worldTop / mapH) * mapH
+
+    screenCtx.fillStyle = BG_FILL
+    screenCtx.fillRect(0, 0, cssW, cssH)
+
+    for (let wx = xStart; wx < worldRight; wx += mapW) {
+      for (let wy = yStart; wy < worldBottom; wy += mapH) {
+        const sx = (wx - worldLeft) * z
+        const sy = (wy - worldTop) * z
+        screenCtx.drawImage(offscreen, sx, sy, mapW * z, mapH * z)
+      }
+    }
   }
 
   function render(): void {
     paintBitmap()
-    syncCamera()
+    drawTiled()
   }
 
   function screenToWorld(
     screenX: number,
     screenY: number,
   ): { readonly x: number; readonly y: number } {
-    const halfW = app.screen.width / 2
-    const halfH = app.screen.height / 2
+    const halfW = container.clientWidth / 2
+    const halfH = container.clientHeight / 2
     return {
       x: (screenX - halfW) / camera.zoom + camera.x,
       y: (screenY - halfH) / camera.zoom + camera.y,
@@ -157,16 +181,9 @@ export async function createRenderer(container: HTMLElement, state: GameState): 
   }
 
   function destroy(): void {
-    app.destroy(true, { children: true, texture: true })
+    window.removeEventListener('resize', resize)
+    screenCanvas.remove()
   }
 
-  // Resize-Handler: TilingSprite an Viewport anpassen
-  function handleResize(): void {
-    app.renderer.resize(container.clientWidth, container.clientHeight)
-    sprite.width = app.screen.width
-    sprite.height = app.screen.height
-  }
-  window.addEventListener('resize', handleResize)
-
-  return { app, camera, render, screenToWorld, destroy }
+  return { canvas: screenCanvas, camera, render, screenToWorld, destroy }
 }

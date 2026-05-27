@@ -194,7 +194,9 @@ async function main(): Promise<void> {
 
   const config = buildConfig()
   const state = createGame(config)
-  const renderer = await createRenderer(container, state)
+  const renderer = createRenderer(container, state)
+  // Debug: expose for inspection
+  ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer }
 
   const pendingIntents: Intent[] = []
   let sliderPct = DEFAULT_SLIDER_PCT
@@ -223,7 +225,7 @@ async function main(): Promise<void> {
   })
 
   createInputHandler({
-    canvas: renderer.app.canvas,
+    canvas: renderer.canvas,
     camera: renderer.camera,
     mapWidth: state.map.width,
     mapHeight: state.map.height,
