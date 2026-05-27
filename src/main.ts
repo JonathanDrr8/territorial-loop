@@ -13,6 +13,7 @@ import { createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
+import { pickRandomNames } from './ui/player-names'
 
 const HUMAN_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
@@ -56,6 +57,8 @@ function randomColor(): number {
 }
 
 function buildConfig(): GameConfig {
+  const aiCount = 3
+  const aiNames = pickRandomNames(aiCount)
   return {
     mapWidth: 256,
     mapHeight: 256,
@@ -63,9 +66,12 @@ function buildConfig(): GameConfig {
     victoryPct: 90,
     players: [
       { id: 1, name: 'Du', color: randomColor(), isHuman: true },
-      { id: 2, name: 'KI-1', color: randomColor(), isHuman: false },
-      { id: 3, name: 'KI-2', color: randomColor(), isHuman: false },
-      { id: 4, name: 'KI-3', color: randomColor(), isHuman: false },
+      ...aiNames.map((name, i) => ({
+        id: i + 2,
+        name,
+        color: randomColor(),
+        isHuman: false,
+      })),
     ],
   }
 }
