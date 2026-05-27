@@ -43,10 +43,12 @@ function buildConfig(menu: StartMenuValues): GameConfig {
   const aiNames = pickRandomNames(menu.aiCount)
   const totalPlayers = 1 + menu.aiCount
   const colors = pickDistinctColors(totalPlayers)
+  const seed =
+    menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
   return {
     mapWidth: menu.mapSize,
     mapHeight: menu.mapSize,
-    seed: 'match-' + Date.now().toString(),
+    seed,
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     terrain: menu.terrain,

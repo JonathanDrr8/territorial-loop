@@ -20,6 +20,8 @@ export interface StartMenuValues {
   tempo: MatchTempo
   terrain: TerrainChoice
   soundEnabled: boolean
+  /** Optional fester Match-Seed; leer/undefined → random. */
+  seed?: string
 }
 
 export const TEMPO_TO_SPEED: Record<MatchTempo, number> = {
@@ -266,6 +268,21 @@ export function createStartMenu(
   const victory = makeSliderRow('Sieg-%', 50, 100, 5, initial.victoryPct, '%')
   panel.appendChild(victory.element)
 
+  // Seed (optional)
+  const seedRow = document.createElement('div')
+  seedRow.style.cssText = FIELD_ROW_STYLE
+  const seedLabel = document.createElement('label')
+  seedLabel.textContent = 'Seed (optional)'
+  const seedInput = document.createElement('input')
+  seedInput.type = 'text'
+  seedInput.value = initial.seed ?? ''
+  seedInput.placeholder = 'leer = zufällig'
+  seedInput.maxLength = 32
+  seedInput.style.cssText = INPUT_STYLE
+  seedRow.appendChild(seedLabel)
+  seedRow.appendChild(seedInput)
+  panel.appendChild(seedRow)
+
   // Sound toggle
   const soundRow = document.createElement('div')
   soundRow.style.cssText = FIELD_ROW_STYLE
@@ -300,6 +317,7 @@ export function createStartMenu(
     startBtn.style.background = '#4a8'
   })
   startBtn.addEventListener('click', () => {
+    const seedRaw = seedInput.value.trim()
     onStart({
       playerName: nameInput.value.trim() || 'Du',
       mapSize: Number(mapSelect.value),
@@ -309,6 +327,7 @@ export function createStartMenu(
       tempo: tempoSelect.value as MatchTempo,
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
+      ...(seedRaw.length > 0 && { seed: seedRaw }),
     })
   })
   panel.appendChild(startBtn)

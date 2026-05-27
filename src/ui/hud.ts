@@ -185,7 +185,8 @@ export function createHUD(
           `<div style="font-size: 22px; margin-bottom: 4px">` +
           `Sieg: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
           `</div>` +
-          `<div style="font-size: 12px; opacity: 0.7">Match läuft weiter — du kannst zuschauen</div>`
+          `<div style="font-size: 12px; opacity: 0.7">Match läuft weiter — du kannst zuschauen</div>` +
+          `<div style="font-size: 11px; opacity: 0.5; margin-top: 4px; font-family: ui-monospace">Seed: ${escapeHtml(state.seed)}</div>`
       }
     } else {
       banner.style.display = 'none'
