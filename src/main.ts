@@ -16,6 +16,7 @@ import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
+import { loadMenuPrefs, saveMenuPrefs } from './ui/preferences'
 import { createSoundEngine } from './ui/sound'
 import { createStartMenu, TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
 
@@ -228,7 +229,9 @@ function main(): void {
   let session: MatchSession | null = null
 
   function showMenu(): void {
-    const menu = createStartMenu(container, DEFAULT_MENU, (values) => {
+    const initial = loadMenuPrefs(DEFAULT_MENU)
+    const menu = createStartMenu(container, initial, (values) => {
+      saveMenuPrefs(values)
       menu.destroy()
       if (session !== null) {
         session.destroy()
