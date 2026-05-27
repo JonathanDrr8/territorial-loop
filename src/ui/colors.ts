@@ -44,6 +44,41 @@ export function randomColor(): number {
   return hslToRgba(Math.random() * 360, 0.7, 0.55)
 }
 
+/**
+ * Wählt `count` gleichmäßig im Farbring verteilte Hues (mit zufälliger Start-Phase)
+ * und liefert daraus packed-RGBA-Werte. So sind Spielerfarben pro Match maximal
+ * voneinander unterscheidbar — keine "ist das jetzt rot oder doch braun-rot?"-
+ * Verwechslungen.
+ *
+ * Saturation und Lightness sind leicht variabel um auch bei vielen Spielern
+ * Differenzierung zu erhalten.
+ */
+export function pickDistinctColors(count: number): number[] {
+  if (count <= 0) return []
+  const startHue = Math.random() * 360
+  const step = 360 / count
+  const colors: number[] = []
+  for (let i = 0; i < count; i++) {
+    const hue = (startHue + i * step) % 360
+    // Kleine Variation in S/L damit benachbarte Spieler im Farbring nicht nur
+    // im Hue, sondern auch in Helligkeit/Sättigung leicht unterscheidbar sind.
+    const sat = 0.65 + (i % 2) * 0.1 // 0.65 oder 0.75
+    const light = 0.52 + (i % 3) * 0.04 // 0.52, 0.56, 0.60
+    colors.push(hslToRgba(hue, sat, light))
+  }
+  // Shuffle so adjacent player slots aren't always adjacent in the color wheel
+  for (let i = colors.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = colors[i]
+    const swap = colors[j]
+    if (tmp !== undefined && swap !== undefined) {
+      colors[i] = swap
+      colors[j] = tmp
+    }
+  }
+  return colors
+}
+
 /** Packed RGBA → CSS `rgb(r,g,b)` String. Alpha wird nicht übernommen. */
 export function rgbaToCss(rgba: number): string {
   const r = (rgba >>> 24) & 0xff

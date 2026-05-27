@@ -11,7 +11,7 @@ import { createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
-import { randomColor } from './ui/colors'
+import { pickDistinctColors } from './ui/colors'
 import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
@@ -36,17 +36,19 @@ interface MatchSession {
 
 function buildConfig(menu: StartMenuValues): GameConfig {
   const aiNames = pickRandomNames(menu.aiCount)
+  const totalPlayers = 1 + menu.aiCount
+  const colors = pickDistinctColors(totalPlayers)
   return {
     mapWidth: menu.mapSize,
     mapHeight: menu.mapSize,
     seed: 'match-' + Date.now().toString(),
     victoryPct: menu.victoryPct,
     players: [
-      { id: HUMAN_ID, name: menu.playerName, color: randomColor(), isHuman: true },
+      { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
       ...aiNames.map((name, i) => ({
         id: HUMAN_ID + 1 + i,
         name,
-        color: randomColor(),
+        color: colors[i + 1] ?? 0x00ff00ff,
         isHuman: false,
       })),
     ],
