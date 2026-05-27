@@ -77,6 +77,14 @@ function rgbaToCss(rgba: number): string {
   return `rgb(${r},${g},${b})`
 }
 
+/** Formatiert einen Prozentsatz mit dynamischer Präzision für kleine Werte. */
+function fmtPct(value: number): string {
+  if (value <= 0) return '0%'
+  if (value < 0.01) return '<0.01%'
+  if (value < 1) return value.toFixed(2) + '%'
+  return value.toFixed(1) + '%'
+}
+
 interface HUDApi {
   update(): void
   destroy(): void
@@ -138,42 +146,64 @@ function createHUD(
 
   container.appendChild(hud)
 
+  // Game-Over-Banner (versteckt im laufenden Match)
+  const banner = document.createElement('div')
+  banner.style.cssText = [
+    'position: absolute',
+    'top: 24px',
+    'left: 50%',
+    'transform: translateX(-50%)',
+    'background: rgba(0,0,0,0.75)',
+    'color: white',
+    'padding: 14px 22px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'border-radius: 8px',
+    'box-shadow: 0 4px 20px rgba(0,0,0,0.5)',
+    'z-index: 20',
+    'text-align: center',
+    'pointer-events: none',
+    'display: none',
+  ].join(';')
+  container.appendChild(banner)
+
   function update(): void {
     const totalTiles = state.map.width * state.map.height
-    const lines: string[] = []
-    lines.push(`Tick: ${state.tick}`)
-    const phaseLine =
-      state.phase === 'running' ? 'Phase: läuft' : `Phase: beendet (Sieger: ${state.winner ?? '?'})`
-    lines.push(phaseLine)
-    lines.push('')
-    const players = [...state.players.values()].sort((a, b) => a.id - b.id)
-    for (const p of players) {
-      const pct = ((p.tilesOwned / totalTiles) * 100).toFixed(1)
-      const colorBlock = `■` // ■
-      const dead = p.isAlive ? '' : ' †'
-      lines.push(`${colorBlock} ${p.name}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}%`)
-    }
-    status.textContent = lines.join('\n')
-
-    // Set color-block colors via foreground spans is complex with textContent;
-    // simpler: rebuild as HTML with colored swatches.
     const html: string[] = []
     html.push(`Tick: ${state.tick}<br>`)
+    const phaseLine =
+      state.phase === 'running' ? 'Phase: läuft' : `Phase: beendet (Sieger: ${state.winner ?? '?'})`
     html.push(phaseLine + '<br><br>')
+    const players = [...state.players.values()].sort((a, b) => a.id - b.id)
     for (const p of players) {
-      const pct = ((p.tilesOwned / totalTiles) * 100).toFixed(1)
+      const pct = fmtPct((p.tilesOwned / totalTiles) * 100)
       const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
       html.push(
-        `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}%<br>`,
+        `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}<br>`,
       )
     }
     status.innerHTML = html.join('')
+
+    // Game-Over-Banner
+    if (state.phase === 'ended' && state.winner !== null) {
+      const winner = state.players.get(state.winner)
+      if (winner !== undefined) {
+        banner.style.display = 'block'
+        banner.innerHTML =
+          `<div style="font-size: 22px; margin-bottom: 4px">` +
+          `Sieg: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
+          `</div>` +
+          `<div style="font-size: 12px; opacity: 0.7">Match läuft weiter — du kannst zuschauen</div>`
+      }
+    } else {
+      banner.style.display = 'none'
+    }
   }
 
   return {
     update,
     destroy() {
       hud.remove()
+      banner.remove()
     },
   }
 }
