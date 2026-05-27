@@ -36,6 +36,13 @@ export interface InputDeps {
    * aufgerufen — z.B. für visuelles Klick-Feedback im Renderer.
    */
   readonly onAttackClick?: (worldX: number, worldY: number) => void
+  /**
+   * Optional: wird bei jeder Mausbewegung (außer während Drag) aufgerufen.
+   * Liefert Welt-Koords (float) und Screen-Koords (in CSS-Pixeln, viewport-relativ).
+   */
+  readonly onHover?: (worldX: number, worldY: number, screenX: number, screenY: number) => void
+  /** Optional: wird ausgerufen wenn der Cursor das Canvas verlässt. */
+  readonly onHoverEnd?: () => void
 }
 
 export interface InputHandler {
@@ -64,17 +71,31 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseMove(e: MouseEvent): void {
-    if (!dragging) return
-    const dx = e.clientX - lastDragX
-    const dy = e.clientY - lastDragY
-    lastDragX = e.clientX
-    lastDragY = e.clientY
-    // Pan-Bewegung in Welt-Koords (zoom invertieren)
-    camera.x -= dx / camera.zoom
-    camera.y -= dy / camera.zoom
-    // Wrap auf Welt-Bereich — fühlt sich auf dem Torus natürlicher an
-    camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
-    camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
+    if (dragging) {
+      const dx = e.clientX - lastDragX
+      const dy = e.clientY - lastDragY
+      lastDragX = e.clientX
+      lastDragY = e.clientY
+      camera.x -= dx / camera.zoom
+      camera.y -= dy / camera.zoom
+      camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
+      camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
+      return
+    }
+    if (deps.onHover !== undefined) {
+      const rect = canvas.getBoundingClientRect()
+      const sx = e.clientX - rect.left
+      const sy = e.clientY - rect.top
+      const halfW = canvas.clientWidth / 2
+      const halfH = canvas.clientHeight / 2
+      const worldX = (sx - halfW) / camera.zoom + camera.x
+      const worldY = (sy - halfH) / camera.zoom + camera.y
+      deps.onHover(worldX, worldY, sx, sy)
+    }
+  }
+
+  function onMouseLeave(): void {
+    deps.onHoverEnd?.()
   }
 
   function onMouseUp(e: MouseEvent): void {
@@ -148,6 +169,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   canvas.addEventListener('mousedown', onMouseDown)
   canvas.addEventListener('mousemove', onMouseMove)
   canvas.addEventListener('mouseup', onMouseUp)
+  canvas.addEventListener('mouseleave', onMouseLeave)
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
   window.addEventListener('keydown', onKeyDown)
@@ -157,6 +179,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       canvas.removeEventListener('mousedown', onMouseDown)
       canvas.removeEventListener('mousemove', onMouseMove)
       canvas.removeEventListener('mouseup', onMouseUp)
+      canvas.removeEventListener('mouseleave', onMouseLeave)
       canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
       window.removeEventListener('keydown', onKeyDown)

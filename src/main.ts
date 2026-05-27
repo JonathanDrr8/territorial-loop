@@ -12,6 +12,7 @@ import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { randomColor } from './ui/colors'
+import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
@@ -117,6 +118,8 @@ function startMatch(
     }),
   })
 
+  const tooltip = createHoverTooltip(container, state, HUMAN_ID)
+
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -127,6 +130,10 @@ function startMatch(
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
     onAttackClick: (x, y) => renderer.addClickMarker(x, y),
+    onHover: (worldX, worldY, screenX, screenY) => {
+      tooltip.show(worldX, worldY, screenX, screenY)
+    },
+    onHoverEnd: () => tooltip.hide(),
     events: {
       pause(): void {
         paused = !paused
@@ -166,6 +173,7 @@ function startMatch(
       input.destroy()
       hud.destroy()
       minimap.destroy()
+      tooltip.destroy()
       renderer.destroy()
     },
   }
