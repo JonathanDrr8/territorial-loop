@@ -158,6 +158,28 @@ export function createHUD(
 
   container.appendChild(banner)
 
+  // Pause-Overlay (großes Dim mit 'PAUSE'-Text, sichtbar wenn currentSpeed === 0)
+  const pauseOverlay = document.createElement('div')
+  pauseOverlay.style.cssText = [
+    'position: absolute',
+    'inset: 0',
+    'display: none',
+    'align-items: center',
+    'justify-content: center',
+    'background: rgba(10,10,20,0.35)',
+    'color: rgba(255,255,255,0.85)',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 56px',
+    'font-weight: bold',
+    'letter-spacing: 12px',
+    'text-shadow: 0 4px 12px rgba(0,0,0,0.6)',
+    'pointer-events: none',
+    'z-index: 15',
+    'user-select: none',
+  ].join(';')
+  pauseOverlay.textContent = 'PAUSE'
+  container.appendChild(pauseOverlay)
+
   function update(): void {
     const totalTiles = state.map.width * state.map.height
     const html: string[] = []
@@ -216,10 +238,12 @@ export function createHUD(
     update,
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
+      pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'
     },
     destroy(): void {
       hud.remove()
       banner.remove()
+      pauseOverlay.remove()
     },
   }
 }
