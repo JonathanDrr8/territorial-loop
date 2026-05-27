@@ -14,15 +14,8 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          pixi: ['pixi.js'],
-        },
-      },
-    },
   },
   optimizeDeps: {
-    include: ['pixi.js', 'seedrandom'],
+    include: ['seedrandom'],
   },
 })
