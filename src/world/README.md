@@ -28,4 +28,36 @@ inklusive der **Torus-Topologie** (loopende Welt).
 
 ## Öffentliche API
 
-(wird in Phase B definiert)
+### `torus.ts`
+
+```ts
+type TileRef = number
+function wrap(v: number, dim: number): number
+function tileRef(x: number, y: number, w: number, h: number): TileRef
+function tileXY(ref: TileRef, w: number): readonly [number, number]
+function torusDistance(ax, ay, bx, by, w, h): number
+function neighbors4(ref: TileRef, w: number, h: number): readonly TileRef[]
+function neighbors8(ref: TileRef, w: number, h: number): readonly TileRef[]
+```
+
+### `map.ts`
+
+```ts
+const OWNER_MASK = 0x0fff // Bits 0-11
+const MAX_OWNER_ID = 0x0fff // 4095
+
+interface GameMap {
+  readonly width: number
+  readonly height: number
+  readonly terrain: Uint8Array // 1 Byte pro Tile, im MVP unbenutzt
+  readonly state: Uint16Array // Bits 0-11: ownerID, 12-15: reserviert
+}
+
+function createMap(width: number, height: number): GameMap
+function getOwner(map: GameMap, ref: TileRef): number
+function setOwner(map: GameMap, ref: TileRef, ownerId: number): void
+```
+
+**Hot-Loop-Hinweis:** Für Tick-Pipelines und Frontier-Iterationen sollte direkt
+auf `map.state[ref]` zugegriffen werden (mit Bit-Maskierung), nicht über die
+Helper — Function-Call-Overhead pro Tile summiert sich bei 100k+ Iterationen.
