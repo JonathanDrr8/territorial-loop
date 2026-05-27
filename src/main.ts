@@ -27,6 +27,7 @@ const DEFAULT_MENU: StartMenuValues = {
   mapSize: 256,
   aiCount: 3,
   victoryPct: 90,
+  difficulty: 'normal',
 }
 
 interface MatchSession {
@@ -73,7 +74,7 @@ function startMatch(
   const ais: AI[] = []
   for (const p of state.players.values()) {
     if (!p.isHuman) {
-      ais.push(createAI(p.id, state.seed))
+      ais.push(createAI(p.id, state.seed, menu.difficulty))
     }
   }
 

@@ -7,11 +7,14 @@
  * auf — der Aufrufer ist für `destroy()` zuständig.
  */
 
+export type Difficulty = 'easy' | 'normal' | 'hard'
+
 export interface StartMenuValues {
   playerName: string
   mapSize: number
   aiCount: number
   victoryPct: number
+  difficulty: Difficulty
 }
 
 export interface StartMenuApi {
@@ -179,6 +182,29 @@ export function createStartMenu(
   const aiCount = makeSliderRow('Anzahl KI', 1, 7, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
 
+  // Difficulty — discrete select
+  const diffRow = document.createElement('div')
+  diffRow.style.cssText = FIELD_ROW_STYLE
+  const diffLabel = document.createElement('label')
+  diffLabel.textContent = 'KI-Schwierigkeit'
+  const diffSelect = document.createElement('select')
+  diffSelect.style.cssText = SELECT_STYLE
+  const DIFFICULTY_OPTIONS: ReadonlyArray<readonly [Difficulty, string]> = [
+    ['easy', 'Einfach'],
+    ['normal', 'Normal'],
+    ['hard', 'Schwer'],
+  ]
+  for (const [value, label] of DIFFICULTY_OPTIONS) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    if (value === initial.difficulty) opt.selected = true
+    diffSelect.appendChild(opt)
+  }
+  diffRow.appendChild(diffLabel)
+  diffRow.appendChild(diffSelect)
+  panel.appendChild(diffRow)
+
   // Victory %
   const victory = makeSliderRow('Sieg-%', 50, 100, 5, initial.victoryPct, '%')
   panel.appendChild(victory.element)
@@ -199,6 +225,7 @@ export function createStartMenu(
       mapSize: Number(mapSelect.value),
       aiCount: aiCount.getValue(),
       victoryPct: victory.getValue(),
+      difficulty: diffSelect.value as Difficulty,
     })
   })
   panel.appendChild(startBtn)

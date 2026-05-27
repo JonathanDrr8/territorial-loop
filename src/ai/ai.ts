@@ -21,19 +21,38 @@ import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
 import { neighbors4 } from '../world/torus'
 
-const ATTACK_PCT = 30
-const COOLDOWN_MIN = 30
-const COOLDOWN_MAX = 100
-const POP_THRESHOLD_FOR_PVP = 0.6
+export type Difficulty = 'easy' | 'normal' | 'hard'
+
+interface DifficultyProfile {
+  readonly attackPct: number
+  readonly cooldownMin: number
+  readonly cooldownMax: number
+  readonly popThresholdForPvp: number
+}
+
+const PROFILES: Record<Difficulty, DifficultyProfile> = {
+  // Langsamere Entscheidungen, kleinere Wellen, beschäftigt sich länger mit
+  // neutralem Land bevor sie zu Gegnern wechselt.
+  easy: { attackPct: 18, cooldownMin: 60, cooldownMax: 180, popThresholdForPvp: 0.75 },
+  // Mittelfeld — entspricht dem ursprünglichen Allround-Verhalten.
+  normal: { attackPct: 30, cooldownMin: 30, cooldownMax: 100, popThresholdForPvp: 0.6 },
+  // Aggressiv: fast doppelt so oft Entscheidungen, größere Wellen, schneller PvP.
+  hard: { attackPct: 42, cooldownMin: 18, cooldownMax: 60, popThresholdForPvp: 0.45 },
+}
 
 export interface AI {
   /** Aufgerufen pro Sim-Tick. Returnt Intents für diesen Tick (0 oder 1). */
   decide(state: GameState): readonly Intent[]
 }
 
-export function createAI(playerId: number, gameSeed: string): AI {
+export function createAI(
+  playerId: number,
+  gameSeed: string,
+  difficulty: Difficulty = 'normal',
+): AI {
+  const profile = PROFILES[difficulty]
   const rng = createPRNG(`ai-${playerId.toString()}-${gameSeed}`)
-  let nextDecisionTick = rng.nextInt(COOLDOWN_MIN, COOLDOWN_MAX)
+  let nextDecisionTick = rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
   function pickTarget(state: GameState, player: Player, preferEnemies: boolean): number {
     const { width, height } = state.map
@@ -65,16 +84,16 @@ export function createAI(playerId: number, gameSeed: string): AI {
       if (player === undefined || !player.isAlive) return []
       if (state.tick < nextDecisionTick) return []
 
-      nextDecisionTick = state.tick + rng.nextInt(COOLDOWN_MIN, COOLDOWN_MAX)
+      nextDecisionTick = state.tick + rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
       const max = maxTroops(player.tilesOwned)
       const popRatio = max > 0 ? player.troops / max : 0
-      const preferEnemies = popRatio >= POP_THRESHOLD_FOR_PVP
+      const preferEnemies = popRatio >= profile.popThresholdForPvp
 
       const targetTile = pickTarget(state, player, preferEnemies)
       if (targetTile < 0) return []
 
-      const troops = Math.floor((player.troops * ATTACK_PCT) / 100)
+      const troops = Math.floor((player.troops * profile.attackPct) / 100)
       if (troops <= 0) return []
 
       return [
