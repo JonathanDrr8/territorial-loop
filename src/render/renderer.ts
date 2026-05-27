@@ -41,6 +41,10 @@ export interface Renderer {
    * `MARKER_DURATION_MS` ausgeblendet und danach automatisch entfernt.
    */
   addClickMarker(worldX: number, worldY: number): void
+  /** Setzt das aktuelle Hover-Tile für Outline-Rendering. */
+  setHoverTile(worldX: number, worldY: number): void
+  /** Entfernt den Hover-Tile-Outline (Cursor verließ Canvas). */
+  clearHoverTile(): void
   destroy(): void
 }
 
@@ -184,6 +188,37 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   const markers: ClickMarker[] = []
+  let hoverTile: { x: number; y: number } | null = null
+
+  function drawHoverOutline(): void {
+    if (hoverTile === null) return
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const halfW = cssW / 2
+    const halfH = cssH / 2
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const tileX = hoverTile.x
+    const tileY = hoverTile.y
+    screenCtx.save()
+    screenCtx.lineWidth = 1.5
+    screenCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+    // Outline 1×1-Tile am world (tileX, tileY); 3×3 Wrap-Replikation
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const wx = tileX + dx * mapW
+        const wy = tileY + dy * mapH
+        const sx = (wx - camera.x) * z + halfW
+        const sy = (wy - camera.y) * z + halfH
+        const sz = z
+        if (sx + sz < 0 || sx > cssW || sy + sz < 0 || sy > cssH) continue
+        // Strich-Rechteck so dass Stroke nicht durch den Tile geht
+        screenCtx.strokeRect(sx + 0.5, sy + 0.5, sz, sz)
+      }
+    }
+    screenCtx.restore()
+  }
 
   function drawMarkers(): void {
     if (markers.length === 0) return
@@ -295,12 +330,25 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   function render(): void {
     paintBitmap()
     drawTiled()
+    drawHoverOutline()
     drawAttackTargets()
     drawMarkers()
   }
 
   function addClickMarker(worldX: number, worldY: number): void {
     markers.push({ worldX, worldY, startTime: performance.now() })
+  }
+
+  function setHoverTile(worldX: number, worldY: number): void {
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const tileX = ((Math.floor(worldX) % mapW) + mapW) % mapW
+    const tileY = ((Math.floor(worldY) % mapH) + mapH) % mapH
+    hoverTile = { x: tileX, y: tileY }
+  }
+
+  function clearHoverTile(): void {
+    hoverTile = null
   }
 
   function screenToWorld(
@@ -331,6 +379,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenToWorld,
     getBitmap,
     addClickMarker,
+    setHoverTile,
+    clearHoverTile,
     destroy,
   }
 }

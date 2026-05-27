@@ -145,8 +145,12 @@ function startMatch(
     },
     onHover: (worldX, worldY, screenX, screenY) => {
       tooltip.show(worldX, worldY, screenX, screenY)
+      renderer.setHoverTile(worldX, worldY)
     },
-    onHoverEnd: () => tooltip.hide(),
+    onHoverEnd: () => {
+      tooltip.hide()
+      renderer.clearHoverTile()
+    },
     events: {
       pause(): void {
         paused = !paused
