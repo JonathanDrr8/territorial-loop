@@ -1,7 +1,8 @@
 # Morning Brief — Nacht-Session 2026-05-27/28
 
-Stand bei deinem Reinkommen morgens. **34 Commits** seit du schlafen gegangen
-bist, alle 132 Tests grün, Lint + Typecheck clean.
+Stand bei deinem Reinkommen morgens. **43 Commits** seit du schlafen gegangen
+bist, alle 154 Tests grün, Lint + Typecheck clean, Production-Build clean
+(17 kB gzipped Bundle).
 
 ## Was du sofort testen kannst
 
@@ -41,6 +42,10 @@ Das **Start-Menü** ist neu und merkt sich die Einstellungen zwischen Sessions
 16. **Pause-Overlay** ("PAUSE" in groß) wenn die Sim pausiert ist.
 17. **Match-Seed** wird im Game-Over-Banner angezeigt → kannst du copy-paste-en
     um exakt dasselbe Match nochmal zu spielen.
+18. **Tile-Capture-Flash** — jedes Tile blitzt kurz weiß auf, wenn es erobert
+    wird. Macht den Fluss der Wellen viel "lebendiger".
+19. **README.md, CLAUDE.md, Architecture.md** sind alle auf Stand. Pixi-
+    Dependency entfernt, Build funktioniert sauber.
 
 ## Was unter der Haube passiert ist
 
@@ -52,8 +57,10 @@ Das **Start-Menü** ist neu und merkt sich die Einstellungen zwischen Sessions
   Frame), erspart 6/7 der Pixel-Writes bei 60fps Render + 10 Hz Sim.
 - Performance bei 1024×1024-Maps validiert (Sim hält 10 Hz, kein Frame-Drop).
 - Module-READMEs (ai, input, render, ui, world) sind alle aktuell.
-- Test-Suite ging von 71 auf 132 Tests, alle grün.
+- Test-Suite ging von 71 auf 154 Tests, alle grün. Coverage neu: terrain,
+  player-names, colors, preferences.
 - ADR-0005 dokumentiert die Pixi→Canvas2D-Entscheidung.
+- Vite-Config aufgeräumt — pixi.js komplett raus, Bundle 17 kB gzipped.
 
 ## Offene Fragen
 
