@@ -204,6 +204,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   const markers: ClickMarker[] = []
   let hoverTile: { x: number; y: number } | null = null
+  // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
+  // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
+  let lastBitmapTick: number = -1
 
   function drawHoverOutline(): void {
     if (hoverTile === null) return
@@ -343,7 +346,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   function render(): void {
-    paintBitmap()
+    if (state.tick !== lastBitmapTick) {
+      paintBitmap()
+      lastBitmapTick = state.tick
+    }
     drawTiled()
     drawHoverOutline()
     drawAttackTargets()
