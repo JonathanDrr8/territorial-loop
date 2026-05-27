@@ -55,3 +55,4 @@ Triviale Entscheidungen (z.B. "Datei-Naming") brauchen keine ADRs.
 - [0002 — Map als Dual-TypedArray](./0002-map-datenstruktur.md)
 - [0003 — Tick-Modell: Fixed 10 Hz Sim, entkoppelter Render](./0003-tick-modell.md)
 - [0004 — OpenFront-Mechaniken als MVP-Baseline übernehmen](./0004-openfront-mechaniken.md)
+- [0005 — Canvas 2D ersetzt Pixi.js / WebGL als Renderer](./0005-canvas2d-statt-pixi.md)
