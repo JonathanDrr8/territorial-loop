@@ -43,3 +43,7 @@ Thumbs.db
 # Claude (lokale Overrides)
 .claude/settings.local.json
 .claude/cache/
+
+# Playwright/MCP screenshot artifacts (Test-Output, kein Repo-Inhalt)
+/*.png
+.playwright-mcp/
