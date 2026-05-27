@@ -13,6 +13,7 @@ import { createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
+import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
 
 const HUMAN_ID = 1
@@ -274,6 +275,17 @@ async function main(): Promise<void> {
     sliderPct = pct
   })
 
+  const minimap = createMinimap({
+    container,
+    state,
+    camera: renderer.camera,
+    getBitmap: renderer.getBitmap,
+    getViewportSize: () => ({
+      width: renderer.canvas.clientWidth,
+      height: renderer.canvas.clientHeight,
+    }),
+  })
+
   createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -299,6 +311,7 @@ async function main(): Promise<void> {
 
   function renderLoop(): void {
     renderer.render()
+    minimap.update()
     hud.update()
     requestAnimationFrame(renderLoop)
   }

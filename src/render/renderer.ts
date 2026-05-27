@@ -29,6 +29,11 @@ export interface Renderer {
   readonly camera: Camera
   /** Liest den aktuellen GameState aus und zeichnet einen Frame. */
   render(): void
+  /**
+   * Das Map-Auflösungs-Bitmap. Wird pro `render()`-Aufruf aktualisiert.
+   * Read-only: Konsumenten (z.B. Minimap) zeichnen es ab, mutieren es nicht.
+   */
+  getBitmap(): HTMLCanvasElement
   /** Konvertiert eine Maus-Position (in CSS-Pixeln) in Welt-Koords. */
   screenToWorld(screenX: number, screenY: number): { readonly x: number; readonly y: number }
   destroy(): void
@@ -185,5 +190,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCanvas.remove()
   }
 
-  return { canvas: screenCanvas, camera, render, screenToWorld, destroy }
+  function getBitmap(): HTMLCanvasElement {
+    return offscreen
+  }
+
+  return { canvas: screenCanvas, camera, render, screenToWorld, getBitmap, destroy }
 }
