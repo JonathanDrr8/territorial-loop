@@ -13,7 +13,15 @@
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
-import { BOT_START_TROOPS, HUMAN_START_TROOPS, maxTroops, troopIncreaseRate } from './config'
+import {
+  BOT_START_TROOPS,
+  HUMAN_START_TROOPS,
+  attackerLossPerTile,
+  defenderLossPerTile,
+  maxTroops,
+  tilesPerTick,
+  troopIncreaseRate,
+} from './config'
 import type { AttackIntent, CancelAttackIntent, Intent } from './intent'
 import { createPRNG, type PRNG } from './random'
 
@@ -218,7 +226,7 @@ function initializeAllFrontiers(state: GameState): void {
  * Phasen-Reihenfolge:
  *   1. Intents anwenden (Attack-Reserven verschieben, Cancel)
  *   2. Bevölkerung wachsen pro lebendem Spieler
- *   3. (TBD) Attack-Resolution — eigener Commit
+ *   3. Attack-Resolution — Wave-Expansion + Truppen-Verluste
  *   4. Eliminierte Spieler markieren (tilesOwned == 0)
  *   5. Sieg-Check — bei Erreichen der Schwelle phase='ended', winner gesetzt
  *      Match läuft trotzdem weiter (Jonathan: Spieler soll KI weiter beobachten)
@@ -227,7 +235,7 @@ function initializeAllFrontiers(state: GameState): void {
 export function tick(state: GameState, intents: readonly Intent[]): GameState {
   applyIntents(state, intents)
   growPopulations(state)
-  // resolveAttacks(state)  — kommt im nächsten Commit
+  resolveAttacks(state)
   checkEliminations(state)
   checkVictory(state)
   state.tick++
@@ -308,6 +316,204 @@ function checkVictory(state: GameState): void {
       state.phase = 'ended'
       state.winner = player.id
       return
+    }
+  }
+}
+
+/* ============================================================================
+ * Attack-Resolution
+ * ========================================================================== */
+
+function resolveAttacks(state: GameState): void {
+  for (const player of orderedPlayers(state)) {
+    if (!player.isAlive) continue
+    // Iteration rückwärts, weil wir gelöschte Angriffe aus dem Array entfernen
+    for (let i = player.attacks.length - 1; i >= 0; i--) {
+      const attack = player.attacks[i]
+      if (attack === undefined) continue
+      const stillActive = advanceAttack(state, player, attack)
+      if (!stillActive) {
+        player.attacks.splice(i, 1)
+      }
+    }
+  }
+}
+
+/** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */
+function advanceAttack(state: GameState, attacker: Player, attack: Attack): boolean {
+  if (attack.reserveTroops <= 0) return false
+
+  const defender = attack.targetPlayerId > 0 ? state.players.get(attack.targetPlayerId) : undefined
+  // Wenn das ursprüngliche Ziel ein Spieler war der zwischenzeitlich eliminiert wurde,
+  // behandeln wir verbleibende Tiles als TerraNullius. Defender-Truppen = 0.
+  const vsTerraNullius = attack.targetPlayerId === 0 || defender === undefined || !defender.isAlive
+
+  const targetId = vsTerraNullius ? 0 : attack.targetPlayerId
+  const { frontWidth, tiles } = collectAttackableTiles(state, attacker, targetId)
+
+  if (frontWidth === 0 || tiles.length === 0) {
+    // Kein Fortschritt — Angriff bleibt aktiv, vielleicht öffnet sich später eine Front
+    return true
+  }
+
+  const defenderTroops = vsTerraNullius ? 0 : (defender?.troops ?? 0)
+  const defenderTilesOwned = vsTerraNullius ? 1 : (defender?.tilesOwned ?? 1)
+
+  const rate = tilesPerTick(attack.reserveTroops, defenderTroops, frontWidth, vsTerraNullius)
+  const integerPart = Math.floor(rate)
+  const fraction = rate - integerPart
+  const extra = state.rng.next() < fraction ? 1 : 0
+  const wantCapture = Math.min(integerPart + extra, tiles.length)
+
+  if (wantCapture <= 0) return true
+
+  state.rng.shuffleArray(tiles)
+
+  for (let i = 0; i < wantCapture; i++) {
+    if (attack.reserveTroops <= 0) break
+    const ref = tiles[i]
+    if (ref === undefined) break
+
+    // Recheck — könnte durch parallelen Angriff schon erobert worden sein
+    const currentOwner = getOwner(state.map, ref)
+    if (currentOwner === attacker.id) continue
+    // Wenn ein anderer Spieler (≠ ursprüngliches Ziel, ≠ neutral) jetzt der Besitzer ist:
+    // dieser Angriff zielt nicht auf den — überspringen
+    if (!vsTerraNullius && currentOwner !== targetId && currentOwner !== 0) continue
+
+    const isCurrentlyTerraNullius = currentOwner === 0
+    const aLoss = attackerLossPerTile(
+      attack.reserveTroops,
+      isCurrentlyTerraNullius ? 0 : defenderTroops,
+      isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
+      isCurrentlyTerraNullius,
+    )
+
+    if (attack.reserveTroops < aLoss) {
+      attack.reserveTroops = 0
+      break
+    }
+
+    attack.reserveTroops = Math.max(0, Math.floor(attack.reserveTroops - aLoss))
+
+    if (!isCurrentlyTerraNullius && defender !== undefined) {
+      const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+      defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+    }
+
+    captureTile(state, ref, attacker.id)
+  }
+
+  return attack.reserveTroops > 0
+}
+
+/**
+ * Sammelt die Tiles des Ziels (oder TerraNullius), die an die Frontier des
+ * Angreifers grenzen — und zählt wieviele Frontier-Tiles tatsächlich am Ziel anstoßen.
+ */
+function collectAttackableTiles(
+  state: GameState,
+  attacker: Player,
+  targetId: number,
+): { readonly frontWidth: number; readonly tiles: TileRef[] } {
+  const { map } = state
+  const { width, height } = map
+  const tilesSet = new Set<TileRef>()
+  let frontWidth = 0
+
+  for (const ref of attacker.frontier) {
+    let borders = false
+    for (const n of neighbors4(ref, width, height)) {
+      if (getOwner(map, n) === targetId) {
+        tilesSet.add(n)
+        borders = true
+      }
+    }
+    if (borders) frontWidth++
+  }
+
+  return { frontWidth, tiles: [...tilesSet] }
+}
+
+/** Erobert ein Tile für `attackerId`, aktualisiert tilesOwned und Frontier-Sets. */
+function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
+  const { map, players } = state
+  const oldOwner = getOwner(map, ref)
+  if (oldOwner === attackerId) return
+
+  setOwner(map, ref, attackerId)
+
+  const attacker = players.get(attackerId)
+  if (attacker !== undefined) attacker.tilesOwned++
+
+  if (oldOwner > 0) {
+    const oldPlayer = players.get(oldOwner)
+    if (oldPlayer !== undefined) oldPlayer.tilesOwned--
+  }
+
+  updateFrontierAfterCapture(state, ref, oldOwner, attackerId)
+}
+
+/**
+ * Inkrementelles Frontier-Update nach einem Owner-Wechsel.
+ *
+ * Drei Effekte:
+ *   1. `ref` raus aus `oldOwner.frontier` (gehört nicht mehr ihm)
+ *   2. `ref` ggf. in `newOwner.frontier` (wenn er noch Nicht-eigene Nachbarn hat)
+ *   3. Für jeden Nachbarn `n` von `ref`: ggf. Frontier-Status neu bewerten
+ *      - Nachbar `n` gehört `newOwner`: war evtl. wegen `ref` (Nicht-eigenes) im
+ *        Frontier; jetzt prüfen ob noch andere Nicht-eigene Nachbarn da sind
+ *      - Nachbar `n` gehört einem anderen Spieler: er hat jetzt einen weiteren
+ *        Fremd-Nachbarn → ist (immer noch / jetzt erst) im Frontier
+ */
+function updateFrontierAfterCapture(
+  state: GameState,
+  ref: TileRef,
+  oldOwner: number,
+  newOwner: number,
+): void {
+  const { map, players } = state
+  const { width, height } = map
+
+  if (oldOwner > 0) {
+    players.get(oldOwner)?.frontier.delete(ref)
+  }
+
+  const newPlayer = players.get(newOwner)
+  if (newPlayer === undefined) return
+
+  const refNeighbors = neighbors4(ref, width, height)
+
+  // Ist `ref` neue Frontier von `newOwner`?
+  let refIsFrontier = false
+  for (const n of refNeighbors) {
+    if (getOwner(map, n) !== newOwner) {
+      refIsFrontier = true
+      break
+    }
+  }
+  if (refIsFrontier) newPlayer.frontier.add(ref)
+
+  // Nachbar-Status updaten
+  for (const n of refNeighbors) {
+    const nOwner = getOwner(map, n)
+    if (nOwner === 0) continue
+    const nPlayer = players.get(nOwner)
+    if (nPlayer === undefined) continue
+
+    if (nOwner === newOwner) {
+      // n gehört newOwner — muss prüfen ob noch Fremd-Nachbarn da sind
+      let stillFrontier = false
+      for (const nn of neighbors4(n, width, height)) {
+        if (getOwner(map, nn) !== newOwner) {
+          stillFrontier = true
+          break
+        }
+      }
+      if (!stillFrontier) nPlayer.frontier.delete(n)
+    } else {
+      // n gehört jemand anderem (oldOwner oder dritter Spieler) — hat jetzt newOwner-Tile als Nachbar
+      nPlayer.frontier.add(n)
     }
   }
 }

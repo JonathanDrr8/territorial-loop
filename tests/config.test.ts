@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   maxTroops,
   troopIncreaseRate,
+  tilesPerTick,
+  attackerLossPerTile,
+  defenderLossPerTile,
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
+  PLAINS_MAG,
 } from '../src/core/config'
 
 describe('maxTroops', () => {
@@ -110,5 +114,80 @@ describe('constants', () => {
     expect(Number.isInteger(HUMAN_START_TROOPS)).toBe(true)
     expect(Number.isInteger(BOT_START_TROOPS)).toBe(true)
     expect(HUMAN_START_TROOPS).toBeGreaterThan(BOT_START_TROOPS)
+  })
+})
+
+describe('tilesPerTick', () => {
+  it('returns 0 when frontWidth is 0', () => {
+    expect(tilesPerTick(1000, 500, 0, false)).toBe(0)
+    expect(tilesPerTick(1000, 500, 0, true)).toBe(0)
+  })
+
+  it('against TerraNullius: 2 * frontWidth (no troop comparison)', () => {
+    expect(tilesPerTick(1000, 0, 5, true)).toBe(10)
+    expect(tilesPerTick(50_000, 0, 10, true)).toBe(20)
+  })
+
+  it('against player: clamped ratio * frontWidth * 3', () => {
+    // ratio = 10*1000/1000 = 10 → clamped to 0.5
+    expect(tilesPerTick(1000, 1000, 4, false)).toBeCloseTo(0.5 * 4 * 3)
+    // ratio = 10*100/1000 = 1 → clamped to 0.5
+    expect(tilesPerTick(100, 1000, 2, false)).toBeCloseTo(0.5 * 2 * 3)
+    // ratio = 10*1/1000 = 0.01 → at lower clamp
+    expect(tilesPerTick(1, 1000, 10, false)).toBeCloseTo(0.01 * 10 * 3)
+  })
+
+  it('against zero-troop defender: Infinity ratio → clamp to 0.5', () => {
+    expect(tilesPerTick(1000, 0, 5, false)).toBeCloseTo(0.5 * 5 * 3)
+  })
+})
+
+describe('attackerLossPerTile', () => {
+  it('against TerraNullius: mag / 5 (16 for Plains)', () => {
+    expect(attackerLossPerTile(1000, 0, 1, true)).toBe(PLAINS_MAG / 5)
+    expect(attackerLossPerTile(1000, 0, 1, true)).toBe(16)
+  })
+
+  it('against player: positive value combining currentLoss and altLoss', () => {
+    const loss = attackerLossPerTile(1000, 1000, 100, false)
+    expect(loss).toBeGreaterThan(0)
+    // ratio = min(2, max(0.6, 1)) = 1
+    // currentLoss = 1 * 80 * 0.8 = 64
+    // altLoss = 1.3 * (1000/100) * (80/100) = 1.3 * 10 * 0.8 = 10.4
+    // attackerLoss = 0.6*64 + 0.4*10.4 = 38.4 + 4.16 = 42.56
+    expect(loss).toBeCloseTo(42.56, 2)
+  })
+
+  it('clamps ratio at 0.6 (overpowering attack)', () => {
+    // ratio raw = 10/10000 = 0.001 → clamped to 0.6
+    const loss = attackerLossPerTile(10_000, 10, 1, false)
+    // currentLoss = 0.6 * 80 * 0.8 = 38.4
+    // altLoss = 1.3 * 10 * 0.8 = 10.4
+    // result = 0.6*38.4 + 0.4*10.4 = 23.04 + 4.16 = 27.2
+    expect(loss).toBeCloseTo(27.2, 2)
+  })
+
+  it('clamps ratio at 2 (heavily outnumbered attack)', () => {
+    // ratio raw = 10000/100 = 100 → clamped to 2
+    const loss = attackerLossPerTile(100, 10_000, 100, false)
+    // currentLoss = 2 * 80 * 0.8 = 128
+    // altLoss = 1.3 * 100 * 0.8 = 104
+    // result = 0.6*128 + 0.4*104 = 76.8 + 41.6 = 118.4
+    expect(loss).toBeCloseTo(118.4, 2)
+  })
+})
+
+describe('defenderLossPerTile', () => {
+  it('returns 0 against TerraNullius', () => {
+    expect(defenderLossPerTile(1000, 100, true)).toBe(0)
+  })
+
+  it('returns troops / tilesOwned for a real defender', () => {
+    expect(defenderLossPerTile(1000, 100, false)).toBe(10)
+    expect(defenderLossPerTile(50_000, 500, false)).toBe(100)
+  })
+
+  it('returns 0 when defender has 0 tiles (defensive guard)', () => {
+    expect(defenderLossPerTile(1000, 0, false)).toBe(0)
   })
 })

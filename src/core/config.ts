@@ -24,6 +24,12 @@ export const HUMAN_DEFAULT_ATTACK_PCT = 20
 export const BOT_DEFAULT_ATTACK_PCT = 5
 
 /**
+ * Terrain-Magnitude — bestimmt Verlust- und Geschwindigkeits-Faktoren beim Kampf.
+ * Im MVP gibt es nur Plains (alle Tiles sind Land). Werte aus OpenFront.
+ */
+export const PLAINS_MAG = 80
+
+/**
  * Maximaler Truppen-Cap eines Spielers, abhängig von der Anzahl seiner Tiles.
  *
  * Formel:
@@ -72,4 +78,81 @@ export function troopIncreaseRate(
   if (opts.bot === true) toAdd *= 0.5
   const ratio = 1 - troops / max
   return Math.floor(toAdd * ratio)
+}
+
+/**
+ * Anzahl Tiles die ein Angriff pro Tick erobern darf (kann fractional sein).
+ *
+ * OpenFront-Formel:
+ *   `clamp(5 * attackTroops / defenderTroops * 2, 0.01, 0.5) * frontWidth * 3`
+ *   Gegen TerraNullius: `frontWidth * 2` (kein Truppen-Vergleich)
+ *
+ * `frontWidth` ist die Anzahl der Frontier-Tiles des Angreifers, die an mindestens
+ * ein Ziel-Tile angrenzen.
+ *
+ * Die zurückgegebene Rate kann fraktional sein — der Aufrufer ist für die
+ * deterministische Integer-Konvertierung verantwortlich (z.B. `Math.floor` + PRNG-Bonus).
+ */
+export function tilesPerTick(
+  attackTroops: number,
+  defenderTroops: number,
+  frontWidth: number,
+  vsTerraNullius: boolean,
+): number {
+  if (frontWidth <= 0) return 0
+  if (vsTerraNullius) return frontWidth * 2
+  // Bei defenderTroops==0 gibt JS Infinity → wird durch clamp auf 0.5 begrenzt
+  const raw = (10 * attackTroops) / defenderTroops
+  const clamped = Math.max(0.01, Math.min(0.5, raw))
+  return clamped * frontWidth * 3
+}
+
+/**
+ * Truppen-Verlust des Angreifers pro eroberten Tile.
+ *
+ * OpenFront-Formel (vereinfacht für MVP: nur Plains, keine Cities/DefensePosts,
+ * keine Anti-Zerg-Debuffs):
+ *
+ *   Gegen TerraNullius: `attackerLoss = mag / 5 = 16`
+ *
+ *   Gegen Spieler:
+ *     `currentLoss = clamp(def.troops/att.troops, 0.6, 2) * mag * 0.8`
+ *     `altLoss     = 1.3 * (def.troops/def.tilesOwned) * (mag/100)`
+ *     `attackerLoss = 0.6 * currentLoss + 0.4 * altLoss`
+ *
+ * `mag = 80` für Plains.
+ */
+export function attackerLossPerTile(
+  attackTroops: number,
+  defenderTroops: number,
+  defenderTilesOwned: number,
+  vsTerraNullius: boolean,
+): number {
+  const mag = PLAINS_MAG
+  if (vsTerraNullius) return mag / 5
+
+  const safeAttack = attackTroops > 0 ? attackTroops : 1
+  const safeTiles = defenderTilesOwned > 0 ? defenderTilesOwned : 1
+  const ratio = Math.max(0.6, Math.min(2, defenderTroops / safeAttack))
+  const currentLoss = ratio * mag * 0.8
+  const altLoss = 1.3 * (defenderTroops / safeTiles) * (mag / 100)
+  return 0.6 * currentLoss + 0.4 * altLoss
+}
+
+/**
+ * Truppen-Verlust des Verteidigers pro verlorenes Tile.
+ *
+ * OpenFront: `defenderLoss = defender.troops / defender.tilesOwned` —
+ * exakt der Durchschnitts-Truppen-Bestand pro Tile.
+ *
+ * Gegen TerraNullius: keiner verliert etwas (oldOwner ist neutral).
+ */
+export function defenderLossPerTile(
+  defenderTroops: number,
+  defenderTilesOwned: number,
+  vsTerraNullius: boolean,
+): number {
+  if (vsTerraNullius) return 0
+  if (defenderTilesOwned <= 0) return 0
+  return defenderTroops / defenderTilesOwned
 }

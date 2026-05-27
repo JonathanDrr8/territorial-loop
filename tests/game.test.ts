@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createGame, tick, type GameConfig } from '../src/core/game'
+import { createGame, tick, type GameConfig, type GameState } from '../src/core/game'
 import {
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
@@ -7,7 +7,53 @@ import {
   maxTroops,
 } from '../src/core/config'
 import { getOwner } from '../src/world/map'
-import { tileRef } from '../src/world/torus'
+import { tileRef, neighbors4 } from '../src/world/torus'
+
+/** Validate that every tile in each player's frontier is actually a border tile. */
+function assertFrontierConsistency(state: GameState): void {
+  const { width, height } = state.map
+  for (const player of state.players.values()) {
+    for (const ref of player.frontier) {
+      expect(getOwner(state.map, ref)).toBe(player.id)
+      const hasForeign = neighbors4(ref, width, height).some(
+        (n) => getOwner(state.map, n) !== player.id,
+      )
+      expect(hasForeign).toBe(true)
+    }
+  }
+}
+
+/** Sum of tilesOwned across players must match map tiles that have a non-zero owner. */
+function assertTileCountConsistency(state: GameState): void {
+  let actualOwned = 0
+  for (let i = 0; i < state.map.state.length; i++) {
+    if (getOwner(state.map, i) !== 0) actualOwned++
+  }
+  let cachedOwned = 0
+  for (const p of state.players.values()) cachedOwned += p.tilesOwned
+  expect(cachedOwned).toBe(actualOwned)
+}
+
+/** Find a tile owned by `playerId`. Returns -1 if not found. */
+function findOwnedTile(state: GameState, playerId: number): number {
+  for (let i = 0; i < state.map.state.length; i++) {
+    if (getOwner(state.map, i) === playerId) return i
+  }
+  return -1
+}
+
+/** Find a neutral tile adjacent to a tile owned by `playerId`. */
+function findNeutralBorderTile(state: GameState, playerId: number): number {
+  const { width, height } = state.map
+  const player = state.players.get(playerId)
+  if (player === undefined) return -1
+  for (const ref of player.frontier) {
+    for (const n of neighbors4(ref, width, height)) {
+      if (getOwner(state.map, n) === 0) return n
+    }
+  }
+  return -1
+}
 
 function baseConfig(overrides: Partial<GameConfig> = {}): GameConfig {
   return {
@@ -331,5 +377,182 @@ describe('tile coords are torus-wrapped on access', () => {
     )
     // No exception should be thrown
     tick(state, [{ type: 'attack', playerId: 1, targetTile: wrapTile, troops: 100 }])
+  })
+})
+
+describe('attack resolution — TerraNullius', () => {
+  it('attack on neutral tile captures tiles over multiple ticks', () => {
+    const state = createGame(baseConfig())
+    const neutralTile = findNeutralBorderTile(state, 1)
+    expect(neutralTile).toBeGreaterThanOrEqual(0)
+
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+    const tilesBefore = player.tilesOwned
+
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: neutralTile, troops: 5_000 }])
+    for (let i = 0; i < 10; i++) tick(state, [])
+
+    expect(player.tilesOwned).toBeGreaterThan(tilesBefore)
+    assertTileCountConsistency(state)
+  })
+
+  it('TerraNullius capture does not change other players tile counts', () => {
+    const state = createGame(baseConfig())
+    const neutralTile = findNeutralBorderTile(state, 1)
+    expect(neutralTile).toBeGreaterThanOrEqual(0)
+
+    const others = [2, 3, 4].map((id) => {
+      const p = state.players.get(id)
+      if (p === undefined) throw new Error(`player ${id} missing`)
+      return { id, before: p.tilesOwned }
+    })
+
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: neutralTile, troops: 5_000 }])
+    for (let i = 0; i < 5; i++) tick(state, [])
+
+    for (const { id, before } of others) {
+      const p = state.players.get(id)
+      if (p === undefined) throw new Error('lost')
+      expect(p.tilesOwned).toBe(before)
+    }
+  })
+
+  it('attack ends when reserve runs out, after capturing some tiles', () => {
+    const state = createGame(baseConfig())
+    const neutralTile = findNeutralBorderTile(state, 1)
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+    const tilesBefore = player.tilesOwned
+
+    // Even small reserve (200) may be consumed in the same tick (front is wide,
+    // tilesPerTick can reach ~30 against TerraNullius); after a few ticks the
+    // attack must be gone regardless.
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: neutralTile, troops: 200 }])
+    for (let i = 0; i < 50; i++) tick(state, [])
+
+    expect(player.attacks).toHaveLength(0)
+    expect(player.tilesOwned).toBeGreaterThan(tilesBefore)
+  })
+})
+
+describe('attack resolution — invariants', () => {
+  it('frontier stays consistent across many ticks of combat', () => {
+    const state = createGame(baseConfig({ seed: 'frontier-test' }))
+
+    for (let id = 1; id <= 4; id++) {
+      const target = findNeutralBorderTile(state, id)
+      if (target < 0) continue
+      const p = state.players.get(id)
+      if (p === undefined) continue
+      tick(state, [
+        {
+          type: 'attack',
+          playerId: id,
+          targetTile: target,
+          troops: Math.floor(p.troops / 2),
+        },
+      ])
+    }
+
+    for (let i = 0; i < 100; i++) {
+      tick(state, [])
+      if (i % 20 === 0) {
+        assertTileCountConsistency(state)
+        assertFrontierConsistency(state)
+      }
+    }
+    assertFrontierConsistency(state)
+    assertTileCountConsistency(state)
+  })
+
+  it('attacking own tile (via stale targetTile) keeps invariants', () => {
+    const state = createGame(baseConfig({ seed: 'self-attack' }))
+    const ownTile = findOwnedTile(state, 1)
+    expect(ownTile).toBeGreaterThanOrEqual(0)
+
+    // Attack on own tile is ignored — no state corruption
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: ownTile, troops: 1_000 }])
+    assertTileCountConsistency(state)
+    assertFrontierConsistency(state)
+  })
+})
+
+describe('attack resolution — determinism', () => {
+  it('two runs with the same seed and intent stream produce identical states', () => {
+    const a = createGame(baseConfig({ seed: 'determ-1' }))
+    const b = createGame(baseConfig({ seed: 'determ-1' }))
+
+    const target = findNeutralBorderTile(a, 1)
+    expect(target).toBeGreaterThanOrEqual(0)
+    const attackIntent = {
+      type: 'attack' as const,
+      playerId: 1,
+      targetTile: target,
+      troops: 3_000,
+    }
+
+    tick(a, [attackIntent])
+    tick(b, [attackIntent])
+
+    for (let i = 0; i < 30; i++) {
+      tick(a, [])
+      tick(b, [])
+    }
+
+    for (let i = 0; i < a.map.state.length; i++) {
+      expect(getOwner(a.map, i)).toBe(getOwner(b.map, i))
+    }
+    for (const id of [1, 2, 3, 4]) {
+      expect(a.players.get(id)?.troops).toBe(b.players.get(id)?.troops)
+      expect(a.players.get(id)?.tilesOwned).toBe(b.players.get(id)?.tilesOwned)
+    }
+  })
+})
+
+describe('attack resolution — end-to-end victory', () => {
+  it('aggressive solo expansion eventually triggers victory', () => {
+    const state = createGame(
+      baseConfig({
+        mapWidth: 32,
+        mapHeight: 32,
+        victoryPct: 50,
+        seed: 'victory-test',
+        players: [
+          { id: 1, name: 'Solo', color: 0xff0000ff, isHuman: true },
+          { id: 2, name: 'Dummy', color: 0x00ff00ff, isHuman: false },
+        ],
+      }),
+    )
+
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+
+    let ticks = 0
+    const MAX_TICKS = 5000
+    while (state.phase === 'running' && ticks < MAX_TICKS) {
+      if (ticks % 5 === 0 && player.attacks.length < 3) {
+        const target = findNeutralBorderTile(state, 1)
+        if (target >= 0) {
+          tick(state, [
+            {
+              type: 'attack',
+              playerId: 1,
+              targetTile: target,
+              troops: Math.floor(player.troops * 0.3),
+            },
+          ])
+        } else {
+          tick(state, [])
+        }
+      } else {
+        tick(state, [])
+      }
+      ticks++
+    }
+
+    expect(state.phase).toBe('ended')
+    expect(state.winner).toBe(1)
+    expect(ticks).toBeLessThan(MAX_TICKS)
   })
 })

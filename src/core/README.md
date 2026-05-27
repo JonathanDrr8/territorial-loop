@@ -61,6 +61,40 @@ function troopIncreaseRate(troops: number, max: number, opts?: { bot?: boolean }
 Formel-Quelle: OpenFront (siehe ADR-0004). Werte sind `number`, nicht `bigint`
 — bei MVP-Map-Größen (≤ 1M Tiles) bleibt alles weit unter `Number.MAX_SAFE_INTEGER`.
 
-### `game.ts`, `intent.ts`
+### `intent.ts` — Mutations-Eingaben
 
-(folgen — Tick-Pipeline und Intent-Typen)
+```ts
+type Intent = AttackIntent | CancelAttackIntent
+
+interface AttackIntent {
+  readonly type: 'attack'
+  readonly playerId: number
+  readonly targetTile: TileRef
+  readonly troops: number // absolute Truppen-Zahl (UI rechnet Slider-% → abs)
+}
+
+interface CancelAttackIntent {
+  readonly type: 'cancel-attack'
+  readonly playerId: number
+  readonly attackIndex: number
+}
+```
+
+### `game.ts` — Game-State und Tick-Pipeline
+
+```ts
+function createGame(config: GameConfig): GameState
+function tick(state: GameState, intents: readonly Intent[]): GameState
+```
+
+`createGame` platziert deterministisch die Spawns (Rejection Sampling) und
+initialisiert die Frontier-Sets. `tick` führt eine Sim-Iteration aus:
+
+1. Intents anwenden (Attacks erzeugen, Cancel)
+2. Bevölkerungs-Wachstum pro lebendem Spieler
+3. Attack-Resolution: Wave-Expansion über die Frontier
+4. Eliminierte Spieler markieren
+5. Sieg-Check (Match läuft trotzdem weiter — Spectator-Modus)
+6. tick-Counter erhöhen
+
+Public Types: `GameConfig`, `GameState`, `Player`, `Attack`, `GamePhase`, `PlayerDef`.
