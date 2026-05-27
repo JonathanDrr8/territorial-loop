@@ -18,6 +18,8 @@ import type { Intent } from '../core/intent'
 export interface InputEvents {
   pause(): void
   setSpeed(multiplier: 1 | 2 | 5): void
+  /** Optional: ESC-Taste → zurück zum Start-Menü. */
+  escape?(): void
 }
 
 export interface InputDeps {
@@ -163,6 +165,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       events.setSpeed(2)
     } else if (e.key === '5') {
       events.setSpeed(5)
+    } else if (e.key === 'Escape') {
+      events.escape?.()
     }
   }
 

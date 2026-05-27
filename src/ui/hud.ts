@@ -105,7 +105,7 @@ export function createHUD(
   const hint = document.createElement('div')
   hint.style.cssText = 'margin-top: 6px; font-size: 11px; opacity: 0.7'
   hint.innerHTML =
-    'Linksklick: Angriff &nbsp;·&nbsp; Rechte Maustaste + Ziehen: Karte &nbsp;·&nbsp; Mausrad: Zoom<br/>Leertaste: Pause &nbsp;·&nbsp; 1/2/5: Geschwindigkeit'
+    'Linksklick: Angriff &nbsp;·&nbsp; Rechte Maustaste + Ziehen: Karte &nbsp;·&nbsp; Mausrad: Zoom<br/>Leertaste: Pause &nbsp;·&nbsp; 1/2/5: Geschwindigkeit &nbsp;·&nbsp; Esc: Menü'
   hud.appendChild(hint)
 
   container.appendChild(hud)

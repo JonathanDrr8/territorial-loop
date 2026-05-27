@@ -148,6 +148,7 @@ function startMatch(
         restartSimInterval()
         if (!paused) hud.setSpeed(speed)
       },
+      escape: onRequestNewMatch,
     },
   })
 
