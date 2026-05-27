@@ -52,3 +52,6 @@ Triviale Entscheidungen (z.B. "Datei-Naming") brauchen keine ADRs.
 ## Aktive ADRs
 
 - [0001 — Tech-Stack-Auswahl](./0001-tech-stack.md)
+- [0002 — Map als Dual-TypedArray](./0002-map-datenstruktur.md)
+- [0003 — Tick-Modell: Fixed 10 Hz Sim, entkoppelter Render](./0003-tick-modell.md)
+- [0004 — OpenFront-Mechaniken als MVP-Baseline übernehmen](./0004-openfront-mechaniken.md)
