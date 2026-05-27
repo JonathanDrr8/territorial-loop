@@ -15,6 +15,7 @@ export interface StartMenuValues {
   aiCount: number
   victoryPct: number
   difficulty: Difficulty
+  soundEnabled: boolean
 }
 
 export interface StartMenuApi {
@@ -209,6 +210,29 @@ export function createStartMenu(
   const victory = makeSliderRow('Sieg-%', 50, 100, 5, initial.victoryPct, '%')
   panel.appendChild(victory.element)
 
+  // Sound toggle
+  const soundRow = document.createElement('div')
+  soundRow.style.cssText = FIELD_ROW_STYLE
+  const soundLabel = document.createElement('label')
+  soundLabel.textContent = 'Sound'
+  const soundCheckWrap = document.createElement('label')
+  soundCheckWrap.style.cssText =
+    'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
+  const soundCheck = document.createElement('input')
+  soundCheck.type = 'checkbox'
+  soundCheck.checked = initial.soundEnabled
+  soundCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
+  const soundCheckText = document.createElement('span')
+  soundCheckText.textContent = 'an'
+  soundCheckWrap.appendChild(soundCheck)
+  soundCheckWrap.appendChild(soundCheckText)
+  soundCheck.addEventListener('change', () => {
+    soundCheckText.textContent = soundCheck.checked ? 'an' : 'aus'
+  })
+  soundRow.appendChild(soundLabel)
+  soundRow.appendChild(soundCheckWrap)
+  panel.appendChild(soundRow)
+
   // Start button
   const startBtn = document.createElement('button')
   startBtn.textContent = 'Match starten'
@@ -226,6 +250,7 @@ export function createStartMenu(
       aiCount: aiCount.getValue(),
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,
+      soundEnabled: soundCheck.checked,
     })
   })
   panel.appendChild(startBtn)

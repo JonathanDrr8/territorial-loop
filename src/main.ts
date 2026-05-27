@@ -16,6 +16,7 @@ import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
+import { createSoundEngine } from './ui/sound'
 import { createStartMenu, type StartMenuValues } from './ui/start-menu'
 
 const HUMAN_ID = 1
@@ -28,6 +29,7 @@ const DEFAULT_MENU: StartMenuValues = {
   aiCount: 3,
   victoryPct: 90,
   difficulty: 'normal',
+  soundEnabled: true,
 }
 
 interface MatchSession {
@@ -63,7 +65,12 @@ function startMatch(
   const config = buildConfig(menu)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
-  ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer }
+  const sound = createSoundEngine()
+  sound.setEnabled(menu.soundEnabled)
+  ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer, sound }
+
+  let lastPhase: 'running' | 'ended' = state.phase
+  let endChimePlayed = false
 
   const pendingIntents: Intent[] = []
   let sliderPct = DEFAULT_SLIDER_PCT
@@ -132,7 +139,10 @@ function startMatch(
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
-    onAttackClick: (x, y) => renderer.addClickMarker(x, y),
+    onAttackClick: (x, y) => {
+      renderer.addClickMarker(x, y)
+      sound.click()
+    },
     onHover: (worldX, worldY, screenX, screenY) => {
       tooltip.show(worldX, worldY, screenX, screenY)
     },
@@ -158,6 +168,16 @@ function startMatch(
 
   function renderLoop(): void {
     if (destroyed) return
+    // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
+    if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
+      endChimePlayed = true
+      if (state.winner === HUMAN_ID) {
+        sound.victory()
+      } else {
+        sound.defeat()
+      }
+    }
+    lastPhase = state.phase
     renderer.render()
     minimap.update()
     hud.update()
@@ -183,6 +203,7 @@ function startMatch(
       minimap.destroy()
       tooltip.destroy()
       renderer.destroy()
+      sound.destroy()
     },
   }
 }
