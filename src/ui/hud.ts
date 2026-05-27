@@ -15,8 +15,12 @@ import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
 
+export type SpeedMultiplier = 0 | 1 | 2 | 5 // 0 = Pause
+
 export interface HUDApi {
   update(): void
+  /** Update the speed indicator (0 = Pause, 1/2/5 = Sim-Speed-Multiplier). */
+  setSpeed(speed: SpeedMultiplier): void
   destroy(): void
 }
 
@@ -34,12 +38,27 @@ function escapeHtml(s: string): string {
   )
 }
 
+/** Formatiert Sekunden → "m:ss" oder "h:mm:ss". */
+function fmtDuration(seconds: number): string {
+  const totalSec = Math.floor(seconds)
+  const s = totalSec % 60
+  const totalMin = Math.floor(totalSec / 60)
+  const m = totalMin % 60
+  const h = Math.floor(totalMin / 60)
+  const pad = (n: number): string => (n < 10 ? '0' + String(n) : String(n))
+  if (h > 0) return `${String(h)}:${pad(m)}:${pad(s)}`
+  return `${String(m)}:${pad(s)}`
+}
+
+const SIM_TICKS_PER_SECOND = 10
+
 export function createHUD(
   container: HTMLElement,
   state: GameState,
   onSliderChange: (pct: number) => void,
   onNewMatch: () => void,
 ): HUDApi {
+  let currentSpeed: SpeedMultiplier = 1
   const hud = document.createElement('div')
   hud.style.cssText = [
     'position: absolute',
@@ -142,7 +161,9 @@ export function createHUD(
   function update(): void {
     const totalTiles = state.map.width * state.map.height
     const html: string[] = []
-    html.push(`Tick: ${state.tick}<br>`)
+    const gameSeconds = state.tick / SIM_TICKS_PER_SECOND
+    const speedLabel = currentSpeed === 0 ? '⏸ Pause' : `${String(currentSpeed)}×`
+    html.push(`Zeit: ${fmtDuration(gameSeconds)} · ${speedLabel}<br>`)
     const phaseLine =
       state.phase === 'running' ? 'Phase: läuft' : `Phase: beendet (Sieger: ${state.winner ?? '?'})`
     html.push(phaseLine + '<br><br>')
@@ -173,6 +194,9 @@ export function createHUD(
 
   return {
     update,
+    setSpeed(speed: SpeedMultiplier): void {
+      currentSpeed = speed
+    },
     destroy(): void {
       hud.remove()
       banner.remove()

@@ -141,13 +141,17 @@ function startMatch(
       pause(): void {
         paused = !paused
         restartSimInterval()
+        hud.setSpeed(paused ? 0 : speed)
       },
       setSpeed(m): void {
         speed = m
         restartSimInterval()
+        if (!paused) hud.setSpeed(speed)
       },
     },
   })
+
+  hud.setSpeed(speed)
 
   restartSimInterval()
 
