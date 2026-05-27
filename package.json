@@ -19,7 +19,6 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "pixi.js": "^8.6.6",
     "seedrandom": "^3.0.5"
   },
   "devDependencies": {
