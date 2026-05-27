@@ -181,12 +181,31 @@ export function createHUD(
       const winner = state.players.get(state.winner)
       if (winner !== undefined) {
         banner.style.display = 'block'
+        const totalTiles = state.map.width * state.map.height
+        const players = [...state.players.values()].sort(
+          (a, b) => b.peakTilesOwned - a.peakTilesOwned,
+        )
+        const statsRows = players
+          .map((p) => {
+            const peakPct = fmtPct((p.peakTilesOwned / totalTiles) * 100)
+            const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
+            return (
+              `<tr>` +
+              `<td style="padding-right: 12px"><span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}</td>` +
+              `<td style="padding-right: 12px; text-align: right">${peakPct}</td>` +
+              `<td style="text-align: right">${p.peakTroops.toLocaleString('de-DE')}T</td>` +
+              `</tr>`
+            )
+          })
+          .join('')
+        const matchTime = fmtDuration(state.tick / SIM_TICKS_PER_SECOND)
         bannerText.innerHTML =
           `<div style="font-size: 22px; margin-bottom: 4px">` +
           `Sieg: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
           `</div>` +
-          `<div style="font-size: 12px; opacity: 0.7">Match läuft weiter — du kannst zuschauen</div>` +
-          `<div style="font-size: 11px; opacity: 0.5; margin-top: 4px; font-family: ui-monospace">Seed: ${escapeHtml(state.seed)}</div>`
+          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px">Dauer ${matchTime} · Match läuft weiter</div>` +
+          `<table style="font-size: 12px; margin: 0 auto; border-collapse: collapse"><thead><tr style="opacity: 0.6"><th style="font-weight: normal; padding-right: 12px; text-align: left">Spieler</th><th style="font-weight: normal; padding-right: 12px; text-align: right">Peak %</th><th style="font-weight: normal; text-align: right">Peak Truppen</th></tr></thead><tbody>${statsRows}</tbody></table>` +
+          `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px; font-family: ui-monospace">Seed: ${escapeHtml(state.seed)}</div>`
       }
     } else {
       banner.style.display = 'none'

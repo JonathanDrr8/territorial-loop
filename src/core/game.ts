@@ -78,6 +78,10 @@ export interface Player {
   frontier: Set<TileRef>
   attacks: Attack[]
   isAlive: boolean
+  /** Höchster jemals erreichter `tilesOwned`-Stand. */
+  peakTilesOwned: number
+  /** Höchster jemals erreichter `troops`-Stand. */
+  peakTroops: number
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -121,16 +125,19 @@ export function createGame(config: GameConfig): GameState {
   const players = new Map<number, Player>()
 
   for (const def of config.players) {
+    const startTroops = def.isHuman ? HUMAN_START_TROOPS : BOT_START_TROOPS
     players.set(def.id, {
       id: def.id,
       name: def.name,
       color: def.color,
       isHuman: def.isHuman,
-      troops: def.isHuman ? HUMAN_START_TROOPS : BOT_START_TROOPS,
+      troops: startTroops,
       tilesOwned: 0,
       frontier: new Set<TileRef>(),
       attacks: [],
       isAlive: true,
+      peakTilesOwned: 0,
+      peakTroops: startTroops,
     })
   }
 
@@ -286,8 +293,16 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   resolveAttacks(state)
   checkEliminations(state)
   checkVictory(state)
+  updatePeakStats(state)
   state.tick++
   return state
+}
+
+function updatePeakStats(state: GameState): void {
+  for (const p of state.players.values()) {
+    if (p.troops > p.peakTroops) p.peakTroops = p.troops
+    if (p.tilesOwned > p.peakTilesOwned) p.peakTilesOwned = p.tilesOwned
+  }
 }
 
 function applyIntents(state: GameState, intents: readonly Intent[]): void {
