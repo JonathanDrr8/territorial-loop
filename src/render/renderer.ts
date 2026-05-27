@@ -232,9 +232,70 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  function drawAttackTargets(): void {
+    const time = performance.now() * 0.001
+    // Sanfte 1.5 Hz Pulsation, alpha pulsiert zwischen 0.5 und 0.95
+    const pulse = 0.5 + Math.abs(Math.sin(time * Math.PI * 1.5)) * 0.45
+
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const halfW = cssW / 2
+    const halfH = cssH / 2
+
+    screenCtx.save()
+    screenCtx.lineWidth = 2
+
+    for (const player of state.players.values()) {
+      if (!player.isHuman) continue
+      if (player.attacks.length === 0) continue
+
+      const r = (player.color >>> 24) & 0xff
+      const g = (player.color >>> 16) & 0xff
+      const b = (player.color >>> 8) & 0xff
+      screenCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${pulse.toFixed(3)})`
+
+      for (const attack of player.attacks) {
+        const fx = attack.focusTile % mapW
+        const fy = Math.floor(attack.focusTile / mapW)
+        // Pulse-Radius wandert sanft zwischen 7 und 11 px
+        const baseR = 9 + Math.sin(time * Math.PI * 2) * 2
+
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const wx = fx + dx * mapW
+            const wy = fy + dy * mapH
+            const sx = (wx - camera.x) * z + halfW
+            const sy = (wy - camera.y) * z + halfH
+            if (sx < -baseR || sx > cssW + baseR || sy < -baseR || sy > cssH + baseR) continue
+            // Crosshair: Ring + 4 kurze Striche
+            screenCtx.beginPath()
+            screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
+            screenCtx.stroke()
+            const tickLen = 4
+            screenCtx.beginPath()
+            screenCtx.moveTo(sx - baseR - tickLen, sy)
+            screenCtx.lineTo(sx - baseR, sy)
+            screenCtx.moveTo(sx + baseR, sy)
+            screenCtx.lineTo(sx + baseR + tickLen, sy)
+            screenCtx.moveTo(sx, sy - baseR - tickLen)
+            screenCtx.lineTo(sx, sy - baseR)
+            screenCtx.moveTo(sx, sy + baseR)
+            screenCtx.lineTo(sx, sy + baseR + tickLen)
+            screenCtx.stroke()
+          }
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
   function render(): void {
     paintBitmap()
     drawTiled()
+    drawAttackTargets()
     drawMarkers()
   }
 
