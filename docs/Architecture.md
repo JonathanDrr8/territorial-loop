@@ -6,7 +6,7 @@
 ## Leitprinzipien
 
 1. **Determinismus überall.** Selbe Inputs (Intents + Seed) → selber Ausgang. Replays + Multiplayer fallen damit später quasi gratis aus.
-2. **Klare Schicht-Trennung.** Core kennt kein Pixi/DOM. Render mutiert keinen Core-State. Input/AI/UI sprechen nur via Intents.
+2. **Klare Schicht-Trennung.** Core kennt kein Rendering/DOM. Render mutiert keinen Core-State. Input/AI/UI sprechen nur via Intents.
 3. **Torus-First.** Keine rohe `x+dx`-Arithmetik in der Codebase. Alle Wrap-Operationen über `world/`-Helper.
 4. **Performance an den richtigen Stellen.** Flat TypedArrays für die Map, Frontier-Listen statt Full-Scans, GPU-Textur statt Per-Pixel-Sprite-Rendering.
 
@@ -14,7 +14,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  UI (DOM/Web Components)  │  Render (Pixi.js)            │  ← liest State
+│  UI (DOM/Web Components)  │  Render (Canvas 2D)          │  ← liest State
 ├───────────────────────────┴──────────────────────────────┤
 │  Input  →  Intents                                       │
 ├──────────────────────────────────────────────────────────┤
@@ -60,7 +60,7 @@ interface GameMap {
   - Bits 12-15: reserviert (z.B. später Border-Flag, Capture-Progress für Belagerungs-Modus)
 - **`terrain[i]` Bit-Layout:** im MVP irrelevant (alle Tiles Land); Struktur trotzdem reserviert für Post-MVP-Terrain.
 
-**Begründung Dual-Array:** Cache-friendly, RAM-effizient (~1.5 MB für 512×512), und der `state`-Buffer ist direkt als WebGL-Textur nutzbar. Übernahme von OpenFronts Layout — funktioniert dort skaliert auf ~4M Tiles.
+**Begründung Dual-Array:** Cache-friendly, RAM-effizient (~1.5 MB für 512×512). Übernahme von OpenFronts Layout — funktioniert dort skaliert auf ~4M Tiles. (Ursprünglich wollten wir den `state`-Buffer direkt als WebGL-`R16UI`-Textur nutzen; nach dem Wechsel auf Canvas 2D wird er pro Frame in eine RGBA-ImageData übersetzt, siehe ADR-0005.)
 
 ### Torus-Topologie
 
@@ -168,34 +168,45 @@ Game-Over-Logik ist explizit nicht-blockierend: Bei Sieg wird `winner` gesetzt +
 
 **Post-MVP:** Wenn Boats/Cities dazukommen, brauchen wir A\* mit Torus-Heuristik (manhattanTorus statt manhattan).
 
-## Render: Pixi.js + State-Textur
+## Render: Canvas 2D + Offscreen-Bitmap
+
+> Renderer-Wechsel: siehe [ADR-0005](decisions/0005-canvas2d-statt-pixi.md).
+> Ursprünglich für Pixi.js/WebGL geplant, jetzt plain Canvas 2D.
 
 **Strategie:**
 
-- **Eine WebGL-Textur** pro Map, Format `R16UI` (16-bit unsigned int pro Pixel). Quelle: direkter Upload des `state: Uint16Array`. Update pro Render-Frame (oder nur wenn dirty-Flag gesetzt).
-- **Ein Fullscreen-Sprite** zeichnet die Textur via Custom-Shader.
-- **Shader:** liest pro Pixel den `ownerID` aus der Textur, schlägt in einer kleinen Player-Color-LUT (Uniform Array) nach, gibt die Farbe aus. Neutral (0) = dunkelgrau.
-- **Torus-Wrap im Shader:** `texture(stateTexture, fract(uv))` — die UV-Koordinaten werden via `fract()` gewrappt. `TEXTURE_WRAP_S/T = REPEAT` als Fallback.
+- **Offscreen-Canvas** in Map-Auflösung. Pro Sim-Tick wird ein `ImageData` aus
+  dem Game-State gemalt (`Uint16Array.state[i] & OWNER_MASK` → Player-Farbe via
+  Mini-LUT). Wasser (Bit 7 = 0 im terrain) wird in einem festen Dunkelblau gezeichnet.
+- **On-Screen-Canvas** in Viewport-Größe. Pro Render-Frame:
+  1. (Wenn Sim getickt hat) Offscreen-Canvas neu malen
+  2. `drawImage` der Offscreen-Textur mehrfach mit Wrap-Offsets — Torus-Wrap
+     komplett ohne Shader, 3×3-Grid genügt
+  3. Overlay-Layer: Hover-Tile-Outline, Attack-Crosshairs, Capture-Flash, Click-Marker
 
 **Kamera-Wrap:**
 
-- Kamera = Offset+Zoom-Transform auf dem Fullscreen-Quad
-- Quad ist **größer als der Viewport** und bewegt sich nicht — stattdessen werden die UV-Koordinaten verschoben, der Wrap im Shader handhabt den Rest
-- Ergebnis: an jeder Stelle der Karte fühlt sich der Spieler "in der Mitte" — kein sichtbares "Ende"
+- Kamera = `(x, y, zoom)` in Welt-Koords (kein Render-Tree, kein Quad)
+- Screen-Position = `(world - camera) * zoom + screenCenter`
+- Wrap durch Wiederholung in `drawImage`-Schleife — wenn die visible Region eine
+  Map-Grenze überschreitet, wird die nächste Kopie an `(worldX + mapWidth)` etc.
+  gezeichnet
 
-**Pro Frame (60 fps):**
+**Performance-Optimierungen:**
 
-1. Hat Sim seit letztem Render `dirtyTiles` geupdatet? → Re-upload betroffener Region (oder ganzer Textur — im MVP simpler).
-2. Update Camera-Uniforms (offset/zoom)
-3. Draw Fullscreen-Quad
-
-**Performance:** Wir rendern eine einzelne Textur statt 260k Sprites — selbst bei 1024×1024 trivial.
+- **Bitmap-Repaint nur pro Sim-Tick:** der teure Pixel-Loop (1M writes für
+  1024² Map) läuft maximal 10× pro Sekunde statt 60×.
+- **Capture-Flash via State-Diff:** der Renderer speichert einen Snapshot der
+  Owner-IDs vom letzten Paint und detektiert Owner-Wechsel beim nächsten —
+  geänderte Tiles bekommen einen kurzen weißen Highlight (280 ms).
+- **Wrap-Replikation skipped Off-Screen:** Marker und Crosshairs werden 3×3
+  versucht, aber Tiles außerhalb des Viewports werden vor dem Stroke verworfen.
 
 ## UI: Vanilla DOM
 
 - **Start-Menü:** simples `<div>` mit Form-Elementen (Karten-Größe-Slider, KI-Anzahl-Input, Sieg-%-Slider) und Start-Button.
 - **HUD:** absolut positioniertes `<div>` über dem Canvas. Sub-Elemente: Bevölkerungs-Anzeige, Truppen-Slider (`<input type="range">`), Player-Stat-Leiste, Speed/Pause-Buttons.
-- **Minimap:** kleines `<canvas>` (separat von Pixi), zeichnet alle 10 Ticks die State-Textur skaliert. Torus-Wrap-Indikator: Kachel-Pattern oder dezenter Rahmen.
+- **Minimap:** kleines `<canvas>` (separat vom Hauptcanvas), zeichnet die Offscreen-Bitmap downscaled. Viewport-Box wird 3×3 getilt — überschreitet der Sichtbereich einen Wrap, sieht man die zweite Box auf der gegenüberliegenden Seite.
 - **Game-Over-Banner:** `<div>` mit "Sieger: X — Match-Status: weiterschauen | beenden" — kein Modal das den View blockiert.
 
 DOM-Updates passieren via einfacher Pull-Pattern: `ui.update(gameState)` pro Render-Frame (oder seltener). Kein Framework, kein Reactivity-System — bei wenigen DOM-Elementen reicht Diff-by-Hand.
