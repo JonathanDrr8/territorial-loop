@@ -17,7 +17,7 @@ import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
 import { createSoundEngine } from './ui/sound'
-import { createStartMenu, type StartMenuValues } from './ui/start-menu'
+import { createStartMenu, TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
 
 const HUMAN_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
@@ -29,6 +29,7 @@ const DEFAULT_MENU: StartMenuValues = {
   aiCount: 3,
   victoryPct: 90,
   difficulty: 'normal',
+  tempo: 'normal',
   soundEnabled: true,
 }
 
@@ -45,6 +46,7 @@ function buildConfig(menu: StartMenuValues): GameConfig {
     mapHeight: menu.mapSize,
     seed: 'match-' + Date.now().toString(),
     victoryPct: menu.victoryPct,
+    matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     players: [
       { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
       ...aiNames.map((name, i) => ({

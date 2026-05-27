@@ -8,6 +8,7 @@
  */
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
+export type MatchTempo = 'fast' | 'normal' | 'siege'
 
 export interface StartMenuValues {
   playerName: string
@@ -15,7 +16,14 @@ export interface StartMenuValues {
   aiCount: number
   victoryPct: number
   difficulty: Difficulty
+  tempo: MatchTempo
   soundEnabled: boolean
+}
+
+export const TEMPO_TO_SPEED: Record<MatchTempo, number> = {
+  fast: 1,
+  normal: 0.6,
+  siege: 0.3,
 }
 
 export interface StartMenuApi {
@@ -183,6 +191,29 @@ export function createStartMenu(
   const aiCount = makeSliderRow('Anzahl KI', 1, 7, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
 
+  // Match tempo — discrete select
+  const tempoRow = document.createElement('div')
+  tempoRow.style.cssText = FIELD_ROW_STYLE
+  const tempoLabel = document.createElement('label')
+  tempoLabel.textContent = 'Eroberungs-Tempo'
+  const tempoSelect = document.createElement('select')
+  tempoSelect.style.cssText = SELECT_STYLE
+  const TEMPO_OPTIONS: ReadonlyArray<readonly [MatchTempo, string]> = [
+    ['fast', 'Schnell'],
+    ['normal', 'Normal'],
+    ['siege', 'Belagerung'],
+  ]
+  for (const [value, label] of TEMPO_OPTIONS) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    if (value === initial.tempo) opt.selected = true
+    tempoSelect.appendChild(opt)
+  }
+  tempoRow.appendChild(tempoLabel)
+  tempoRow.appendChild(tempoSelect)
+  panel.appendChild(tempoRow)
+
   // Difficulty — discrete select
   const diffRow = document.createElement('div')
   diffRow.style.cssText = FIELD_ROW_STYLE
@@ -250,6 +281,7 @@ export function createStartMenu(
       aiCount: aiCount.getValue(),
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,
+      tempo: tempoSelect.value as MatchTempo,
       soundEnabled: soundCheck.checked,
     })
   })

@@ -42,6 +42,14 @@ export interface GameConfig {
   readonly seed: string
   /** Anteil der Karte (in Prozent, z.B. 90) ab dem ein Spieler als Sieger gilt. */
   readonly victoryPct: number
+  /**
+   * Multiplikator für `tilesPerTick`. 1.0 = OpenFront-Standard (Welle expandiert
+   * schnell), 0.5 = halbe Eroberungsgeschwindigkeit, 0.3 = Belagerungs-Feeling.
+   * Wirkt nur auf die Wave-Geschwindigkeit, nicht auf Truppen-Verluste pro Tile —
+   * d.h. Belagerung lässt Angriffe länger anhalten ohne mehr Truppen zu kosten.
+   * Default 1.0.
+   */
+  readonly matchSpeed?: number
   readonly players: readonly PlayerDef[]
 }
 
@@ -366,7 +374,9 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const defenderTroops = vsTerraNullius ? 0 : (defender?.troops ?? 0)
   const defenderTilesOwned = vsTerraNullius ? 1 : (defender?.tilesOwned ?? 1)
 
-  const rate = tilesPerTick(attack.reserveTroops, defenderTroops, frontWidth, vsTerraNullius)
+  const speedMul = state.config.matchSpeed ?? 1
+  const rate =
+    tilesPerTick(attack.reserveTroops, defenderTroops, frontWidth, vsTerraNullius) * speedMul
   const integerPart = Math.floor(rate)
   const fraction = rate - integerPart
   const extra = state.rng.next() < fraction ? 1 : 0
