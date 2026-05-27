@@ -18,7 +18,7 @@ export interface StartMenuApi {
   destroy(): void
 }
 
-const MAP_SIZE_OPTIONS = [128, 256, 512] as const
+const MAP_SIZE_OPTIONS = [128, 256, 512, 1024] as const
 
 const PANEL_STYLE = [
   'background: #1a1a22',
