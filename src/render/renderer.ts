@@ -64,9 +64,18 @@ const MARKER_DURATION_MS = 500
 const MARKER_RADIUS_START = 6
 const MARKER_RADIUS_END = 40
 
+const FLASH_DURATION_MS = 280
+const MAX_FLASHES_PER_TICK = 600
+
 interface ClickMarker {
   worldX: number
   worldY: number
+  startTime: number
+}
+
+interface CaptureFlash {
+  tileX: number
+  tileY: number
   startTime: number
 }
 
@@ -171,6 +180,72 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     }
 
     offscreenCtx.putImageData(imageData, 0, 0)
+
+    // Diff gegen vorigen Snapshot: Owner-Wechsel sammeln, in flashes pushen.
+    // Beim ersten Paint gibt's keinen Snapshot — dann nur kopieren ohne Flashes.
+    if (lastOwnerSnapshot !== null && lastOwnerSnapshot.length === mapState.length) {
+      const now = performance.now()
+      let added = 0
+      for (let i = 0; i < mapState.length; i++) {
+        const prev = lastOwnerSnapshot[i]
+        const curr = mapState[i]
+        if (prev === undefined || curr === undefined) continue
+        const prevOwner = prev & OWNER_MASK
+        const currOwner = curr & OWNER_MASK
+        if (prevOwner === currOwner) continue
+        // Skip wenn jetzt neutral (z.B. wenn jemand alle Tiles verlor — Anti-Spam)
+        if (currOwner === 0) continue
+        flashes.push({
+          tileX: i % state.map.width,
+          tileY: Math.floor(i / state.map.width),
+          startTime: now,
+        })
+        added++
+        if (added >= MAX_FLASHES_PER_TICK) break
+      }
+    }
+    if (lastOwnerSnapshot === null || lastOwnerSnapshot.length !== mapState.length) {
+      lastOwnerSnapshot = new Uint16Array(mapState.length)
+    }
+    lastOwnerSnapshot.set(mapState)
+  }
+
+  function drawFlashes(): void {
+    if (flashes.length === 0) return
+    const now = performance.now()
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i]
+      if (f !== undefined && now - f.startTime >= FLASH_DURATION_MS) {
+        flashes.splice(i, 1)
+      }
+    }
+    if (flashes.length === 0) return
+
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const halfW = cssW / 2
+    const halfH = cssH / 2
+    const mapW = state.map.width
+    const mapH = state.map.height
+
+    screenCtx.save()
+    for (const f of flashes) {
+      const t = Math.max(0, Math.min(1, (now - f.startTime) / FLASH_DURATION_MS))
+      const alpha = (1 - t) * 0.7
+      screenCtx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const wx = f.tileX + dx * mapW
+          const wy = f.tileY + dy * mapH
+          const sx = (wx - camera.x) * z + halfW
+          const sy = (wy - camera.y) * z + halfH
+          if (sx + z < 0 || sx > cssW || sy + z < 0 || sy > cssH) continue
+          screenCtx.fillRect(sx, sy, z, z)
+        }
+      }
+    }
+    screenCtx.restore()
   }
 
   function drawTiled(): void {
@@ -207,6 +282,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
+  // Capture-Flash: kurzer Highlight wenn Tile-Owner gewechselt hat. Wir vergleichen
+  // gegen einen Snapshot vom letzten Paint und sammeln pro Tick die Änderungen.
+  let lastOwnerSnapshot: Uint16Array | null = null
+  const flashes: CaptureFlash[] = []
 
   function drawHoverOutline(): void {
     if (hoverTile === null) return
@@ -351,6 +430,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       lastBitmapTick = state.tick
     }
     drawTiled()
+    drawFlashes()
     drawHoverOutline()
     drawAttackTargets()
     drawMarkers()
