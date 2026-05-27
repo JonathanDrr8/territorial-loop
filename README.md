@@ -6,11 +6,13 @@ und unten ebenso. Inspiriert von OpenFront.io, aber eigenständig entwickelt.
 
 ## Status
 
-🚧 **Frühe Entwicklung** — Setup abgeschlossen, Konzept und Architektur in Arbeit.
+🎮 **MVP spielbar** — Start-Menü, Echtzeit-Sim mit Wave-Eroberung, 1-7 KI-Gegner
+mit drei Schwierigkeitsgraden, Land/Wasser-Karten, Belagerungs-Modus, Minimap,
+Sound, Game-Over-Statistik. Determinismus über Match-Seed reproduzierbar.
 
 ## Tech-Stack
 
-TypeScript · Vite · Pixi.js · Vitest
+TypeScript · Vite · Canvas 2D · Vitest · seedrandom
 
 ## Entwicklung
 
@@ -38,15 +40,26 @@ npm run dev
 
 ```
 src/
-├── core/    Game-Simulation (deterministisch)
-├── world/   Karte + Torus-Koordinaten
-├── render/  Pixi.js Rendering
+├── core/    Game-Simulation (deterministisch) — game, random, config, intent
+├── world/   Karte + Torus-Koordinaten + Terrain-Generation
+├── render/  Canvas-2D-Renderer mit Torus-Wrap
 ├── input/   Maus/Tastatur/Touch
-├── ai/      KI-Gegner
-└── ui/      HUD und Menüs
+├── ai/      KI-Gegner mit drei Difficulty-Profilen
+└── ui/      Start-Menü, HUD, Minimap, Hover-Tooltip, Sound, Preferences
 ```
 
-Details siehe `docs/Architecture.md`.
+Details siehe `docs/Architecture.md` und das jeweilige `README.md` pro Modul.
+
+## Spielablauf
+
+1. Start-Menü öffnet sich (Name, Kartengröße, Anzahl KI, Eroberungs-Tempo,
+   Schwierigkeit, Sieg-%, Karten-Typ, Sound, optional fester Seed)
+2. Match startet — du expandierst per Linksklick auf gewünschte Tiles. Die
+   Welle fließt zum Klick-Punkt hin.
+3. Rechte Maustaste pant die Kamera (wrap-aware), Mausrad zoomt, `Leertaste`
+   pausiert, `1/2/5` setzt die Sim-Geschwindigkeit, `Esc` ruft das Menü auf.
+4. Sieg bei Erreichen des Sieg-%-Schwellwerts. Match läuft weiter — du kannst
+   zuschauen oder im Banner "Neues Match" klicken.
 
 ## Doku
 
