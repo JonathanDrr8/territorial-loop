@@ -12,6 +12,7 @@
  */
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
+import { generateTerrain, isLand, type TerrainType } from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
 import {
   BOT_START_TROOPS,
@@ -50,6 +51,8 @@ export interface GameConfig {
    * Default 1.0.
    */
   readonly matchSpeed?: number
+  /** Karten-Topographie. Default 'flat' (alles Land — wie bisher). */
+  readonly terrain?: TerrainType
   readonly players: readonly PlayerDef[]
 }
 
@@ -111,6 +114,10 @@ export function createGame(config: GameConfig): GameState {
 
   const map = createMap(config.mapWidth, config.mapHeight)
   const rng = createPRNG(config.seed)
+  // Terrain wird vor allen Sim-relevanten PRNG-Zugriffen generiert; dafür gibt's
+  // einen separaten PRNG damit terrain ↔ sim-Verlauf nicht miteinander verschränkt sind.
+  const terrainRng = createPRNG(`terrain-${config.seed}`)
+  generateTerrain(map, terrainRng, config.terrain ?? 'flat')
   const players = new Map<number, Player>()
 
   for (const def of config.players) {
@@ -172,13 +179,14 @@ function placeSpawns(state: GameState): void {
   const playerList = orderedPlayers(state)
 
   for (const player of playerList) {
-    const [cx, cy] = findSpawnCenter(rng, width, height, placedCenters, minDist)
+    const [cx, cy] = findSpawnCenter(state, rng, width, height, placedCenters, minDist)
     placedCenters.push([cx, cy])
 
     for (let dy = -SPAWN_HALF_SIZE; dy <= SPAWN_HALF_SIZE; dy++) {
       for (let dx = -SPAWN_HALF_SIZE; dx <= SPAWN_HALF_SIZE; dx++) {
         const ref = tileRef(cx + dx, cy + dy, width, height)
-        // Nur claim wenn neutral — schützt vor späteren Spawns die überlappen würden
+        // Nur claim wenn Land und neutral
+        if (!isLand(map.terrain, ref)) continue
         if (getOwner(map, ref) === 0) {
           setOwner(map, ref, player.id)
           player.tilesOwned++
@@ -188,7 +196,24 @@ function placeSpawns(state: GameState): void {
   }
 }
 
+function allLandIn5x5(
+  state: GameState,
+  cx: number,
+  cy: number,
+  width: number,
+  height: number,
+): boolean {
+  for (let dy = -SPAWN_HALF_SIZE; dy <= SPAWN_HALF_SIZE; dy++) {
+    for (let dx = -SPAWN_HALF_SIZE; dx <= SPAWN_HALF_SIZE; dx++) {
+      const ref = tileRef(cx + dx, cy + dy, width, height)
+      if (!isLand(state.map.terrain, ref)) return false
+    }
+  }
+  return true
+}
+
 function findSpawnCenter(
+  state: GameState,
   rng: PRNG,
   width: number,
   height: number,
@@ -199,6 +224,7 @@ function findSpawnCenter(
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const x = rng.nextInt(0, width)
     const y = rng.nextInt(0, height)
+    if (!allLandIn5x5(state, x, y, width, height)) continue
     let valid = true
     for (const [ox, oy] of placedCenters) {
       if (torusDistance(x, y, ox, oy, width, height) < minDist) {
@@ -208,7 +234,13 @@ function findSpawnCenter(
     }
     if (valid) return [x, y]
   }
-  // Fallback: random point, may overlap with existing spawns
+  // Fallback: zufälliger Land-Punkt
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const x = rng.nextInt(0, width)
+    const y = rng.nextInt(0, height)
+    if (allLandIn5x5(state, x, y, width, height)) return [x, y]
+  }
+  // Letzter Notnagel — beliebiger Punkt, auch wenn sich Spawn nicht vollständig setzen lässt
   return [rng.nextInt(0, width), rng.nextInt(0, height)]
 }
 
@@ -221,6 +253,8 @@ function initializeAllFrontiers(state: GameState): void {
     const player = players.get(owner)
     if (player === undefined) continue
     for (const n of neighbors4(ref, width, height)) {
+      // Wasser-Tiles werden nie erobert → kein Anlass sie als "Frontier" zu führen.
+      if (!isLand(map.terrain, n)) continue
       if (getOwner(map, n) !== owner) {
         player.frontier.add(ref)
         break
@@ -323,7 +357,13 @@ function checkEliminations(state: GameState): void {
 
 function checkVictory(state: GameState): void {
   if (state.phase === 'ended') return
-  const totalTiles = state.map.width * state.map.height
+  // Sieg-Schwelle bezieht sich auf eroberbare Tiles (Land), nicht auf den gesamten
+  // Bitmap-Bereich — sonst wäre Sieg auf einer Insel-Karte mit 35% Land unmöglich.
+  let landTotal = 0
+  for (let i = 0; i < state.map.terrain.length; i++) {
+    if (isLand(state.map.terrain, i)) landTotal++
+  }
+  const totalTiles = landTotal > 0 ? landTotal : state.map.width * state.map.height
   const threshold = state.config.victoryPct / 100
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
@@ -458,6 +498,7 @@ function collectAttackableTiles(
   for (const ref of attacker.frontier) {
     let borders = false
     for (const n of neighbors4(ref, width, height)) {
+      if (!isLand(map.terrain, n)) continue
       if (getOwner(map, n) === targetId) {
         tilesSet.add(n)
         borders = true
@@ -521,6 +562,7 @@ function updateFrontierAfterCapture(
   // Ist `ref` neue Frontier von `newOwner`?
   let refIsFrontier = false
   for (const n of refNeighbors) {
+    if (!isLand(map.terrain, n)) continue
     if (getOwner(map, n) !== newOwner) {
       refIsFrontier = true
       break
@@ -536,9 +578,10 @@ function updateFrontierAfterCapture(
     if (nPlayer === undefined) continue
 
     if (nOwner === newOwner) {
-      // n gehört newOwner — muss prüfen ob noch Fremd-Nachbarn da sind
+      // n gehört newOwner — muss prüfen ob noch Land-Fremd-Nachbarn da sind
       let stillFrontier = false
       for (const nn of neighbors4(n, width, height)) {
+        if (!isLand(map.terrain, nn)) continue
         if (getOwner(map, nn) !== newOwner) {
           stillFrontier = true
           break

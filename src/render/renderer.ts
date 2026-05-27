@@ -51,7 +51,12 @@ export interface Renderer {
 const NEUTRAL_R = 30
 const NEUTRAL_G = 30
 const NEUTRAL_B = 35
+const WATER_R = 24
+const WATER_G = 48
+const WATER_B = 92
 const BG_FILL = '#0a0a10'
+
+const IS_LAND_BIT = 0b1000_0000
 
 const OWNER_MASK = 0x0fff
 
@@ -129,11 +134,21 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       ])
     }
 
+    const terrain = state.map.terrain
     for (let i = 0; i < len; i++) {
       const v = mapState[i]
       if (v === undefined) continue
-      const owner = v & OWNER_MASK
+      const t = terrain[i]
       const o = i * 4
+      // Wasser: terrain-bit 7 = 0 → unpassierbar, eigene Farbe, owner ignoriert
+      if (t !== undefined && (t & IS_LAND_BIT) === 0) {
+        data[o] = WATER_R
+        data[o + 1] = WATER_G
+        data[o + 2] = WATER_B
+        data[o + 3] = 255
+        continue
+      }
+      const owner = v & OWNER_MASK
       if (owner === 0) {
         data[o] = NEUTRAL_R
         data[o + 1] = NEUTRAL_G

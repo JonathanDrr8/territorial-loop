@@ -9,6 +9,7 @@
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
+export type TerrainChoice = 'flat' | 'continents' | 'islands'
 
 export interface StartMenuValues {
   playerName: string
@@ -17,6 +18,7 @@ export interface StartMenuValues {
   victoryPct: number
   difficulty: Difficulty
   tempo: MatchTempo
+  terrain: TerrainChoice
   soundEnabled: boolean
 }
 
@@ -187,6 +189,29 @@ export function createStartMenu(
   mapRow.appendChild(mapSelect)
   panel.appendChild(mapRow)
 
+  // Terrain — discrete select
+  const terrainRow = document.createElement('div')
+  terrainRow.style.cssText = FIELD_ROW_STYLE
+  const terrainLabel = document.createElement('label')
+  terrainLabel.textContent = 'Karten-Typ'
+  const terrainSelect = document.createElement('select')
+  terrainSelect.style.cssText = SELECT_STYLE
+  const TERRAIN_OPTIONS: ReadonlyArray<readonly [TerrainChoice, string]> = [
+    ['flat', 'Offen (kein Wasser)'],
+    ['continents', 'Kontinente'],
+    ['islands', 'Inseln'],
+  ]
+  for (const [value, label] of TERRAIN_OPTIONS) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    if (value === initial.terrain) opt.selected = true
+    terrainSelect.appendChild(opt)
+  }
+  terrainRow.appendChild(terrainLabel)
+  terrainRow.appendChild(terrainSelect)
+  panel.appendChild(terrainRow)
+
   // AI count
   const aiCount = makeSliderRow('Anzahl KI', 1, 7, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
@@ -282,6 +307,7 @@ export function createStartMenu(
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,
       tempo: tempoSelect.value as MatchTempo,
+      terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
     })
   })

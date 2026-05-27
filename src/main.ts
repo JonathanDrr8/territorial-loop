@@ -30,6 +30,7 @@ const DEFAULT_MENU: StartMenuValues = {
   victoryPct: 90,
   difficulty: 'normal',
   tempo: 'normal',
+  terrain: 'flat',
   soundEnabled: true,
 }
 
@@ -47,6 +48,7 @@ function buildConfig(menu: StartMenuValues): GameConfig {
     seed: 'match-' + Date.now().toString(),
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
+    terrain: menu.terrain,
     players: [
       { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
       ...aiNames.map((name, i) => ({
