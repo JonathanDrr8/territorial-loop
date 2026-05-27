@@ -49,6 +49,12 @@ export interface Attack {
   /** 0 = TerraNullius (neutrales Gebiet) */
   targetPlayerId: number
   reserveTroops: number
+  /**
+   * Klick-Punkt der den Angriff ausgelöst hat. Die Welle bevorzugt Tiles
+   * mit kurzer Torus-Distanz zu diesem Punkt — daher fließt der Angriff
+   * gezielt in eine Richtung statt diamantförmig zu expandieren.
+   */
+  focusTile: TileRef
 }
 
 export interface Player {
@@ -271,6 +277,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   player.attacks.push({
     targetPlayerId: targetOwner,
     reserveTroops: troops,
+    focusTile: intent.targetTile,
   })
 }
 
@@ -367,7 +374,24 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
   if (wantCapture <= 0) return true
 
+  // Direktionale Wave: sortiere eroberbare Tiles nach Torus-Distanz zum focus.
+  // So fließt der Angriff zum Klick-Punkt hin statt diamantförmig in alle Richtungen.
+  // Vorher shufflen damit Tiles mit gleicher Distanz zufällig (aber deterministisch)
+  // sortiert sind — sonst hängt die Wahl an der Insertion-Order des Frontier-Sets.
   state.rng.shuffleArray(tiles)
+  const { width: mapW, height: mapH } = state.map
+  const focusX = attack.focusTile % mapW
+  const focusY = Math.floor(attack.focusTile / mapW)
+  tiles.sort((a, b) => {
+    const ax = a % mapW
+    const ay = Math.floor(a / mapW)
+    const bx = b % mapW
+    const by = Math.floor(b / mapW)
+    return (
+      torusDistance(ax, ay, focusX, focusY, mapW, mapH) -
+      torusDistance(bx, by, focusX, focusY, mapW, mapH)
+    )
+  })
 
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break

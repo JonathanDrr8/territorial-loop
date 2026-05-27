@@ -1,18 +1,11 @@
 # Morning Questions
 
-Hier sammeln sich Game-Design-Entscheidungen die ich nicht alleine treffen kann
-oder will, während ich Nachts an `territorial-loop` arbeite. Jonathan beantwortet
-sie morgens, ich räume diese Datei dann auf.
+_Letztes Update: Anfang der Nacht-Session (2026-05-27)_
 
-_Stand: (wird automatisch beim ersten Eintrag gesetzt)_
+Jonathan hat vor dem Schlafengehen die folgenden offenen Punkte beantwortet:
 
-<!--
-Pro Frage:
-## <kurzer Titel>
+- **Angriffs-Interaktion:** Direktionaler Klick (OpenFront-Style). Kein extra Menü.
+- **Spielername:** "Du" jetzt, später im Start-Menü konfigurierbar.
+- **Scope:** Voll durchziehen — Code-Cleanup, Polish, Post-MVP-Features, alles bis Stop.
 
-**Kontext:** wo ich drauf gestoßen bin
-**Frage:** was unklar ist
-**Mein vorläufiger Default:** was ich gemacht habe (oder machen werde) falls ich nicht warten kann
--->
-
-_(noch leer)_
+_(Sobald während der Nacht eine neue offene Frage auftaucht, kommt sie hier rein.)_
