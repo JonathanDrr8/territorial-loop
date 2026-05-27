@@ -25,4 +25,34 @@ Maus-, Tastatur- und Touch-Eingaben in **Game-Intents** übersetzen.
 
 ## Öffentliche API
 
-(wird in Phase B definiert)
+### `input.ts` — Maus + Tastatur
+
+```ts
+interface InputDeps {
+  canvas: HTMLCanvasElement
+  camera: Camera           // wird in-place gepant + gezoomt
+  mapWidth, mapHeight: number
+  playerId: number
+  emit(intent: Intent): void
+  getPlayerTroops(): number     // für Slider-% → absolute Truppen
+  getSliderPct(): number
+  events: { pause(); setSpeed(1|2|5) }
+  onAttackClick?: (worldX, worldY) => void   // erfolgreicher Klick → Render-Marker
+  onHover?: (worldX, worldY, screenX, screenY) => void  // Mouse-over für Tooltip
+  onHoverEnd?: () => void
+}
+
+function createInputHandler(deps: InputDeps): { destroy(): void }
+```
+
+**Bindings:**
+
+| Input                  | Aktion                                  |
+| ---------------------- | --------------------------------------- |
+| Linksklick             | AttackIntent (Slider-% × Truppen)       |
+| Rechtsklick + Ziehen   | Camera-Pan, wrap-aware                  |
+| Mausrad                | Zoom (Cursor-zentriert, range 0.5×-16×) |
+| Leertaste              | Pause-Toggle                            |
+| `1` / `2` / `5`        | Sim-Geschwindigkeit                     |
+| Mausbewegung (no drag) | onHover-Callback                        |
+| Mouse-Leave Canvas     | onHoverEnd-Callback                     |

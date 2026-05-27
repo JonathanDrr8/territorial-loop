@@ -24,4 +24,24 @@ KI-gesteuerte Spieler. Generieren Intents wie menschliche Spieler, nicht mehr un
 
 ## Öffentliche API
 
-(wird in Phase B definiert)
+### `ai.ts` — Allround-KI
+
+```ts
+interface AI {
+  /** Pro Sim-Tick aufgerufen, liefert 0 oder 1 Intents. */
+  decide(state: GameState): readonly Intent[]
+}
+
+function createAI(playerId: number, gameSeed: string): AI
+```
+
+**Verhalten:**
+
+- Pro KI eigene PRNG-Instanz, Seed = `ai-{playerId}-{gameSeed}`. Damit ist die
+  KI deterministisch, aber **unabhängig** vom Sim-PRNG — sie verschiebt nicht
+  den Zufalls-Verlauf der Simulation.
+- Cooldown zwischen Entscheidungen: 30–100 Ticks (3–10 s bei 10 Hz), jittered.
+- Zielwahl: bei Bevölkerung >= 60% des Caps bevorzugt Gegner-Tiles, sonst neutrales
+  Land. Es werden nur Tiles direkt an der eigenen Frontier betrachtet — keine
+  Sprung-Angriffe.
+- Truppen-Einsatz: festes 30% der aktuellen Bevölkerung pro Angriff.
