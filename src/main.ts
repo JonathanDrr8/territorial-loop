@@ -8,6 +8,7 @@
  * `setInterval` bei 100ms / speed, Render mit `requestAnimationFrame`.
  */
 
+import { createAI, type AI } from './ai/ai'
 import { createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
@@ -204,8 +205,21 @@ async function main(): Promise<void> {
   let speed: 1 | 2 | 5 = 1
   let simIntervalId: number | null = null
 
+  // KI für jeden Nicht-Mensch-Spieler
+  const ais: AI[] = []
+  for (const p of state.players.values()) {
+    if (!p.isHuman) {
+      ais.push(createAI(p.id, state.seed))
+    }
+  }
+
   function runSimTick(): void {
     if (paused) return
+    for (const ai of ais) {
+      for (const intent of ai.decide(state)) {
+        pendingIntents.push(intent)
+      }
+    }
     tick(state, pendingIntents)
     pendingIntents.length = 0
   }
