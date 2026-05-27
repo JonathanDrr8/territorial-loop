@@ -49,7 +49,7 @@ const MAX_OWNER_ID = 0x0fff // 4095
 interface GameMap {
   readonly width: number
   readonly height: number
-  readonly terrain: Uint8Array // 1 Byte pro Tile, im MVP unbenutzt
+  readonly terrain: Uint8Array // Bit 7 = IS_LAND, sonst Wasser
   readonly state: Uint16Array // Bits 0-11: ownerID, 12-15: reserviert
 }
 
@@ -61,3 +61,23 @@ function setOwner(map: GameMap, ref: TileRef, ownerId: number): void
 **Hot-Loop-Hinweis:** Für Tick-Pipelines und Frontier-Iterationen sollte direkt
 auf `map.state[ref]` zugegriffen werden (mit Bit-Maskierung), nicht über die
 Helper — Function-Call-Overhead pro Tile summiert sich bei 100k+ Iterationen.
+
+### `terrain.ts` — Land/Wasser-Generation
+
+```ts
+const IS_LAND_BIT = 0b1000_0000
+type TerrainType = 'flat' | 'continents' | 'islands'
+
+function isLand(terrain: Uint8Array, ref: number): boolean
+function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType): void
+```
+
+`flat` lässt alles Land. `continents` (≈70% Land) und `islands` (≈35% Land)
+nutzen eine Summe aus Cosinus-Komponenten mit ganzzahligen Frequenzen — das
+ist von Natur aus tileable, ohne sichtbare Naht am Torus-Rand. Nach dem
+Noise wird ein Threshold so gewählt, dass die gewünschte Land-Quote erreicht
+wird.
+
+Game-Logik (`core/game.ts`) ignoriert Wasser-Tiles bei Spawn-Platzierung,
+Frontier-Initialisierung, Attack-Resolution und Sieg-Check. Renderer
+(`render/renderer.ts`) zeichnet Wasser in einem festen Dunkelblau.
