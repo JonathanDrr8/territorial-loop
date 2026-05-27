@@ -112,6 +112,7 @@ function createHUD(
   container: HTMLElement,
   state: ReturnType<typeof createGame>,
   onSliderChange: (pct: number) => void,
+  onNewMatch: () => void,
 ): HUDApi {
   const hud = document.createElement('div')
   hud.style.cssText = [
@@ -182,6 +183,34 @@ function createHUD(
     'pointer-events: none',
     'display: none',
   ].join(';')
+
+  const bannerText = document.createElement('div')
+  banner.appendChild(bannerText)
+
+  const newMatchBtn = document.createElement('button')
+  newMatchBtn.textContent = 'Neues Match'
+  newMatchBtn.style.cssText = [
+    'margin-top: 12px',
+    'padding: 8px 18px',
+    'background: #4a8',
+    'color: white',
+    'border: none',
+    'border-radius: 6px',
+    'font-size: 14px',
+    'font-family: inherit',
+    'cursor: pointer',
+    'pointer-events: auto',
+    'font-weight: bold',
+  ].join(';')
+  newMatchBtn.addEventListener('mouseenter', () => {
+    newMatchBtn.style.background = '#5b9'
+  })
+  newMatchBtn.addEventListener('mouseleave', () => {
+    newMatchBtn.style.background = '#4a8'
+  })
+  newMatchBtn.addEventListener('click', onNewMatch)
+  banner.appendChild(newMatchBtn)
+
   container.appendChild(banner)
 
   function update(): void {
@@ -206,7 +235,7 @@ function createHUD(
       const winner = state.players.get(state.winner)
       if (winner !== undefined) {
         banner.style.display = 'block'
-        banner.innerHTML =
+        bannerText.innerHTML =
           `<div style="font-size: 22px; margin-bottom: 4px">` +
           `Sieg: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
           `</div>` +
@@ -232,7 +261,11 @@ function escapeHtml(s: string): string {
   )
 }
 
-function startMatch(container: HTMLElement, menu: StartMenuValues): MatchSession {
+function startMatch(
+  container: HTMLElement,
+  menu: StartMenuValues,
+  onRequestNewMatch: () => void,
+): MatchSession {
   const config = buildConfig(menu)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
@@ -275,9 +308,14 @@ function startMatch(container: HTMLElement, menu: StartMenuValues): MatchSession
     simIntervalId = window.setInterval(runSimTick, ms)
   }
 
-  const hud = createHUD(container, state, (pct) => {
-    sliderPct = pct
-  })
+  const hud = createHUD(
+    container,
+    state,
+    (pct) => {
+      sliderPct = pct
+    },
+    onRequestNewMatch,
+  )
 
   const minimap = createMinimap({
     container,
@@ -359,8 +397,15 @@ function main(): void {
       menu.destroy()
       if (session !== null) {
         session.destroy()
+        session = null
       }
-      session = startMatch(container, values)
+      session = startMatch(container, values, () => {
+        if (session !== null) {
+          session.destroy()
+          session = null
+        }
+        showMenu()
+      })
     })
   }
 
