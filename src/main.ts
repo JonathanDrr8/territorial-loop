@@ -15,6 +15,7 @@ import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
+import { createStartMenu, type StartMenuValues } from './ui/start-menu'
 
 const HUMAN_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
@@ -57,16 +58,15 @@ function randomColor(): number {
   return hslToRgba(Math.random() * 360, 0.7, 0.55)
 }
 
-function buildConfig(): GameConfig {
-  const aiCount = 3
-  const aiNames = pickRandomNames(aiCount)
+function buildConfig(menu: StartMenuValues): GameConfig {
+  const aiNames = pickRandomNames(menu.aiCount)
   return {
-    mapWidth: 256,
-    mapHeight: 256,
+    mapWidth: menu.mapSize,
+    mapHeight: menu.mapSize,
     seed: 'match-' + Date.now().toString(),
-    victoryPct: 90,
+    victoryPct: menu.victoryPct,
     players: [
-      { id: 1, name: 'Du', color: randomColor(), isHuman: true },
+      { id: 1, name: menu.playerName, color: randomColor(), isHuman: true },
       ...aiNames.map((name, i) => ({
         id: i + 2,
         name,
@@ -75,6 +75,17 @@ function buildConfig(): GameConfig {
       })),
     ],
   }
+}
+
+const DEFAULT_MENU: StartMenuValues = {
+  playerName: 'Du',
+  mapSize: 256,
+  aiCount: 3,
+  victoryPct: 90,
+}
+
+interface MatchSession {
+  destroy(): void
 }
 
 function rgbaToCss(rgba: number): string {
@@ -221,19 +232,11 @@ function escapeHtml(s: string): string {
   )
 }
 
-async function main(): Promise<void> {
-  const container = document.getElementById('game')
-  if (container === null) {
-    throw new Error('No #game container in DOM')
-  }
-  // Clear placeholder content
-  container.textContent = ''
-  container.style.position = 'relative'
-
-  const config = buildConfig()
+function startMatch(container: HTMLElement, menu: StartMenuValues): MatchSession {
+  const config = buildConfig(menu)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
-  // Debug: expose for inspection
+  // Debug-Hook: aktuelles Match auf window für Browser-Konsole / Playwright-Tests
   ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer }
 
   const pendingIntents: Intent[] = []
@@ -241,8 +244,9 @@ async function main(): Promise<void> {
   let paused = false
   let speed: 1 | 2 | 5 = 1
   let simIntervalId: number | null = null
+  let renderRafId: number | null = null
+  let destroyed = false
 
-  // KI für jeden Nicht-Mensch-Spieler
   const ais: AI[] = []
   for (const p of state.players.values()) {
     if (!p.isHuman) {
@@ -266,7 +270,7 @@ async function main(): Promise<void> {
       window.clearInterval(simIntervalId)
       simIntervalId = null
     }
-    if (paused) return
+    if (paused || destroyed) return
     const ms = SIM_BASE_INTERVAL_MS / speed
     simIntervalId = window.setInterval(runSimTick, ms)
   }
@@ -286,7 +290,7 @@ async function main(): Promise<void> {
     }),
   })
 
-  createInputHandler({
+  const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
     mapWidth: state.map.width,
@@ -310,17 +314,63 @@ async function main(): Promise<void> {
   restartSimInterval()
 
   function renderLoop(): void {
+    if (destroyed) return
     renderer.render()
     minimap.update()
     hud.update()
-    requestAnimationFrame(renderLoop)
+    renderRafId = requestAnimationFrame(renderLoop)
   }
-  requestAnimationFrame(renderLoop)
+  renderRafId = requestAnimationFrame(renderLoop)
 
-  console.info('[territorial-loop] Boot complete')
+  console.info('[territorial-loop] Match gestartet:', menu)
+
+  return {
+    destroy(): void {
+      destroyed = true
+      if (simIntervalId !== null) {
+        window.clearInterval(simIntervalId)
+        simIntervalId = null
+      }
+      if (renderRafId !== null) {
+        cancelAnimationFrame(renderRafId)
+        renderRafId = null
+      }
+      input.destroy()
+      hud.destroy()
+      minimap.destroy()
+      renderer.destroy()
+    },
+  }
 }
 
-main().catch((err: unknown) => {
+function main(): void {
+  const maybeContainer = document.getElementById('game')
+  if (maybeContainer === null) {
+    throw new Error('No #game container in DOM')
+  }
+  const container: HTMLElement = maybeContainer
+  container.textContent = ''
+  container.style.position = 'relative'
+
+  let session: MatchSession | null = null
+
+  function showMenu(): void {
+    const menu = createStartMenu(container, DEFAULT_MENU, (values) => {
+      menu.destroy()
+      if (session !== null) {
+        session.destroy()
+      }
+      session = startMatch(container, values)
+    })
+  }
+
+  showMenu()
+  console.info('[territorial-loop] Boot complete (start menu shown)')
+}
+
+try {
+  main()
+} catch (err) {
   console.error('[territorial-loop] Boot failed:', err)
   const root = document.getElementById('game')
   if (root !== null) {
@@ -331,4 +381,4 @@ main().catch((err: unknown) => {
       'Fehler beim Booten — siehe Browser-Konsole. ' +
       (err instanceof Error ? err.message : String(err))
   }
-})
+}
