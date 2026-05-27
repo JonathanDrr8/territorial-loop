@@ -30,4 +30,37 @@ auch in Node oder einem Web Worker laufen.
 
 ## Öffentliche API
 
-(wird in Phase B definiert)
+### `random.ts` — PRNG
+
+```ts
+interface PRNG {
+  next(): number // [0, 1)
+  nextInt(min: number, max: number): number // Integer in [min, max)
+  nextFloat(min: number, max: number): number
+  randElement<T>(arr: readonly T[]): T
+  chance(p: number): boolean
+  shuffleArray<T>(arr: T[]): T[] // Fisher-Yates, in-place
+}
+function createPRNG(seed: string): PRNG
+```
+
+Algorithmus: Alea (via `seedrandom`). Selber Seed → selber Verlauf.
+
+### `config.ts` — Spielmechanik-Konstanten und -Formeln
+
+```ts
+const HUMAN_START_TROOPS = 25_000
+const BOT_START_TROOPS = 10_000
+const HUMAN_DEFAULT_ATTACK_PCT = 20
+const BOT_DEFAULT_ATTACK_PCT = 5
+
+function maxTroops(numTilesOwned: number, opts?: { bot?: boolean }): number
+function troopIncreaseRate(troops: number, max: number, opts?: { bot?: boolean }): number
+```
+
+Formel-Quelle: OpenFront (siehe ADR-0004). Werte sind `number`, nicht `bigint`
+— bei MVP-Map-Größen (≤ 1M Tiles) bleibt alles weit unter `Number.MAX_SAFE_INTEGER`.
+
+### `game.ts`, `intent.ts`
+
+(folgen — Tick-Pipeline und Intent-Typen)

@@ -92,7 +92,7 @@ interface Player {
   id: number // 1..4095, 0 reserviert für "neutral"
   name: string
   color: number // RGBA-Wert, zufällig generiert beim Match-Start
-  troops: bigint // OpenFront nutzt bigint — wir auch (Werte werden groß)
+  troops: number // bei MVP-Map-Größen weit unter Number.MAX_SAFE_INTEGER, daher kein bigint
   tilesOwned: number // Cache für O(1) %-Berechnung & maxTroops-Formel
   frontier: Set<TileRef> // Tiles dieses Spielers die an Gegner/Neutral grenzen
   attacks: Attack[] // aktive Angriffe (Reserve-Truppen + Ziel)
@@ -102,7 +102,7 @@ interface Player {
 
 interface Attack {
   targetPlayerId: number // 0 = TerraNullius
-  reserveTroops: bigint // aktuelle Restmenge in dieser Angriffs-Welle
+  reserveTroops: number // aktuelle Restmenge in dieser Angriffs-Welle
   // erweiterbar (Pfad-Hinweise, Modifier)
 }
 ```
@@ -130,7 +130,7 @@ Alle Mutations gehen via Intent. Format: Discriminated Union (TypeScript-Native,
 
 ```ts
 type Intent =
-  | { type: 'attack'; playerId: number; targetTile: TileRef; troops: bigint }
+  | { type: 'attack'; playerId: number; targetTile: TileRef; troops: number }
   | { type: 'cancel-attack'; playerId: number; attackIdx: number }
 // Erweiterbar — z.B. später 'build-city', 'send-boat', ...
 ```
@@ -224,17 +224,17 @@ KI emittiert Intents über exakt die gleiche API wie Spieler. Kein State-Manipul
 
 ## Determinismus-Regeln (Recap)
 
-| Was                    | Wie                                                              |
-| ---------------------- | ---------------------------------------------------------------- |
-| Zufall in Sim          | `gameState.rng` (eine `seedrandom`-Instanz, geseeded aus Config) |
-| Zufall in KI           | Sub-PRNGs pro KI, geseeded aus `seed + playerId`                 |
-| Zeit                   | `gameState.tick`, niemals `Date.now()`                           |
-| Iterations-Reihenfolge | Spieler sortiert nach `id`, Tiles sortiert nach `TileRef`        |
-| Float-Arithmetik       | Vermeiden in State (alle Truppen-Werte sind `bigint`)            |
+| Was                    | Wie                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| Zufall in Sim          | `gameState.rng` (eine `seedrandom`-Instanz, geseeded aus Config)             |
+| Zufall in KI           | Sub-PRNGs pro KI, geseeded aus `seed + playerId`                             |
+| Zeit                   | `gameState.tick`, niemals `Date.now()`                                       |
+| Iterations-Reihenfolge | Spieler sortiert nach `id`, Tiles sortiert nach `TileRef`                    |
+| Float-Arithmetik       | Truppen-Werte werden nach Formel-Anwendung gefloored, im State immer Integer |
 
 ## Offene Architektur-Fragen (für später, nicht MVP-blockend)
 
-- **bigint-Performance:** OpenFront nutzt bigint, das ist auf V8 nicht ganz billig. Falls Profiling zeigt dass das ein Bottleneck wird: Wechsel auf `number` mit Sanity-Checks (Karten < 1M Tiles bleiben < `Number.MAX_SAFE_INTEGER`).
+- **Truppen-Typ:** Entschieden für `number`, nicht `bigint`. Bei MVP-Map-Größen (≤ 1M Tiles) bleibt max-Cap unter ~8M, weit unter `Number.MAX_SAFE_INTEGER`. Falls extrem große Maps (>100M Tiles) nötig werden: punktuell zu bigint wechseln.
 - **Multiplayer:** Server-authoritative? Lockstep? Rollback? — Entscheidung aufgeschoben bis MVP läuft.
 - **Persistenz:** LocalStorage für Settings ist ok. Replays via Seed+Intent-Log — kommt mit Multiplayer.
 - **Map-Generator:** Im MVP ist die Karte leer (alle Tiles Land). Für Post-MVP mit Wasser/Bergen: seamless tileable Perlin/Simplex Noise (Trick: 4D-Noise auf 2D-Kreis projiziert, garantiert wrap-safe).
@@ -261,8 +261,8 @@ export const createMap: (w: number, h: number) => GameMap
 ```ts
 export const createGame: (config: GameConfig) => GameState
 export const tick: (state: GameState, intents: readonly Intent[]) => GameState // mutiert in-place, return = same ref
-export const maxTroops: (player: Player) => bigint
-export const troopIncreaseRate: (player: Player) => bigint
+export const maxTroops: (numTilesOwned: number, opts?: { bot?: boolean }) => number
+export const troopIncreaseRate: (troops: number, max: number, opts?: { bot?: boolean }) => number
 // Re-Exports: Intent, GameState, Player, GameConfig
 ```
 
