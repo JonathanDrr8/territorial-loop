@@ -306,6 +306,27 @@ export function createStartMenu(
   soundRow.appendChild(soundCheckWrap)
   panel.appendChild(soundRow)
 
+  // Aufklappbare Wachstums-Erklärung
+  const help = document.createElement('details')
+  help.style.cssText = 'margin-top: 14px; font-size: 12px; opacity: 0.85'
+  const helpSummary = document.createElement('summary')
+  helpSummary.textContent = 'Wie funktioniert das Truppen-Wachstum?'
+  helpSummary.style.cssText = 'cursor: pointer; opacity: 0.8'
+  const helpBody = document.createElement('div')
+  helpBody.style.cssText = 'margin-top: 8px; line-height: 1.5; opacity: 0.8'
+  helpBody.innerHTML =
+    'Jede Nation hat ein <b>Truppen-Maximum</b> das mit der Anzahl deiner Tiles steigt ' +
+    '(sublinear — doppelt so viel Land ≠ doppelter Cap). ' +
+    'Das Wachstum pro Sekunde ist <b>nicht konstant</b>: nahe 0 Truppen wächst du langsam, ' +
+    'bei mittlerem Bestand am schnellsten, und je näher am Maximum desto stärker abgebremst.<br><br>' +
+    'Das <b>Optimum liegt bei ~42 % des Caps</b> — dort wächst du am schnellsten. ' +
+    'Daraus folgt: Truppen für Angriffe ausgeben hält dich oft im wachstumsstarken Bereich, ' +
+    'während Horten nahe am Cap das Wachstum fast zum Stillstand bringt.<br><br>' +
+    '<span style="font-family:ui-monospace">Wachstum/Tick = (10 + Truppen^0.73 / 4) · (1 − Truppen/Max)</span>'
+  help.appendChild(helpSummary)
+  help.appendChild(helpBody)
+  panel.appendChild(help)
+
   // Start button
   const startBtn = document.createElement('button')
   startBtn.textContent = 'Match starten'
