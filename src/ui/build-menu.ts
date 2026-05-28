@@ -16,7 +16,6 @@ import {
   BUILDING_TYPES,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
-  MARKET_GOLD_PER_TICK,
   MAX_BUILDING_LEVEL,
   buildCost,
   upgradeCost,
@@ -31,7 +30,6 @@ import { rgbaToCss } from './colors'
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
-  market: '$',
   port: 'P',
 }
 
@@ -39,7 +37,6 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
 const BUILDING_HINT: Record<BuildingType, string> = {
   city: `+${fmtCompact(CITY_CAP_BONUS)} Truppen-Cap/Stufe`,
   defense: `Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer`,
-  market: `+${fmtCompact(MARKET_GOLD_PER_TICK * 10)} Gold/s/Stufe`,
   port: 'Voraussetzung für Schiffe',
 }
 

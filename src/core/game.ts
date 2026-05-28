@@ -38,7 +38,6 @@ import {
   BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
-  MARKET_GOLD_PER_TICK,
   MAX_BUILDING_LEVEL,
   PORT_WATER_RANGE,
   buildCost,
@@ -612,15 +611,9 @@ function decayGrudge(state: GameState): void {
 }
 
 function generateGold(state: GameState): void {
-  // Markt-Gold pro Spieler aus den Gebäuden vorberechnen.
-  const marketGold = new Map<number, number>()
-  for (const b of state.buildings.values()) {
-    if (b.type !== 'market' || !isBuildingComplete(b, state.tick)) continue
-    marketGold.set(b.ownerId, (marketGold.get(b.ownerId) ?? 0) + MARKET_GOLD_PER_TICK * b.level)
-  }
+  // Flaches Gold-Einkommen pro lebendem Spieler (+ Handelsschiff-Gold beim Eintreffen).
   for (const player of state.players.values()) {
-    if (!player.isAlive) continue
-    player.gold += BASE_GOLD_PER_TICK + (marketGold.get(player.id) ?? 0)
+    if (player.isAlive) player.gold += BASE_GOLD_PER_TICK
   }
 }
 

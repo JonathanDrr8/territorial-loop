@@ -24,7 +24,6 @@ import { neighbors4, tileRef } from '../world/torus'
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
-  market: '$',
   port: 'P',
 }
 

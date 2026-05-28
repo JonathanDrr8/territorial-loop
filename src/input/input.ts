@@ -20,8 +20,7 @@ import type { Intent } from '../core/intent'
 const BUILD_HOTKEYS: Record<string, BuildingType> = {
   '1': 'city',
   '2': 'defense',
-  '3': 'market',
-  '4': 'port',
+  '3': 'port',
 }
 
 /** WASD → Kamera-Pan-Richtung (dx, dy in Welt-Tiles pro Schritt-Einheit). */

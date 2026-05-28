@@ -5,7 +5,6 @@ import {
   defenseRange,
   BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
-  MARKET_GOLD_PER_TICK,
 } from '../src/core/buildings'
 import { createGame, tick, effectiveMaxTroops, type GameConfig } from '../src/core/game'
 import { getOwner } from '../src/world/map'
@@ -40,8 +39,8 @@ describe('building cost functions', () => {
   })
 
   it('upgrade cost grows linearly with level', () => {
-    expect(upgradeCost('market', 1)).toBe(30_000)
-    expect(upgradeCost('market', 2)).toBe(45_000)
+    expect(upgradeCost('city', 1)).toBe(50_000)
+    expect(upgradeCost('city', 2)).toBe(75_000)
   })
 
   it('defense range grows per level', () => {
@@ -58,10 +57,10 @@ describe('build intent', () => {
     if (p === undefined) throw new Error('no player')
     p.gold = 100_000
     const tile = ownedTile(state, 1)
-    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'market' }])
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'defense' }])
     expect(state.buildings.has(tile)).toBe(true)
-    expect(state.buildings.get(tile)?.type).toBe('market')
-    // gold reduced by 15000 build cost (then +income for the tick)
+    expect(state.buildings.get(tile)?.type).toBe('defense')
+    // gold reduced by build cost
     expect(p.gold).toBeLessThan(100_000)
   })
 
@@ -81,7 +80,7 @@ describe('build intent', () => {
     if (p === undefined) throw new Error('no player')
     p.gold = 100_000
     const enemyTile = ownedTile(state, 2)
-    tick(state, [{ type: 'build', playerId: 1, tile: enemyTile, buildingType: 'market' }])
+    tick(state, [{ type: 'build', playerId: 1, tile: enemyTile, buildingType: 'city' }])
     expect(state.buildings.has(enemyTile)).toBe(false)
   })
 
@@ -98,22 +97,6 @@ describe('build intent', () => {
     // … erst nach der Bauzeit.
     for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, [])
     expect(effectiveMaxTroops(state, 1)).toBe(capBefore + CITY_CAP_BONUS)
-  })
-
-  it('market adds to gold income', () => {
-    const state = createGame(cfg())
-    const p = state.players.get(1)
-    if (p === undefined) throw new Error('no player')
-    p.gold = 100_000
-    const tile = ownedTile(state, 1)
-    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'market' }])
-    // Markt fertig bauen lassen, dann das Einkommen eines Ticks messen.
-    for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, [])
-    const goldAfterComplete = p.gold
-    tick(state, []) // ein Tick: Basis-Einkommen + Markt-Einkommen
-    const delta = p.gold - goldAfterComplete
-    // base 100 + market 40 (level 1)
-    expect(delta).toBe(100 + MARKET_GOLD_PER_TICK)
   })
 })
 

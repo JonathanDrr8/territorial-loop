@@ -6,17 +6,16 @@
  *
  * Effekte (in `core/game.ts` angewandt):
  *  - Stadt: erhöht den Truppen-Cap.
- *  - Markt: erzeugt Gold pro Tick.
  *  - Verteidigungsposten: Tiles in Reichweite sind beim Verteidigen zäher
  *    (Magnitude-Multiplikator, stapelt mit Terrain).
- *  - Hafen: Voraussetzung für Schiffe (Phase 5), nur nahe Wasser baubar.
+ *  - Hafen: Voraussetzung für Schiffe, nur nahe Wasser baubar.
  */
 
 import type { TileRef } from '../world/torus'
 
-export type BuildingType = 'city' | 'defense' | 'market' | 'port'
+export type BuildingType = 'city' | 'defense' | 'port'
 
-export const BUILDING_TYPES: readonly BuildingType[] = ['city', 'defense', 'market', 'port']
+export const BUILDING_TYPES: readonly BuildingType[] = ['city', 'defense', 'port']
 
 export interface Building {
   type: BuildingType
@@ -41,7 +40,6 @@ export function isBuildingComplete(b: Building, tick: number): boolean {
 const BASE_BUILD_COST: Record<BuildingType, number> = {
   city: 25_000,
   defense: 12_000,
-  market: 15_000,
   port: 20_000,
 }
 
@@ -49,7 +47,6 @@ const BASE_BUILD_COST: Record<BuildingType, number> = {
 export const BUILDING_LABEL: Record<BuildingType, string> = {
   city: 'Stadt',
   defense: 'Verteidigung',
-  market: 'Markt',
   port: 'Hafen',
 }
 
@@ -71,8 +68,6 @@ export function upgradeCost(type: BuildingType, currentLevel: number): number {
 /** Zusätzlicher Truppen-Cap pro Stadt-Level (linear: L1 +25k, L2 +50k, …; kein
  * Upgrade-Bonus — eine Stufe-2-Stadt = zwei Stufe-1-Städte, spart nur Platz). */
 export const CITY_CAP_BONUS = 25_000
-/** Gold pro Tick pro Markt-Level. */
-export const MARKET_GOLD_PER_TICK = 40
 /** Reichweite eines Verteidigungspostens (Tiles), plus pro Level. */
 export const DEFENSE_BASE_RANGE = 8
 export const DEFENSE_RANGE_PER_LEVEL = 4

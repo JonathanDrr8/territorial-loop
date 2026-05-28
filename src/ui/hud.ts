@@ -20,7 +20,6 @@ import {
   DEFENSE_BASE_RANGE,
   DEFENSE_MAG_MULTIPLIER,
   DEFENSE_RANGE_PER_LEVEL,
-  MARKET_GOLD_PER_TICK,
   buildCost,
   type BuildingType,
 } from '../core/buildings'
@@ -44,19 +43,16 @@ const GOLD_SAMPLE_TICKS = 30
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
-  market: '$',
   port: 'P',
 }
 const BUILDING_HOTKEY: Record<BuildingType, string> = {
   city: '1',
   defense: '2',
-  market: '3',
-  port: '4',
+  port: '3',
 }
 const BUILDING_TOOLTIP: Record<BuildingType, string> = {
   city: `Stadt — +${fmtCompact(CITY_CAP_BONUS)} Truppen-Maximum je Stufe.`,
   defense: `Verteidigungsposten — im Umkreis ${DEFENSE_BASE_RANGE.toString()} (+${DEFENSE_RANGE_PER_LEVEL.toString()}/Stufe) wird Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer.`,
-  market: `Markt — +${fmtCompact(MARKET_GOLD_PER_TICK * SIM_TICKS_PER_SECOND)} Gold/s je Stufe.`,
   port: 'Hafen — nötig für Transport- & Handelsschiffe (nur am Wasser baubar).',
 }
 

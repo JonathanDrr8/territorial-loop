@@ -175,31 +175,27 @@ export function createAI(
     return candidates.length > 0 ? (rng.randElement(candidates) ?? -1) : -1
   }
 
-  /** Plant einen Bau nach einfachen Prioritäten (Markt → Stadt → Verteidigung → Hafen). */
+  /** Plant einen Bau nach einfachen Prioritäten (Stadt → Hafen → Verteidigung). */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
     const costOf = (t: BuildingType): number =>
       buildCost(t, countBuildingsOfType(state, player.id, t))
 
-    // 1. Wirtschaft ankurbeln: wenig Märkte → Markt
-    if (countBuildingsOfType(state, player.id, 'market') < 2 && gold >= costOf('market')) {
-      const tile = pickOwnTile(state, player, false)
-      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'market' }
-    }
-    // 2. Truppen-Cap ist der Engpass → Stadt
+    // 1. Truppen-Cap ist der Engpass → Stadt
     if (player.troops >= 0.9 * effectiveMaxTroops(state, player.id) && gold >= costOf('city')) {
       const tile = pickOwnTile(state, player, false)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
+    }
+    // 2. Am Wasser ohne Hafen → Hafen (VOR Verteidigung, sonst baut die KI bei flachen
+    //    Verteidigungskosten endlos Posten und kommt nie zum Hafen / zu Schiffen).
+    if (countBuildingsOfType(state, player.id, 'port') === 0 && gold >= costOf('port')) {
+      const tile = pickCoastalTile(state, player)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
     // 3. Bedrohte Front → Verteidigungsposten
     if (gold >= costOf('defense')) {
       const tile = pickOwnTile(state, player, true)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'defense' }
-    }
-    // 4. Am Wasser ohne Hafen → Hafen (für Handel/Schiffe)
-    if (countBuildingsOfType(state, player.id, 'port') === 0 && gold >= costOf('port')) {
-      const tile = pickCoastalTile(state, player)
-      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
     return null
   }
