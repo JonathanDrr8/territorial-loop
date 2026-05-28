@@ -637,19 +637,23 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   /**
-   * Zeichnet pro aktivem Angriff die Reserve-Truppenzahl direkt an der Front
-   * (Fokus-Tile, das die Welle ansteuert) — in Besitzerfarbe, ohne Pfeil. So sieht
-   * man die Truppen-Verteilung an den Fronten statt eines Pfeil-Wirrwarrs.
+   * Zeichnet pro aktivem Angriff die Reserve-Truppenzahl am Fokus-Tile.
+   * Angriffe auf den Menschen werden als auffällige rote Pille mit Schwert
+   * hervorgehoben (man muss sofort sehen, wie groß die Bedrohung ist); fremde
+   * Angriffe bleiben eine dezente Zahl in Besitzerfarbe.
    */
   function drawAttackFronts(): void {
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const mapW = state.map.width
+    const humanId = lutHumanId
     screenCtx.save()
-    screenCtx.font = 'bold 12px ui-monospace, monospace'
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
+    // Erst die fremden (dezent), dann die eingehenden (rot) — damit die roten oben liegen.
+    const incoming: Array<{ sx: number; sy: number; label: string }> = []
     screenCtx.lineWidth = 3
+    screenCtx.font = 'bold 12px ui-monospace, monospace'
     for (const p of state.players.values()) {
       if (p.attacks.length === 0) continue
       const fill = rgbaToCssLocal(p.color)
@@ -657,15 +661,53 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         const fx = (atk.focusTile % mapW) + 0.5
         const fy = Math.floor(atk.focusTile / mapW) + 0.5
         const { sx, sy } = nearestWrappedScreenPos(fx, fy)
-        if (sx < -30 || sx > cssW + 30 || sy < -20 || sy > cssH + 20) continue
+        if (sx < -40 || sx > cssW + 40 || sy < -24 || sy > cssH + 24) continue
         const label = fmtCompactRender(atk.reserveTroops)
+        if (humanId >= 0 && atk.targetPlayerId === humanId) {
+          incoming.push({ sx, sy, label })
+          continue
+        }
         screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
         screenCtx.strokeText(label, sx, sy)
         screenCtx.fillStyle = fill
         screenCtx.fillText(label, sx, sy)
       }
     }
+    // Eingehende Angriffe auf den Menschen: rote Pille mit Schwert + Truppenzahl.
+    screenCtx.font = 'bold 14px ui-monospace, monospace'
+    for (const { sx, sy, label } of incoming) {
+      const text = `⚔ ${label}`
+      const w = screenCtx.measureText(text).width + 14
+      const h = 20
+      screenCtx.fillStyle = 'rgba(225,40,40,0.92)'
+      screenCtx.strokeStyle = 'rgba(0,0,0,0.6)'
+      screenCtx.lineWidth = 2
+      roundRect(screenCtx, sx - w / 2, sy - h / 2, w, h, 6)
+      screenCtx.fill()
+      screenCtx.stroke()
+      screenCtx.fillStyle = '#ffffff'
+      screenCtx.fillText(text, sx, sy + 0.5)
+    }
     screenCtx.restore()
+  }
+
+  /** Pfad eines abgerundeten Rechtecks (kein Stroke/Fill — Aufrufer entscheidet). */
+  function roundRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number,
+  ): void {
+    const rad = Math.min(r, w / 2, h / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + rad, y)
+    ctx.arcTo(x + w, y, x + w, y + h, rad)
+    ctx.arcTo(x + w, y + h, x, y + h, rad)
+    ctx.arcTo(x, y + h, x, y, rad)
+    ctx.arcTo(x, y, x + w, y, rad)
+    ctx.closePath()
   }
 
   function drawBuildings(): void {
