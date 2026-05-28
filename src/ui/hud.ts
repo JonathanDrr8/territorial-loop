@@ -205,12 +205,12 @@ export function createHUD(
       html.push(
         `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}<br>`,
       )
-      // Eigene Nation: Cap + aktuelle Wachstumsrate (pro Sekunde = Rate/Tick × 10)
+      // Eigene Nation: Cap + Wachstumsrate (pro Sekunde) + Gold-Vorrat
       if (p.isHuman && p.isAlive) {
         const cap = maxTroops(p.tilesOwned)
         const ratePerSec = troopIncreaseRate(p.troops, cap) * 10
         html.push(
-          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ Cap ${fmtCompact(cap)} · +${fmtCompact(ratePerSec)}/s</span><br>`,
+          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ Cap ${fmtCompact(cap)} · +${fmtCompact(ratePerSec)}/s · <span style="color:#e8c14a">${fmtCompact(p.gold)} Gold</span></span><br>`,
         )
       }
     }

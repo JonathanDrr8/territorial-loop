@@ -24,6 +24,13 @@ export const HUMAN_DEFAULT_ATTACK_PCT = 20
 export const BOT_DEFAULT_ATTACK_PCT = 5
 
 /**
+ * Flaches Gold-Einkommen pro Tick und lebendem Spieler — unabhängig von der
+ * Gebietsgröße (bewusster Balance-Trade-off: kleine Nationen sind Gold-effizient
+ * pro Fläche). Eco-Gebäude und Handelsschiffe kommen additiv obendrauf.
+ */
+export const BASE_GOLD_PER_TICK = 100
+
+/**
  * Terrain-Magnitude — bestimmt Verlust- und Geschwindigkeits-Faktoren beim Kampf.
  * Im MVP gibt es nur Plains (alle Tiles sind Land). Werte aus OpenFront.
  */

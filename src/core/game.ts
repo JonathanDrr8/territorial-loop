@@ -15,6 +15,7 @@ import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { generateTerrain, isPassable, terrainMagnitude, type TerrainType } from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
 import {
+  BASE_GOLD_PER_TICK,
   BOT_START_TROOPS,
   HUMAN_START_TROOPS,
   attackerLossPerTile,
@@ -78,6 +79,8 @@ export interface Player {
   frontier: Set<TileRef>
   attacks: Attack[]
   isAlive: boolean
+  /** Gold-Vorrat — Währung für Gebäude und Schiffe. */
+  gold: number
   /** Höchster jemals erreichter `tilesOwned`-Stand. */
   peakTilesOwned: number
   /** Höchster jemals erreichter `troops`-Stand. */
@@ -146,6 +149,7 @@ export function createGame(config: GameConfig): GameState {
       frontier: new Set<TileRef>(),
       attacks: [],
       isAlive: true,
+      gold: 0,
       peakTilesOwned: 0,
       peakTroops: startTroops,
     })
@@ -301,12 +305,21 @@ function initializeAllFrontiers(state: GameState): void {
 export function tick(state: GameState, intents: readonly Intent[]): GameState {
   applyIntents(state, intents)
   growPopulations(state)
+  generateGold(state)
   resolveAttacks(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
   state.tick++
   return state
+}
+
+function generateGold(state: GameState): void {
+  for (const player of state.players.values()) {
+    if (!player.isAlive) continue
+    // Flaches Basis-Einkommen. Eco-Gebäude + Handel addieren in Phase 4/5.
+    player.gold += BASE_GOLD_PER_TICK
+  }
 }
 
 function updatePeakStats(state: GameState): void {
