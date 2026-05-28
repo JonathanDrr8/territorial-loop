@@ -10,6 +10,15 @@
  */
 
 import { canReachByLand, effectiveMaxTroops, type GameState } from '../core/game'
+import {
+  BUILDING_LABEL,
+  CITY_CAP_BONUS,
+  DEFENSE_MAG_MULTIPLIER,
+  defenseRange,
+  isBuildingComplete,
+  type Building,
+} from '../core/buildings'
+import { FACTORY_LINK_RANGE } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import { shipWorldPos } from '../core/ships'
 import { getOwner } from '../world/map'
@@ -35,6 +44,20 @@ function fmtCompact(value: number): string {
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
   return String(v)
+}
+
+/** Konkreter Effektwert eines Gebäudes je Typ/Level (für den Hover-Tooltip). */
+function buildingEffect(b: Building): string {
+  switch (b.type) {
+    case 'city':
+      return `+${fmtCompact(CITY_CAP_BONUS * b.level)} Truppen-Cap`
+    case 'defense':
+      return `${String(DEFENSE_MAG_MULTIPLIER)}× Eroberungskosten · Reichweite ${String(defenseRange(b.level))} Tiles`
+    case 'port':
+      return 'Schiffe & Handel'
+    case 'factory':
+      return `Netzwerk-Gold · Reichweite ${String(FACTORY_LINK_RANGE)} Tiles`
+  }
 }
 
 export function createHoverTooltip(
@@ -106,6 +129,21 @@ export function createHoverTooltip(
 
     const ref = tileRef(Math.floor(worldX), Math.floor(worldY), w, h)
     const owner = getOwner(state.map, ref)
+
+    // Gebäude auf dem Tile → Typ/Level/Effekt zeigen (auch über eigenem Gebiet).
+    const building = state.buildings.get(ref)
+    if (building !== undefined) {
+      const ownerName =
+        building.ownerId === humanId ? 'Du' : (state.players.get(building.ownerId)?.name ?? '?')
+      const complete = isBuildingComplete(building, state.tick)
+      const status = complete ? '' : ' <span style="opacity:0.6">(im Bau)</span>'
+      place(
+        `<b>${escapeHtml(BUILDING_LABEL[building.type])}</b> <span style="opacity:0.7">Lvl ${String(building.level)}</span>${status}<br>` +
+          `<span style="opacity:0.8">${buildingEffect(building)}</span><br>` +
+          `<span style="opacity:0.55">${escapeHtml(ownerName)}</span>`,
+      )
+      return
+    }
 
     if (owner === humanId) {
       hide()

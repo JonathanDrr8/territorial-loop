@@ -14,7 +14,7 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import { BUILD_TIME_TICKS, defenseRange } from '../core/buildings'
+import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
@@ -1338,6 +1338,41 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /**
+   * Reichweiten-Ring beim Hover über einen bestehenden, fertigen Verteidigungsposten
+   * (gestrichelt, gelb) — macht Level-Unterschiede sichtbar. Im Bau-Modus unterdrückt.
+   */
+  function drawHoveredDefenseRange(): void {
+    if (buildPreviewType !== null || hoverTile === null) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const ref = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+    const b = state.buildings.get(ref)
+    if (b === undefined || b.type !== 'defense' || !isBuildingComplete(b, state.tick)) return
+    const z = camera.zoom
+    const r = defenseRange(b.level) * z
+    const tx = hoverTile.x + 0.5
+    const ty = hoverTile.y + 0.5
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    screenCtx.save()
+    screenCtx.strokeStyle = 'rgba(232,180,74,0.7)'
+    screenCtx.lineWidth = 1.5
+    screenCtx.setLineDash([5, 4])
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const sx = worldToScreenX(tx + dx * mapW)
+        const sy = worldToScreenY(ty + dy * mapH)
+        if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+        screenCtx.stroke()
+      }
+    }
+    screenCtx.setLineDash([])
+    screenCtx.restore()
+  }
+
   function render(): void {
     if (state.tick !== lastBitmapTick) {
       // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
@@ -1355,6 +1390,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawShips()
     drawBuildingLinks()
     drawBuildings()
+    drawHoveredDefenseRange()
     drawBuildPreview()
     drawMarkers()
     drawLabels()
