@@ -4,7 +4,6 @@ import {
   troopIncreaseRate,
   tilesPerTick,
   attackerLossPerTile,
-  defenderLossPerTile,
   growthZones,
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
@@ -202,20 +201,5 @@ describe('attackerLossPerTile', () => {
     // altLoss = 1.3 * 100 * 0.8 = 104
     // result = 0.6*128 + 0.4*104 = 76.8 + 41.6 = 118.4
     expect(loss).toBeCloseTo(118.4, 2)
-  })
-})
-
-describe('defenderLossPerTile', () => {
-  it('returns 0 against TerraNullius', () => {
-    expect(defenderLossPerTile(1000, 100, true)).toBe(0)
-  })
-
-  it('returns troops / tilesOwned for a real defender', () => {
-    expect(defenderLossPerTile(1000, 100, false)).toBe(10)
-    expect(defenderLossPerTile(50_000, 500, false)).toBe(100)
-  })
-
-  it('returns 0 when defender has 0 tiles (defensive guard)', () => {
-    expect(defenderLossPerTile(1000, 0, false)).toBe(0)
   })
 })

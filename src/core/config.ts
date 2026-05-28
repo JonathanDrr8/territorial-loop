@@ -199,21 +199,3 @@ export function attackerLossPerTile(
   const altLoss = 1.3 * (defenderTroops / safeTiles) * (mag / 100)
   return 0.6 * currentLoss + 0.4 * altLoss
 }
-
-/**
- * Truppen-Verlust des Verteidigers pro verlorenes Tile.
- *
- * OpenFront: `defenderLoss = defender.troops / defender.tilesOwned` —
- * exakt der Durchschnitts-Truppen-Bestand pro Tile.
- *
- * Gegen TerraNullius: keiner verliert etwas (oldOwner ist neutral).
- */
-export function defenderLossPerTile(
-  defenderTroops: number,
-  defenderTilesOwned: number,
-  vsTerraNullius: boolean,
-): number {
-  if (vsTerraNullius) return 0
-  if (defenderTilesOwned <= 0) return 0
-  return defenderTroops / defenderTilesOwned
-}

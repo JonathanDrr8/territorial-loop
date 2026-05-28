@@ -27,7 +27,6 @@ import {
   BOT_START_TROOPS,
   HUMAN_START_TROOPS,
   attackerLossPerTile,
-  defenderLossPerTile,
   maxTroops,
   tilesPerTick,
   troopIncreaseRate,
@@ -846,11 +845,7 @@ function landBoat(state: GameState, boat: Boat): void {
 
   if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
 
-  if (!vsNull && defender !== undefined) {
-    const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
-    defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
-  }
-
+  // Verteidiger verliert nur Land, keine Truppen (siehe advanceAttack).
   const remaining = Math.floor(boat.troops - aLoss)
   captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
   attacker.attacks.push({ targetPlayerId: owner, reserveTroops: remaining, focusTile: target })
@@ -1085,10 +1080,9 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
     attack.reserveTroops = Math.max(0, Math.floor(attack.reserveTroops - aLoss))
 
-    if (!isCurrentlyTerraNullius && defender !== undefined) {
-      const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
-      defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
-    }
+    // Der Verteidiger verliert nur Land, KEINE Truppen — Verteidigen kostet keine
+    // Truppen (bewusste Design-Entscheidung). Seine Truppen sitzen weiter auf dem
+    // (kleiner werdenden) Gebiet → die Eroberung wird pro Tile zäher.
 
     captureTile(state, ref, attacker.id)
   }
