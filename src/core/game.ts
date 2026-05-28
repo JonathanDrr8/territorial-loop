@@ -57,6 +57,7 @@ import type {
 import { createPRNG, type PRNG } from './random'
 import {
   AECHTUNG_DURATION_TICKS,
+  ALLIANCE_DURATION_TICKS,
   TRAITOR_DEFENSE_PENALTY,
   areAllied,
   directedKey,
@@ -203,6 +204,8 @@ export interface GameState {
   tradeShips: TradeShip[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
   readonly alliances: Set<number>
+  /** Ablauf-Tick je Allianz ([[pairKey]] → Tick) — Allianzen laufen automatisch aus. */
+  readonly allianceExpiry: Map<number, number>
   /** Offene Bündnis-Angebote als gerichtete Schlüssel from→to ([[directedKey]]). */
   readonly allianceRequests: Set<number>
   /** Verhängte Embargos als gerichtete Schlüssel from→to. */
@@ -299,6 +302,7 @@ export function createGame(config: GameConfig): GameState {
     boats: [],
     tradeShips: [],
     alliances: new Set<number>(),
+    allianceExpiry: new Map<number, number>(),
     allianceRequests: new Set<number>(),
     embargoes: new Set<number>(),
     grudge: new Map<number, number>(),
@@ -559,6 +563,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   spawnTradeShips(state)
   advanceTradeShips(state)
   decayGrudge(state)
+  expireAlliances(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
@@ -570,6 +575,21 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
 const GRUDGE_DECAY = 0.99
 /** Unter diesem Wert wird ein Groll-Eintrag gelöscht (gilt als vergessen). */
 const GRUDGE_MIN = 1
+
+/** Beendet abgelaufene Allianzen (Laufzeit überschritten) und meldet das im Log. */
+function expireAlliances(state: GameState): void {
+  if (state.allianceExpiry.size === 0) return
+  for (const [key, expiresAt] of state.allianceExpiry) {
+    if (state.tick < expiresAt) continue
+    state.alliances.delete(key)
+    state.allianceExpiry.delete(key)
+    const a = state.players.get(Math.floor(key / 4096))
+    const b = state.players.get(key % 4096)
+    if (a !== undefined && b !== undefined) {
+      emitEvent(state, `Allianz zwischen ${a.name} und ${b.name} ausgelaufen`, a.color)
+    }
+  }
+}
 
 /** Lässt allen aufgebauten Groll pro Tick etwas abklingen; vergisst Kleinstwerte. */
 function decayGrudge(state: GameState): void {
@@ -776,6 +796,13 @@ function livingPair(state: GameState, a: number, b: number): [Player, Player] | 
   return [pa, pb]
 }
 
+/** Schließt eine Allianz (a,b) und setzt ihren Ablauf-Tick. */
+function formAlliance(state: GameState, a: number, b: number): void {
+  const key = pairKey(a, b)
+  state.alliances.add(key)
+  state.allianceExpiry.set(key, state.tick + ALLIANCE_DURATION_TICKS)
+}
+
 function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceIntent): void {
   const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
   if (pair === null) return
@@ -784,7 +811,7 @@ function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceInt
   // Hatte die Gegenseite bereits angefragt → Bündnis kommt sofort zustande.
   if (hasAllianceRequest(state.allianceRequests, to.id, from.id)) {
     state.allianceRequests.delete(directedKey(to.id, from.id))
-    state.alliances.add(pairKey(from.id, to.id))
+    formAlliance(state, from.id, to.id)
     emitEvent(state, `${from.name} und ${to.name} sind verbündet`, from.color)
     return
   }
@@ -800,7 +827,7 @@ function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceInten
   // Es muss ein Angebot requester→accepter geben.
   if (!hasAllianceRequest(state.allianceRequests, requester.id, accepter.id)) return
   state.allianceRequests.delete(directedKey(requester.id, accepter.id))
-  state.alliances.add(pairKey(accepter.id, requester.id))
+  formAlliance(state, accepter.id, requester.id)
   emitEvent(state, `${accepter.name} und ${requester.name} sind verbündet`, accepter.color)
 }
 
@@ -810,6 +837,7 @@ function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent)
   const [traitor, betrayed] = pair
   if (!areAllied(state.alliances, traitor.id, betrayed.id)) return
   state.alliances.delete(pairKey(traitor.id, betrayed.id))
+  state.allianceExpiry.delete(pairKey(traitor.id, betrayed.id))
   traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
   emitEvent(state, `${traitor.name} verrät ${betrayed.name}!`, traitor.color)
 }

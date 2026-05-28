@@ -15,6 +15,8 @@ const ID_STRIDE = 4096
 
 /** Ächtungsdauer nach Verrat (Ticks), in der der Verräter geschwächt verteidigt. */
 export const AECHTUNG_DURATION_TICKS = 300
+/** Laufzeit einer Allianz (Ticks): 5:00 Min bei 10 Ticks/s. Danach läuft sie aus. */
+export const ALLIANCE_DURATION_TICKS = 3000
 /** Verteidigungs-Malus des Verräters: Angreifer-Verluste werden mit diesem Faktor multipliziert. */
 export const TRAITOR_DEFENSE_PENALTY = 0.5
 

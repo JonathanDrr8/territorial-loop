@@ -6,6 +6,7 @@ import {
   areAllied,
   isTradeBlocked,
   AECHTUNG_DURATION_TICKS,
+  ALLIANCE_DURATION_TICKS,
 } from '../src/core/diplomacy'
 import { getOwner, setOwner } from '../src/world/map'
 import { tileRef } from '../src/world/torus'
@@ -82,6 +83,20 @@ describe('alliance lifecycle', () => {
     tick(state, [{ type: 'request-alliance', playerId: 1, targetPlayerId: 2 }])
     tick(state, [{ type: 'request-alliance', playerId: 2, targetPlayerId: 1 }])
     expect(areAllied(state.alliances, 1, 2)).toBe(true)
+  })
+
+  it('läuft nach ALLIANCE_DURATION_TICKS automatisch aus', () => {
+    const state = createGame(cfg())
+    tick(state, [{ type: 'request-alliance', playerId: 1, targetPlayerId: 2 }])
+    tick(state, [{ type: 'accept-alliance', playerId: 2, targetPlayerId: 1 }])
+    expect(areAllied(state.alliances, 1, 2)).toBe(true)
+    // kurz vor Ablauf noch verbündet
+    for (let i = 0; i < ALLIANCE_DURATION_TICKS - 2; i++) tick(state, [])
+    expect(areAllied(state.alliances, 1, 2)).toBe(true)
+    // nach Ablauf nicht mehr
+    for (let i = 0; i < 4; i++) tick(state, [])
+    expect(areAllied(state.alliances, 1, 2)).toBe(false)
+    expect(state.allianceExpiry.size).toBe(0)
   })
 
   it('blocks attacks between allies', () => {

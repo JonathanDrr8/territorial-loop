@@ -23,7 +23,7 @@ import {
   type BuildingType,
 } from '../core/buildings'
 import { countBuildingsOfType, nearWater, type GameState } from '../core/game'
-import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
+import { areAllied, directedKey, hasAllianceRequest, pairKey } from '../core/diplomacy'
 import type { Intent } from '../core/intent'
 import { getOwner } from '../world/map'
 import { rgbaToCss } from './colors'
@@ -199,8 +199,13 @@ export function createBuildMenu(
     const weRequested = hasAllianceRequest(state.allianceRequests, humanPlayerId, targetId)
 
     if (allied) {
+      const expiry = state.allianceExpiry.get(pairKey(humanPlayerId, targetId))
+      const remainSec = expiry !== undefined ? Math.max(0, (expiry - state.tick) / 10) : 0
+      const mm = Math.floor(remainSec / 60)
+      const ss = Math.floor(remainSec % 60)
+      const timer = `läuft in ${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()} aus`
       panel.appendChild(
-        makeRow('!', 'Allianz brechen', 'Verrat → 300 Ticks geächtet', '', true, true, () => {
+        makeRow('!', 'Allianz brechen', `Verrat → geächtet · ${timer}`, '', true, true, () => {
           emit({ type: 'break-alliance', playerId: humanPlayerId, targetPlayerId: targetId })
           close()
         }),
