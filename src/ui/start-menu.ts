@@ -42,48 +42,67 @@ export interface StartMenuApi {
 /** Wählbare Kantenlängen für Breite/Höhe (frei kombinierbar → auch 6:1 etc.). */
 const MAP_DIM_OPTIONS = [256, 512, 768, 1024, 1536, 2048] as const
 
+/** Akzentfarbe — passt zum Eigenleuchten/Optimum-Strich im Spiel (cyan). */
+const ACCENT = '#46d9e6'
+
 const PANEL_STYLE = [
-  'background: #1a1a22',
+  'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
   'color: white',
-  'padding: 28px 32px',
-  'border-radius: 10px',
-  'min-width: 380px',
-  'max-width: 90vw',
+  'padding: 30px 34px 26px',
+  'border-radius: 14px',
+  'border: 1px solid rgba(70,217,230,0.18)',
+  'min-width: 420px',
+  'max-width: 92vw',
   'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
   'font-size: 14px',
-  'box-shadow: 0 8px 40px rgba(0,0,0,0.6)',
+  'box-shadow: 0 18px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)',
 ].join(';')
 
 const FIELD_ROW_STYLE =
-  'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 12px'
+  'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
 
 const BUTTON_STYLE = [
-  'margin-top: 16px',
+  'margin-top: 22px',
   'width: 100%',
-  'padding: 12px',
-  'background: #4a8',
-  'color: white',
+  'padding: 13px',
+  'background: linear-gradient(180deg, #3fd0c0 0%, #2bb39c 100%)',
+  'color: #07120f',
   'border: none',
-  'border-radius: 6px',
+  'border-radius: 8px',
   'font-size: 15px',
   'font-family: inherit',
+  'letter-spacing: 0.3px',
   'cursor: pointer',
   'font-weight: bold',
+  'box-shadow: 0 4px 16px rgba(63,208,192,0.3)',
+  'transition: transform 0.08s, box-shadow 0.12s',
 ].join(';')
 
 const INPUT_STYLE = [
-  'background: #0e0e14',
+  'background: #0d0d13',
   'color: white',
-  'border: 1px solid #2a2a35',
-  'border-radius: 4px',
-  'padding: 6px 8px',
+  'border: 1px solid #2c2c3a',
+  'border-radius: 5px',
+  'padding: 7px 9px',
   'font-family: inherit',
   'font-size: 14px',
   'width: 100%',
   'box-sizing: border-box',
+  'outline: none',
+  'transition: border-color 0.12s',
 ].join(';')
 
 const SELECT_STYLE = INPUT_STYLE
+
+/** Klassen-basierte Hover/Focus-Styles (inline geht nicht für :focus/:hover). */
+const MENU_CSS = `
+.tl-menu input[type=text]:focus, .tl-menu select:focus { border-color: ${ACCENT}; box-shadow: 0 0 0 2px rgba(70,217,230,0.2) }
+.tl-menu .tl-start:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(63,208,192,0.45) }
+.tl-menu .tl-start:active { transform: translateY(0) }
+.tl-menu .tl-section { margin: 18px 0 9px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: ${ACCENT}; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 12px }
+.tl-menu input[type=range] { accent-color: ${ACCENT} }
+.tl-menu input[type=checkbox] { accent-color: ${ACCENT} }
+`
 
 interface SliderRow {
   readonly element: HTMLElement
@@ -148,21 +167,37 @@ export function createStartMenu(
     'display: flex',
     'align-items: center',
     'justify-content: center',
+    'overflow-y: auto',
+    'padding: 24px 0',
+    'box-sizing: border-box',
     'z-index: 50',
     'backdrop-filter: blur(4px)',
   ].join(';')
 
+  const styleTag = document.createElement('style')
+  styleTag.textContent = MENU_CSS
+  overlay.appendChild(styleTag)
+
   const panel = document.createElement('div')
+  panel.className = 'tl-menu'
   panel.style.cssText = PANEL_STYLE
 
+  /** Sektions-Überschrift, gruppiert die Felder darunter. */
+  const section = (text: string): void => {
+    const h = document.createElement('div')
+    h.className = 'tl-section'
+    h.textContent = text
+    panel.appendChild(h)
+  }
+
   const title = document.createElement('h1')
-  title.textContent = 'territorial-loop'
-  title.style.cssText = 'margin: 0; font-size: 24px'
+  title.innerHTML = `territorial-<span style="color:${ACCENT}">loop</span>`
+  title.style.cssText = 'margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 0.5px'
   panel.appendChild(title)
 
   const subtitle = document.createElement('div')
   subtitle.textContent = 'Browser-RTS auf einer randlosen Welt'
-  subtitle.style.cssText = 'opacity: 0.65; font-size: 12px; margin-bottom: 24px'
+  subtitle.style.cssText = 'opacity: 0.6; font-size: 12px; margin-bottom: 18px'
   panel.appendChild(subtitle)
 
   // Name field
@@ -208,6 +243,7 @@ export function createStartMenu(
   dimWrap.appendChild(heightSelect)
   mapRow.appendChild(mapLabel)
   mapRow.appendChild(dimWrap)
+  section('Welt')
   panel.appendChild(mapRow)
 
   // Terrain — discrete select
@@ -234,6 +270,7 @@ export function createStartMenu(
   panel.appendChild(terrainRow)
 
   // AI count
+  section('Gegner')
   const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
 
@@ -264,6 +301,7 @@ export function createStartMenu(
   panel.appendChild(diffRow)
 
   // Victory %
+  section('Match')
   const victory = makeSliderRow('Sieg-%', 50, 100, 5, initial.victoryPct, '%')
   panel.appendChild(victory.element)
 
@@ -328,14 +366,9 @@ export function createStartMenu(
 
   // Start button
   const startBtn = document.createElement('button')
+  startBtn.className = 'tl-start'
   startBtn.textContent = 'Match starten'
   startBtn.style.cssText = BUTTON_STYLE
-  startBtn.addEventListener('mouseenter', () => {
-    startBtn.style.background = '#5b9'
-  })
-  startBtn.addEventListener('mouseleave', () => {
-    startBtn.style.background = '#4a8'
-  })
   startBtn.addEventListener('click', () => {
     const seedRaw = seedInput.value.trim()
     onStart({
