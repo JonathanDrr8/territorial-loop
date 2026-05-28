@@ -10,10 +10,19 @@
  * differential update auf Listenebene.
  */
 
+import { maxTroops, troopIncreaseRate } from '../core/config'
 import type { GameState } from '../core/game'
 import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
+
+/** Kompaktes Zahlenformat: 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
+function fmtCompact(value: number): string {
+  const v = Math.round(value)
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(v)
+}
 
 export type SpeedMultiplier = 0 | 1 | 2 | 5 // 0 = Pause
 
@@ -196,6 +205,14 @@ export function createHUD(
       html.push(
         `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}<br>`,
       )
+      // Eigene Nation: Cap + aktuelle Wachstumsrate (pro Sekunde = Rate/Tick × 10)
+      if (p.isHuman && p.isAlive) {
+        const cap = maxTroops(p.tilesOwned)
+        const ratePerSec = troopIncreaseRate(p.troops, cap) * 10
+        html.push(
+          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ Cap ${fmtCompact(cap)} · +${fmtCompact(ratePerSec)}/s</span><br>`,
+        )
+      }
     }
     status.innerHTML = html.join('')
 

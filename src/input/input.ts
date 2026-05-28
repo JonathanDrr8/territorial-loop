@@ -51,12 +51,23 @@ export interface InputHandler {
   destroy(): void
 }
 
-const ZOOM_MIN = 0.5
+const ZOOM_MIN_ABS = 0.5
 const ZOOM_MAX = 16
 const ZOOM_STEP = 1.15
 
 export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
+
+  /**
+   * Dynamisches Zoom-Minimum: nicht weiter raus als bis die Karte ~70% des
+   * Viewports füllt — sonst kachelt sich die Welt vielfach zur "Tapete".
+   * Niemals unter ZOOM_MIN_ABS.
+   */
+  function minZoom(): number {
+    const fitW = canvas.clientWidth / (mapWidth * 1.4)
+    const fitH = canvas.clientHeight / (mapHeight * 1.4)
+    return Math.max(ZOOM_MIN_ABS, Math.min(fitW, fitH))
+  }
 
   let dragging = false
   let lastDragX = 0
@@ -146,7 +157,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     const worldYBefore = (sy - halfH) / camera.zoom + camera.y
 
     const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP
-    camera.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camera.zoom * factor))
+    camera.zoom = Math.max(minZoom(), Math.min(ZOOM_MAX, camera.zoom * factor))
 
     // Nach dem Zoom: Camera so verschieben dass die Welt-Position unter dem Cursor bleibt
     const worldXAfter = (sx - halfW) / camera.zoom + camera.x

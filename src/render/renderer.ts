@@ -268,11 +268,17 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.fillStyle = BG_FILL
     screenCtx.fillRect(0, 0, cssW, cssH)
 
+    // Kachel-Größe leicht aufrunden (+1px) und Positionen auf ganze Pixel runden,
+    // damit benachbarte Map-Kopien sich minimal überlappen statt Lücken (Gitterlinien)
+    // bei fraktionalem Zoom zu lassen.
+    const tileDrawW = Math.ceil(mapW * z) + 1
+    const tileDrawH = Math.ceil(mapH * z) + 1
+
     for (let wx = xStart; wx < worldRight; wx += mapW) {
       for (let wy = yStart; wy < worldBottom; wy += mapH) {
-        const sx = (wx - worldLeft) * z
-        const sy = (wy - worldTop) * z
-        screenCtx.drawImage(offscreen, sx, sy, mapW * z, mapH * z)
+        const sx = Math.round((wx - worldLeft) * z)
+        const sy = Math.round((wy - worldTop) * z)
+        screenCtx.drawImage(offscreen, sx, sy, tileDrawW, tileDrawH)
       }
     }
   }
