@@ -248,6 +248,13 @@ const TERRAIN_WAVE_PENALTY = 0.06
 const FRONT_SMOOTHING = 8
 
 /**
+ * Fokus-Gewicht für Angriffe auf Nationen (0..1): stark gedämpft (vs. 1.0 für
+ * Wildnis), damit sich der Druck über die ganze gemeinsame Grenze verteilt, statt
+ * gezielt am Klick-Punkt zu konzentrieren — gesicherte Grenzen werden zäh.
+ */
+const NATION_FOCUS_PULL = 0.15
+
+/**
  * Erzeugt einen neuen Spielzustand und platziert alle Spieler-Spawns.
  *
  * Spawn-Platzierung: Rejection Sampling — pro Spieler bis zu 1000 Versuche,
@@ -1238,7 +1245,10 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
   // Front-Welle: die Reihenfolge der Eroberung formt das Gebiet. Schlüssel je
   // eroberbarem Tile (kleiner = zuerst), aus drei Effekten:
-  //   - Nähe zum Fokus → gerichtete Ausbreitung in Klick-Richtung
+  //   - Nähe zum Fokus → gerichtete Ausbreitung in Klick-Richtung. Voll gegen
+  //     Wildnis (man drückt gezielt rein), stark gedämpft gegen Nationen: dort baut
+  //     sich der Druck über die GANZE gemeinsame Grenze auf (gesicherte Grenzen sind
+  //     zäh, keine 1-2-Pixel-Lücken).
   //   - viele eigene Nachbarn ziehen stark vor (FRONT_SMOOTHING) → Buchten werden
   //     zuerst gefüllt, die Front bleibt breit/glatt statt dünne Finger zu treiben
   //   - höheres Terrain bremst → die Welle umfließt Hügel/Berge
@@ -1247,6 +1257,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const { width: mapW, height: mapH } = state.map
   const focusX = attack.focusTile % mapW
   const focusY = Math.floor(attack.focusTile / mapW)
+  const focusPull = vsTerraNullius ? 1 : NATION_FOCUS_PULL
   const keyed = tiles.map((t) => {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
@@ -1254,7 +1265,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     const own = ownNeighborCount(state, t, attacker.id)
     const terrainPenalty =
       (terrainMagnitude(state.map.terrain, t) - PLAINS_MAG) * TERRAIN_WAVE_PENALTY
-    return { t, key: dist - own * FRONT_SMOOTHING + terrainPenalty }
+    return { t, key: dist * focusPull - own * FRONT_SMOOTHING + terrainPenalty }
   })
   keyed.sort((a, b) => a.key - b.key)
 
