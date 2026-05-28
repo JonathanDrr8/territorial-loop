@@ -172,8 +172,20 @@ describe('trade ships via tick', () => {
     const humanPort = own(state, 1, 1, 1) // coastal to x=0 water at (0,1)
     const enemyPort = own(state, 1, 3, 2) // coastal to x=0 water at (0,3) → Route Länge 3
     // place port buildings
-    state.buildings.set(humanPort, { type: 'port', ownerId: 1, tile: humanPort, level: 1 })
-    state.buildings.set(enemyPort, { type: 'port', ownerId: 2, tile: enemyPort, level: 1 })
+    state.buildings.set(humanPort, {
+      type: 'port',
+      ownerId: 1,
+      tile: humanPort,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(enemyPort, {
+      type: 'port',
+      ownerId: 2,
+      tile: enemyPort,
+      level: 1,
+      completesAtTick: 0,
+    })
 
     // fast-forward to a tick where the human port is due to launch
     while (state.tick % TRADE_INTERVAL_TICKS !== humanPort % TRADE_INTERVAL_TICKS) {

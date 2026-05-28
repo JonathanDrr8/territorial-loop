@@ -35,6 +35,7 @@ import {
 import {
   type Building,
   type BuildingType,
+  BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   MARKET_GOLD_PER_TICK,
@@ -42,6 +43,7 @@ import {
   PORT_WATER_RANGE,
   buildCost,
   defenseRange,
+  isBuildingComplete,
   upgradeCost,
 } from './buildings'
 import type {
@@ -606,7 +608,7 @@ function generateGold(state: GameState): void {
   // Markt-Gold pro Spieler aus den Gebäuden vorberechnen.
   const marketGold = new Map<number, number>()
   for (const b of state.buildings.values()) {
-    if (b.type !== 'market') continue
+    if (b.type !== 'market' || !isBuildingComplete(b, state.tick)) continue
     marketGold.set(b.ownerId, (marketGold.get(b.ownerId) ?? 0) + MARKET_GOLD_PER_TICK * b.level)
   }
   for (const player of state.players.values()) {
@@ -619,7 +621,8 @@ function generateGold(state: GameState): void {
 function cityCapBonus(state: GameState, playerId: number): number {
   let bonus = 0
   for (const b of state.buildings.values()) {
-    if (b.type === 'city' && b.ownerId === playerId) bonus += CITY_CAP_BONUS * b.level
+    if (b.type === 'city' && b.ownerId === playerId && isBuildingComplete(b, state.tick))
+      bonus += CITY_CAP_BONUS * b.level
   }
   return bonus
 }
@@ -635,7 +638,8 @@ function defenseMagMultiplier(state: GameState, tile: TileRef, defenderId: numbe
   const tx = tile % width
   const ty = Math.floor(tile / width)
   for (const b of state.buildings.values()) {
-    if (b.type !== 'defense' || b.ownerId !== defenderId) continue
+    if (b.type !== 'defense' || b.ownerId !== defenderId || !isBuildingComplete(b, state.tick))
+      continue
     const bx = b.tile % width
     const by = Math.floor(b.tile / width)
     if (torusDistance(tx, ty, bx, by, width, height) <= defenseRange(b.level)) {
@@ -766,6 +770,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
     ownerId: player.id,
     tile: intent.tile,
     level: 1,
+    completesAtTick: state.tick + BUILD_TIME_TICKS,
   })
 }
 
@@ -1058,7 +1063,7 @@ function landBoat(state: GameState, boat: Boat): void {
 function spawnTradeShips(state: GameState): void {
   const ports: TileRef[] = []
   for (const b of state.buildings.values()) {
-    if (b.type === 'port') ports.push(b.tile)
+    if (b.type === 'port' && isBuildingComplete(b, state.tick)) ports.push(b.tile)
   }
   if (ports.length < 2) return
   ports.sort((a, b) => a - b)

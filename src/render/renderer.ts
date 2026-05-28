@@ -14,7 +14,7 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import { defenseRange } from '../core/buildings'
+import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
 import { canBuildAt, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
 import type { Boat, TradeShip } from '../core/ships'
@@ -788,7 +788,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const z = camera.zoom
     screenCtx.save()
     for (const b of state.buildings.values()) {
-      if (b.type !== 'defense') continue
+      if (b.type !== 'defense' || !isBuildingComplete(b, state.tick)) continue
       const r = defenseRange(b.level) * z
       const tx = (b.tile % mapW) + 0.5
       const ty = Math.floor(b.tile / mapW) + 0.5
@@ -823,11 +823,17 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const glyph = BUILDING_GLYPH[b.type]
       const tx = (b.tile % mapW) + 0.5
       const ty = Math.floor(b.tile / mapW) + 0.5
+      // Im Bau? Fortschritt 0..1 für die Leiste; der Marker ist dann gedimmt.
+      const inProgress = state.tick < b.completesAtTick
+      const buildProgress = inProgress
+        ? Math.max(0, Math.min(1, 1 - (b.completesAtTick - state.tick) / BUILD_TIME_TICKS))
+        : 1
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
           const sx = worldToScreenX(tx + dx * mapW)
           const sy = worldToScreenY(ty + dy * mapH)
           if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+          screenCtx.globalAlpha = inProgress ? 0.55 : 1
           // Marker-Hintergrund + Spielerfarbe-Ring
           screenCtx.beginPath()
           screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
@@ -839,6 +845,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
           // Glyph
           screenCtx.fillStyle = '#fff'
           screenCtx.fillText(glyph, sx, sy + 0.5)
+          screenCtx.globalAlpha = 1
+          // Bau-Fortschrittsleiste unter dem Marker (nur während des Baus).
+          if (inProgress) {
+            const bw = radius * 2
+            const bh = 3
+            const bxl = sx - radius
+            const byl = sy + radius + 2
+            screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
+            screenCtx.fillRect(bxl, byl, bw, bh)
+            screenCtx.fillStyle = '#5dd75d'
+            screenCtx.fillRect(bxl, byl, bw * buildProgress, bh)
+          }
           // Level-Punkte (über dem Marker)
           if (b.level > 1) {
             screenCtx.fillStyle = '#ffd24a'

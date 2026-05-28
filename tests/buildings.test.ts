@@ -3,6 +3,7 @@ import {
   buildCost,
   upgradeCost,
   defenseRange,
+  BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
   MARKET_GOLD_PER_TICK,
 } from '../src/core/buildings'
@@ -92,6 +93,10 @@ describe('build intent', () => {
     p.gold = 100_000
     const tile = ownedTile(state, 1)
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    // Während des Baus noch keine Wirkung …
+    expect(effectiveMaxTroops(state, 1)).toBe(capBefore)
+    // … erst nach der Bauzeit.
+    for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, [])
     expect(effectiveMaxTroops(state, 1)).toBe(capBefore + CITY_CAP_BONUS)
   })
 
@@ -102,9 +107,11 @@ describe('build intent', () => {
     p.gold = 100_000
     const tile = ownedTile(state, 1)
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'market' }])
-    const goldAfterBuild = p.gold
-    tick(state, []) // one tick: base income + market income
-    const delta = p.gold - goldAfterBuild
+    // Markt fertig bauen lassen, dann das Einkommen eines Ticks messen.
+    for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, [])
+    const goldAfterComplete = p.gold
+    tick(state, []) // ein Tick: Basis-Einkommen + Markt-Einkommen
+    const delta = p.gold - goldAfterComplete
     // base 100 + market 40 (level 1)
     expect(delta).toBe(100 + MARKET_GOLD_PER_TICK)
   })

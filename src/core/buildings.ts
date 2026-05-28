@@ -23,9 +23,19 @@ export interface Building {
   readonly ownerId: number
   readonly tile: TileRef
   level: number
+  /** Tick, ab dem das Gebäude fertig ist und wirkt. Bis dahin „im Bau". */
+  completesAtTick: number
 }
 
 export const MAX_BUILDING_LEVEL = 3
+
+/** Bauzeit in Ticks (≈ 5 s bei 10 Ticks/s) — bis dahin wirkt das Gebäude nicht. */
+export const BUILD_TIME_TICKS = 50
+
+/** Ist das Gebäude zum gegebenen Tick fertig (wirkt es)? */
+export function isBuildingComplete(b: Building, tick: number): boolean {
+  return tick >= b.completesAtTick
+}
 
 /** Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude des Typs. */
 const BASE_BUILD_COST: Record<BuildingType, number> = {
