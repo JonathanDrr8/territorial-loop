@@ -11,11 +11,11 @@
  * wechseln wir punktuell zu bigint.
  */
 
-/** Start-Truppen für menschliche Spieler. */
-export const HUMAN_START_TROOPS = 25_000
+/** Start-Truppen für menschliche Spieler (klein → längere, spürbare Wachstumskurve). */
+export const HUMAN_START_TROOPS = 8_000
 
-/** Start-Truppen für Bot-/KI-Spieler. */
-export const BOT_START_TROOPS = 10_000
+/** Start-Truppen für Bot-/KI-Spieler (~0.4× Mensch, wie OpenFront). */
+export const BOT_START_TROOPS = 3_000
 
 /** Default Slider-Prozentwert für Angriffe (Mensch). */
 export const HUMAN_DEFAULT_ATTACK_PCT = 20
