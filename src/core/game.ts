@@ -346,20 +346,34 @@ function placeSpawns(state: GameState): void {
   }
 }
 
+/** Signierte kürzeste Distanz a→b auf einer Torus-Achse der Länge `size` (−size/2..size/2). */
+function signedTorusDelta(a: number, b: number, size: number): number {
+  let d = (a - b) % size
+  if (d > size / 2) d -= size
+  else if (d < -size / 2) d += size
+  return d
+}
+
 /**
- * Lässt das Start-Gebiet eines Spielers von (cx,cy) zu einem soliden, kompakten
- * Blob wachsen (bis `target` Tiles). Auswahl-Kosten je Kandidat:
- *   - Distanz zum Zentrum (hält den Blob kompakt-rund, keine dünnen Ausläufer)
- *   - jeder bereits eigene Nachbar zieht stark vor (`SPAWN_FILL_BONUS`) → Buchten
- *     werden zuerst gefüllt, es bleiben keine Ein-Pixel-Löcher
- *   - kleiner Jitter für eine leicht unregelmäßige (nicht-quadratische) Kante
- * Spart Wasser/Extrem-Berge aus. Ein abschließender Loch-Füll-Pass schließt von
- * eigenem Gebiet vollständig umschlossene Tiles — der Rand bleibt sauber 1 Pixel.
+ * Lässt das Start-Gebiet eines Spielers von (cx,cy) zu einem soliden, aber
+ * organisch geformten Blob wachsen (bis `target` Tiles). Auswahl-Kosten je Kandidat:
+ *   - radiale Distanz, je Richtung durch zwei Sinus-„Lappen" verzerrt (pro Spieler
+ *     zufällige Phasen) → der Blob wächst in manche Richtungen weiter, ergibt eine
+ *     unregelmäßige, nicht-runde/quadratische Form
+ *   - ein leichter Nachbar-Bonus glättet (Buchten zuerst, gegen Ein-Pixel-Löcher)
+ *   - etwas Jitter für Kanten-Textur
+ * Spart Wasser/Extrem-Berge aus. Ein Loch-Füll-Pass schließt umschlossene Tiles →
+ * solider 1-Tile-Rand.
  */
 function growSpawn(state: GameState, player: Player, cx: number, cy: number, target: number): void {
   const { map, rng } = state
   const { width, height } = map
   const claimedTiles: TileRef[] = []
+  // Zufällige Lappen-Form pro Spieler (jeder Spawn sieht anders aus).
+  const ph1 = rng.next() * Math.PI * 2
+  const ph2 = rng.next() * Math.PI * 2
+  const freq1 = 2 + Math.floor(rng.next() * 3) // 2..4 grobe Lappen
+  const freq2 = 4 + Math.floor(rng.next() * 4) // feinere Welligkeit
 
   const claim = (ref: TileRef): boolean => {
     if (!isPassable(map.terrain, ref) || getOwner(map, ref) !== 0) return false
@@ -370,12 +384,15 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
     return true
   }
 
-  // Kandidaten mit (mutierbarer) Kosten; jeder neue eigene Nachbar senkt die Kosten.
+  // Kandidaten mit (mutierbarer) Kosten; jeder neue eigene Nachbar senkt die Kosten leicht.
   const cost = new Map<TileRef, number>()
   const baseCost = (ref: TileRef): number => {
-    const rx = ref % width
-    const ry = Math.floor(ref / width)
-    return torusDistance(rx, ry, cx, cy, width, height) + rng.next() * 1.2
+    const dx = signedTorusDelta(ref % width, cx, width)
+    const dy = signedTorusDelta(Math.floor(ref / width), cy, height)
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    const angle = Math.atan2(dy, dx)
+    const lobe = Math.sin(angle * freq1 + ph1) * 0.32 + Math.sin(angle * freq2 + ph2) * 0.16
+    return dist * (1 - lobe) + rng.next() * 0.8
   }
   const onClaimed = (ref: TileRef): void => {
     for (const nb of neighbors4(ref, width, height)) {
@@ -406,8 +423,9 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
   fillEnclosed(state, player)
 }
 
-/** Glättungs-Bonus pro bereits eigenem Nachbarn beim Spawn-Wachstum. */
-const SPAWN_FILL_BONUS = 3
+/** Glättungs-Bonus pro bereits eigenem Nachbarn beim Spawn-Wachstum (nur glätten,
+ * nicht die Lappen-Form überschreiben). */
+const SPAWN_FILL_BONUS = 1.2
 
 /**
  * Schließt Tiles, die von `player` rundum (über alle passierbaren Nachbarn)
