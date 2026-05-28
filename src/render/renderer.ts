@@ -471,13 +471,29 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     return (wy - camera.y) * camera.zoom + container.clientHeight / 2
   }
 
+  /**
+   * Screen-Position der Wrap-Kopie eines Welt-Punkts, die der Kamera am nächsten
+   * liegt. Für „Annotations"-Overlays (Cursor, Marker, Pfeile, Labels), die genau
+   * EINE logische Position markieren — sonst erscheinen sie beim Rauszoomen mehrfach.
+   */
+  function nearestWrappedScreenPos(wx: number, wy: number): { sx: number; sy: number } {
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const nx = wx + mapW * Math.round((camera.x - wx) / mapW)
+    const ny = wy + mapH * Math.round((camera.y - wy) / mapH)
+    return {
+      sx: (nx - camera.x) * z + container.clientWidth / 2,
+      sy: (ny - camera.y) * z + container.clientHeight / 2,
+    }
+  }
+
   function drawLabels(): void {
     maybeRecomputeCentroids()
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const mapW = state.map.width
     const mapH = state.map.height
-    const z = camera.zoom
     screenCtx.save()
     screenCtx.font = 'bold 13px ui-monospace, SFMono-Regular, Menlo, monospace'
     screenCtx.textAlign = 'center'
@@ -489,6 +505,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       if (c === undefined) continue
       const name = p.name
       const troopsLabel = fmtCompactRender(p.troops)
+      // Labels pro sichtbarer Wrap-Kopie (jedes gewrappte Gebiet bekommt seinen Namen).
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
           const sx = worldToScreenX(c.x + dx * mapW)
@@ -504,9 +521,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         }
       }
     }
-    // Zoom-abhängig nicht skaliert (feste Screen-Größe); z wird nur für Sichtbarkeits-
-    // Clipping oben implizit über die Screen-Koords genutzt.
-    void z
     screenCtx.restore()
   }
 
@@ -540,27 +554,27 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         const tx = c.x + ddx
         const ty = c.y + ddy
         const label = fmtCompactRender(atk.reserveTroops)
-        for (let rx = -1; rx <= 1; rx++) {
-          for (let ry = -1; ry <= 1; ry++) {
-            const ox = rx * mapW
-            const oy = ry * mapH
-            const x0 = worldToScreenX(c.x + ox)
-            const y0 = worldToScreenY(c.y + oy)
-            const x1 = worldToScreenX(tx + ox)
-            const y1 = worldToScreenY(ty + oy)
-            // Beide Endpunkte off-screen → skip
-            const onScreen =
-              (x1 > -40 && x1 < cssW + 40 && y1 > -40 && y1 < cssH + 40) ||
-              (x0 > -40 && x0 < cssW + 40 && y0 > -40 && y0 < cssH + 40)
-            if (!onScreen) continue
-            drawArrow(x0, y0, x1, y1, stroke)
-            screenCtx.lineWidth = 3
-            screenCtx.strokeStyle = 'rgba(0,0,0,0.8)'
-            screenCtx.strokeText(label, x1, y1 - 12)
-            screenCtx.fillStyle = '#fff'
-            screenCtx.fillText(label, x1, y1 - 12)
-          }
-        }
+        // Einzel-Instanz: beide Endpunkte mit DEMSELBEN Wrap-Offset (Kopie nächst
+        // der Kamera), damit der Pfeil nicht mehrfach erscheint.
+        const z = camera.zoom
+        const kx = Math.round((camera.x - c.x) / mapW)
+        const ky = Math.round((camera.y - c.y) / mapH)
+        const ox = kx * mapW
+        const oy = ky * mapH
+        const x0 = (c.x + ox - camera.x) * z + cssW / 2
+        const y0 = (c.y + oy - camera.y) * z + cssH / 2
+        const x1 = (tx + ox - camera.x) * z + cssW / 2
+        const y1 = (ty + oy - camera.y) * z + cssH / 2
+        const onScreen =
+          (x1 > -40 && x1 < cssW + 40 && y1 > -40 && y1 < cssH + 40) ||
+          (x0 > -40 && x0 < cssW + 40 && y0 > -40 && y0 < cssH + 40)
+        if (!onScreen) continue
+        drawArrow(x0, y0, x1, y1, stroke)
+        screenCtx.lineWidth = 3
+        screenCtx.strokeStyle = 'rgba(0,0,0,0.8)'
+        screenCtx.strokeText(label, x1, y1 - 12)
+        screenCtx.fillStyle = '#fff'
+        screenCtx.fillText(label, x1, y1 - 12)
       }
     }
     screenCtx.restore()
@@ -713,27 +727,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const z = camera.zoom
-    const halfW = cssW / 2
-    const halfH = cssH / 2
-    const mapW = state.map.width
-    const mapH = state.map.height
-    const tileX = hoverTile.x
-    const tileY = hoverTile.y
     screenCtx.save()
     screenCtx.lineWidth = 1.5
     screenCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-    // Outline 1×1-Tile am world (tileX, tileY); 3×3 Wrap-Replikation
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const wx = tileX + dx * mapW
-        const wy = tileY + dy * mapH
-        const sx = (wx - camera.x) * z + halfW
-        const sy = (wy - camera.y) * z + halfH
-        const sz = z
-        if (sx + sz < 0 || sx > cssW || sy + sz < 0 || sy > cssH) continue
-        // Strich-Rechteck so dass Stroke nicht durch den Tile geht
-        screenCtx.strokeRect(sx + 0.5, sy + 0.5, sz, sz)
-      }
+    // Genau eine Outline am Hover-Tile (Wrap-Kopie nächst der Kamera) — kein 3×3.
+    const { sx, sy } = nearestWrappedScreenPos(hoverTile.x, hoverTile.y)
+    if (!(sx + z < 0 || sx > cssW || sy + z < 0 || sy > cssH)) {
+      screenCtx.strokeRect(sx + 0.5, sy + 0.5, z, z)
     }
     screenCtx.restore()
   }
@@ -752,11 +752,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
     const cssW = container.clientWidth
     const cssH = container.clientHeight
-    const mapW = state.map.width
-    const mapH = state.map.height
-    const z = camera.zoom
-    const halfW = cssW / 2
-    const halfH = cssH / 2
 
     screenCtx.save()
     screenCtx.lineWidth = 3
@@ -767,20 +762,12 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const alpha = 1 - t
       screenCtx.strokeStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`
 
-      // Wegen Torus: Welt-Position kann mehrere Screen-Positionen erzeugen.
-      // Wir prüfen 3×3 Wrap-Offsets und zeichnen sichtbare.
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const wx = m.worldX + dx * mapW
-          const wy = m.worldY + dy * mapH
-          const sx = (wx - camera.x) * z + halfW
-          const sy = (wy - camera.y) * z + halfH
-          if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
-          screenCtx.beginPath()
-          screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
-          screenCtx.stroke()
-        }
-      }
+      // Genau ein Marker (Wrap-Kopie nächst der Kamera).
+      const { sx, sy } = nearestWrappedScreenPos(m.worldX, m.worldY)
+      if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+      screenCtx.stroke()
     }
     screenCtx.restore()
   }
@@ -793,10 +780,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const mapW = state.map.width
-    const mapH = state.map.height
-    const z = camera.zoom
-    const halfW = cssW / 2
-    const halfH = cssH / 2
 
     screenCtx.save()
     screenCtx.lineWidth = 2
@@ -816,30 +799,23 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         // Pulse-Radius wandert sanft zwischen 7 und 11 px
         const baseR = 9 + Math.sin(time * Math.PI * 2) * 2
 
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            const wx = fx + dx * mapW
-            const wy = fy + dy * mapH
-            const sx = (wx - camera.x) * z + halfW
-            const sy = (wy - camera.y) * z + halfH
-            if (sx < -baseR || sx > cssW + baseR || sy < -baseR || sy > cssH + baseR) continue
-            // Crosshair: Ring + 4 kurze Striche
-            screenCtx.beginPath()
-            screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
-            screenCtx.stroke()
-            const tickLen = 4
-            screenCtx.beginPath()
-            screenCtx.moveTo(sx - baseR - tickLen, sy)
-            screenCtx.lineTo(sx - baseR, sy)
-            screenCtx.moveTo(sx + baseR, sy)
-            screenCtx.lineTo(sx + baseR + tickLen, sy)
-            screenCtx.moveTo(sx, sy - baseR - tickLen)
-            screenCtx.lineTo(sx, sy - baseR)
-            screenCtx.moveTo(sx, sy + baseR)
-            screenCtx.lineTo(sx, sy + baseR + tickLen)
-            screenCtx.stroke()
-          }
-        }
+        // Genau ein Crosshair (Wrap-Kopie nächst der Kamera).
+        const { sx, sy } = nearestWrappedScreenPos(fx, fy)
+        if (sx < -baseR || sx > cssW + baseR || sy < -baseR || sy > cssH + baseR) continue
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
+        screenCtx.stroke()
+        const tickLen = 4
+        screenCtx.beginPath()
+        screenCtx.moveTo(sx - baseR - tickLen, sy)
+        screenCtx.lineTo(sx - baseR, sy)
+        screenCtx.moveTo(sx + baseR, sy)
+        screenCtx.lineTo(sx + baseR + tickLen, sy)
+        screenCtx.moveTo(sx, sy - baseR - tickLen)
+        screenCtx.lineTo(sx, sy - baseR)
+        screenCtx.moveTo(sx, sy + baseR)
+        screenCtx.lineTo(sx, sy + baseR + tickLen)
+        screenCtx.stroke()
       }
     }
     screenCtx.restore()
