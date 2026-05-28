@@ -148,9 +148,9 @@ describe('tilesPerTick', () => {
     expect(tilesPerTick(1000, 500, 0, true)).toBe(0)
   })
 
-  it('against TerraNullius: 2 * frontWidth (no troop comparison)', () => {
-    expect(tilesPerTick(1000, 0, 5, true)).toBe(10)
-    expect(tilesPerTick(50_000, 0, 10, true)).toBe(20)
+  it('against TerraNullius: 1.5 * frontWidth (no troop comparison)', () => {
+    expect(tilesPerTick(1000, 0, 5, true)).toBe(7.5)
+    expect(tilesPerTick(50_000, 0, 10, true)).toBe(15)
   })
 
   it('against player: speed scales with attack:defense ratio, capped at 2:1', () => {

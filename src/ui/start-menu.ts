@@ -30,9 +30,9 @@ export interface StartMenuValues {
 // die Welle (Rate < verfügbare Front-Tiles) → spürbar langsamer UND Terrain prägt die
 // Gebietsform. „normal" ist der getunte Standardwert.
 export const TEMPO_TO_SPEED: Record<MatchTempo, number> = {
-  fast: 0.8,
-  normal: 0.45,
-  siege: 0.25,
+  fast: 0.55,
+  normal: 0.3,
+  siege: 0.18,
 }
 
 export interface StartMenuApi {
@@ -237,28 +237,8 @@ export function createStartMenu(
   const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
 
-  // Match tempo — discrete select
-  const tempoRow = document.createElement('div')
-  tempoRow.style.cssText = FIELD_ROW_STYLE
-  const tempoLabel = document.createElement('label')
-  tempoLabel.textContent = 'Eroberungs-Tempo'
-  const tempoSelect = document.createElement('select')
-  tempoSelect.style.cssText = SELECT_STYLE
-  const TEMPO_OPTIONS: ReadonlyArray<readonly [MatchTempo, string]> = [
-    ['fast', 'Schnell'],
-    ['normal', 'Normal'],
-    ['siege', 'Belagerung'],
-  ]
-  for (const [value, label] of TEMPO_OPTIONS) {
-    const opt = document.createElement('option')
-    opt.value = value
-    opt.textContent = label
-    if (value === initial.tempo) opt.selected = true
-    tempoSelect.appendChild(opt)
-  }
-  tempoRow.appendChild(tempoLabel)
-  tempoRow.appendChild(tempoSelect)
-  panel.appendChild(tempoRow)
+  // Eroberungs-Tempo wird nicht mehr im Start-Menü gewählt — feste Balance,
+  // ingame getunt. Der Wert bleibt intern (initial.tempo, Default 'normal').
 
   // Difficulty — discrete select
   const diffRow = document.createElement('div')
@@ -365,7 +345,7 @@ export function createStartMenu(
       aiCount: aiCount.getValue(),
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,
-      tempo: tempoSelect.value as MatchTempo,
+      tempo: initial.tempo,
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
       ...(seedRaw.length > 0 && { seed: seedRaw }),

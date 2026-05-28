@@ -159,7 +159,7 @@ export function tilesPerTick(
   vsTerraNullius: boolean,
 ): number {
   if (frontWidth <= 0) return 0
-  if (vsTerraNullius) return frontWidth * 2
+  if (vsTerraNullius) return frontWidth * 1.5
   // Geschwindigkeit skaliert mit dem Angriff:Verteidigung-Verhältnis, gedeckelt bei
   // MAX_ATTACK_RATIO (2:1). Unverteidigt (def==0) gilt als volle Übermacht.
   const ratio = defenderTroops > 0 ? attackTroops / defenderTroops : MAX_ATTACK_RATIO
