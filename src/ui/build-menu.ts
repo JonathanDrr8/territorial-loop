@@ -19,6 +19,7 @@ import {
   type BuildingType,
 } from '../core/buildings'
 import { countBuildingsOfType, nearWater, type GameState } from '../core/game'
+import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import type { Intent } from '../core/intent'
 import { getOwner } from '../world/map'
 import { rgbaToCss } from './colors'
@@ -183,12 +184,84 @@ export function createBuildMenu(
     return h
   }
 
+  /** Befüllt das Panel mit Diplomatie-Optionen gegenüber einem fremden Spieler. */
+  function fillDiplomacy(targetId: number): void {
+    const other = state.players.get(targetId)
+    if (other === undefined) return
+    panel.appendChild(header(other.name))
+
+    const allied = areAllied(state.alliances, humanPlayerId, targetId)
+    const theyRequested = hasAllianceRequest(state.allianceRequests, targetId, humanPlayerId)
+    const weRequested = hasAllianceRequest(state.allianceRequests, humanPlayerId, targetId)
+
+    if (allied) {
+      panel.appendChild(
+        makeRow('!', 'Allianz brechen', 'Verrat → 300 Ticks geächtet', '', true, true, () => {
+          emit({ type: 'break-alliance', playerId: humanPlayerId, targetPlayerId: targetId })
+          close()
+        }),
+      )
+    } else if (theyRequested) {
+      panel.appendChild(
+        makeRow('A', 'Allianz annehmen', `${other.name} bietet ein Bündnis`, '', true, true, () => {
+          emit({ type: 'accept-alliance', playerId: humanPlayerId, targetPlayerId: targetId })
+          close()
+        }),
+      )
+    } else if (weRequested) {
+      panel.appendChild(
+        makeRow('A', 'Anfrage gesendet …', 'wartet auf Antwort', '', true, false, () => {}),
+      )
+    } else {
+      panel.appendChild(
+        makeRow('A', 'Allianz anfragen', '', '', true, true, () => {
+          emit({ type: 'request-alliance', playerId: humanPlayerId, targetPlayerId: targetId })
+          close()
+        }),
+      )
+    }
+
+    const embargoed = state.embargoes.has(directedKey(humanPlayerId, targetId))
+    panel.appendChild(
+      makeRow(
+        'E',
+        embargoed ? 'Embargo aufheben' : 'Embargo verhängen',
+        embargoed ? 'Handel wieder erlauben' : 'stoppt den Handel',
+        '',
+        true,
+        true,
+        () => {
+          emit({
+            type: 'set-embargo',
+            playerId: humanPlayerId,
+            targetPlayerId: targetId,
+            enabled: !embargoed,
+          })
+          close()
+        },
+      ),
+    )
+  }
+
   function open(tile: number, screenX: number, screenY: number): void {
     const player = state.players.get(humanPlayerId)
     if (player === undefined || !player.isAlive) return
-    // Nur eigenes Tile öffnet das Bau-Menü (Diplomatie auf fremden Tiles → Phase 6).
-    if (getOwner(state.map, tile) !== humanPlayerId) {
-      close()
+
+    const owner = getOwner(state.map, tile)
+    // Fremdes Tile eines lebenden Spielers → Diplomatie; neutrales Tile → nichts.
+    if (owner !== humanPlayerId) {
+      const other = owner > 0 ? state.players.get(owner) : undefined
+      if (other === undefined || !other.isAlive) {
+        close()
+        return
+      }
+      panel.textContent = ''
+      fillDiplomacy(owner)
+      panel.style.borderColor = rgbaToCss(other.color)
+      backdrop.style.display = 'block'
+      panel.style.display = 'block'
+      open_ = true
+      positionPanel(screenX, screenY)
       return
     }
 
@@ -254,8 +327,11 @@ export function createBuildMenu(
     backdrop.style.display = 'block'
     panel.style.display = 'block'
     open_ = true
+    positionPanel(screenX, screenY)
+  }
 
-    // Position: am Cursor, aber im Container halten.
+  /** Platziert das Panel am Cursor, hält es aber im Container. */
+  function positionPanel(screenX: number, screenY: number): void {
     const cw = container.clientWidth
     const ch = container.clientHeight
     const pw = panel.offsetWidth
