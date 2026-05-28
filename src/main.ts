@@ -179,8 +179,12 @@ function startMatch(
         restartSimInterval()
         hud.setSpeed(paused ? 0 : speed)
       },
-      setSpeed(m): void {
-        speed = m
+      cycleSpeed(dir): void {
+        const levels: readonly (1 | 2 | 5)[] = [1, 2, 5]
+        const idx = levels.indexOf(speed)
+        const next = levels[Math.max(0, Math.min(levels.length - 1, idx + dir))]
+        if (next === undefined || next === speed) return
+        speed = next
         restartSimInterval()
         if (!paused) hud.setSpeed(speed)
       },

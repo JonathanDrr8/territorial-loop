@@ -16,17 +16,29 @@ import { tileRef } from '../world/torus'
 import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
 
-/** Hotkey → Gebäudetyp für den Bau-Modus. */
+/** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Markt, 4=Hafen). */
 const BUILD_HOTKEYS: Record<string, BuildingType> = {
-  q: 'city',
-  w: 'defense',
-  e: 'market',
-  r: 'port',
+  '1': 'city',
+  '2': 'defense',
+  '3': 'market',
+  '4': 'port',
 }
+
+/** WASD → Kamera-Pan-Richtung (dx, dy in Welt-Tiles pro Schritt-Einheit). */
+const PAN_KEYS: Record<string, readonly [number, number]> = {
+  w: [0, -1],
+  a: [-1, 0],
+  s: [0, 1],
+  d: [1, 0],
+}
+
+/** Kamera-Pan-Geschwindigkeit in Screen-Pixeln pro Frame (durch Zoom geteilt → Welt-Delta). */
+const PAN_PX_PER_FRAME = 12
 
 export interface InputEvents {
   pause(): void
-  setSpeed(multiplier: 1 | 2 | 5): void
+  /** Schaltet die Sim-Geschwindigkeit eine Stufe hoch (+1) oder runter (-1). */
+  cycleSpeed(dir: 1 | -1): void
   /** Optional: ESC-Taste → zurück zum Start-Menü. */
   escape?(): void
 }
@@ -100,11 +112,40 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   const DRAG_THRESHOLD = 6
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
+  // WASD-Kamera-Pan: gedrückte Richtungstasten + laufende rAF-Schleife.
+  const heldPan = new Set<string>()
+  let panRaf: number | null = null
 
   function setBuildMode(mode: BuildingType | null): void {
     if (buildMode === mode) return
     buildMode = mode
     deps.onBuildModeChange?.(mode)
+  }
+
+  function panStep(): void {
+    if (heldPan.size === 0) {
+      panRaf = null
+      return
+    }
+    let dx = 0
+    let dy = 0
+    for (const k of heldPan) {
+      const v = PAN_KEYS[k]
+      if (v !== undefined) {
+        dx += v[0]
+        dy += v[1]
+      }
+    }
+    if (dx !== 0 || dy !== 0) {
+      const d = PAN_PX_PER_FRAME / camera.zoom
+      camera.x = (((camera.x + dx * d) % mapWidth) + mapWidth) % mapWidth
+      camera.y = (((camera.y + dy * d) % mapHeight) + mapHeight) % mapHeight
+    }
+    panRaf = requestAnimationFrame(panStep)
+  }
+
+  function startPan(): void {
+    if (panRaf === null) panRaf = requestAnimationFrame(panStep)
   }
 
   function screenToTile(clientX: number, clientY: number): number {
@@ -242,12 +283,13 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     if (e.code === 'Space') {
       events.pause()
       e.preventDefault()
-    } else if (e.key === '1') {
-      events.setSpeed(1)
-    } else if (e.key === '2') {
-      events.setSpeed(2)
-    } else if (e.key === '5') {
-      events.setSpeed(5)
+    } else if (key in PAN_KEYS) {
+      heldPan.add(key)
+      startPan()
+    } else if (e.key === ',') {
+      events.cycleSpeed(-1)
+    } else if (e.key === '.') {
+      events.cycleSpeed(1)
     } else if (key in BUILD_HOTKEYS) {
       const mode = BUILD_HOTKEYS[key]
       if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
@@ -258,6 +300,15 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     }
   }
 
+  function onKeyUp(e: KeyboardEvent): void {
+    heldPan.delete(e.key.toLowerCase())
+  }
+
+  // Fokusverlust (Alt-Tab etc.): gedrückte Pan-Tasten zurücksetzen, sonst „klemmt" der Pan.
+  function onBlur(): void {
+    heldPan.clear()
+  }
+
   canvas.addEventListener('mousedown', onMouseDown)
   canvas.addEventListener('mousemove', onMouseMove)
   canvas.addEventListener('mouseup', onMouseUp)
@@ -265,6 +316,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
   window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onBlur)
 
   return {
     destroy(): void {
@@ -275,6 +328,12 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
       window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+      if (panRaf !== null) {
+        cancelAnimationFrame(panRaf)
+        panRaf = null
+      }
     },
   }
 }

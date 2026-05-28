@@ -116,7 +116,7 @@ export function createHUD(
   const hint = document.createElement('div')
   hint.style.cssText = 'margin-top: 6px; font-size: 11px; opacity: 0.7'
   hint.innerHTML =
-    'Linksklick: Angriff &nbsp;·&nbsp; Rechte Maustaste + Ziehen: Karte &nbsp;·&nbsp; Mausrad: Zoom<br/>Rechtsklick (eigenes Tile): Bau-Menü &nbsp;·&nbsp; Q/W/E/R: Bau-Modus<br/>Leertaste: Pause &nbsp;·&nbsp; 1/2/5: Geschwindigkeit &nbsp;·&nbsp; Esc: Menü'
+    'Linksklick: Angriff &nbsp;·&nbsp; WASD / Rechtsklick-Ziehen: Kamera &nbsp;·&nbsp; Mausrad: Zoom<br/>Rechtsklick (eigenes Tile): Bau-Menü &nbsp;·&nbsp; 1–4: Gebäude (Stadt/Vert./Markt/Hafen)<br/>Leertaste: Pause &nbsp;·&nbsp; , / . : Tempo &nbsp;·&nbsp; Esc: Menü'
   hud.appendChild(hint)
 
   // Bau-Modus-Hinweis (nur sichtbar wenn ein Hotkey-Bau-Modus aktiv ist)
