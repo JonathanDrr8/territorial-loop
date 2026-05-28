@@ -377,20 +377,27 @@ export function createStartMenu(
   help.appendChild(helpBody)
   panel.appendChild(help)
 
-  // Aufklappbarer „Experimentell"-Bereich — Gerüst für künftige opt-in Toggles.
-  const experimental = document.createElement('details')
-  experimental.style.cssText = 'margin-top: 10px; font-size: 12px; opacity: 0.85'
-  const expSummary = document.createElement('summary')
-  expSummary.textContent = 'Experimentell'
-  expSummary.style.cssText = `cursor: pointer; color: ${ACCENT}; opacity: 0.85`
+  // „Experimentell" als eigenes, stehendes Panel rechts (statt aufklappbar).
+  const rightPanel = document.createElement('div')
+  rightPanel.style.cssText = [
+    'flex: 0 0 250px',
+    'align-self: stretch',
+    'background: rgba(70,217,230,0.05)',
+    'border: 1px dashed rgba(70,217,230,0.3)',
+    'border-radius: 12px',
+    'padding: 18px 18px 16px',
+    'box-sizing: border-box',
+  ].join(';')
+  const expHeading = document.createElement('div')
+  expHeading.textContent = 'Experimentell'
+  expHeading.style.cssText = `font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: ${ACCENT}; opacity: 0.9; margin-bottom: 12px`
+  rightPanel.appendChild(expHeading)
   const expBody = document.createElement('div')
-  expBody.style.cssText = 'margin-top: 8px; line-height: 1.5; opacity: 0.7'
+  expBody.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px'
   expBody.textContent =
-    'Hier kommen künftig optionale Features zum Ausprobieren (Wälder, Flüsse, Fische, ' +
-    'erdähnlicher Noise …). Noch nichts aktiv.'
-  experimental.appendChild(expSummary)
-  experimental.appendChild(expBody)
-  panel.appendChild(experimental)
+    'Opt-in-Features zum Ausprobieren landen hier als eigene Schalter — Wälder, Flüsse, ' +
+    'Fische, erdähnlicher Noise … Noch nichts aktiv.'
+  rightPanel.appendChild(expBody)
 
   // Start button
   const collectValues = (): StartMenuValues => {
@@ -441,7 +448,19 @@ export function createStartMenu(
   })
   panel.appendChild(watchBtn)
 
-  overlay.appendChild(panel)
+  // Zwei-Spalten-Shell: links das Einstellungs-Panel, rechts das Experimentell-Panel.
+  const shell = document.createElement('div')
+  shell.style.cssText = [
+    'display: flex',
+    'align-items: stretch',
+    'gap: 16px',
+    'max-width: 92vw',
+    'flex-wrap: wrap',
+    'justify-content: center',
+  ].join(';')
+  shell.appendChild(panel)
+  shell.appendChild(rightPanel)
+  overlay.appendChild(shell)
   container.appendChild(overlay)
 
   // Auto-focus name input
