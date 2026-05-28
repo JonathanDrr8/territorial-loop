@@ -156,6 +156,27 @@ export function createHUD(
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
 
+  /* ---- Oben links (unter Info): Angriffs-Übersicht ------------------------- */
+  const attackPanel = document.createElement('div')
+  attackPanel.style.cssText = [
+    'position: absolute',
+    'top: 92px',
+    'left: 12px',
+    'min-width: 180px',
+    'max-width: 240px',
+    'background: rgba(0,0,0,0.82)',
+    'color: white',
+    'padding: 6px 9px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 11px',
+    'line-height: 1.5',
+    'border-radius: 6px',
+    'pointer-events: none',
+    'z-index: 10',
+    'display: none',
+  ].join(';')
+  container.appendChild(attackPanel)
+
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
   const rankPanel = document.createElement('div')
   rankPanel.style.cssText = [
@@ -580,6 +601,40 @@ export function createHUD(
     }
   }
 
+  /** Übersicht eigener (ausgehender) und eingehender Angriffe mit Dauer. */
+  function updateAttackPanel(): void {
+    const human = findHuman()
+    if (human === undefined || !human.isAlive) {
+      attackPanel.style.display = 'none'
+      return
+    }
+    const dur = (startTick: number): string =>
+      fmtDuration((state.tick - startTick) / SIM_TICKS_PER_SECOND)
+    const rows: string[] = []
+    for (const atk of human.attacks) {
+      const target =
+        atk.targetPlayerId === 0 ? 'Wildnis' : (state.players.get(atk.targetPlayerId)?.name ?? '?')
+      rows.push(
+        `<div><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</div>`,
+      )
+    }
+    for (const p of state.players.values()) {
+      if (p.id === human.id || !p.isAlive) continue
+      for (const atk of p.attacks) {
+        if (atk.targetPlayerId !== human.id) continue
+        rows.push(
+          `<div><span style="color:#e84545">⚔←</span> ${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</div>`,
+        )
+      }
+    }
+    if (rows.length === 0) {
+      attackPanel.style.display = 'none'
+      return
+    }
+    attackPanel.style.display = 'block'
+    attackPanel.innerHTML = `<div style="opacity:0.65;margin-bottom:2px">Angriffe</div>${rows.join('')}`
+  }
+
   /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
   function updateRankList(): void {
     const totalTiles =
@@ -633,6 +688,7 @@ export function createHUD(
 
     updateRankList()
     updateActionBar()
+    updateAttackPanel()
 
     if (state.phase === 'ended' && state.winner !== null) {
       const winner = state.players.get(state.winner)
@@ -687,6 +743,7 @@ export function createHUD(
     },
     destroy(): void {
       infoBox.remove()
+      attackPanel.remove()
       rankPanel.remove()
       actionBar.remove()
       banner.remove()
