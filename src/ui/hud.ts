@@ -404,7 +404,7 @@ export function createHUD(
   sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px'
   const sliderLabel = document.createElement('span')
   sliderLabel.textContent = `Angriff: ${DEFAULT_SLIDER_PCT}%`
-  sliderLabel.style.minWidth = '92px'
+  sliderLabel.style.minWidth = '150px'
   const slider = document.createElement('input')
   slider.type = 'range'
   slider.min = '0'
@@ -670,9 +670,15 @@ export function createHUD(
     const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
     const pct = Math.round(frac * 100)
     barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
-    const combatLegend =
-      combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
-    barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
+    // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
+    // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
+    sliderLabel.textContent = `Angriff: ${currentSliderPct.toString()}% · ≈${fmtCompact(attackAmt)}`
+    if (combat > 0) {
+      barLegend.innerHTML = `<span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>`
+      barLegend.style.display = 'block'
+    } else {
+      barLegend.style.display = 'none'
+    }
 
     // Truppen/s (links neben dem Balken), in derselben Zonenfarbe wie die Truppenzahl;
     // negativ (über Cap → Abschmelzen) wird rot. Wie growPopulations: freie Bevölkerung
