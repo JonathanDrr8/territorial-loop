@@ -13,7 +13,7 @@ import {
   maxTroops,
 } from '../src/core/config'
 import { getOwner } from '../src/world/map'
-import { IS_LAND_BIT } from '../src/world/terrain'
+import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
 import { directedKey } from '../src/core/diplomacy'
 
@@ -127,6 +127,31 @@ describe('createGame — spawn placement', () => {
     for (const p of state.players.values()) {
       expect(p.frontier.size).toBeGreaterThan(0)
     }
+  })
+
+  it('spawn blobs prefer lowland (Phase 4: Terrain formt Expansion)', () => {
+    // Auf einer Höhen-variablen Karte sollte das beanspruchte Land im Schnitt
+    // flacher sein als das Land insgesamt — die Spawn-Welle meidet Gebirge.
+    const state = createGame(
+      baseConfig({ terrain: 'continents', mapWidth: 128, mapHeight: 128, seed: 'lowland-spawn' }),
+    )
+    const { terrain } = state.map
+    let landSum = 0
+    let landN = 0
+    let ownedSum = 0
+    let ownedN = 0
+    for (let i = 0; i < state.map.state.length; i++) {
+      if (!isPassable(terrain, i)) continue
+      const mag = terrainMagnitude(terrain, i)
+      landSum += mag
+      landN++
+      if (getOwner(state.map, i) > 0) {
+        ownedSum += mag
+        ownedN++
+      }
+    }
+    expect(ownedN).toBeGreaterThan(0)
+    expect(ownedSum / ownedN).toBeLessThan(landSum / landN)
   })
 
   it('different seeds produce different spawn positions', () => {

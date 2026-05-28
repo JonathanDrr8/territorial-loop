@@ -232,10 +232,11 @@ const SPAWN_TARGET_TILES = 80
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
  * Eroberungs-Reihenfolge wie zusätzliche Distanz behandelt (mag-Differenz zur
- * Ebene × Faktor). Hügel ≈ +1,2, Berg ≈ +2,4 Tiles „weiter weg" → die Welle
- * umfließt Erhebungen, statt sie als sauberen Diamant zu schlucken.
+ * Ebene × Faktor). Hügel ≈ +3, Berg ≈ +6 Tiles „weiter weg" → die Welle
+ * umfließt Gebirgszüge deutlich sichtbar, statt sie als sauberen Diamant zu
+ * schlucken (zusammen mit den kohärenten Gebirgen aus Phase 3).
  */
-const TERRAIN_WAVE_PENALTY = 0.06
+const TERRAIN_WAVE_PENALTY = 0.15
 
 /**
  * Glättungs-Gewicht für die Front-Welle: jeder eigene Nachbar eines eroberbaren
@@ -411,7 +412,10 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
     const dist = Math.sqrt(dx * dx + dy * dy)
     const angle = Math.atan2(dy, dx)
     const lobe = Math.sin(angle * freq1 + ph1) * 0.32 + Math.sin(angle * freq2 + ph2) * 0.16
-    return dist * (1 - lobe) + rng.next() * 0.8
+    // Höheres Terrain ist teurer → der Spawn-Blob schmiegt sich ans Tiefland und
+    // meidet Gebirge (Hügel ≈ +2, Berg ≈ +4 Tiles „weiter").
+    const terrainCost = (terrainMagnitude(map.terrain, ref) - PLAINS_MAG) * SPAWN_TERRAIN_PENALTY
+    return dist * (1 - lobe) + rng.next() * 0.8 + terrainCost
   }
   const onClaimed = (ref: TileRef): void => {
     for (const nb of neighbors4(ref, width, height)) {
@@ -445,6 +449,10 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
 /** Glättungs-Bonus pro bereits eigenem Nachbarn beim Spawn-Wachstum (nur glätten,
  * nicht die Lappen-Form überschreiben). */
 const SPAWN_FILL_BONUS = 1.2
+
+/** Terrain-Aufschlag beim Spawn-Wachstum (mag-Differenz zur Ebene × Faktor).
+ * Hügel ≈ +2, Berg ≈ +4 Tiles „weiter" → der Spawn meidet Gebirge. */
+const SPAWN_TERRAIN_PENALTY = 0.1
 
 /**
  * Schließt Tiles, die von `player` rundum (über alle passierbaren Nachbarn)
