@@ -561,6 +561,64 @@ describe('Angriff abbrechen (Wind-down)', () => {
   })
 })
 
+describe('Abwehr (1:1 gegen eingehenden Angriff)', () => {
+  it('reduziert eingehende Reserve und eigene Truppen um denselben Betrag', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1) // Verteidiger
+    const p2 = state.players.get(2) // Angreifer
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const t1 = tileRef(5, 5, W, Hgt)
+    const t2 = tileRef(20, 20, W, Hgt) // bewusst NICHT angrenzend → kein Vormarsch
+    setOwner(state.map, t1, 1)
+    setOwner(state.map, t2, 2)
+    p1.tilesOwned = 1
+    p1.frontier.add(t1)
+    p2.tilesOwned = 1
+    p2.frontier.add(t2)
+    // p2 hat einen eingehenden Angriff auf p1 mit 1000 Reserve.
+    p2.attacks.push({
+      targetPlayerId: 1,
+      reserveTroops: 1000,
+      focusTile: t1,
+      frontTile: t1,
+      startTick: 0,
+    })
+    p1.troops = 600
+    p2.troops = 0
+    tick(state, [{ type: 'defend', playerId: 1, attackerId: 2, troops: 400 }])
+    // Abwehr opfert 400 = min(400, 600, 1000). p1 verliert 400 (+ winziges Wachstum).
+    expect(p1.troops).toBeGreaterThanOrEqual(200)
+    expect(p1.troops).toBeLessThan(300)
+    // Der Angriff hat keine Front (Angreifer nicht angrenzend) → Rest-Reserve fließt zu p2
+    // zurück. Dass p2 ~600 (statt 1000) zurückbekommt, beweist: die Abwehr nahm 400 weg.
+    expect(p2.attacks.length).toBe(0)
+    expect(p2.troops).toBeGreaterThanOrEqual(600)
+    expect(p2.troops).toBeLessThan(1000)
+  })
+
+  it('deckelt auf die kleinste der drei Größen und ist no-op ohne eingehenden Angriff', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    p2.attacks = []
+    p1.troops = 500
+    const before = p1.troops
+    // Kein eingehender Angriff von p2 → no-op (Truppen unverändert, abzgl. Wachstum).
+    tick(state, [{ type: 'defend', playerId: 1, attackerId: 2, troops: 300 }])
+    expect(p1.troops).toBeGreaterThanOrEqual(before)
+  })
+})
+
 describe('eingeschlossene Taschen (keine Blasen)', () => {
   it('eine vom Angreifer umzingelte neutrale Tasche fällt frei', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))

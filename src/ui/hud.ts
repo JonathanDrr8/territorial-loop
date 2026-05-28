@@ -121,6 +121,7 @@ export function createHUD(
   onCancelAttack: (attackIndex: number) => void,
   onRecallBoat: (boatIndex: number) => void,
   onRecallWarship: (warshipIndex: number) => void,
+  onDefend: (attackerId: number) => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -207,15 +208,17 @@ export function createHUD(
   // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote & Kriegsschiffe zurückrufen.
   attackPanel.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement | null)?.closest(
-      '[data-cancel],[data-recall],[data-recall-warship]',
+      '[data-cancel],[data-recall],[data-recall-warship],[data-defend]',
     )
     if (!(el instanceof HTMLElement)) return
     const cancel = el.dataset.cancel
     const recall = el.dataset.recall
     const recallWar = el.dataset.recallWarship
+    const defend = el.dataset.defend
     if (cancel !== undefined) onCancelAttack(Number(cancel))
     else if (recall !== undefined) onRecallBoat(Number(recall))
     else if (recallWar !== undefined) onRecallWarship(Number(recallWar))
+    else if (defend !== undefined) onDefend(Number(defend))
   })
 
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
@@ -695,12 +698,17 @@ export function createHUD(
       fmtDuration((state.tick - startTick) / SIM_TICKS_PER_SECOND)
     const clickable = 'cursor:pointer;border-radius:3px;padding:0 2px'
     const rows: string[] = []
-    // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve zurück in den Pool).
+    // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve fließt über ~2.5s zurück).
     human.attacks.forEach((atk, i) => {
       const target =
         atk.targetPlayerId === 0 ? 'Wildnis' : (state.players.get(atk.targetPlayerId)?.name ?? '?')
+      const cancelling = atk.cancelStartTick !== undefined
+      const suffix = cancelling
+        ? `<span style="color:#e8b84a">bricht ab…</span>`
+        : `<span style="opacity:0.55">✕</span>`
+      const title = cancelling ? 'Sofort abbrechen' : 'Angriff abbrechen (~2.5s Rückzug)'
       rows.push(
-        `<div data-cancel="${String(i)}" title="Angriff abbrechen" style="${clickable}"><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} <span style="opacity:0.55">✕</span></div>`,
+        `<div data-cancel="${String(i)}" title="${title}" style="${clickable}"><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} ${suffix}</div>`,
       )
     })
     // Eigene Boote — klickbar zum Zurückrufen.
@@ -723,7 +731,7 @@ export function createHUD(
       )
       warIdx++
     }
-    // Eingehende Angriffe (nicht klickbar).
+    // Eingehende Angriffe — klickbar zum Abwehren (eigene Truppen 1:1 gegen die Reserve).
     let incoming = 0
     for (const p of state.players.values()) {
       if (p.id === human.id || !p.isAlive) continue
@@ -731,7 +739,7 @@ export function createHUD(
         if (atk.targetPlayerId !== human.id) continue
         incoming++
         rows.push(
-          `<div><span style="color:#e84545">⚔←</span> ${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</div>`,
+          `<div data-defend="${String(p.id)}" title="Abwehren — Truppen 1:1 einsetzen (Slider-Schub)" style="${clickable}"><span style="color:#e84545">⚔←</span> ${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} <span style="opacity:0.55">🛡</span></div>`,
         )
       }
     }

@@ -58,6 +58,7 @@ import type {
   RecallWarshipIntent,
   BuildIntent,
   CancelAttackIntent,
+  DefendIntent,
   Intent,
   RequestAllianceIntent,
   SetEmbargoIntent,
@@ -834,6 +835,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
         break
+      case 'defend':
+        applyDefendIntent(state, intent)
+        break
       case 'build':
         applyBuildIntent(state, intent)
         break
@@ -1285,6 +1289,25 @@ function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): 
   }
   player.troops += attack.reserveTroops
   player.attacks.splice(intent.attackIndex, 1)
+}
+
+/**
+ * Aktive Abwehr: der Verteidiger opfert eigene freie Truppen 1:1 gegen die Reserve eines
+ * eingehenden Angriffs (von `attackerId` auf ihn). Gedeckelt auf das Minimum aus gewünschtem
+ * Einsatz, eigenen Truppen und Angriffs-Reserve. Leergelaufene Angriffe entfernt resolveAttacks.
+ */
+function applyDefendIntent(state: GameState, intent: DefendIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  const attacker = state.players.get(intent.attackerId)
+  if (attacker === undefined || !attacker.isAlive) return
+  const atk = attacker.attacks.find((a) => a.targetPlayerId === intent.playerId)
+  if (atk === undefined) return
+  const d = Math.min(intent.troops, player.troops, atk.reserveTroops)
+  if (d <= 0) return
+  player.troops -= d
+  atk.reserveTroops -= d
+  emitEvent(state, `${player.name} wehrt den Angriff von ${attacker.name} ab`, player.color)
 }
 
 /** Ruft das `boatIndex`-te eigene Boot zurück (es fährt zur Start-Küste um). */

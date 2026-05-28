@@ -19,6 +19,7 @@ export type Intent =
   | LaunchWarshipIntent
   | RecallWarshipIntent
   | CancelAttackIntent
+  | DefendIntent
   | BuildIntent
   | UpgradeIntent
   | RequestAllianceIntent
@@ -105,6 +106,19 @@ export interface CancelAttackIntent {
   readonly type: 'cancel-attack'
   readonly playerId: number
   readonly attackIndex: number
+}
+
+/**
+ * Spieler wehrt einen eingehenden Angriff aktiv ab: er opfert eigene freie Truppen 1:1
+ * gegen die Reserve des Angriffs von `attackerId` auf ihn. `troops` ist der gewünschte
+ * Einsatz (Slider-Schub); die Sim deckelt auf `min(troops, eigene Truppen, Angriffs-Reserve)`.
+ * Wiederholbar (mehrere Schübe). Kein passender eingehender Angriff → no-op.
+ */
+export interface DefendIntent {
+  readonly type: 'defend'
+  readonly playerId: number
+  readonly attackerId: number
+  readonly troops: number
 }
 
 /**
