@@ -112,7 +112,7 @@ export function createHUD(
     'position: absolute',
     'top: 12px',
     'left: 12px',
-    'background: rgba(0,0,0,0.55)',
+    'background: rgba(0,0,0,0.82)',
     'color: white',
     'padding: 8px 12px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
@@ -146,7 +146,7 @@ export function createHUD(
     'top: 12px',
     'right: 12px',
     'width: 250px',
-    'background: rgba(0,0,0,0.6)',
+    'background: rgba(0,0,0,0.82)',
     'color: white',
     'padding: 8px 10px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
@@ -237,7 +237,7 @@ export function createHUD(
     'bottom: 14px',
     'left: 50%',
     'transform: translateX(-50%)',
-    'background: rgba(0,0,0,0.62)',
+    'background: rgba(0,0,0,0.86)',
     'color: white',
     'padding: 10px 16px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
@@ -249,14 +249,27 @@ export function createHUD(
     'z-index: 11',
   ].join(';')
 
+  // Truppen-Beschriftung liegt jetzt direkt IM Balken (zentriert, mit Schatten für
+  // Lesbarkeit über den farbigen Segmenten).
   const barCaption = document.createElement('div')
-  barCaption.style.cssText = 'font-size: 11px; margin-bottom: 2px'
-  actionBar.appendChild(barCaption)
+  barCaption.style.cssText = [
+    'position: absolute',
+    'inset: 0',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'font-size: 11px',
+    'font-weight: bold',
+    'white-space: nowrap',
+    'text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.9)',
+    'pointer-events: none',
+    'z-index: 3',
+  ].join(';')
 
   const barWrap = document.createElement('div')
   barWrap.style.cssText = [
     'position: relative',
-    'height: 14px',
+    'height: 22px',
     'background: rgba(255,255,255,0.08)',
     'border: 1px solid rgba(255,255,255,0.15)',
     'border-radius: 4px',
@@ -282,6 +295,7 @@ export function createHUD(
     'position:absolute;top:0;bottom:0;width:2px;background:#e05a5a;opacity:0.8'
   barWrap.appendChild(optimumTick)
   barWrap.appendChild(stallTick)
+  barWrap.appendChild(barCaption)
   actionBar.appendChild(barWrap)
 
   const barLegend = document.createElement('div')
