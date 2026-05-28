@@ -104,13 +104,15 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     return Math.max(ZOOM_MIN_ABS, Math.min(fitW, fitH))
   }
 
-  let dragging = false
+  // Kamera-Drag mit Maus: 0 = linke, 2 = rechte Taste, null = kein Drag. Beide Tasten
+  // pannen beim Ziehen; ohne nennenswerte Bewegung ist es ein Klick (links: Angriff/Bau,
+  // rechts: Radialmenü).
+  let dragButton: number | null = null
+  let dragDownX = 0
+  let dragDownY = 0
   let lastDragX = 0
   let lastDragY = 0
-  // Rechtsklick: Drag-Distanz tracken — bei kaum Bewegung = Radialmenü statt Pan.
-  let rmbDownX = 0
-  let rmbDownY = 0
-  let rmbMoved = false
+  let dragMoved = false
   const DRAG_THRESHOLD = 6
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
@@ -162,35 +164,41 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseDown(e: MouseEvent): void {
-    if (e.button === 2) {
-      // Rechtsklick → Drag-Pan startet (oder Radialmenü falls keine Bewegung)
-      dragging = true
+    if (e.button === 0 || e.button === 2) {
+      // Beide Tasten starten einen potenziellen Drag-Pan; bei kaum Bewegung wird's
+      // beim Loslassen als Klick (links) bzw. Radialmenü (rechts) gewertet.
+      dragButton = e.button
+      dragDownX = e.clientX
+      dragDownY = e.clientY
       lastDragX = e.clientX
       lastDragY = e.clientY
-      rmbDownX = e.clientX
-      rmbDownY = e.clientY
-      rmbMoved = false
+      dragMoved = false
       e.preventDefault()
     }
   }
 
   function onMouseMove(e: MouseEvent): void {
-    if (dragging) {
-      const dx = e.clientX - lastDragX
-      const dy = e.clientY - lastDragY
-      lastDragX = e.clientX
-      lastDragY = e.clientY
-      if (
-        Math.abs(e.clientX - rmbDownX) > DRAG_THRESHOLD ||
-        Math.abs(e.clientY - rmbDownY) > DRAG_THRESHOLD
-      ) {
-        rmbMoved = true
+    if (dragButton !== null) {
+      // Taste außerhalb des Canvas losgelassen? Dann Drag beenden (sonst „klebt" der Pan).
+      if (e.buttons === 0) {
+        dragButton = null
+      } else {
+        const dx = e.clientX - lastDragX
+        const dy = e.clientY - lastDragY
+        lastDragX = e.clientX
+        lastDragY = e.clientY
+        if (
+          Math.abs(e.clientX - dragDownX) > DRAG_THRESHOLD ||
+          Math.abs(e.clientY - dragDownY) > DRAG_THRESHOLD
+        ) {
+          dragMoved = true
+        }
+        camera.x -= dx / camera.zoom
+        camera.y -= dy / camera.zoom
+        camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
+        camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
+        return
       }
-      camera.x -= dx / camera.zoom
-      camera.y -= dy / camera.zoom
-      camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
-      camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
-      return
     }
     if (deps.onHover !== undefined) {
       const rect = canvas.getBoundingClientRect()
@@ -209,10 +217,14 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseUp(e: MouseEvent): void {
+    // Nur die Taste finalisieren, die den Drag begonnen hat.
+    if (dragButton !== e.button) return
+    const wasMoved = dragMoved
+    dragButton = null
+
     if (e.button === 2) {
-      dragging = false
       // Rechtsklick ohne nennenswerte Bewegung → Radialmenü an dem Tile
-      if (!rmbMoved && deps.onRadialMenu !== undefined) {
+      if (!wasMoved && deps.onRadialMenu !== undefined) {
         const rect = canvas.getBoundingClientRect()
         deps.onRadialMenu(
           screenToTile(e.clientX, e.clientY),
@@ -222,7 +234,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       }
       return
     }
-    if (e.button !== 0) return
+    // Linke Taste: war es ein Drag (Pan), keine Klick-Aktion.
+    if (wasMoved) return
 
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left
