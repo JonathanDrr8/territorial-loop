@@ -22,9 +22,20 @@ fest, damit spätere Sessions die Trade-Offs nachvollziehen können.
 
 Das `terrain`-Byte trägt Bit 7 `IS_LAND` und in den Bits 0-4 die Höhe (Magnitude).
 Vier Klassen: Ebene / Hügel / Berg / Extrem-Berg (Höhe 31 = unpassierbar wie Wasser).
-Höher = höhere Magnitude in der Kampfformel = langsameres Erobern + Verteidiger-Vorteil.
 Verteilung ≈ 60/25/12/3 % auf Land-Tiles (tunebar). Begehbarkeit überall via `isPassable`
-statt `isLand`.
+statt `isLand`. Höheres Terrain wirkt dreifach:
+
+1. **Kampf-Kosten:** höhere Magnitude (80/100/120) → mehr Angreifer-Verlust pro Tile.
+2. **Eroberungs-Tempo & -Form:** die pro Tick eroberten Tiles werden im Verhältnis
+   Ebene/Front-Magnitude gedrosselt, und die Wave-Sortierung gibt höherem Terrain einen
+   Distanz-Aufschlag — die Welle umfließt Erhebungen, statt sie als sauberen Diamant zu
+   nehmen. So zeichnet sich Terrain in der Gebietsform ab.
+3. **Truppen-Cap:** der Cap hängt an einer terrain-gewichteten Tile-Summe (`weightedTiles`):
+   Ebene 1.5 · Hügel 1.0 · Berg 0.5. Plains-reiche Nationen tragen mehr Bevölkerung;
+   Berge sind karg. `tilesOwned` (reine Anzahl) bleibt Basis für Gebiets-% und Sieg.
+
+**Indikatoren:** neutrales Land nutzt eine gestufte Terrain-Palette, eigenes/fremdes
+Gebiet ein Höhen-Relief (Ebene abgedunkelt, Berge hell + Richtung Fels getönt).
 
 ### Gold-Wirtschaft (flach pro Spieler)
 
