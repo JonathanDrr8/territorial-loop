@@ -10,6 +10,7 @@
  */
 
 import type { GameState } from '../core/game'
+import { shipWorldPos } from '../core/ships'
 import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
 import { rgbaToCss } from './colors'
@@ -50,8 +51,48 @@ export function createHoverTooltip(
   ].join(';')
   container.appendChild(tooltip)
 
+  /** Name eines Spielers (oder '?'), gefärbt. */
+  const playerLabel = (id: number): string => {
+    const p = state.players.get(id)
+    return p === undefined
+      ? '?'
+      : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.name)}</b>`
+  }
+
   function show(worldX: number, worldY: number, screenX: number, screenY: number): void {
     const { width: w, height: h } = state.map
+
+    // Zuerst Schiffe prüfen (sie liegen über dem Tile) — Hover zeigt den Besitzer.
+    const place = (html: string): void => {
+      tooltip.innerHTML = html
+      tooltip.style.display = 'block'
+      tooltip.style.left = String(screenX + 14) + 'px'
+      tooltip.style.top = String(screenY + 14) + 'px'
+    }
+    const near = (wx: number, wy: number): boolean => {
+      let dx = Math.abs(wx - worldX)
+      let dy = Math.abs(wy - worldY)
+      if (dx > w / 2) dx = w - dx
+      if (dy > h / 2) dy = h - dy
+      return dx * dx + dy * dy <= 1.6 * 1.6
+    }
+    for (const boat of state.boats) {
+      const { wx, wy } = shipWorldPos(boat, w, h)
+      if (near(wx, wy)) {
+        place(
+          `Transportboot · ${playerLabel(boat.ownerId)}<br><span style="opacity:0.75">${boat.troops.toLocaleString('de-DE')} Truppen</span>`,
+        )
+        return
+      }
+    }
+    for (const ship of state.tradeShips) {
+      const { wx, wy } = shipWorldPos(ship, w, h)
+      if (near(wx, wy)) {
+        place(`Handelsschiff · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`)
+        return
+      }
+    }
+
     const ref = tileRef(Math.floor(worldX), Math.floor(worldY), w, h)
     const owner = getOwner(state.map, ref)
 

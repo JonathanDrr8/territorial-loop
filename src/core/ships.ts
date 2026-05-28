@@ -63,6 +63,33 @@ export function shipTile(ship: Boat | TradeShip): TileRef {
   return ship.path[idx] ?? ship.path[0] ?? 0
 }
 
+/**
+ * Interpolierte Welt-Position (Tile-Mitten) eines Schiffs entlang seiner Route,
+ * torus-sicher (interpoliert über die kürzere Wrap-Richtung). Für Rendering + Hover.
+ */
+export function shipWorldPos(
+  ship: Boat | TradeShip,
+  mapW: number,
+  mapH: number,
+): { wx: number; wy: number } {
+  const len = ship.path.length
+  const fIdx = Math.min(Math.floor(ship.progress), len - 1)
+  const frac = ship.progress - fIdx
+  const a = ship.path[fIdx] ?? ship.path[0] ?? 0
+  const b = ship.path[Math.min(fIdx + 1, len - 1)] ?? a
+  const ax = (a % mapW) + 0.5
+  const ay = Math.floor(a / mapW) + 0.5
+  const bx = (b % mapW) + 0.5
+  const by = Math.floor(b / mapW) + 0.5
+  let dx = bx - ax
+  let dy = by - ay
+  if (dx > mapW / 2) dx -= mapW
+  else if (dx < -mapW / 2) dx += mapW
+  if (dy > mapH / 2) dy -= mapH
+  else if (dy < -mapH / 2) dy += mapH
+  return { wx: ax + dx * frac, wy: ay + dy * frac }
+}
+
 /** Ob ein Schiff seine Route abgeschlossen hat. */
 export function shipArrived(ship: Boat | TradeShip): boolean {
   return ship.progress >= ship.path.length - 1

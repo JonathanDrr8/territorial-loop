@@ -17,7 +17,7 @@ import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
 import { canBuildAt, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
-import type { Boat, TradeShip } from '../core/ships'
+import { type Boat, type TradeShip, shipWorldPos as shipWorldPosOf } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { neighbors4, tileRef } from '../world/torus'
 
@@ -880,25 +880,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   /** Interpolierte Welt-Position eines Schiffs entlang seiner Route (wrap-aware). */
   function shipWorldPos(ship: Boat | TradeShip): { wx: number; wy: number } {
-    const mapW = state.map.width
-    const mapH = state.map.height
-    const len = ship.path.length
-    const fIdx = Math.min(Math.floor(ship.progress), len - 1)
-    const frac = ship.progress - fIdx
-    const a = ship.path[fIdx] ?? ship.path[0] ?? 0
-    const b = ship.path[Math.min(fIdx + 1, len - 1)] ?? a
-    const ax = (a % mapW) + 0.5
-    const ay = Math.floor(a / mapW) + 0.5
-    const bx = (b % mapW) + 0.5
-    const by = Math.floor(b / mapW) + 0.5
-    // Wrap-aware Delta: über die kürzere Torus-Richtung interpolieren.
-    let dx = bx - ax
-    let dy = by - ay
-    if (dx > mapW / 2) dx -= mapW
-    else if (dx < -mapW / 2) dx += mapW
-    if (dy > mapH / 2) dy -= mapH
-    else if (dy < -mapH / 2) dy += mapH
-    return { wx: ax + dx * frac, wy: ay + dy * frac }
+    return shipWorldPosOf(ship, state.map.width, state.map.height)
   }
 
   function drawShips(): void {
