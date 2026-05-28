@@ -205,7 +205,9 @@ export interface GameState {
  * createGame
  * ========================================================================== */
 
-const SPAWN_HALF_SIZE = 2 // 5×5 = (2*2+1)^2
+const SPAWN_HALF_SIZE = 2 // 5×5-Kern muss Land sein (Zentrums-Validierung)
+/** Ziel-Größe eines Start-Gebiets (Tiles) — organisch gewachsen, nicht quadratisch. */
+const SPAWN_TARGET_TILES = 80
 
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
@@ -214,6 +216,15 @@ const SPAWN_HALF_SIZE = 2 // 5×5 = (2*2+1)^2
  * umfließt Erhebungen, statt sie als sauberen Diamant zu schlucken.
  */
 const TERRAIN_WAVE_PENALTY = 0.06
+
+/**
+ * Glättungs-Gewicht für die Front-Welle: jeder eigene Nachbar eines eroberbaren
+ * Tiles zieht es in der Reihenfolge um so viele „Tiles näher". Hoch genug, dass
+ * Buchten/Konkavitäten zuerst gefüllt werden (breite, glatte Front), aber nicht so
+ * hoch, dass die Fokus-Richtung verloren geht. Verhindert dünne Finger, die fremde
+ * Gebiete zerstückeln.
+ */
+const FRONT_SMOOTHING = 5
 
 /**
  * Erzeugt einen neuen Spielzustand und platziert alle Spieler-Spawns.
@@ -305,7 +316,15 @@ function validateConfig(config: GameConfig): void {
 function placeSpawns(state: GameState): void {
   const { map, players, rng } = state
   const { width, height } = map
-  const minDist = Math.max(8, Math.floor(Math.min(width, height) / players.size))
+  const minDist = Math.max(10, Math.floor(Math.min(width, height) / players.size))
+  // Spawn-Größe an die verfügbare Fläche koppeln: höchstens ~⅓ des fairen Anteils
+  // pro Spieler, damit auch auf kleinen Karten alle Platz haben (sonst frisst der
+  // erste Spawn alles). Auf normalen Karten greift SPAWN_TARGET_TILES.
+  const passable = countPassableLand(map)
+  const target = Math.max(
+    6,
+    Math.min(SPAWN_TARGET_TILES, Math.floor(passable / (players.size * 3))),
+  )
 
   const placedCenters: Array<readonly [number, number]> = []
   const playerList = orderedPlayers(state)
@@ -313,17 +332,100 @@ function placeSpawns(state: GameState): void {
   for (const player of playerList) {
     const [cx, cy] = findSpawnCenter(state, rng, width, height, placedCenters, minDist)
     placedCenters.push([cx, cy])
+    growSpawn(state, player, cx, cy, target)
+  }
+}
 
-    for (let dy = -SPAWN_HALF_SIZE; dy <= SPAWN_HALF_SIZE; dy++) {
-      for (let dx = -SPAWN_HALF_SIZE; dx <= SPAWN_HALF_SIZE; dx++) {
-        const ref = tileRef(cx + dx, cy + dy, width, height)
-        // Nur claim wenn Land und neutral
-        if (!isPassable(map.terrain, ref)) continue
-        if (getOwner(map, ref) === 0) {
-          setOwner(map, ref, player.id)
-          player.tilesOwned++
-          player.weightedTiles += tileTroopWeight(map.terrain, ref)
+/**
+ * Lässt das Start-Gebiet eines Spielers von (cx,cy) zu einem soliden, kompakten
+ * Blob wachsen (bis `target` Tiles). Auswahl-Kosten je Kandidat:
+ *   - Distanz zum Zentrum (hält den Blob kompakt-rund, keine dünnen Ausläufer)
+ *   - jeder bereits eigene Nachbar zieht stark vor (`SPAWN_FILL_BONUS`) → Buchten
+ *     werden zuerst gefüllt, es bleiben keine Ein-Pixel-Löcher
+ *   - kleiner Jitter für eine leicht unregelmäßige (nicht-quadratische) Kante
+ * Spart Wasser/Extrem-Berge aus. Ein abschließender Loch-Füll-Pass schließt von
+ * eigenem Gebiet vollständig umschlossene Tiles — der Rand bleibt sauber 1 Pixel.
+ */
+function growSpawn(state: GameState, player: Player, cx: number, cy: number, target: number): void {
+  const { map, rng } = state
+  const { width, height } = map
+  const claimedTiles: TileRef[] = []
+
+  const claim = (ref: TileRef): boolean => {
+    if (!isPassable(map.terrain, ref) || getOwner(map, ref) !== 0) return false
+    setOwner(map, ref, player.id)
+    player.tilesOwned++
+    player.weightedTiles += tileTroopWeight(map.terrain, ref)
+    claimedTiles.push(ref)
+    return true
+  }
+
+  // Kandidaten mit (mutierbarer) Kosten; jeder neue eigene Nachbar senkt die Kosten.
+  const cost = new Map<TileRef, number>()
+  const baseCost = (ref: TileRef): number => {
+    const rx = ref % width
+    const ry = Math.floor(ref / width)
+    return torusDistance(rx, ry, cx, cy, width, height) + rng.next() * 1.2
+  }
+  const onClaimed = (ref: TileRef): void => {
+    for (const nb of neighbors4(ref, width, height)) {
+      if (getOwner(map, nb) !== 0 || !isPassable(map.terrain, nb)) continue
+      const prev = cost.get(nb)
+      cost.set(nb, prev === undefined ? baseCost(nb) - SPAWN_FILL_BONUS : prev - SPAWN_FILL_BONUS)
+    }
+  }
+
+  const center = tileRef(cx, cy, width, height)
+  if (claim(center)) onClaimed(center)
+  else onClaimed(center) // belegtes/Wasser-Zentrum: trotzdem von hier aus wachsen
+
+  while (claimedTiles.length < target && cost.size > 0) {
+    let best = -1
+    let bestCost = Infinity
+    for (const [ref, c] of cost) {
+      if (c < bestCost) {
+        bestCost = c
+        best = ref
+      }
+    }
+    cost.delete(best)
+    if (best < 0) break
+    if (claim(best)) onClaimed(best)
+  }
+
+  fillEnclosed(state, player)
+}
+
+/** Glättungs-Bonus pro bereits eigenem Nachbarn beim Spawn-Wachstum. */
+const SPAWN_FILL_BONUS = 3
+
+/**
+ * Schließt Tiles, die von `player` rundum (über alle passierbaren Nachbarn)
+ * umschlossen sind — verhindert Ein-Pixel-Löcher im Gebiet. Läuft bis stabil.
+ */
+function fillEnclosed(state: GameState, player: Player): void {
+  const { map } = state
+  const { width, height } = map
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let ref = 0; ref < map.state.length; ref++) {
+      if (getOwner(map, ref) !== 0 || !isPassable(map.terrain, ref)) continue
+      let hasPassable = false
+      let enclosed = true
+      for (const nb of neighbors4(ref, width, height)) {
+        if (!isPassable(map.terrain, nb)) continue
+        hasPassable = true
+        if (getOwner(map, nb) !== player.id) {
+          enclosed = false
+          break
         }
+      }
+      if (hasPassable && enclosed) {
+        setOwner(map, ref, player.id)
+        player.tilesOwned++
+        player.weightedTiles += tileTroopWeight(map.terrain, ref)
+        changed = true
       }
     }
   }
@@ -1029,28 +1131,31 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
   if (wantCapture <= 0) return true
 
-  // Direktionale Wave: sortiere eroberbare Tiles nach Torus-Distanz zum focus,
-  // plus einem Terrain-Aufschlag — höheres Terrain „fühlt sich weiter weg an" und
-  // wird später erobert. So fließt die Welle um Hügel/Berge herum statt als sauberer
-  // Diamant, und die Höhen zeichnen sich in der Gebietsform ab.
-  // Vorher shufflen damit Tiles mit gleichem Schlüssel deterministisch zufällig liegen.
+  // Front-Welle: die Reihenfolge der Eroberung formt das Gebiet. Schlüssel je
+  // eroberbarem Tile (kleiner = zuerst), aus drei Effekten:
+  //   - Nähe zum Fokus → gerichtete Ausbreitung in Klick-Richtung
+  //   - viele eigene Nachbarn ziehen stark vor (FRONT_SMOOTHING) → Buchten werden
+  //     zuerst gefüllt, die Front bleibt breit/glatt statt dünne Finger zu treiben
+  //   - höheres Terrain bremst → die Welle umfließt Hügel/Berge
+  // Vorab-Shuffle macht Tiles mit gleichem Schlüssel deterministisch-zufällig (Charme).
   state.rng.shuffleArray(tiles)
   const { width: mapW, height: mapH } = state.map
   const focusX = attack.focusTile % mapW
   const focusY = Math.floor(attack.focusTile / mapW)
-  const sortKey = (t: TileRef): number => {
+  const keyed = tiles.map((t) => {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
     const dist = torusDistance(tx, ty, focusX, focusY, mapW, mapH)
+    const own = ownNeighborCount(state, t, attacker.id)
     const terrainPenalty =
       (terrainMagnitude(state.map.terrain, t) - PLAINS_MAG) * TERRAIN_WAVE_PENALTY
-    return dist + terrainPenalty
-  }
-  tiles.sort((a, b) => sortKey(a) - sortKey(b))
+    return { t, key: dist - own * FRONT_SMOOTHING + terrainPenalty }
+  })
+  keyed.sort((a, b) => a.key - b.key)
 
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break
-    const ref = tiles[i]
+    const ref = keyed[i]?.t
     if (ref === undefined) break
 
     // Recheck — könnte durch parallelen Angriff schon erobert worden sein
@@ -1088,6 +1193,16 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   }
 
   return attack.reserveTroops > 0
+}
+
+/** Anzahl der 4-Nachbarn von `tile`, die `ownerId` gehören (0..4). */
+function ownNeighborCount(state: GameState, tile: TileRef, ownerId: number): number {
+  const { width, height } = state.map
+  let n = 0
+  for (const nb of neighbors4(tile, width, height)) {
+    if (getOwner(state.map, nb) === ownerId) n++
+  }
+  return n
 }
 
 /** Durchschnittliche Terrain-Magnitude der eroberbaren Front-Tiles (min. Ebene). */

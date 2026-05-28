@@ -108,23 +108,23 @@ describe('createGame — basics', () => {
 })
 
 describe('createGame — spawn placement', () => {
-  it('claims tiles for each player (approximately 25 each, 5x5)', () => {
+  it('claims a solid spawn blob per player (~SPAWN_TARGET tiles, no overlap)', () => {
     const state = createGame(baseConfig())
-    let totalClaimed = 0
     for (const p of state.players.values()) {
-      // Mit 4 Spielern auf 64x64 minDist = max(8, 16) = 16; Spawns sollten sich nicht überlappen
-      expect(p.tilesOwned).toBe(25)
-      totalClaimed += p.tilesOwned
+      // Organischer Blob (SPAWN_TARGET ~80); auf 64x64-flat mit 4 Spielern und
+      // genug Abstand bekommt jeder sein volles Ziel.
+      expect(p.tilesOwned).toBeGreaterThanOrEqual(60)
+      expect(p.tilesOwned).toBeLessThanOrEqual(100)
     }
-    expect(totalClaimed).toBe(100)
+    // tilesOwned-Cache stimmt mit den tatsächlich belegten Map-Tiles überein
+    // (keine Überlappung, kein Doppelzählen).
+    assertTileCountConsistency(state)
   })
 
-  it('frontier for each player is non-empty after spawn (border tiles of 5x5)', () => {
+  it('frontier for each player is non-empty after spawn', () => {
     const state = createGame(baseConfig())
     for (const p of state.players.values()) {
-      // Ein 5x5-Quadrat hat 16 Rand-Tiles (alle außer dem inneren 3x3 = 9 Tiles).
-      // Bei Torus mit ausreichend Abstand sollten genau diese 16 in der Frontier sein.
-      expect(p.frontier.size).toBe(16)
+      expect(p.frontier.size).toBeGreaterThan(0)
     }
   })
 
