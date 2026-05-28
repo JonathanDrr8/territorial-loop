@@ -19,13 +19,13 @@
  */
 
 import { countBuildingsOfType, effectiveMaxTroops, type GameState, type Player } from '../core/game'
-import { buildCost, type BuildingType } from '../core/buildings'
+import { buildCost, defenseRange, type BuildingType } from '../core/buildings'
 import { areAllied, hasAllianceRequest } from '../core/diplomacy'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
 import { isLand } from '../world/terrain'
-import { neighbors4 } from '../world/torus'
+import { neighbors4, torusDistance } from '../world/torus'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 
@@ -175,6 +175,91 @@ export function createAI(
     return candidates.length > 0 ? (rng.randElement(candidates) ?? -1) : -1
   }
 
+  /**
+   * Bestes Tile für einen Verteidigungsposten: ein paar Tiles HINTER der bedrohten
+   * Grenze (überlebt einen Push, statt sofort miterobert zu werden), aber nah genug
+   * dass die Front im Wirkradius liegt, und in dichtem Eigenland (deckt möglichst
+   * viel eigenes Gebiet ab). Posten werden auf Abstand gehalten, damit sich die
+   * Abdeckung über die Grenze verteilt statt zu verklumpen.
+   */
+  function pickDefenseTile(state: GameState, player: Player): number {
+    const { width, height } = state.map
+    // 1. Bedrohte Grenze als BFS-Quellen: eigene Frontier-Tiles neben Feind.
+    const sources: number[] = []
+    for (const ref of player.frontier) {
+      for (const n of neighbors4(ref, width, height)) {
+        const o = getOwner(state.map, n)
+        if (o > 0 && o !== player.id) {
+          sources.push(ref)
+          break
+        }
+      }
+    }
+    if (sources.length === 0) return -1
+
+    // 2. Bestehende eigene Posten (für Spreizung).
+    const posts: Array<{ x: number; y: number }> = []
+    for (const [tile, b] of state.buildings) {
+      if (b.type === 'defense' && b.ownerId === player.id) {
+        posts.push({ x: tile % width, y: Math.floor(tile / width) })
+      }
+    }
+    const spacing = defenseRange(1) * 0.9
+
+    // 3. Multi-Source-BFS über Eigenland → depth = Schrittabstand zur nächsten Front.
+    const MIN_DEPTH = 3
+    const MAX_DEPTH = 6
+    const SWEET_DEPTH = 4
+    const MAX_VISIT = 6000
+    const depth = new Map<number, number>()
+    const queue: number[] = []
+    for (const s of sources) {
+      depth.set(s, 0)
+      queue.push(s)
+    }
+    let best = -1
+    let bestScore = -Infinity
+    let head = 0
+    while (head < queue.length && head < MAX_VISIT) {
+      const cur = queue[head++]
+      if (cur === undefined) break
+      const d = depth.get(cur) ?? 0
+      if (d >= MIN_DEPTH && !state.buildings.has(cur)) {
+        const cx = cur % width
+        const cy = Math.floor(cur / width)
+        let tooClose = false
+        for (const p of posts) {
+          if (torusDistance(cx, cy, p.x, p.y, width, height) < spacing) {
+            tooClose = true
+            break
+          }
+        }
+        if (!tooClose) {
+          let ownN = 0
+          for (const n of neighbors4(cur, width, height)) {
+            if (getOwner(state.map, n) === player.id) ownN++
+          }
+          const score = ownN - 2 * Math.abs(d - SWEET_DEPTH)
+          if (score > bestScore) {
+            bestScore = score
+            best = cur
+          }
+        }
+      }
+      if (d < MAX_DEPTH) {
+        for (const n of neighbors4(cur, width, height)) {
+          if (depth.has(n)) continue
+          if (getOwner(state.map, n) !== player.id) continue
+          depth.set(n, d + 1)
+          queue.push(n)
+        }
+      }
+    }
+    // Fallback: zu dünnes/kleines Reich für Tiefe → erster Posten direkt an der Front.
+    if (best < 0 && posts.length === 0) return pickOwnTile(state, player, true)
+    return best
+  }
+
   /** Plant einen Bau nach einfachen Prioritäten (Stadt → Hafen → Verteidigung). */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
@@ -192,9 +277,9 @@ export function createAI(
       const tile = pickCoastalTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
-    // 3. Bedrohte Front → Verteidigungsposten
+    // 3. Bedrohte Front → Verteidigungsposten (hinter der Grenze, nicht drauf)
     if (gold >= costOf('defense')) {
-      const tile = pickOwnTile(state, player, true)
+      const tile = pickDefenseTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'defense' }
     }
     return null

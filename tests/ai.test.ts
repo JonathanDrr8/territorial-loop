@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { createAI } from '../src/ai/ai'
 import { createGame, tick, type GameConfig } from '../src/core/game'
+import { getOwner } from '../src/world/map'
+import { neighbors4 } from '../src/world/torus'
 
 function aiConfig(seed = 'ai-test-seed'): GameConfig {
   return {
@@ -100,6 +102,52 @@ describe('createAI', () => {
     expect(state.buildings.size).toBeGreaterThan(0)
     // Diplomatie fand statt (Anfrage und/oder Bündnis).
     expect(state.alliances.size + state.allianceRequests.size).toBeGreaterThan(0)
+  })
+
+  it('places defense posts behind the border, not directly on the enemy front', () => {
+    // Verteidigungsposten sollen ins eigene Hinterland (überleben einen Push und
+    // decken eigenes Land ab), nicht aufs unmittelbare Front-Tile (sofort miterobert).
+    // Wir prüfen jeden Bau-Intent zum Entscheidungszeitpunkt gegen das aktuelle Board.
+    const config: GameConfig = {
+      mapWidth: 64,
+      mapHeight: 64,
+      seed: 'ai-defense-placement',
+      victoryPct: 90,
+      terrain: 'flat',
+      players: [
+        { id: 1, name: 'A1', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'A2', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'A3', color: 0x0000ffff, isHuman: false },
+        { id: 4, name: 'A4', color: 0xffff00ff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    const { width, height } = state.map
+    const ais = config.players.map((p) => createAI(p.id, state.seed, 'hard'))
+    let interior = 0
+    let onBorder = 0
+    for (let t = 0; t < 2500; t++) {
+      const intents = ais.flatMap((ai) => [...ai.decide(state)])
+      for (const i of intents) {
+        if (i.type === 'build' && i.buildingType === 'defense') {
+          let adjacentEnemy = false
+          for (const n of neighbors4(i.tile, width, height)) {
+            const o = getOwner(state.map, n)
+            if (o > 0 && o !== i.playerId) {
+              adjacentEnemy = true
+              break
+            }
+          }
+          if (adjacentEnemy) onBorder++
+          else interior++
+        }
+      }
+      tick(state, intents)
+    }
+    // Es wurden überhaupt Verteidigungsposten gebaut …
+    expect(interior + onBorder).toBeGreaterThan(0)
+    // … und die klare Mehrheit liegt im Hinterland, nicht direkt am Feind.
+    expect(interior).toBeGreaterThan(onBorder)
   })
 
   it('different player IDs → different intent streams (even same seed)', () => {

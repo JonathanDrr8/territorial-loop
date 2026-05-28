@@ -891,14 +891,14 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const r = Math.max(3, Math.min(7, camera.zoom * 2.5))
     screenCtx.save()
 
-    const drawDot = (wx: number, wy: number, fill: string, ring: string): void => {
+    const drawDot = (wx: number, wy: number, rad: number, fill: string, ring: string): void => {
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
           const sx = worldToScreenX(wx + dx * mapW)
           const sy = worldToScreenY(wy + dy * mapH)
-          if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+          if (sx < -rad || sx > cssW + rad || sy < -rad || sy > cssH + rad) continue
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          screenCtx.arc(sx, sy, rad, 0, Math.PI * 2)
           screenCtx.fillStyle = fill
           screenCtx.fill()
           screenCtx.lineWidth = 1.5
@@ -908,19 +908,36 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       }
     }
 
-    // Handelsschiffe: in Fraktionsfarbe des Absenders, Rand nach Beziehung.
+    // Handelsschiffe: kleiner, schlichter Punkt in Absender-Farbe (Gold-Default).
+    const tradeR = Math.max(2.5, r * 0.85)
     for (const ship of state.tradeShips) {
       const { wx, wy } = shipWorldPos(ship)
       const owner = state.players.get(ship.fromOwnerId)
       const fill = owner === undefined ? '#e8c14a' : rgbaToCssLocal(owner.color)
-      drawDot(wx, wy, fill, shipRelationRing(ship.fromOwnerId))
+      drawDot(wx, wy, tradeR, fill, shipRelationRing(ship.fromOwnerId))
     }
-    // Transport-Boote: in Besitzerfarbe, Rand nach Beziehung.
+    // Transport-Boote: größerer Punkt + weißer Doppel-Rand + Truppenzahl darüber —
+    // klar von den Handelsschiffen abgehoben.
+    const boatR = r * 1.45
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'bottom'
+    screenCtx.font = `bold ${String(Math.max(10, Math.round(9 + camera.zoom * 0.5)))}px system-ui, sans-serif`
     for (const boat of state.boats) {
       const { wx, wy } = shipWorldPos(boat)
       const player = state.players.get(boat.ownerId)
       const fill = player === undefined ? '#fff' : rgbaToCssLocal(player.color)
-      drawDot(wx, wy, fill, shipRelationRing(boat.ownerId))
+      drawDot(wx, wy, boatR, fill, shipRelationRing(boat.ownerId))
+      // Truppenzahl als Label über dem Boot (nur die kameranächste Wrap-Kopie).
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      if (sx > -60 && sx < cssW + 60 && sy > -20 && sy < cssH + 20) {
+        const label = fmtCompactRender(boat.troops)
+        const ty = sy - boatR - 3
+        screenCtx.lineWidth = 3
+        screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+        screenCtx.strokeText(label, sx, ty)
+        screenCtx.fillStyle = '#ffffff'
+        screenCtx.fillText(label, sx, ty)
+      }
     }
     screenCtx.restore()
   }

@@ -75,7 +75,7 @@ export function createHoverTooltip(
       let dy = Math.abs(wy - worldY)
       if (dx > w / 2) dx = w - dx
       if (dy > h / 2) dy = h - dy
-      return dx * dx + dy * dy <= 1.6 * 1.6
+      return dx * dx + dy * dy <= 3.2 * 3.2
     }
     for (const boat of state.boats) {
       const { wx, wy } = shipWorldPos(boat, w, h)
