@@ -307,9 +307,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
 
-    // Sonst: Angriff
+    // Sonst: Angriff. Mit Shift → Rundum (omni): auf eigenem Gebiet gleichmäßig in die
+    // Wildnis ausbreiten, auf einer Nation entlang der GANZEN gemeinsamen Grenze angreifen.
     if (sendTroops > 0) {
-      emit({ type: 'attack', playerId: deps.playerId, targetTile: target, troops: sendTroops })
+      emit({
+        type: 'attack',
+        playerId: deps.playerId,
+        targetTile: target,
+        troops: sendTroops,
+        omni: e.shiftKey,
+      })
       deps.onAttackClick?.(worldX, worldY)
     }
   }
@@ -321,13 +328,14 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   function onWheel(e: WheelEvent): void {
     e.preventDefault()
-    // Shift+Mausrad → Angriffsgröße in 10%-Schritten ändern (statt Zoom).
+    // Shift+Mausrad → Angriffsgröße ändern (statt Zoom). Feinschritte (1 %) unter 10 %,
+    // gröber (10 %) darüber — runter UND wieder hoch, sodass 1 % erreichbar ist.
     if (e.shiftKey && deps.setSliderPct !== undefined && deps.interactive !== false) {
       const cur = deps.getSliderPct()
-      const next = Math.max(
-        1,
-        Math.min(100, cur + (e.deltaY < 0 ? ATTACK_STEP_PCT : -ATTACK_STEP_PCT)),
-      )
+      const up = e.deltaY < 0
+      const fine = up ? cur < 10 : cur <= 10
+      const step = fine ? 1 : ATTACK_STEP_PCT
+      const next = Math.max(1, Math.min(100, cur + (up ? step : -step)))
       deps.setSliderPct(next)
       return
     }

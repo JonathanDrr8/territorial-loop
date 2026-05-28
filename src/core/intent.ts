@@ -41,8 +41,11 @@ export interface AttackIntent {
   readonly targetTile: TileRef
   readonly troops: number
   /**
-   * Rundum-Ausbreitung: expandiert ohne Richtungs-Fokus gleichmäßig in alle
-   * angrenzende Wildnis (ganze Frontier zugleich) statt gezielt zum Klick-Tile.
+   * Rundum-Modus (kein Richtungs-Fokus, ganze Front zugleich) — z.B. via Shift+Linksklick:
+   * - Klick auf eigenes Gebiet / Wildnis → gleichmäßige Ausbreitung in alle angrenzende Wildnis.
+   * - Klick auf eine erreichbare, nicht verbündete Nation → Angriff entlang der GANZEN
+   *   gemeinsamen Grenze (statt gezielt zum Klick-Tile). Die Sim leitet das Ziel aus dem
+   *   Owner des `targetTile` ab.
    */
   readonly omni?: boolean
 }

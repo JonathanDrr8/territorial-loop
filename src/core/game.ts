@@ -1036,21 +1036,41 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
 
-  // Rundum-Ausbreitung: expandiert ohne Fokus gleichmäßig in alle angrenzende Wildnis
-  // (Ziel-Spieler = 0). Bündelt in einen bestehenden Wildnis-Angriff (macht ihn omni).
+  // Rundum-Ausbreitung: expandiert ohne Richtungs-Fokus gleichmäßig entlang der ganzen
+  // Front. Klick auf eigenes Gebiet/Wildnis → gegen Wildnis (Ziel 0); Klick auf eine
+  // erreichbare, nicht verbündete Nation → omni gegen GENAU diese Nation (Angriff entlang
+  // der ganzen gemeinsamen Grenze). Bündelt in einen bestehenden Angriff auf dasselbe Ziel.
   if (intent.omni === true) {
     const troopsOmni = Math.min(intent.troops, player.troops)
     if (troopsOmni <= 0) return
+
+    let omniTarget = 0 // Default: Wildnis
+    if (
+      intent.targetTile >= 0 &&
+      intent.targetTile < state.map.state.length &&
+      isPassable(state.map.terrain, intent.targetTile)
+    ) {
+      const owner = getOwner(state.map, intent.targetTile)
+      if (
+        owner > 0 &&
+        owner !== player.id &&
+        !areAllied(state.alliances, player.id, owner) &&
+        reachableByLand(state, player, intent.targetTile)
+      ) {
+        omniTarget = owner
+      }
+    }
+
     player.troops -= troopsOmni
-    const wild = player.attacks.find((a) => a.targetPlayerId === 0)
-    if (wild !== undefined) {
-      wild.reserveTroops += troopsOmni
-      wild.omni = true
+    const existing = player.attacks.find((a) => a.targetPlayerId === omniTarget)
+    if (existing !== undefined) {
+      existing.reserveTroops += troopsOmni
+      existing.omni = true
       return
     }
-    const seed = player.frontier.values().next().value ?? 0
+    const seed = omniTarget === 0 ? (player.frontier.values().next().value ?? 0) : intent.targetTile
     player.attacks.push({
-      targetPlayerId: 0,
+      targetPlayerId: omniTarget,
       reserveTroops: troopsOmni,
       focusTile: seed,
       frontTile: seed,
@@ -1084,6 +1104,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   if (existing !== undefined) {
     existing.reserveTroops += troops
     existing.focusTile = intent.targetTile
+    existing.omni = false // gezielter Klick fokussiert einen evtl. laufenden omni-Angriff wieder
     return
   }
   player.attacks.push({

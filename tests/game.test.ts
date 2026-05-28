@@ -454,6 +454,49 @@ describe('Rundum-Ausbreitung (omni)', () => {
       expect(getOwner(state.map, nb)).toBe(1)
     }
   })
+
+  it('greift eine Nation entlang der ganzen Grenze an (kein Fokus aufs Klick-Tile)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    const claim = (t: number, id: number, p: typeof p1): void => {
+      setOwner(state.map, t, id)
+      p.tilesOwned++
+      p.frontier.add(t)
+    }
+    // p2 als vertikale Linie; p1 grenzt links an jede p2-Zelle → gemeinsame Grenze über
+    // drei Reihen. Der omni-Klick zielt auf die MITTE — ohne Fokus müssen auch die
+    // Enden (oben/unten) fallen.
+    claim(T(10, 9), 2, p2)
+    claim(T(10, 10), 2, p2)
+    claim(T(10, 11), 2, p2)
+    claim(T(9, 9), 1, p1)
+    claim(T(9, 10), 1, p1)
+    claim(T(9, 11), 1, p1)
+    p1.troops = 20_000
+    p2.troops = 30
+    tick(state, [
+      { type: 'attack', playerId: 1, targetTile: T(10, 10), troops: 15_000, omni: true },
+    ])
+    // Angriff richtet sich gegen p2 und ist als omni markiert.
+    expect(p1.attacks[0]?.targetPlayerId).toBe(2)
+    expect(p1.attacks[0]?.omni).toBe(true)
+    for (let i = 0; i < 10 && p1.attacks.length > 0; i++) tick(state, [])
+    // Beide Enden der Grenze (weit weg vom Klick-Tile) wurden erobert.
+    expect(getOwner(state.map, T(10, 9))).toBe(1)
+    expect(getOwner(state.map, T(10, 11))).toBe(1)
+  })
 })
 
 describe('eingeschlossene Taschen (keine Blasen)', () => {
