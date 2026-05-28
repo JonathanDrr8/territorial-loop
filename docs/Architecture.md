@@ -222,11 +222,12 @@ DOM-Updates passieren via einfacher Pull-Pattern: `ui.update(gameState)` pro Ren
 
 ## Input
 
-- **Linksklick auf Map-Tile** → `attack`-Intent mit aktuellem Slider-Wert
-- **Rechtsklick + Drag** → Kamera-Pan
-- **Mausrad** → Zoom (Range z.B. 0.5× bis 8×)
-- **Leertaste** → Pause-Toggle
-- **1/2/5-Tasten** → Speed-Wechsel
+- **Linksklick auf Map-Tile** → `attack`-Intent (im Bau-Modus: Gebäude platzieren)
+- **WASD** → Kamera-Pan (kontinuierlich, eigene rAF-Schleife); **Rechtsklick + Drag** → Pan
+- **Rechtsklick ohne Drag** → Kontextmenü (Bau auf eigenem, Diplomatie auf fremdem Tile)
+- **Mausrad** → Zoom (dynamisches Minimum bis ~16×)
+- **1–4** → Bau-Modus (Stadt/Verteidigung/Markt/Hafen)
+- **Leertaste** → Pause-Toggle; **, / .** → Tempo runter/rauf (1×/2×/5×); **Esc** → Bau-Modus abbrechen / Menü
 
 Screen→World-Konvertierung: `worldX = wrap(cameraX + (screenX - viewportW/2) / zoom, mapWidth)` — Wrap ist Pflicht.
 
