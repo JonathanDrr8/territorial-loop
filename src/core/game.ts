@@ -49,6 +49,7 @@ import type {
   AcceptAllianceIntent,
   AttackIntent,
   BoatIntent,
+  BoatRecallIntent,
   BreakAllianceIntent,
   BuildIntent,
   CancelAttackIntent,
@@ -692,6 +693,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'boat':
         applyBoatIntent(state, intent)
         break
+      case 'boat-recall':
+        applyBoatRecallIntent(state, intent)
+        break
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
         break
@@ -1000,7 +1004,14 @@ function tryLaunchBoat(
   if (path === null || landingTile < 0) return false
 
   player.troops -= troops
-  state.boats.push({ ownerId: player.id, troops, path, progress: 0, targetTile: landingTile })
+  state.boats.push({
+    ownerId: player.id,
+    troops,
+    path,
+    progress: 0,
+    targetTile: landingTile,
+    returning: false,
+  })
   emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
   return true
 }
@@ -1065,6 +1076,19 @@ function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): 
   player.attacks.splice(intent.attackIndex, 1)
 }
 
+/** Ruft das `boatIndex`-te eigene Boot zurück (es fährt zur Start-Küste um). */
+function applyBoatRecallIntent(state: GameState, intent: BoatRecallIntent): void {
+  let seen = 0
+  for (const boat of state.boats) {
+    if (boat.ownerId !== intent.playerId) continue
+    if (seen === intent.boatIndex) {
+      boat.returning = true
+      return
+    }
+    seen++
+  }
+}
+
 /** Truppen die der Spieler aktuell in laufenden Angriffen gebunden hat. */
 function committedTroops(player: Player): number {
   let sum = 0
@@ -1121,6 +1145,17 @@ function advanceBoats(state: GameState): void {
   if (state.boats.length === 0) return
   const survivors: Boat[] = []
   for (const boat of state.boats) {
+    if (boat.returning) {
+      // Zurückgerufen: rückwärts zur Start-Küste; angekommen → Truppen in den Pool.
+      boat.progress -= BOAT_SPEED
+      if (boat.progress <= 0) {
+        const owner = state.players.get(boat.ownerId)
+        if (owner !== undefined) owner.troops += boat.troops
+      } else {
+        survivors.push(boat)
+      }
+      continue
+    }
     boat.progress += BOAT_SPEED
     if (shipArrived(boat)) {
       landBoat(state, boat)

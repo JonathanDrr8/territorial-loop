@@ -112,6 +112,8 @@ export function createHUD(
   onNewMatch: () => void,
   onBuildClick: (type: BuildingType) => void,
   onBoatClick: () => void,
+  onCancelAttack: (attackIndex: number) => void,
+  onRecallBoat: (boatIndex: number) => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -171,11 +173,20 @@ export function createHUD(
     'font-size: 11px',
     'line-height: 1.5',
     'border-radius: 6px',
-    'pointer-events: none',
+    'pointer-events: auto',
     'z-index: 10',
     'display: none',
   ].join(';')
   container.appendChild(attackPanel)
+  // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote zurückrufen.
+  attackPanel.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement | null)?.closest('[data-cancel],[data-recall]')
+    if (!(el instanceof HTMLElement)) return
+    const cancel = el.dataset.cancel
+    const recall = el.dataset.recall
+    if (cancel !== undefined) onCancelAttack(Number(cancel))
+    else if (recall !== undefined) onRecallBoat(Number(recall))
+  })
 
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
   const rankPanel = document.createElement('div')
@@ -652,14 +663,27 @@ export function createHUD(
     }
     const dur = (startTick: number): string =>
       fmtDuration((state.tick - startTick) / SIM_TICKS_PER_SECOND)
+    const clickable = 'cursor:pointer;border-radius:3px;padding:0 2px'
     const rows: string[] = []
-    for (const atk of human.attacks) {
+    // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve zurück in den Pool).
+    human.attacks.forEach((atk, i) => {
       const target =
         atk.targetPlayerId === 0 ? 'Wildnis' : (state.players.get(atk.targetPlayerId)?.name ?? '?')
       rows.push(
-        `<div><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</div>`,
+        `<div data-cancel="${String(i)}" title="Angriff abbrechen" style="${clickable}"><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} <span style="opacity:0.55">✕</span></div>`,
       )
+    })
+    // Eigene Boote — klickbar zum Zurückrufen.
+    let boatIdx = 0
+    for (const boat of state.boats) {
+      if (boat.ownerId !== human.id) continue
+      const label = boat.returning ? 'kehrt um' : 'unterwegs'
+      rows.push(
+        `<div data-recall="${String(boatIdx)}" title="Boot zurückrufen" style="${clickable}"><span style="color:#46d9e6">🚢</span> ${fmtCompact(boat.troops)} · ${label} <span style="opacity:0.55">↩</span></div>`,
+      )
+      boatIdx++
     }
+    // Eingehende Angriffe (nicht klickbar).
     for (const p of state.players.values()) {
       if (p.id === human.id || !p.isAlive) continue
       for (const atk of p.attacks) {

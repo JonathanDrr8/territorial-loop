@@ -15,6 +15,7 @@ import type { BuildingType } from './buildings'
 export type Intent =
   | AttackIntent
   | BoatIntent
+  | BoatRecallIntent
   | CancelAttackIntent
   | BuildIntent
   | UpgradeIntent
@@ -54,6 +55,17 @@ export interface BoatIntent {
   readonly playerId: number
   readonly targetTile: TileRef
   readonly troops: number
+}
+
+/**
+ * Spieler ruft ein fahrendes eigenes Transport-Boot zurück. `boatIndex` zählt nur
+ * die eigenen Boote (0-basiert, in `state.boats`-Reihenfolge). Das Boot kehrt zur
+ * Start-Küste um; bei Ankunft kommen die Truppen zurück in den Pool.
+ */
+export interface BoatRecallIntent {
+  readonly type: 'boat-recall'
+  readonly playerId: number
+  readonly boatIndex: number
 }
 
 /**

@@ -36,6 +36,8 @@ export interface Boat {
   progress: number
   /** Land-Tile auf dem das Boot landet und den Angriff beginnt. */
   readonly targetTile: TileRef
+  /** Zurückgerufen → fährt rückwärts zur Start-Küste, Truppen kommen in den Pool. */
+  returning: boolean
 }
 
 /** Ein Handelsschiff zwischen zwei Häfen. */

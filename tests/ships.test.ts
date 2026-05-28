@@ -80,6 +80,7 @@ describe('trade gold + ship helpers', () => {
       path: [10, 11, 12] as const,
       progress: 0,
       targetTile: 99,
+      returning: false,
     }
     expect(shipTile(ship)).toBe(10)
     ship.progress = 1
@@ -173,6 +174,35 @@ describe('boat launch + landing via tick', () => {
     // Angriff über Wasser = No-Op: kein Boot und kein Angriff entsteht
     expect(state.boats.length).toBe(0)
     expect(human.attacks.length).toBe(0)
+  })
+
+  it('a recalled boat reverses and returns its troops to the pool', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 3, 1, 1) // Mensch besitzt ein Tile → bleibt am Leben (sonst eliminiert)
+    const human = state.players.get(1)
+    if (human === undefined) throw new Error('no human')
+    human.troops = 0
+    // Boot mitten auf einer (Wasser-)Route, noch nicht gelandet.
+    const water = [
+      tileRef(0, 0, W, H),
+      tileRef(0, 1, W, H),
+      tileRef(0, 2, W, H),
+      tileRef(0, 3, W, H),
+    ] as const
+    state.boats.push({
+      ownerId: 1,
+      troops: 500,
+      path: water,
+      progress: 2,
+      targetTile: tileRef(5, 1, W, H),
+      returning: false,
+    })
+    tick(state, [{ type: 'boat-recall', playerId: 1, boatIndex: 0 }])
+    for (let i = 0; i < 10 && state.boats.length > 0; i++) tick(state, [])
+    // Boot ist heimgekehrt und die Truppen sind zurück im Pool (statt gelandet).
+    expect(state.boats.length).toBe(0)
+    expect(human.troops).toBeGreaterThanOrEqual(500)
   })
 
   it('a boat intent snaps a non-coastal target to a reachable coast of that landmass', () => {

@@ -144,6 +144,9 @@ function startMatch(
     onRequestNewMatch,
     (type) => inputHandler?.toggleBuildMode(type),
     () => inputHandler?.toggleBoatMode(),
+    (attackIndex) =>
+      pendingIntents.push({ type: 'cancel-attack', playerId: HUMAN_ID, attackIndex }),
+    (boatIndex) => pendingIntents.push({ type: 'boat-recall', playerId: HUMAN_ID, boatIndex }),
   )
 
   const minimap = createMinimap({
