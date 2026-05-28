@@ -61,6 +61,11 @@ export interface InputDeps {
    * Liefert TileRef + Screen-Position (CSS-Pixel).
    */
   readonly onRadialMenu?: (tile: number, screenX: number, screenY: number) => void
+  /**
+   * Optional: Prüft ob im Bau-Modus auf `tile` der `type` platziert werden darf.
+   * Ist die Position ungültig, bleibt der Bau-Modus aktiv (kein Platzieren).
+   */
+  readonly canPlaceBuilding?: (tile: number, type: BuildingType) => boolean
 }
 
 export interface InputHandler {
@@ -185,8 +190,12 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
     const target = tileRef(worldX, worldY, mapWidth, mapHeight)
 
-    // Bau-Modus aktiv → Linksklick platziert das Gebäude (Core validiert eigenes Tile/Gold)
+    // Bau-Modus aktiv → Linksklick platziert das Gebäude. Bei ungültiger Position
+    // (z.B. Hafen nicht am Wasser, fremdes Tile, zu wenig Gold) bleibt der Modus
+    // aktiv, damit man einfach ein anderes Tile wählen kann.
     if (buildMode !== null) {
+      const placeable = deps.canPlaceBuilding?.(target, buildMode) ?? true
+      if (!placeable) return
       emit({ type: 'build', playerId: deps.playerId, tile: target, buildingType: buildMode })
       setBuildMode(null)
       return

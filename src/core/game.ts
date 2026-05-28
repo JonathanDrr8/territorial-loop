@@ -525,27 +525,42 @@ export function nearWater(state: GameState, tile: TileRef): boolean {
   return false
 }
 
+/**
+ * Darf `playerId` auf `tile` ein Gebäude vom Typ `type` bauen? Single Source of
+ * Truth für `applyBuildIntent` UND die UI-Platzierungsvorschau (Geist grün/rot).
+ * Prüft Besitz, Begehbarkeit, freies Tile, Hafen-am-Wasser und Gold.
+ */
+export function canBuildAt(
+  state: GameState,
+  playerId: number,
+  tile: TileRef,
+  type: BuildingType,
+): boolean {
+  const player = state.players.get(playerId)
+  if (player === undefined || !player.isAlive) return false
+  if (tile < 0 || tile >= state.map.state.length) return false
+  if (getOwner(state.map, tile) !== playerId) return false // nur eigenes Tile
+  if (!isPassable(state.map.terrain, tile)) return false
+  if (state.buildings.has(tile)) return false // schon bebaut
+  if (type === 'port' && !nearWater(state, tile)) return false
+  const cost = buildCost(type, countBuildingsOfType(state, playerId, type))
+  return player.gold >= cost
+}
+
 function applyBuildIntent(state: GameState, intent: BuildIntent): void {
   const player = state.players.get(intent.playerId)
-  if (player === undefined || !player.isAlive) return
-  const tile = intent.tile
-  if (tile < 0 || tile >= state.map.state.length) return
-  if (getOwner(state.map, tile) !== player.id) return // nur eigenes Tile
-  if (!isPassable(state.map.terrain, tile)) return
-  if (state.buildings.has(tile)) return // schon bebaut
-  if (intent.buildingType === 'port' && !nearWater(state, tile)) return
+  if (player === undefined) return
+  if (!canBuildAt(state, intent.playerId, intent.tile, intent.buildingType)) return
 
   const cost = buildCost(
     intent.buildingType,
     countBuildingsOfType(state, player.id, intent.buildingType),
   )
-  if (player.gold < cost) return
-
   player.gold -= cost
-  state.buildings.set(tile, {
+  state.buildings.set(intent.tile, {
     type: intent.buildingType,
     ownerId: player.id,
-    tile,
+    tile: intent.tile,
     level: 1,
   })
 }

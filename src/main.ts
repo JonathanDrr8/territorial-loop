@@ -8,7 +8,7 @@
 
 import { createAI, type AI } from './ai/ai'
 import { BUILDING_LABEL } from './core/buildings'
-import { createGame, tick, type GameConfig } from './core/game'
+import { canBuildAt, createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -167,10 +167,12 @@ function startMatch(
     },
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode === null ? null : BUILDING_LABEL[mode])
+      renderer.setBuildPreview(mode)
     },
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)
     },
+    canPlaceBuilding: (tile, type) => canBuildAt(state, HUMAN_ID, tile, type),
     events: {
       pause(): void {
         paused = !paused

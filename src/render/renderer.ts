@@ -14,9 +14,11 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import type { GameState } from '../core/game'
+import { defenseRange } from '../core/buildings'
+import { canBuildAt, type GameState } from '../core/game'
 import type { Boat, TradeShip } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
+import { tileRef } from '../world/torus'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -63,6 +65,8 @@ export interface Renderer {
   setHoverTile(worldX: number, worldY: number): void
   /** Entfernt den Hover-Tile-Outline (Cursor verließ Canvas). */
   clearHoverTile(): void
+  /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
+  setBuildPreview(type: BuildingType | null): void
   destroy(): void
 }
 
@@ -371,6 +375,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   const markers: ClickMarker[] = []
   let hoverTile: { x: number; y: number } | null = null
+  // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
+  let buildPreviewType: BuildingType | null = null
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
@@ -808,6 +814,63 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /** Bau-Vorschau: Geist-Symbol am Hover-Tile, grün wenn baubar, sonst rot. */
+  function drawBuildPreview(): void {
+    if (buildPreviewType === null || hoverTile === null) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const ref = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+    let humanId = -1
+    for (const p of state.players.values()) {
+      if (p.isHuman) {
+        humanId = p.id
+        break
+      }
+    }
+    if (humanId < 0) return
+    const valid = canBuildAt(state, humanId, ref, buildPreviewType)
+    const ring = valid ? '#5dd75d' : '#e05a5a'
+    const fill = valid ? 'rgba(93,215,93,0.30)' : 'rgba(224,90,90,0.30)'
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const radius = Math.max(7, Math.min(13, z * 4.5))
+    const glyph = BUILDING_GLYPH[buildPreviewType]
+    const tx = hoverTile.x + 0.5
+    const ty = hoverTile.y + 0.5
+    screenCtx.save()
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'middle'
+    screenCtx.font = `bold ${Math.round(radius * 1.3).toString()}px ui-monospace, monospace`
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const sx = worldToScreenX(tx + dx * mapW)
+        const sy = worldToScreenY(ty + dy * mapH)
+        if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+        // Verteidigungs-Reichweite als gestrichelter Ring andeuten.
+        if (buildPreviewType === 'defense') {
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, defenseRange(1) * z, 0, Math.PI * 2)
+          screenCtx.strokeStyle = valid ? 'rgba(93,215,93,0.5)' : 'rgba(224,90,90,0.5)'
+          screenCtx.lineWidth = 1.5
+          screenCtx.setLineDash([4, 4])
+          screenCtx.stroke()
+          screenCtx.setLineDash([])
+        }
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+        screenCtx.fillStyle = fill
+        screenCtx.fill()
+        screenCtx.lineWidth = 2
+        screenCtx.strokeStyle = ring
+        screenCtx.stroke()
+        screenCtx.fillStyle = '#fff'
+        screenCtx.fillText(glyph, sx, sy + 0.5)
+      }
+    }
+    screenCtx.restore()
+  }
+
   function render(): void {
     if (state.tick !== lastBitmapTick) {
       paintBitmap()
@@ -820,6 +883,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawAttackTargets()
     drawShips()
     drawBuildings()
+    drawBuildPreview()
     drawMarkers()
     drawLabels()
   }
@@ -870,6 +934,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     addClickMarker,
     setHoverTile,
     clearHoverTile,
+    setBuildPreview(type: BuildingType | null): void {
+      buildPreviewType = type
+    },
     destroy,
   }
 }
