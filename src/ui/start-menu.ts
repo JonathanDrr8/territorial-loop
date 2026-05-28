@@ -13,7 +13,9 @@ export type TerrainChoice = 'flat' | 'continents' | 'islands'
 
 export interface StartMenuValues {
   playerName: string
-  mapSize: number
+  /** Karten-Breite und -Höhe getrennt → beliebige Seitenverhältnisse möglich. */
+  mapWidth: number
+  mapHeight: number
   aiCount: number
   victoryPct: number
   difficulty: Difficulty
@@ -34,7 +36,8 @@ export interface StartMenuApi {
   destroy(): void
 }
 
-const MAP_SIZE_OPTIONS = [128, 256, 512, 1024] as const
+/** Wählbare Kantenlängen für Breite/Höhe (frei kombinierbar → auch 6:1 etc.). */
+const MAP_DIM_OPTIONS = [256, 512, 768, 1024, 1536, 2048] as const
 
 const PANEL_STYLE = [
   'background: #1a1a22',
@@ -173,22 +176,35 @@ export function createStartMenu(
   nameRow.appendChild(nameInput)
   panel.appendChild(nameRow)
 
-  // Map size — discrete select
+  // Kartengröße — Breite × Höhe getrennt wählbar (beliebige Seitenverhältnisse)
+  const dimSelect = (initialVal: number): HTMLSelectElement => {
+    const sel = document.createElement('select')
+    sel.style.cssText = SELECT_STYLE
+    for (const d of MAP_DIM_OPTIONS) {
+      const opt = document.createElement('option')
+      opt.value = String(d)
+      opt.textContent = String(d)
+      if (d === initialVal) opt.selected = true
+      sel.appendChild(opt)
+    }
+    return sel
+  }
   const mapRow = document.createElement('div')
   mapRow.style.cssText = FIELD_ROW_STYLE
   const mapLabel = document.createElement('label')
-  mapLabel.textContent = 'Kartengröße'
-  const mapSelect = document.createElement('select')
-  mapSelect.style.cssText = SELECT_STYLE
-  for (const size of MAP_SIZE_OPTIONS) {
-    const opt = document.createElement('option')
-    opt.value = String(size)
-    opt.textContent = `${size} × ${size}`
-    if (size === initial.mapSize) opt.selected = true
-    mapSelect.appendChild(opt)
-  }
+  mapLabel.textContent = 'Karte (B × H)'
+  const widthSelect = dimSelect(initial.mapWidth)
+  const heightSelect = dimSelect(initial.mapHeight)
+  const dimWrap = document.createElement('div')
+  dimWrap.style.cssText = 'display: flex; gap: 8px; align-items: center'
+  const times = document.createElement('span')
+  times.textContent = '×'
+  times.style.opacity = '0.6'
+  dimWrap.appendChild(widthSelect)
+  dimWrap.appendChild(times)
+  dimWrap.appendChild(heightSelect)
   mapRow.appendChild(mapLabel)
-  mapRow.appendChild(mapSelect)
+  mapRow.appendChild(dimWrap)
   panel.appendChild(mapRow)
 
   // Terrain — discrete select
@@ -341,7 +357,8 @@ export function createStartMenu(
     const seedRaw = seedInput.value.trim()
     onStart({
       playerName: nameInput.value.trim() || 'Du',
-      mapSize: Number(mapSelect.value),
+      mapWidth: Number(widthSelect.value),
+      mapHeight: Number(heightSelect.value),
       aiCount: aiCount.getValue(),
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,

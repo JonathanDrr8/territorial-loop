@@ -4,7 +4,8 @@ import type { StartMenuValues } from '../src/ui/start-menu'
 
 const DEFAULTS: StartMenuValues = {
   playerName: 'Du',
-  mapSize: 256,
+  mapWidth: 1024,
+  mapHeight: 1024,
   aiCount: 3,
   victoryPct: 90,
   difficulty: 'normal',
@@ -25,7 +26,8 @@ describe('preferences', () => {
   it('round-trips a full save → load', () => {
     const custom: StartMenuValues = {
       playerName: 'Jonathan',
-      mapSize: 512,
+      mapWidth: 512,
+      mapHeight: 768,
       aiCount: 5,
       victoryPct: 75,
       difficulty: 'hard',
@@ -40,10 +42,11 @@ describe('preferences', () => {
   it('ignores invalid map size, falls back to default', () => {
     window.localStorage.setItem(
       'territorial-loop:menu-prefs:v1',
-      JSON.stringify({ ...DEFAULTS, mapSize: 999 }),
+      JSON.stringify({ ...DEFAULTS, mapWidth: 999, mapHeight: 777 }),
     )
     const loaded = loadMenuPrefs(DEFAULTS)
-    expect(loaded.mapSize).toBe(DEFAULTS.mapSize)
+    expect(loaded.mapWidth).toBe(DEFAULTS.mapWidth)
+    expect(loaded.mapHeight).toBe(DEFAULTS.mapHeight)
   })
 
   it('ignores invalid difficulty enum, falls back to default', () => {

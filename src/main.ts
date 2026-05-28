@@ -29,12 +29,13 @@ const DEFAULT_SLIDER_PCT = 30
 
 const DEFAULT_MENU: StartMenuValues = {
   playerName: 'Du',
-  mapSize: 256,
+  mapWidth: 1024,
+  mapHeight: 1024,
   aiCount: 3,
   victoryPct: 90,
   difficulty: 'normal',
   tempo: 'normal',
-  terrain: 'flat',
+  terrain: 'continents',
   soundEnabled: true,
 }
 
@@ -49,8 +50,8 @@ function buildConfig(menu: StartMenuValues): GameConfig {
   const seed =
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
   return {
-    mapWidth: menu.mapSize,
-    mapHeight: menu.mapSize,
+    mapWidth: menu.mapWidth,
+    mapHeight: menu.mapHeight,
     seed,
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
@@ -247,6 +248,28 @@ function startMatch(
   }
 }
 
+/** Zeigt ein zentriertes „Karte wird generiert…"-Overlay; gibt eine Entfernen-Funktion zurück. */
+function showLoadingOverlay(container: HTMLElement): () => void {
+  const el = document.createElement('div')
+  el.style.cssText = [
+    'position: absolute',
+    'inset: 0',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'background: #0b0b12',
+    'color: rgba(255,255,255,0.85)',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 18px',
+    'z-index: 50',
+  ].join(';')
+  el.textContent = 'Karte wird generiert …'
+  container.appendChild(el)
+  return () => {
+    el.remove()
+  }
+}
+
 function main(): void {
   const maybeContainer = document.getElementById('game')
   if (maybeContainer === null) {
@@ -267,12 +290,23 @@ function main(): void {
         session.destroy()
         session = null
       }
-      session = startMatch(container, values, () => {
-        if (session !== null) {
-          session.destroy()
-          session = null
-        }
-        showMenu()
+      // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
+      // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
+      const removeLoading = showLoadingOverlay(container)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            session = startMatch(container, values, () => {
+              if (session !== null) {
+                session.destroy()
+                session = null
+              }
+              showMenu()
+            })
+          } finally {
+            removeLoading()
+          }
+        })
       })
     })
   }

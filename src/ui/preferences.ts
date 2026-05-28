@@ -20,7 +20,7 @@ const TERRAINS: ReadonlySet<TerrainChoice> = new Set<TerrainChoice>([
   'continents',
   'islands',
 ])
-const MAP_SIZES: ReadonlySet<number> = new Set<number>([128, 256, 512, 1024])
+const MAP_DIMS: ReadonlySet<number> = new Set<number>([256, 512, 768, 1024, 1536, 2048])
 
 function isDifficulty(v: unknown): v is Difficulty {
   return typeof v === 'string' && DIFFICULTIES.has(v as Difficulty)
@@ -48,8 +48,11 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (typeof parsed.playerName === 'string' && parsed.playerName.trim().length > 0) {
       result.playerName = parsed.playerName.slice(0, 16)
     }
-    if (typeof parsed.mapSize === 'number' && MAP_SIZES.has(parsed.mapSize)) {
-      result.mapSize = parsed.mapSize
+    if (typeof parsed.mapWidth === 'number' && MAP_DIMS.has(parsed.mapWidth)) {
+      result.mapWidth = parsed.mapWidth
+    }
+    if (typeof parsed.mapHeight === 'number' && MAP_DIMS.has(parsed.mapHeight)) {
+      result.mapHeight = parsed.mapHeight
     }
     if (
       typeof parsed.aiCount === 'number' &&
