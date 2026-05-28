@@ -15,8 +15,6 @@ import { adjacentWaterByComponent, findWaterPath, sameWaterComponent } from '../
 
 /** Maximale Anzahl gleichzeitiger Transport-Boote pro Spieler. */
 export const MAX_BOATS_PER_PLAYER = 3
-/** Anteil der Truppen den ein Transport-Boot mitnimmt. */
-export const BOAT_TROOP_FRACTION = 0.2
 /** Tiles die ein Boot pro Tick zurücklegt. */
 export const BOAT_SPEED = 2
 /** Tiles die ein Handelsschiff pro Tick zurücklegt. */

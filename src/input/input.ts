@@ -69,6 +69,8 @@ export interface InputDeps {
   readonly onHoverEnd?: () => void
   /** Optional: Bau-Modus hat sich geändert (für HUD-Feedback). null = kein Bau-Modus. */
   readonly onBuildModeChange?: (mode: BuildingType | null) => void
+  /** Optional: Boot-Modus an/aus (für HUD-Feedback). */
+  readonly onBoatModeChange?: (on: boolean) => void
   /**
    * Optional: Rechtsklick ohne Drag → Radialmenü an Welt-Tile öffnen.
    * Liefert TileRef + Screen-Position (CSS-Pixel).
@@ -84,6 +86,8 @@ export interface InputDeps {
 export interface InputHandler {
   /** Schaltet den Bau-Modus für `type` um (für HUD-Bau-Buttons; wie der Hotkey). */
   toggleBuildMode(type: BuildingType): void
+  /** Schaltet den Boot-Modus um (für einen HUD-Button; wie der Hotkey „b"). */
+  toggleBoatMode(): void
   destroy(): void
 }
 
@@ -120,14 +124,25 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   const DRAG_THRESHOLD = 6
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
+  // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
+  let boatMode = false
   // WASD-Kamera-Pan: gedrückte Richtungstasten + laufende rAF-Schleife.
   const heldPan = new Set<string>()
   let panRaf: number | null = null
 
   function setBuildMode(mode: BuildingType | null): void {
+    // Bau- und Boot-Modus schließen sich gegenseitig aus.
+    if (mode !== null && boatMode) setBoatMode(false)
     if (buildMode === mode) return
     buildMode = mode
     deps.onBuildModeChange?.(mode)
+  }
+
+  function setBoatMode(on: boolean): void {
+    if (on && buildMode !== null) setBuildMode(null)
+    if (boatMode === on) return
+    boatMode = on
+    deps.onBoatModeChange?.(on)
   }
 
   function panStep(): void {
@@ -263,10 +278,20 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
 
-    // Sonst: Angriff
     const troops = deps.getPlayerTroops()
     const pct = deps.getSliderPct()
     const sendTroops = Math.floor((troops * pct) / 100)
+
+    // Boot-Modus aktiv → Linksklick schickt EIN Boot (Slider-Truppengröße) zum Ziel.
+    // Der Modus bleibt an, damit man mehrere Boote losschicken kann (Esc/Toggle beendet).
+    if (boatMode) {
+      if (sendTroops > 0) {
+        emit({ type: 'boat', playerId: deps.playerId, targetTile: target, troops: sendTroops })
+      }
+      return
+    }
+
+    // Sonst: Angriff
     if (sendTroops > 0) {
       emit({ type: 'attack', playerId: deps.playerId, targetTile: target, troops: sendTroops })
       deps.onAttackClick?.(worldX, worldY)
@@ -314,9 +339,12 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     } else if (key in BUILD_HOTKEYS && deps.interactive !== false) {
       const mode = BUILD_HOTKEYS[key]
       if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
+    } else if (key === 'b' && deps.interactive !== false) {
+      setBoatMode(!boatMode)
     } else if (e.key === 'Escape') {
-      // Esc bricht erst den Bau-Modus ab, sonst zurück zum Menü
-      if (buildMode !== null) setBuildMode(null)
+      // Esc bricht erst Boot-/Bau-Modus ab, sonst zurück zum Menü
+      if (boatMode) setBoatMode(false)
+      else if (buildMode !== null) setBuildMode(null)
       else events.escape?.()
     }
   }
@@ -343,6 +371,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   return {
     toggleBuildMode(type: BuildingType): void {
       setBuildMode(buildMode === type ? null : type)
+    },
+    toggleBoatMode(): void {
+      setBoatMode(!boatMode)
     },
     destroy(): void {
       canvas.removeEventListener('mousedown', onMouseDown)

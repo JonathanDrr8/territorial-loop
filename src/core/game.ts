@@ -48,6 +48,7 @@ import {
 import type {
   AcceptAllianceIntent,
   AttackIntent,
+  BoatIntent,
   BreakAllianceIntent,
   BuildIntent,
   CancelAttackIntent,
@@ -70,7 +71,6 @@ import {
 import {
   type Boat,
   BOAT_SPEED,
-  BOAT_TROOP_FRACTION,
   MAX_BOATS_PER_PLAYER,
   TRADE_INTERVAL_TICKS,
   TRADE_SHIP_SPEED,
@@ -680,6 +680,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'attack':
         applyAttackIntent(state, intent)
         break
+      case 'boat':
+        applyBoatIntent(state, intent)
+        break
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
         break
@@ -879,12 +882,9 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const troops = Math.min(intent.troops, player.troops)
   if (troops <= 0) return
 
-  // Erreicht der Spieler das Ziel über Land (gemeinsame Land-Komponente an der
-  // Frontier)? Sonst ist es eine andere Landmasse → Transport-Boot nötig.
-  if (!reachableByLand(state, player, intent.targetTile)) {
-    tryLaunchBoat(state, player, intent.targetTile)
-    return
-  }
+  // Angriffe wirken nur über Land. Eine andere Landmasse erreicht man bewusst
+  // über den Boot-Modus (BoatIntent), nicht implizit per Angriffs-Klick.
+  if (!reachableByLand(state, player, intent.targetTile)) return
 
   player.troops -= troops
   player.attacks.push({
@@ -894,6 +894,29 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
     frontTile: intent.targetTile,
     startTick: state.tick,
   })
+}
+
+/**
+ * Bewusster Boot-Befehl (Boot-Modus): schickt EIN Transport-Boot mit der per
+ * Slider gewählten Truppenzahl zu einem Küsten-Ziel auf einer anderen Landmasse.
+ * Schlägt der Start fehl (kein Wasserweg von eigener Küste, Boot-Limit, Ziel über
+ * Land erreichbar), gibt es einen Log-Hinweis statt eines stillen Fehlschlags.
+ */
+function applyBoatIntent(state: GameState, intent: BoatIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  if (intent.targetTile < 0 || intent.targetTile >= state.map.state.length) return
+  if (!isPassable(state.map.terrain, intent.targetTile)) return
+
+  const targetOwner = getOwner(state.map, intent.targetTile)
+  if (targetOwner === player.id) return
+  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) return
+  // Über Land erreichbar → das ist ein Land-Angriff, kein Boot.
+  if (reachableByLand(state, player, intent.targetTile)) return
+
+  if (!tryLaunchBoat(state, player, intent.targetTile, intent.troops)) {
+    emitEvent(state, `${player.name}: kein Wasserweg für ein Boot`, player.color)
+  }
 }
 
 /** Liegt eine Frontier-Kachel des Spielers auf derselben Land-Komponente wie das Ziel? */
@@ -909,22 +932,29 @@ function reachableByLand(state: GameState, player: Player, targetTile: TileRef):
 /**
  * Versucht ein Transport-Boot zum Ziel zu starten: prüft Boot-Limit, sammelt die
  * eigenen Tiles als mögliche Start-Küsten und plant die Wasserroute. Nimmt
- * BOAT_TROOP_FRACTION der Truppen mit. Schlägt der Plan fehl, passiert nichts.
+ * `requestedTroops` (gedeckelt auf den Truppen-Pool) mit. Liefert `true` bei
+ * erfolgreichem Start, sonst `false` (z.B. kein Wasserweg, Boot-Limit erreicht).
  */
-function tryLaunchBoat(state: GameState, player: Player, targetTile: TileRef): void {
+function tryLaunchBoat(
+  state: GameState,
+  player: Player,
+  targetTile: TileRef,
+  requestedTroops: number,
+): boolean {
   const activeBoats = state.boats.reduce((n, b) => (b.ownerId === player.id ? n + 1 : n), 0)
-  if (activeBoats >= MAX_BOATS_PER_PLAYER) return
+  if (activeBoats >= MAX_BOATS_PER_PLAYER) return false
 
-  const troops = Math.floor(player.troops * BOAT_TROOP_FRACTION)
-  if (troops <= 0) return
+  const troops = Math.min(Math.floor(requestedTroops), player.troops)
+  if (troops <= 0) return false
 
   const ownerTiles = collectOwnerTiles(state, player.id)
   const plan = planBoatLaunch(state.map, state.waterComponents, ownerTiles, targetTile)
-  if (plan === null) return
+  if (plan === null) return false
 
   player.troops -= troops
   state.boats.push({ ownerId: player.id, troops, path: plan.path, progress: 0, targetTile })
   emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
+  return true
 }
 
 /** Alle Tiles die `playerId` besitzt (für Boot-Start-Küsten). O(N) — nur bei Boot-Start. */

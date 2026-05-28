@@ -143,6 +143,7 @@ function startMatch(
     },
     onRequestNewMatch,
     (type) => inputHandler?.toggleBuildMode(type),
+    () => inputHandler?.toggleBoatMode(),
   )
 
   const minimap = createMinimap({
@@ -187,6 +188,9 @@ function startMatch(
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
       renderer.setBuildPreview(mode)
+    },
+    onBoatModeChange: (on) => {
+      hud.setBoatMode(on)
     },
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)

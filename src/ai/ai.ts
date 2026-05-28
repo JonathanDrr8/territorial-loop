@@ -342,13 +342,12 @@ export function createAI(
     const popRatio = max > 0 ? player.troops / max : 0
     const preferEnemies = popRatio >= profile.popThresholdForPvp
 
-    // Gelegentlich amphibisch: entferntes Gegner-Tile, Core entscheidet Boot vs. nichts.
+    // Gelegentlich amphibisch: entferntes Küsten-Ziel über Wasser → explizites Boot.
     if (preferEnemies && rng.next() < profile.boatChance) {
       const boatTarget = pickBoatTarget(state, player)
       if (boatTarget >= 0) {
         const troops = Math.floor((player.troops * profile.attackPct) / 100)
-        if (troops > 0)
-          return { type: 'attack', playerId: player.id, targetTile: boatTarget, troops }
+        if (troops > 0) return { type: 'boat', playerId: player.id, targetTile: boatTarget, troops }
       }
     }
 

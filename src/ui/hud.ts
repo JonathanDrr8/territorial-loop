@@ -74,6 +74,8 @@ export interface HUDApi {
   setSpeed(speed: SpeedMultiplier): void
   /** Markiert den aktiven Bau-Modus-Button. `null` = kein Bau-Modus aktiv. */
   setBuildMode(type: BuildingType | null): void
+  /** Markiert den Boot-Modus (Button-Highlight + Hinweisbanner). */
+  setBoatMode(on: boolean): void
   destroy(): void
 }
 
@@ -109,6 +111,7 @@ export function createHUD(
   onSliderChange: (pct: number) => void,
   onNewMatch: () => void,
   onBuildClick: (type: BuildingType) => void,
+  onBoatClick: () => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -449,6 +452,48 @@ export function createHUD(
     buildCostEls.set(type, cost)
   }
   actionBar.appendChild(buildRow)
+
+  // Boot-Knopf (Toggle): schaltet den Boot-Modus; Linksklick danach schickt ein Boot.
+  const boatBtn = document.createElement('button')
+  boatBtn.style.cssText = [
+    'margin-top: 6px',
+    'width: 100%',
+    'padding: 5px 8px',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'gap: 8px',
+    'background: rgba(255,255,255,0.06)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 6px',
+    'color: white',
+    'font: inherit',
+    'font-size: 12px',
+    'cursor: pointer',
+  ].join(';')
+  boatBtn.innerHTML =
+    '<span style="font-weight:bold">B</span> 🚢 Transportboot <span style="opacity:0.6;font-size:10px">Ziel auf anderer Insel</span>'
+  boatBtn.addEventListener('click', () => {
+    onBoatClick()
+  })
+  actionBar.appendChild(boatBtn)
+
+  // Hinweis-Banner während aktivem Boot-Modus.
+  const boatHint = document.createElement('div')
+  boatHint.style.cssText = [
+    'margin-top: 6px',
+    'padding: 5px 8px',
+    'display: none',
+    'background: rgba(70,217,230,0.15)',
+    'border: 1px solid rgba(70,217,230,0.6)',
+    'border-radius: 6px',
+    'color: #aef3fb',
+    'font-size: 11px',
+    'text-align: center',
+  ].join(';')
+  boatHint.textContent = '🚢 Boot-Modus: Küsten-Ziel auf anderer Landmasse klicken · Esc beendet'
+  actionBar.appendChild(boatHint)
+
   container.appendChild(actionBar)
 
   /* ---- Game-Over-Banner ---------------------------------------------------- */
@@ -748,6 +793,12 @@ export function createHUD(
         btn.style.color = active ? '#1a1a1a' : 'white'
         btn.style.borderColor = active ? '#e8c14a' : 'rgba(255,255,255,0.15)'
       }
+    },
+    setBoatMode(on: boolean): void {
+      boatHint.style.display = on ? 'block' : 'none'
+      boatBtn.style.background = on ? 'rgba(70,217,230,0.85)' : 'rgba(255,255,255,0.06)'
+      boatBtn.style.color = on ? '#06222a' : 'white'
+      boatBtn.style.borderColor = on ? '#46d9e6' : 'rgba(255,255,255,0.15)'
     },
     destroy(): void {
       infoBox.remove()

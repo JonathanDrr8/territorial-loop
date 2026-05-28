@@ -6,7 +6,6 @@ import {
   tradeGold,
   shipTile,
   shipArrived,
-  BOAT_TROOP_FRACTION,
   TRADE_INTERVAL_TICKS,
 } from '../src/core/ships'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
@@ -121,7 +120,7 @@ describe('route planners on a split map', () => {
 })
 
 describe('boat launch + landing via tick', () => {
-  it('launches a boat when attacking across water and lands a beachhead', () => {
+  it('launches a boat via a boat intent and lands a beachhead', () => {
     const state = createGame(cfg())
     splitMap(state)
     own(state, 3, 1, 1) // human on left landmass, coastal
@@ -133,12 +132,12 @@ describe('boat launch + landing via tick', () => {
     enemy.troops = 0 // unverteidigt → Landung gelingt
 
     const before = human.troops
-    tick(state, [{ type: 'attack', playerId: 1, targetTile: enemyTile, troops: 1000 }])
-    // Boot nahm BOAT_TROOP_FRACTION der Truppen → Pool sank (kein voller Land-Angriff)
+    // Boot-Intent trägt die angeforderte Truppenzahl (Slider-%), nicht mehr einen Bruchteil.
+    tick(state, [{ type: 'boat', playerId: 1, targetTile: enemyTile, troops: 600 }])
+    // Pool sank um ~600 (abzüglich des kleinen Wachstums im selben Tick).
     expect(human.troops).toBeLessThan(before)
-    // Boot entweder noch unterwegs (korrekte Truppenzahl) oder schon gelandet (Brückenkopf)
     if (state.boats.length > 0) {
-      expect(state.boats[0]?.troops).toBe(Math.floor(1000 * BOAT_TROOP_FRACTION))
+      expect(state.boats[0]?.troops).toBe(600)
     }
 
     // bis zur Auflösung weiterticken
@@ -148,7 +147,7 @@ describe('boat launch + landing via tick', () => {
     expect(getOwner(state.map, enemyTile)).toBe(1)
   })
 
-  it('does not launch a boat when the target is reachable by land', () => {
+  it('a boat intent to a land-reachable target does nothing (use attack instead)', () => {
     const state = createGame(cfg())
     splitMap(state)
     own(state, 1, 1, 1)
@@ -156,12 +155,24 @@ describe('boat launch + landing via tick', () => {
     const human = state.players.get(1)
     if (human === undefined) throw new Error('no human')
     human.troops = 500
-    tick(state, [{ type: 'attack', playerId: 1, targetTile: neighborLand, troops: 500 }])
+    tick(state, [{ type: 'boat', playerId: 1, targetTile: neighborLand, troops: 500 }])
+    // kein Boot und kein Angriff — über Land erreichbar ist kein Boot-Ziel (No-Op)
     expect(state.boats.length).toBe(0)
-    // a normal land attack was created instead
-    expect(
-      human.attacks.length + (getOwner(state.map, neighborLand) === 1 ? 1 : 0),
-    ).toBeGreaterThan(0)
+    expect(human.attacks.length).toBe(0)
+  })
+
+  it('an attack across water no longer auto-launches a boat (explicit boat mode only)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 3, 1, 1)
+    const enemyTile = own(state, 5, 1, 2) // enemy on the other landmass
+    const human = state.players.get(1)
+    if (human === undefined) throw new Error('no human')
+    human.troops = 1000
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: enemyTile, troops: 1000 }])
+    // Angriff über Wasser = No-Op: kein Boot und kein Angriff entsteht
+    expect(state.boats.length).toBe(0)
+    expect(human.attacks.length).toBe(0)
   })
 })
 

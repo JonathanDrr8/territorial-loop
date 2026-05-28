@@ -14,6 +14,7 @@ import type { BuildingType } from './buildings'
 
 export type Intent =
   | AttackIntent
+  | BoatIntent
   | CancelAttackIntent
   | BuildIntent
   | UpgradeIntent
@@ -33,6 +34,23 @@ export type Intent =
  */
 export interface AttackIntent {
   readonly type: 'attack'
+  readonly playerId: number
+  readonly targetTile: TileRef
+  readonly troops: number
+}
+
+/**
+ * Spieler schickt ein einzelnes Transport-Boot zu einem Ziel auf einer anderen
+ * Landmasse. Anders als beim Angriff ist das ein bewusster Befehl (Boot-Modus):
+ *
+ * - `targetTile` muss ein begehbares Land-Tile am Wasser sein, das NICHT über
+ *   Land erreichbar ist (eigene/feindliche Landmasse zählt nur, wenn übers Meer).
+ * - `troops` ist die absolute Anzahl (Slider-%), gedeckelt auf `player.troops`.
+ *   Findet die Sim keinen Wasserweg von einer eigenen Küste, passiert nichts
+ *   (mit Log-Hinweis).
+ */
+export interface BoatIntent {
+  readonly type: 'boat'
   readonly playerId: number
   readonly targetTile: TileRef
   readonly troops: number
