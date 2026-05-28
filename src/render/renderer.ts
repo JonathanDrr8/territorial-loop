@@ -14,6 +14,7 @@
  */
 
 import type { GameState } from '../core/game'
+import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 
 export interface Camera {
   /** Welt-Koord die am Screen-Center erscheint. */
@@ -54,9 +55,10 @@ const NEUTRAL_B = 35
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
+const ROCK_R = 70
+const ROCK_G = 66
+const ROCK_B = 62
 const BG_FILL = '#0a0a10'
-
-const IS_LAND_BIT = 0b1000_0000
 
 const OWNER_MASK = 0x0fff
 
@@ -176,55 +178,74 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     for (let i = 0; i < len; i++) {
       const v = mapState[i]
       if (v === undefined) continue
-      const t = terrain[i]
+      const t = terrain[i] ?? 0
       const o = i * 4
-      // Wasser: terrain-bit 7 = 0 → unpassierbar, eigene Farbe, owner ignoriert
-      if (t !== undefined && (t & IS_LAND_BIT) === 0) {
+      data[o + 3] = 255
+      // Wasser: terrain-bit 7 = 0 → unpassierbar, owner ignoriert
+      if ((t & IS_LAND_BIT) === 0) {
         data[o] = WATER_R
         data[o + 1] = WATER_G
         data[o + 2] = WATER_B
-        data[o + 3] = 255
+        continue
+      }
+      const height = t & HEIGHT_MASK
+      // Extrem-Berg: unpassierbar, Fels-Ton (owner irrelevant — wird nie erobert)
+      if (height === IMPASSABLE_HEIGHT) {
+        data[o] = ROCK_R
+        data[o + 1] = ROCK_G
+        data[o + 2] = ROCK_B
         continue
       }
       const owner = v & OWNER_MASK
-      data[o + 3] = 255
+      let r: number
+      let g: number
+      let b: number
       if (owner === 0) {
-        data[o] = NEUTRAL_R
-        data[o + 1] = NEUTRAL_G
-        data[o + 2] = NEUTRAL_B
-        continue
-      }
-      const c = lut.get(owner)
-      if (c === undefined) {
-        data[o] = 255
-        data[o + 1] = 0
-        data[o + 2] = 255
-        continue
-      }
-      // Border-Check: grenzt das Tile an einen anderen Owner (oder Wasser/neutral)?
-      const x = i % w
-      const y = (i - x) / w
-      const ol = (mapState[y * w + (x === 0 ? w - 1 : x - 1)] ?? 0) & OWNER_MASK
-      const or = (mapState[y * w + (x === w - 1 ? 0 : x + 1)] ?? 0) & OWNER_MASK
-      const ou = (mapState[(y === 0 ? h - 1 : y - 1) * w + x] ?? 0) & OWNER_MASK
-      const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
-      const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
-      if (isBorder) {
-        if (owner === humanId) {
-          // Eigenes Reich: helle, fast-weiße Grenze
-          data[o] = 240
-          data[o + 1] = 240
-          data[o + 2] = 255
-        } else {
-          data[o] = c.br
-          data[o + 1] = c.bg
-          data[o + 2] = c.bb
-        }
+        r = NEUTRAL_R
+        g = NEUTRAL_G
+        b = NEUTRAL_B
       } else {
-        data[o] = c.ir
-        data[o + 1] = c.ig
-        data[o + 2] = c.ib
+        const c = lut.get(owner)
+        if (c === undefined) {
+          r = 255
+          g = 0
+          b = 255
+        } else {
+          // Border-Check: grenzt das Tile an einen anderen Owner (oder Wasser/neutral)?
+          const x = i % w
+          const y = (i - x) / w
+          const ol = (mapState[y * w + (x === 0 ? w - 1 : x - 1)] ?? 0) & OWNER_MASK
+          const or = (mapState[y * w + (x === w - 1 ? 0 : x + 1)] ?? 0) & OWNER_MASK
+          const ou = (mapState[(y === 0 ? h - 1 : y - 1) * w + x] ?? 0) & OWNER_MASK
+          const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
+          const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
+          if (isBorder) {
+            if (owner === humanId) {
+              r = 240
+              g = 240
+              b = 255
+            } else {
+              r = c.br
+              g = c.bg
+              b = c.bb
+            }
+          } else {
+            r = c.ir
+            g = c.ig
+            b = c.ib
+          }
+        }
       }
+      // Höhen-Helligkeit: Hügel/Berg leicht heller, wie beleuchtetes Relief
+      const hf = height >= 20 ? 1.18 : height >= 10 ? 1.09 : 1
+      if (hf !== 1) {
+        r = Math.min(255, r * hf)
+        g = Math.min(255, g * hf)
+        b = Math.min(255, b * hf)
+      }
+      data[o] = r
+      data[o + 1] = g
+      data[o + 2] = b
     }
 
     offscreenCtx.putImageData(imageData, 0, 0)

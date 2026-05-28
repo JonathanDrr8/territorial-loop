@@ -12,7 +12,7 @@
  */
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
-import { generateTerrain, isLand, type TerrainType } from '../world/terrain'
+import { generateTerrain, isPassable, terrainMagnitude, type TerrainType } from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
 import {
   BOT_START_TROOPS,
@@ -204,7 +204,7 @@ function placeSpawns(state: GameState): void {
       for (let dx = -SPAWN_HALF_SIZE; dx <= SPAWN_HALF_SIZE; dx++) {
         const ref = tileRef(cx + dx, cy + dy, width, height)
         // Nur claim wenn Land und neutral
-        if (!isLand(map.terrain, ref)) continue
+        if (!isPassable(map.terrain, ref)) continue
         if (getOwner(map, ref) === 0) {
           setOwner(map, ref, player.id)
           player.tilesOwned++
@@ -224,7 +224,7 @@ function allLandIn5x5(
   for (let dy = -SPAWN_HALF_SIZE; dy <= SPAWN_HALF_SIZE; dy++) {
     for (let dx = -SPAWN_HALF_SIZE; dx <= SPAWN_HALF_SIZE; dx++) {
       const ref = tileRef(cx + dx, cy + dy, width, height)
-      if (!isLand(state.map.terrain, ref)) return false
+      if (!isPassable(state.map.terrain, ref)) return false
     }
   }
   return true
@@ -272,7 +272,7 @@ function initializeAllFrontiers(state: GameState): void {
     if (player === undefined) continue
     for (const n of neighbors4(ref, width, height)) {
       // Wasser-Tiles werden nie erobert → kein Anlass sie als "Frontier" zu führen.
-      if (!isLand(map.terrain, n)) continue
+      if (!isPassable(map.terrain, n)) continue
       if (getOwner(map, n) !== owner) {
         player.frontier.add(ref)
         break
@@ -395,7 +395,7 @@ function checkVictory(state: GameState): void {
   // Bitmap-Bereich — sonst wäre Sieg auf einer Insel-Karte mit 35% Land unmöglich.
   let landTotal = 0
   for (let i = 0; i < state.map.terrain.length; i++) {
-    if (isLand(state.map.terrain, i)) landTotal++
+    if (isPassable(state.map.terrain, i)) landTotal++
   }
   const totalTiles = landTotal > 0 ? landTotal : state.map.width * state.map.height
   const threshold = state.config.victoryPct / 100
@@ -491,11 +491,13 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     if (!vsTerraNullius && currentOwner !== targetId && currentOwner !== 0) continue
 
     const isCurrentlyTerraNullius = currentOwner === 0
+    const mag = terrainMagnitude(state.map.terrain, ref)
     const aLoss = attackerLossPerTile(
       attack.reserveTroops,
       isCurrentlyTerraNullius ? 0 : defenderTroops,
       isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
       isCurrentlyTerraNullius,
+      mag,
     )
 
     if (attack.reserveTroops < aLoss) {
@@ -533,7 +535,7 @@ function collectAttackableTiles(
   for (const ref of attacker.frontier) {
     let borders = false
     for (const n of neighbors4(ref, width, height)) {
-      if (!isLand(map.terrain, n)) continue
+      if (!isPassable(map.terrain, n)) continue
       if (getOwner(map, n) === targetId) {
         tilesSet.add(n)
         borders = true
@@ -597,7 +599,7 @@ function updateFrontierAfterCapture(
   // Ist `ref` neue Frontier von `newOwner`?
   let refIsFrontier = false
   for (const n of refNeighbors) {
-    if (!isLand(map.terrain, n)) continue
+    if (!isPassable(map.terrain, n)) continue
     if (getOwner(map, n) !== newOwner) {
       refIsFrontier = true
       break
@@ -616,7 +618,7 @@ function updateFrontierAfterCapture(
       // n gehört newOwner — muss prüfen ob noch Land-Fremd-Nachbarn da sind
       let stillFrontier = false
       for (const nn of neighbors4(n, width, height)) {
-        if (!isLand(map.terrain, nn)) continue
+        if (!isPassable(map.terrain, nn)) continue
         if (getOwner(map, nn) !== newOwner) {
           stillFrontier = true
           break

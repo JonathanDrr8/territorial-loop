@@ -113,22 +113,23 @@ export function tilesPerTick(
  * OpenFront-Formel (vereinfacht für MVP: nur Plains, keine Cities/DefensePosts,
  * keine Anti-Zerg-Debuffs):
  *
- *   Gegen TerraNullius: `attackerLoss = mag / 5 = 16`
+ *   Gegen TerraNullius: `attackerLoss = mag / 5` (16 bei Plains)
  *
  *   Gegen Spieler:
  *     `currentLoss = clamp(def.troops/att.troops, 0.6, 2) * mag * 0.8`
  *     `altLoss     = 1.3 * (def.troops/def.tilesOwned) * (mag/100)`
  *     `attackerLoss = 0.6 * currentLoss + 0.4 * altLoss`
  *
- * `mag = 80` für Plains.
+ * `mag` kommt aus dem Terrain des Ziel-Tiles (Ebene 80 / Hügel 100 / Berg 120),
+ * später multipliziert durch Verteidigungsposten. Default `PLAINS_MAG`.
  */
 export function attackerLossPerTile(
   attackTroops: number,
   defenderTroops: number,
   defenderTilesOwned: number,
   vsTerraNullius: boolean,
+  mag: number = PLAINS_MAG,
 ): number {
-  const mag = PLAINS_MAG
   if (vsTerraNullius) return mag / 5
 
   const safeAttack = attackTroops > 0 ? attackTroops : 1
