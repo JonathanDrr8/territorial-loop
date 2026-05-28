@@ -300,7 +300,8 @@ export function createAI(
   /** Diplomatie-Aktion: annehmen / anfragen / verraten — gegen den Stärksten spielen. */
   function planDiplomacy(state: GameState, player: Player): Intent | null {
     const living: Player[] = []
-    for (const p of state.players.values()) if (p.isAlive) living.push(p)
+    // Wilde Nationen sind passiv → keine Diplomatie-Partner (würden nie antworten).
+    for (const p of state.players.values()) if (p.isAlive && !p.wild) living.push(p)
     if (living.length < 3) return null // unter 3 Spielern lohnt Bündnis-Politik kaum
     living.sort((a, b) => b.tilesOwned - a.tilesOwned || a.id - b.id)
     const leader = living[0]

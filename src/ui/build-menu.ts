@@ -420,7 +420,8 @@ export function createBuildMenu(
           },
         })
       }
-      if (other !== undefined && other.isAlive) {
+      // Diplomatie nur mit echten Nationen — wilde Nationen sind passiv (keine Allianz/Embargo).
+      if (other !== undefined && other.isAlive && !other.wild) {
         for (const a of diplomacyActions(owner)) actions.push(a)
       }
     }

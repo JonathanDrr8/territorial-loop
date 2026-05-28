@@ -7,7 +7,7 @@
  */
 
 import { createAI, type AI } from './ai/ai'
-import { canBuildAt, createGame, tick, type GameConfig } from './core/game'
+import { canBuildAt, createGame, tick, type GameConfig, type PlayerDef } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -31,6 +31,7 @@ const DEFAULT_MENU: StartMenuValues = {
   mapWidth: 1024,
   mapHeight: 1024,
   aiCount: 3,
+  wildCount: 2,
   victoryPct: 90,
   difficulty: 'normal',
   tempo: 'normal',
@@ -39,32 +40,51 @@ const DEFAULT_MENU: StartMenuValues = {
   experimental: {},
 }
 
+/** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */
+const WILD_COLOR = 0x8f8a78ff
+
 interface MatchSession {
   destroy(): void
 }
 
 function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
-  const totalPlayers = 1 + menu.aiCount // gleiche Nationen-Zahl; im Spectator ist der erste auch KI
-  const colors = pickDistinctColors(totalPlayers)
-  const names = pickRandomNames(spectator ? totalPlayers : menu.aiCount)
+  const aiCount = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
+  const humanCount = spectator ? 0 : 1
+  const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen die feste WILD_COLOR
+  const names = pickRandomNames(aiCount + menu.wildCount)
   const seed =
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
-  const players = spectator
-    ? names.map((name, i) => ({
-        id: HUMAN_ID + i,
-        name,
-        color: colors[i] ?? 0x00ff00ff,
-        isHuman: false,
-      }))
-    : [
-        { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
-        ...names.map((name, i) => ({
-          id: HUMAN_ID + 1 + i,
-          name,
-          color: colors[i + 1] ?? 0x00ff00ff,
-          isHuman: false,
-        })),
-      ]
+
+  const players: PlayerDef[] = []
+  let id = HUMAN_ID
+  let colorIdx = 0
+  let nameIdx = 0
+  if (!spectator) {
+    players.push({
+      id: id++,
+      name: menu.playerName,
+      color: colors[colorIdx++] ?? 0xff0000ff,
+      isHuman: true,
+    })
+  }
+  for (let i = 0; i < aiCount; i++) {
+    players.push({
+      id: id++,
+      name: names[nameIdx++] ?? `KI ${String(i + 1)}`,
+      color: colors[colorIdx++] ?? 0x00ff00ff,
+      isHuman: false,
+    })
+  }
+  for (let i = 0; i < menu.wildCount; i++) {
+    players.push({
+      id: id++,
+      name: names[nameIdx++] ?? `Wilde ${String(i + 1)}`,
+      color: WILD_COLOR,
+      isHuman: false,
+      wild: true,
+    })
+  }
+
   return {
     mapWidth: menu.mapWidth,
     mapHeight: menu.mapHeight,
@@ -107,7 +127,8 @@ function startMatch(
 
   const ais: AI[] = []
   for (const p of state.players.values()) {
-    if (!p.isHuman) {
+    // Wilde Nationen sind passiv → keine KI (emittieren nie Intents).
+    if (!p.isHuman && !p.wild) {
       ais.push(createAI(p.id, state.seed, menu.difficulty))
     }
   }

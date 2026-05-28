@@ -69,6 +69,14 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
       result.aiCount = parsed.aiCount
     }
     if (
+      typeof parsed.wildCount === 'number' &&
+      Number.isInteger(parsed.wildCount) &&
+      parsed.wildCount >= 0 &&
+      parsed.wildCount <= 16
+    ) {
+      result.wildCount = parsed.wildCount
+    }
+    if (
       typeof parsed.victoryPct === 'number' &&
       parsed.victoryPct >= 50 &&
       parsed.victoryPct <= 100

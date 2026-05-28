@@ -24,6 +24,8 @@ export interface StartMenuValues {
   mapWidth: number
   mapHeight: number
   aiCount: number
+  /** Anzahl passiver „wilder Nationen"/Barbaren (eroberbarer Puffer). */
+  wildCount: number
   victoryPct: number
   difficulty: Difficulty
   tempo: MatchTempo
@@ -282,6 +284,8 @@ export function createStartMenu(
   section('Gegner')
   const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
+  const wildCount = makeSliderRow('Wilde Nationen', 0, 16, 1, initial.wildCount)
+  panel.appendChild(wildCount.element)
 
   // Eroberungs-Tempo wird nicht mehr im Start-Menü gewählt — feste Balance,
   // ingame getunt. Der Wert bleibt intern (initial.tempo, Default 'normal').
@@ -396,6 +400,7 @@ export function createStartMenu(
       mapWidth: Number(widthSelect.value),
       mapHeight: Number(heightSelect.value),
       aiCount: aiCount.getValue(),
+      wildCount: wildCount.getValue(),
       victoryPct: victory.getValue(),
       difficulty: diffSelect.value as Difficulty,
       tempo: initial.tempo,

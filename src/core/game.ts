@@ -94,6 +94,11 @@ export interface PlayerDef {
   readonly name: string
   readonly color: number
   readonly isHuman: boolean
+  /**
+   * „Wilde Nation"/Barbar: passiv — keine KI, keine Intents (greift nicht an, baut
+   * nicht, keine Diplomatie), niedrigerer Truppen-Cap → eroberbarer Puffer. Default false.
+   */
+  readonly wild?: boolean
 }
 
 export interface GameConfig {
@@ -140,6 +145,8 @@ export interface Player {
   readonly name: string
   readonly color: number
   readonly isHuman: boolean
+  /** Passive „wilde Nation" (siehe PlayerDef.wild). */
+  readonly wild: boolean
   troops: number
   tilesOwned: number
   /**
@@ -284,12 +291,14 @@ export function createGame(config: GameConfig): GameState {
   const players = new Map<number, Player>()
 
   for (const def of config.players) {
+    const wild = def.wild ?? false
     const startTroops = def.isHuman ? HUMAN_START_TROOPS : BOT_START_TROOPS
     players.set(def.id, {
       id: def.id,
       name: def.name,
       color: def.color,
       isHuman: def.isHuman,
+      wild,
       troops: startTroops,
       tilesOwned: 0,
       weightedTiles: 0,
@@ -1202,11 +1211,13 @@ export function totalTroops(player: Player): number {
   return player.troops + committedTroops(player)
 }
 
+/** Truppen-Cap-Faktor für wilde Nationen — niedrige Dichte → eroberbarer Puffer. */
+const WILD_CAP_FACTOR = 0.5
+
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
-    const max =
-      maxTroops(player.weightedTiles, { bot: !player.isHuman }) + cityCapBonus(state, player.id)
+    const max = effectiveMaxTroops(state, player.id)
     // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
     // Wachstum geht konsistent von der FREIEN Bevölkerung aus, gebremst durch ihren
@@ -1228,7 +1239,8 @@ function growPopulations(state: GameState): void {
 export function effectiveMaxTroops(state: GameState, playerId: number): number {
   const p = state.players.get(playerId)
   if (p === undefined) return 0
-  return maxTroops(p.weightedTiles, { bot: !p.isHuman }) + cityCapBonus(state, playerId)
+  const base = maxTroops(p.weightedTiles, { bot: !p.isHuman }) + cityCapBonus(state, playerId)
+  return p.wild ? Math.floor(base * WILD_CAP_FACTOR) : base
 }
 
 /** Hängt ein Ereignis ans Log (chronologisch). */

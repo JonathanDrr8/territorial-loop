@@ -389,6 +389,29 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
   })
 })
 
+describe('wilde Nationen', () => {
+  it('werden mit wild-Flag erzeugt und haben den halben Truppen-Cap', () => {
+    const state = createGame(
+      baseConfig({
+        terrain: 'flat',
+        players: [
+          { id: 1, name: 'KI', color: 0xff0000ff, isHuman: false },
+          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
+        ],
+      }),
+    )
+    const ai = state.players.get(1)
+    const wild = state.players.get(2)
+    if (ai === undefined || wild === undefined) throw new Error('players missing')
+    expect(ai.wild).toBe(false)
+    expect(wild.wild).toBe(true)
+    // Gleiche Gebietsbasis → wilde Nation hat ~halben Cap.
+    ai.weightedTiles = 100
+    wild.weightedTiles = 100
+    expect(effectiveMaxTroops(state, 2)).toBe(Math.floor(effectiveMaxTroops(state, 1) * 0.5))
+  })
+})
+
 /** Ein an die Frontier des Spielers angrenzendes neutrales Tile (für echte, fortlaufende Angriffe). */
 function adjacentNeutralTile(state: GameState, playerId: number): number {
   const player = state.players.get(playerId)
