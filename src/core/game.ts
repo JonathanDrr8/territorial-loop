@@ -44,6 +44,20 @@ import {
 } from './buildings'
 import type { AttackIntent, BuildIntent, CancelAttackIntent, Intent, UpgradeIntent } from './intent'
 import { createPRNG, type PRNG } from './random'
+import {
+  type Boat,
+  BOAT_SPEED,
+  BOAT_TROOP_FRACTION,
+  MAX_BOATS_PER_PLAYER,
+  TRADE_INTERVAL_TICKS,
+  TRADE_SHIP_SPEED,
+  type TradeShip,
+  planBoatLaunch,
+  planWaterRoute,
+  shipArrived,
+  tradeGold,
+} from './ships'
+import { labelLandComponents, labelWaterComponents } from '../world/water-path'
 
 /* ============================================================================
  * Types
@@ -129,6 +143,14 @@ export interface GameState {
   events: GameEvent[]
   /** Gebäude pro Tile. */
   buildings: Map<TileRef, Building>
+  /** Wasser-Zusammenhangskomponenten (Index pro Tile, -1 = Land). Statisch. */
+  readonly waterComponents: Int32Array
+  /** Begehbare-Land-Komponenten (Index pro Tile, -1 = Wasser/unpassierbar). Statisch. */
+  readonly landComponents: Int32Array
+  /** Aktive Transport-Boote. */
+  boats: Boat[]
+  /** Aktive Handelsschiffe. */
+  tradeShips: TradeShip[]
 }
 
 /* ============================================================================
@@ -186,6 +208,10 @@ export function createGame(config: GameConfig): GameState {
     winner: null,
     events: [],
     buildings: new Map<TileRef, Building>(),
+    waterComponents: labelWaterComponents(map),
+    landComponents: labelLandComponents(map),
+    boats: [],
+    tradeShips: [],
   }
 
   placeSpawns(state)
@@ -328,6 +354,9 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   growPopulations(state)
   generateGold(state)
   resolveAttacks(state)
+  advanceBoats(state)
+  spawnTradeShips(state)
+  advanceTradeShips(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
@@ -477,6 +506,8 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
   if (intent.targetTile < 0 || intent.targetTile >= state.map.state.length) return
+  // Ziel muss begehbares Land sein — auf Wasser/unpassierbare Berge gibt's nichts zu erobern.
+  if (!isPassable(state.map.terrain, intent.targetTile)) return
 
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Selbst-Angriff
@@ -484,12 +515,58 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const troops = Math.min(intent.troops, player.troops)
   if (troops <= 0) return
 
+  // Erreicht der Spieler das Ziel über Land (gemeinsame Land-Komponente an der
+  // Frontier)? Sonst ist es eine andere Landmasse → Transport-Boot nötig.
+  if (!reachableByLand(state, player, intent.targetTile)) {
+    tryLaunchBoat(state, player, intent.targetTile)
+    return
+  }
+
   player.troops -= troops
   player.attacks.push({
     targetPlayerId: targetOwner,
     reserveTroops: troops,
     focusTile: intent.targetTile,
   })
+}
+
+/** Liegt eine Frontier-Kachel des Spielers auf derselben Land-Komponente wie das Ziel? */
+function reachableByLand(state: GameState, player: Player, targetTile: TileRef): boolean {
+  const targetComp = state.landComponents[targetTile]
+  if (targetComp === undefined || targetComp < 0) return false
+  for (const f of player.frontier) {
+    if (state.landComponents[f] === targetComp) return true
+  }
+  return false
+}
+
+/**
+ * Versucht ein Transport-Boot zum Ziel zu starten: prüft Boot-Limit, sammelt die
+ * eigenen Tiles als mögliche Start-Küsten und plant die Wasserroute. Nimmt
+ * BOAT_TROOP_FRACTION der Truppen mit. Schlägt der Plan fehl, passiert nichts.
+ */
+function tryLaunchBoat(state: GameState, player: Player, targetTile: TileRef): void {
+  const activeBoats = state.boats.reduce((n, b) => (b.ownerId === player.id ? n + 1 : n), 0)
+  if (activeBoats >= MAX_BOATS_PER_PLAYER) return
+
+  const troops = Math.floor(player.troops * BOAT_TROOP_FRACTION)
+  if (troops <= 0) return
+
+  const ownerTiles = collectOwnerTiles(state, player.id)
+  const plan = planBoatLaunch(state.map, state.waterComponents, ownerTiles, targetTile)
+  if (plan === null) return
+
+  player.troops -= troops
+  state.boats.push({ ownerId: player.id, troops, path: plan.path, progress: 0, targetTile })
+}
+
+/** Alle Tiles die `playerId` besitzt (für Boot-Start-Küsten). O(N) — nur bei Boot-Start. */
+function collectOwnerTiles(state: GameState, playerId: number): TileRef[] {
+  const tiles: TileRef[] = []
+  for (let i = 0; i < state.map.state.length; i++) {
+    if (getOwner(state.map, i) === playerId) tiles.push(i)
+  }
+  return tiles
 }
 
 function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): void {
@@ -524,6 +601,136 @@ function emitEvent(state: GameState, text: string, color?: number): void {
   state.events.push(
     color === undefined ? { tick: state.tick, text } : { tick: state.tick, text, color },
   )
+}
+
+/* ============================================================================
+ * Schiffe — Transport-Boote & Handel
+ * ========================================================================== */
+
+function advanceBoats(state: GameState): void {
+  if (state.boats.length === 0) return
+  const survivors: Boat[] = []
+  for (const boat of state.boats) {
+    boat.progress += BOAT_SPEED
+    if (shipArrived(boat)) {
+      landBoat(state, boat)
+    } else {
+      survivors.push(boat)
+    }
+  }
+  state.boats = survivors
+}
+
+/**
+ * Boot landet am Ziel-Tile: erobert es als Brückenkopf (zahlt die Tile-Kosten
+ * gegen den Verteidiger) und übergibt die Resttruppen an einen normalen Angriff,
+ * der von dort weiterläuft. Verliert das Boot den Landekampf, sind die Truppen weg.
+ */
+function landBoat(state: GameState, boat: Boat): void {
+  const attacker = state.players.get(boat.ownerId)
+  if (attacker === undefined || !attacker.isAlive) return // Truppen verloren
+
+  const target = boat.targetTile
+  const owner = getOwner(state.map, target)
+  if (owner === boat.ownerId) {
+    attacker.troops += boat.troops // schon unser → Truppen zurück in den Pool
+    return
+  }
+
+  const defender = owner > 0 ? state.players.get(owner) : undefined
+  const vsNull = owner === 0 || defender === undefined || !defender.isAlive
+  const defTroops = vsNull ? 0 : (defender?.troops ?? 0)
+  const defTiles = vsNull ? 1 : (defender?.tilesOwned ?? 1)
+  const mag =
+    terrainMagnitude(state.map.terrain, target) * defenseMagMultiplier(state, target, owner)
+  const aLoss = attackerLossPerTile(boat.troops, defTroops, defTiles, vsNull, mag)
+
+  if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
+
+  if (!vsNull && defender !== undefined) {
+    const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+    defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+  }
+
+  const remaining = Math.floor(boat.troops - aLoss)
+  captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
+  attacker.attacks.push({ targetPlayerId: owner, reserveTroops: remaining, focusTile: target })
+  emitEvent(state, `${attacker.name} landet Truppen an`, attacker.color)
+}
+
+/** Häfen senden gestaffelt Handelsschiffe zu erreichbaren, fremden Häfen. */
+function spawnTradeShips(state: GameState): void {
+  const ports: TileRef[] = []
+  for (const b of state.buildings.values()) {
+    if (b.type === 'port') ports.push(b.tile)
+  }
+  if (ports.length < 2) return
+  ports.sort((a, b) => a - b)
+
+  const { width, height } = state.map
+  for (const origin of ports) {
+    // Staffelung: jeder Hafen ist in einem festen Tick seines Intervall-Fensters dran.
+    if (state.tick % TRADE_INTERVAL_TICKS !== origin % TRADE_INTERVAL_TICKS) continue
+    const originOwner = getOwner(state.map, origin)
+    if (originOwner === 0) continue
+
+    // nächstgelegenen erreichbaren Hafen eines anderen Spielers wählen
+    const ox = origin % width
+    const oy = Math.floor(origin / width)
+    let best = -1
+    let bestDist = Infinity
+    for (const dest of ports) {
+      if (dest === origin) continue
+      const destOwner = getOwner(state.map, dest)
+      if (destOwner === 0 || destOwner === originOwner) continue
+      if (isTradeEmbargoed(state, originOwner, destOwner)) continue
+      const dx = dest % width
+      const dy = Math.floor(dest / width)
+      const d = torusDistance(ox, oy, dx, dy, width, height)
+      if (d < bestDist) {
+        bestDist = d
+        best = dest
+      }
+    }
+    if (best === -1) continue
+
+    const path = planWaterRoute(state.map, state.waterComponents, origin, best)
+    if (path === null || path.length < 2) continue
+    state.tradeShips.push({
+      fromOwnerId: originOwner,
+      toOwnerId: getOwner(state.map, best),
+      path,
+      progress: 0,
+      gold: tradeGold(path.length),
+      originPort: origin,
+      destPort: best,
+    })
+  }
+}
+
+/**
+ * Hook für Phase 6 (Diplomatie): einseitige Handelsembargos. Vorerst nie aktiv.
+ */
+function isTradeEmbargoed(_state: GameState, _from: number, _to: number): boolean {
+  return false
+}
+
+function advanceTradeShips(state: GameState): void {
+  if (state.tradeShips.length === 0) return
+  const survivors: TradeShip[] = []
+  for (const ship of state.tradeShips) {
+    ship.progress += TRADE_SHIP_SPEED
+    if (shipArrived(ship)) {
+      // Gold an beide noch lebenden Hafen-Besitzer
+      const from = state.players.get(ship.fromOwnerId)
+      const to = state.players.get(ship.toOwnerId)
+      if (from !== undefined && from.isAlive) from.gold += ship.gold
+      if (to !== undefined && to.isAlive) to.gold += ship.gold
+    } else {
+      survivors.push(ship)
+    }
+  }
+  state.tradeShips = survivors
 }
 
 function checkEliminations(state: GameState): void {
