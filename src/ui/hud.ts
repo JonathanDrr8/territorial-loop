@@ -1,20 +1,47 @@
 /**
- * HUD — Spieler-Stats, Truppen-Slider, Game-Over-Banner.
+ * HUD — Version A.
  *
- * Liest pro Frame den aktuellen GameState; mutiert nur DOM. Slider-Änderungen
- * laufen über den onSliderChange-Callback, "Neues Match"-Klick im Banner über
- * onNewMatch.
+ * Drei Bereiche, alle absolut im Container positioniert, pro Frame `update()`:
+ *  - oben links: kompakte Info (Zeit · Speed · Phase) + klappbarer Steuerungs-Hinweis.
+ *  - oben rechts: Rangliste aller Nationen, sortierbar nach Truppen/Gold, Top-5 mit
+ *    Erweitern-Knopf (dann scrollbar).
+ *  - unten Mitte: eigenes Spieler-Menü — Truppen-Leiste (mit Effizienz-Strichen),
+ *    Angriffs-Slider und Bau-Buttons (mit Hotkey-Label).
  *
- * Die Anzeige ist ein einfaches `innerHTML`-Rebuild pro Update — bei nur 4-16
- * Spielern in der Liste völlig schmerzfrei. Wenn das mal teuer wird,
- * differential update auf Listenebene.
+ * Liest pro Frame den GameState read-only; mutiert nur DOM. Slider-Änderungen über
+ * onSliderChange, Bau-Button-Klick über onBuildClick (setzt den Bau-Modus im Input),
+ * "Neues Match" über onNewMatch.
  */
 
-import { growthZones, troopIncreaseRate } from '../core/config'
-import { effectiveMaxTroops, totalTroops, type GameState, type Player } from '../core/game'
+import { BUILDING_LABEL, BUILDING_TYPES, buildCost, type BuildingType } from '../core/buildings'
+import { growthZones } from '../core/config'
+import {
+  countBuildingsOfType,
+  effectiveMaxTroops,
+  totalTroops,
+  type GameState,
+  type Player,
+} from '../core/game'
 import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
+const SIM_TICKS_PER_SECOND = 10
+const RANK_COLLAPSED = 5
+
+const BUILDING_GLYPH: Record<BuildingType, string> = {
+  city: 'C',
+  defense: 'D',
+  market: '$',
+  port: 'P',
+}
+const BUILDING_HOTKEY: Record<BuildingType, string> = {
+  city: '1',
+  defense: '2',
+  market: '3',
+  port: '4',
+}
+
+type RankSort = 'troops' | 'gold'
 
 /** Kompaktes Zahlenformat: 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
 function fmtCompact(value: number): string {
@@ -30,8 +57,8 @@ export interface HUDApi {
   update(): void
   /** Update the speed indicator (0 = Pause, 1/2/5 = Sim-Speed-Multiplier). */
   setSpeed(speed: SpeedMultiplier): void
-  /** Zeigt/versteckt den Bau-Modus-Hinweis. `null` = kein Bau-Modus aktiv. */
-  setBuildMode(label: string | null): void
+  /** Markiert den aktiven Bau-Modus-Button. `null` = kein Bau-Modus aktiv. */
+  setBuildMode(type: BuildingType | null): void
   destroy(): void
 }
 
@@ -61,43 +88,164 @@ function fmtDuration(seconds: number): string {
   return `${String(m)}:${pad(s)}`
 }
 
-const SIM_TICKS_PER_SECOND = 10
-
 export function createHUD(
   container: HTMLElement,
   state: GameState,
   onSliderChange: (pct: number) => void,
   onNewMatch: () => void,
+  onBuildClick: (type: BuildingType) => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
-  const hud = document.createElement('div')
-  hud.style.cssText = [
+  let rankSort: RankSort = 'troops'
+  let rankExpanded = false
+
+  /* ---- Oben links: kompakte Info + Steuerungs-Hinweis ---------------------- */
+  const infoBox = document.createElement('div')
+  infoBox.style.cssText = [
     'position: absolute',
     'top: 12px',
     'left: 12px',
     'background: rgba(0,0,0,0.55)',
     'color: white',
-    'padding: 10px 12px',
+    'padding: 8px 12px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 13px',
     'line-height: 1.4',
     'border-radius: 6px',
-    'min-width: 220px',
     'pointer-events: auto',
     'z-index: 10',
   ].join(';')
+  const infoLine = document.createElement('div')
+  infoBox.appendChild(infoLine)
 
-  const status = document.createElement('div')
-  status.style.whiteSpace = 'pre'
-  status.style.marginBottom = '8px'
-  hud.appendChild(status)
+  const helpDetails = document.createElement('details')
+  helpDetails.style.cssText = 'margin-top: 4px; font-size: 11px; opacity: 0.75'
+  const helpSummary = document.createElement('summary')
+  helpSummary.textContent = 'Steuerung'
+  helpSummary.style.cssText = 'cursor: pointer; opacity: 0.8'
+  helpDetails.appendChild(helpSummary)
+  const helpBody = document.createElement('div')
+  helpBody.style.cssText = 'margin-top: 4px; line-height: 1.5'
+  helpBody.innerHTML =
+    'Linksklick: Angriff (über Wasser → Boot)<br/>Ziehen (links/rechts) oder WASD: Kamera<br/>Mausrad: Zoom · Rechtsklick: Menü<br/>1–4: Gebäude · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü'
+  helpDetails.appendChild(helpBody)
+  infoBox.appendChild(helpDetails)
+  container.appendChild(infoBox)
 
-  // Truppen-Leiste (nur eigener Spieler): Cap = volle Breite, Füllung = Gesamttruppen
-  // (frei + im Kampf), heller Abschnitt = was der nächste Angriff sendet.
+  /* ---- Oben rechts: Rangliste ---------------------------------------------- */
+  const rankPanel = document.createElement('div')
+  rankPanel.style.cssText = [
+    'position: absolute',
+    'top: 12px',
+    'right: 12px',
+    'width: 250px',
+    'background: rgba(0,0,0,0.6)',
+    'color: white',
+    'padding: 8px 10px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 12px',
+    'border-radius: 6px',
+    'pointer-events: auto',
+    'z-index: 12',
+  ].join(';')
+
+  const rankHead = document.createElement('div')
+  rankHead.style.cssText =
+    'display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px'
+  const rankTitle = document.createElement('span')
+  rankTitle.textContent = 'Rangliste'
+  rankTitle.style.cssText = 'flex: 1; opacity: 0.7'
+  const sortTroopsBtn = document.createElement('button')
+  const sortGoldBtn = document.createElement('button')
+  function styleSortBtn(btn: HTMLButtonElement, active: boolean): void {
+    btn.style.cssText = [
+      'font: inherit',
+      'font-size: 10px',
+      'padding: 2px 7px',
+      'border-radius: 4px',
+      'cursor: pointer',
+      'border: 1px solid rgba(255,255,255,0.2)',
+      active ? 'background: rgba(232,210,74,0.85)' : 'background: rgba(255,255,255,0.08)',
+      active ? 'color: #1a1a1a' : 'color: white',
+      active ? 'font-weight: bold' : 'font-weight: normal',
+    ].join(';')
+  }
+  sortTroopsBtn.textContent = 'Truppen'
+  sortGoldBtn.textContent = 'Gold'
+  sortTroopsBtn.addEventListener('click', () => {
+    rankSort = 'troops'
+    refreshSortButtons()
+  })
+  sortGoldBtn.addEventListener('click', () => {
+    rankSort = 'gold'
+    refreshSortButtons()
+  })
+  function refreshSortButtons(): void {
+    styleSortBtn(sortTroopsBtn, rankSort === 'troops')
+    styleSortBtn(sortGoldBtn, rankSort === 'gold')
+  }
+  refreshSortButtons()
+  rankHead.appendChild(rankTitle)
+  rankHead.appendChild(sortTroopsBtn)
+  rankHead.appendChild(sortGoldBtn)
+  rankPanel.appendChild(rankHead)
+
+  const rankBody = document.createElement('div')
+  rankBody.style.cssText = 'line-height: 1.5'
+  rankPanel.appendChild(rankBody)
+
+  const rankToggle = document.createElement('button')
+  rankToggle.style.cssText = [
+    'margin-top: 6px',
+    'width: 100%',
+    'font: inherit',
+    'font-size: 11px',
+    'padding: 3px',
+    'background: rgba(255,255,255,0.08)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 4px',
+    'color: white',
+    'cursor: pointer',
+  ].join(';')
+  rankToggle.addEventListener('click', () => {
+    rankExpanded = !rankExpanded
+    applyRankExpansion()
+  })
+  function applyRankExpansion(): void {
+    if (rankExpanded) {
+      rankBody.style.maxHeight = '260px'
+      rankBody.style.overflowY = 'auto'
+    } else {
+      rankBody.style.maxHeight = ''
+      rankBody.style.overflowY = ''
+    }
+  }
+  rankPanel.appendChild(rankToggle)
+  container.appendChild(rankPanel)
+
+  /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
+  const actionBar = document.createElement('div')
+  actionBar.style.cssText = [
+    'position: absolute',
+    'bottom: 14px',
+    'left: 50%',
+    'transform: translateX(-50%)',
+    'background: rgba(0,0,0,0.62)',
+    'color: white',
+    'padding: 10px 16px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 12px',
+    'border-radius: 10px',
+    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
+    'min-width: 440px',
+    'pointer-events: auto',
+    'z-index: 11',
+  ].join(';')
+
   const barCaption = document.createElement('div')
   barCaption.style.cssText = 'font-size: 11px; margin-bottom: 2px'
-  hud.appendChild(barCaption)
+  actionBar.appendChild(barCaption)
 
   const barWrap = document.createElement('div')
   barWrap.style.cssText = [
@@ -116,10 +264,10 @@ export function createHUD(
     seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
     barWrap.appendChild(seg)
   }
-  // Effizienz-Striche: der Optimum-Strich (cyan) sitzt am Peak der Wachstumskurve
-  // — links davon wächst man am besten (grün), rechts wird es zunehmend weniger
-  // (gelb), ab dem Stagnations-Strich (rot) ist das Wachstum stark gebremst. Beide
-  // werden pro Frame aus dem aktuellen Cap neu positioniert (Cap ist dynamisch).
+  // Effizienz-Striche: Optimum-Strich (cyan) am Peak der Wachstumskurve — links
+  // davon wächst man am besten (grün), rechts wird es zunehmend weniger (gelb), ab
+  // dem Stagnations-Strich (rot) ist das Wachstum stark gebremst. Pro Frame aus dem
+  // aktuellen Cap neu positioniert.
   const optimumTick = document.createElement('div')
   optimumTick.style.cssText =
     'position:absolute;top:-2px;bottom:-2px;width:3px;background:#46d9e6;box-shadow:0 0 4px #46d9e6;border-radius:1px'
@@ -128,17 +276,17 @@ export function createHUD(
     'position:absolute;top:0;bottom:0;width:2px;background:#e05a5a;opacity:0.8'
   barWrap.appendChild(optimumTick)
   barWrap.appendChild(stallTick)
-  hud.appendChild(barWrap)
+  actionBar.appendChild(barWrap)
 
   const barLegend = document.createElement('div')
   barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-bottom: 8px'
-  hud.appendChild(barLegend)
+  actionBar.appendChild(barLegend)
 
   const sliderWrap = document.createElement('div')
-  sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center'
+  sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px'
   const sliderLabel = document.createElement('span')
   sliderLabel.textContent = `Angriff: ${DEFAULT_SLIDER_PCT}%`
-  sliderLabel.style.minWidth = '90px'
+  sliderLabel.style.minWidth = '92px'
   const slider = document.createElement('input')
   slider.type = 'range'
   slider.min = '0'
@@ -154,31 +302,58 @@ export function createHUD(
   })
   sliderWrap.appendChild(sliderLabel)
   sliderWrap.appendChild(slider)
-  hud.appendChild(sliderWrap)
+  actionBar.appendChild(sliderWrap)
 
-  const hint = document.createElement('div')
-  hint.style.cssText = 'margin-top: 6px; font-size: 11px; opacity: 0.7'
-  hint.innerHTML =
-    'Linksklick: Angriff (über Wasser → Transportboot) &nbsp;·&nbsp; Mausrad: Zoom<br/>Ziehen (links/rechts) oder WASD: Kamera &nbsp;·&nbsp; Rechtsklick: Menü<br/>1–4: Gebäude (Stadt/Vert./Markt/Hafen) &nbsp;·&nbsp; Leertaste: Pause &nbsp;·&nbsp; , / . : Tempo &nbsp;·&nbsp; Esc: Menü'
-  hud.appendChild(hint)
+  // Bau-Buttons-Reihe (Glyph, Name, Hotkey, Kosten) — setzen den Bau-Modus.
+  const buildRow = document.createElement('div')
+  buildRow.style.cssText = 'display: flex; gap: 6px'
+  const buildButtons = new Map<BuildingType, HTMLButtonElement>()
+  const buildCostEls = new Map<BuildingType, HTMLSpanElement>()
+  for (const type of BUILDING_TYPES) {
+    const btn = document.createElement('button')
+    btn.style.cssText = [
+      'flex: 1',
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'gap: 1px',
+      'padding: 5px 4px',
+      'background: rgba(255,255,255,0.06)',
+      'border: 1px solid rgba(255,255,255,0.15)',
+      'border-radius: 6px',
+      'color: white',
+      'font: inherit',
+      'font-size: 10px',
+      'cursor: pointer',
+    ].join(';')
+    const top = document.createElement('span')
+    top.style.cssText = 'font-weight: bold; font-size: 12px'
+    top.textContent = `${BUILDING_HOTKEY[type]} ${BUILDING_GLYPH[type]}`
+    const name = document.createElement('span')
+    name.textContent = BUILDING_LABEL[type]
+    name.style.cssText = 'opacity: 0.85'
+    const cost = document.createElement('span')
+    cost.style.cssText = 'color: #e8c14a; font-size: 9px'
+    btn.appendChild(top)
+    btn.appendChild(name)
+    btn.appendChild(cost)
+    btn.addEventListener('click', () => {
+      onBuildClick(type)
+    })
+    btn.addEventListener('mouseenter', () => {
+      if (btn.dataset.active !== '1') btn.style.background = 'rgba(255,255,255,0.14)'
+    })
+    btn.addEventListener('mouseleave', () => {
+      if (btn.dataset.active !== '1') btn.style.background = 'rgba(255,255,255,0.06)'
+    })
+    buildRow.appendChild(btn)
+    buildButtons.set(type, btn)
+    buildCostEls.set(type, cost)
+  }
+  actionBar.appendChild(buildRow)
+  container.appendChild(actionBar)
 
-  // Bau-Modus-Hinweis (nur sichtbar wenn ein Hotkey-Bau-Modus aktiv ist)
-  const buildModeEl = document.createElement('div')
-  buildModeEl.style.cssText = [
-    'margin-top: 6px',
-    'padding: 5px 8px',
-    'font-size: 11px',
-    'border-radius: 4px',
-    'background: rgba(232,193,74,0.18)',
-    'border: 1px solid rgba(232,193,74,0.5)',
-    'color: #e8c14a',
-    'display: none',
-  ].join(';')
-  hud.appendChild(buildModeEl)
-
-  container.appendChild(hud)
-
-  // Game-Over-Banner (versteckt im laufenden Match)
+  /* ---- Game-Over-Banner ---------------------------------------------------- */
   const banner = document.createElement('div')
   banner.style.cssText = [
     'position: absolute',
@@ -196,10 +371,8 @@ export function createHUD(
     'pointer-events: none',
     'display: none',
   ].join(';')
-
   const bannerText = document.createElement('div')
   banner.appendChild(bannerText)
-
   const newMatchBtn = document.createElement('button')
   newMatchBtn.textContent = 'Neues Match'
   newMatchBtn.style.cssText = [
@@ -223,10 +396,9 @@ export function createHUD(
   })
   newMatchBtn.addEventListener('click', onNewMatch)
   banner.appendChild(newMatchBtn)
-
   container.appendChild(banner)
 
-  // Pause-Overlay (großes Dim mit 'PAUSE'-Text, sichtbar wenn currentSpeed === 0)
+  /* ---- Pause-Overlay ------------------------------------------------------- */
   const pauseOverlay = document.createElement('div')
   pauseOverlay.style.cssText = [
     'position: absolute',
@@ -248,24 +420,22 @@ export function createHUD(
   pauseOverlay.textContent = 'PAUSE'
   container.appendChild(pauseOverlay)
 
-  /** Aktualisiert die Truppen-Leiste des eigenen Spielers. */
-  function updateTroopBar(): void {
-    let human: Player | undefined
+  /** Findet den menschlichen Spieler (falls vorhanden und lebend). */
+  function findHuman(): Player | undefined {
     for (const p of state.players.values()) {
-      if (p.isHuman) {
-        human = p
-        break
-      }
+      if (p.isHuman) return p
     }
+    return undefined
+  }
+
+  /** Aktualisiert die Truppen-Leiste + Bau-Buttons des eigenen Spielers. */
+  function updateActionBar(): void {
+    const human = findHuman()
     if (human === undefined || !human.isAlive) {
-      barWrap.style.display = 'none'
-      barCaption.style.display = 'none'
-      barLegend.style.display = 'none'
+      actionBar.style.display = 'none'
       return
     }
-    barWrap.style.display = ''
-    barCaption.style.display = ''
-    barLegend.style.display = ''
+    actionBar.style.display = 'block'
 
     const cap = Math.max(1, effectiveMaxTroops(state, human.id))
     const idle = human.troops
@@ -279,60 +449,87 @@ export function createHUD(
     segIdle.style.left = '0%'
     segIdle.style.width = pctW(idleBase)
     segIdle.style.background = color
-
     segAttack.style.left = pctW(idleBase)
     segAttack.style.width = pctW(attackAmt)
-    segAttack.style.background = '#e8d24a' // gold = was der nächste Angriff sendet
-
+    segAttack.style.background = '#e8d24a'
     segCombat.style.left = pctW(idleBase + attackAmt)
     segCombat.style.width = pctW(combat)
     segCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
 
-    // Effizienz-Striche aus der aktuellen Wachstumskurve positionieren.
     const zones = growthZones(cap)
     optimumTick.style.left = `${(zones.optimum * 100).toString()}%`
     stallTick.style.left = `${(zones.stall * 100).toString()}%`
-    // Truppenzahl nach Wachstums-Zustand färben: bis zum Optimum grün (wachsend),
-    // danach gelb (stagnierend), ab dem Stagnations-Strich rot (stark stagnierend).
     const frac = total / cap
     const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
     const pct = Math.round(frac * 100)
-    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
+    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)} &nbsp; <span style="color:#e8c14a">${fmtCompact(human.gold)} Gold</span>`
     const combatLegend =
       combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
     barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
+
+    for (const type of BUILDING_TYPES) {
+      const costEl = buildCostEls.get(type)
+      if (costEl !== undefined) {
+        const c = buildCost(type, countBuildingsOfType(state, human.id, type))
+        costEl.textContent = fmtCompact(c)
+        costEl.style.color = human.gold >= c ? '#e8c14a' : '#d66'
+      }
+    }
+  }
+
+  /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
+  function updateRankList(): void {
+    const totalTiles =
+      state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
+    const players = [...state.players.values()].filter((p) => p.isAlive || p.tilesOwned > 0)
+    const valueOf = (p: Player): number => (rankSort === 'gold' ? p.gold : totalTroops(p))
+    players.sort((a, b) => valueOf(b) - valueOf(a))
+    const visible = rankExpanded ? players : players.slice(0, RANK_COLLAPSED)
+
+    const rows: string[] = []
+    let rank = 0
+    for (const p of players) {
+      rank++
+      if (!rankExpanded && rank > RANK_COLLAPSED) break
+      const isMe = p.isHuman
+      const dead = p.isAlive ? '' : ' †'
+      const pctTiles = fmtPct((p.tilesOwned / totalTiles) * 100)
+      const troopsTxt = fmtCompact(totalTroops(p))
+      const goldTxt = fmtCompact(p.gold)
+      const primary =
+        rankSort === 'gold'
+          ? `<b style="color:#e8c14a">${goldTxt}</b> · ${troopsTxt}T`
+          : `<b>${troopsTxt}</b>T · <span style="color:#e8c14a">${goldTxt}</span>`
+      const bg = isMe ? 'background:rgba(255,255,255,0.12);border-radius:4px;' : ''
+      rows.push(
+        `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}">` +
+          `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
+          `<span style="color:${rgbaToCss(p.color)}">■</span>` +
+          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}${dead}</span>` +
+          `<span style="opacity:0.55;font-size:10px">${pctTiles}</span>` +
+          `<span style="min-width:88px;text-align:right;font-size:10px">${primary}</span>` +
+          `</div>`,
+      )
+    }
+    rankBody.innerHTML = rows.join('')
+    const hidden = players.length - visible.length
+    rankToggle.style.display = players.length > RANK_COLLAPSED ? 'block' : 'none'
+    rankToggle.textContent = rankExpanded
+      ? 'Weniger ▴'
+      : `Alle ${players.length.toString()} anzeigen ▾ (+${Math.max(0, hidden).toString()})`
   }
 
   function update(): void {
-    // Gebiets-% bezieht sich auf eroberbares Land (ohne Wasser/Extrem-Berge).
-    const totalTiles =
-      state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
-    const html: string[] = []
     const gameSeconds = state.tick / SIM_TICKS_PER_SECOND
     const speedLabel = currentSpeed === 0 ? '⏸ Pause' : `${String(currentSpeed)}×`
-    html.push(`Zeit: ${fmtDuration(gameSeconds)} · ${speedLabel}<br>`)
     const phaseLine =
-      state.phase === 'running' ? 'Phase: läuft' : `Phase: beendet (Sieger: ${state.winner ?? '?'})`
-    html.push(phaseLine + '<br><br>')
-    const players = [...state.players.values()].sort((a, b) => a.id - b.id)
-    for (const p of players) {
-      const pct = fmtPct((p.tilesOwned / totalTiles) * 100)
-      const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
-      // Gesamttruppen = frei + im Kampf gebunden.
-      html.push(
-        `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${Math.round(totalTroops(p)).toLocaleString('de-DE')}T · ${pct}<br>`,
-      )
-      // Eigene Nation: Wachstumsrate (pro Sekunde) + Gold-Vorrat
-      if (p.isHuman && p.isAlive) {
-        const cap = effectiveMaxTroops(state, p.id)
-        const ratePerSec = troopIncreaseRate(totalTroops(p), cap) * 10
-        html.push(
-          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ +${fmtCompact(ratePerSec)}/s · <span style="color:#e8c14a">${fmtCompact(p.gold)} Gold</span></span><br>`,
-        )
-      }
-    }
-    status.innerHTML = html.join('')
-    updateTroopBar()
+      state.phase === 'running'
+        ? 'läuft'
+        : `beendet · Sieger ${state.winner !== null ? (state.players.get(state.winner)?.name ?? '?') : '?'}`
+    infoLine.innerHTML = `Zeit ${fmtDuration(gameSeconds)} · ${speedLabel} · ${phaseLine}`
+
+    updateRankList()
+    updateActionBar()
 
     if (state.phase === 'ended' && state.winner !== null) {
       const winner = state.players.get(state.winner)
@@ -340,10 +537,10 @@ export function createHUD(
         banner.style.display = 'block'
         const totalTiles =
           state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
-        const players = [...state.players.values()].sort(
+        const ranked = [...state.players.values()].sort(
           (a, b) => b.peakTilesOwned - a.peakTilesOwned,
         )
-        const statsRows = players
+        const statsRows = ranked
           .map((p) => {
             const peakPct = fmtPct((p.peakTilesOwned / totalTiles) * 100)
             const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
@@ -376,16 +573,19 @@ export function createHUD(
       currentSpeed = speed
       pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'
     },
-    setBuildMode(label: string | null): void {
-      if (label === null) {
-        buildModeEl.style.display = 'none'
-      } else {
-        buildModeEl.innerHTML = `Bau-Modus: <b>${escapeHtml(label)}</b> — Linksklick platzieren, Esc abbrechen`
-        buildModeEl.style.display = 'block'
+    setBuildMode(type: BuildingType | null): void {
+      for (const [t, btn] of buildButtons) {
+        const active = t === type
+        btn.dataset.active = active ? '1' : '0'
+        btn.style.background = active ? 'rgba(232,193,74,0.85)' : 'rgba(255,255,255,0.06)'
+        btn.style.color = active ? '#1a1a1a' : 'white'
+        btn.style.borderColor = active ? '#e8c14a' : 'rgba(255,255,255,0.15)'
       }
     },
     destroy(): void {
-      hud.remove()
+      infoBox.remove()
+      rankPanel.remove()
+      actionBar.remove()
       banner.remove()
       pauseOverlay.remove()
     },

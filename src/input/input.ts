@@ -81,6 +81,8 @@ export interface InputDeps {
 }
 
 export interface InputHandler {
+  /** Schaltet den Bau-Modus für `type` um (für HUD-Bau-Buttons; wie der Hotkey). */
+  toggleBuildMode(type: BuildingType): void
   destroy(): void
 }
 
@@ -336,6 +338,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   window.addEventListener('blur', onBlur)
 
   return {
+    toggleBuildMode(type: BuildingType): void {
+      setBuildMode(buildMode === type ? null : type)
+    },
     destroy(): void {
       canvas.removeEventListener('mousedown', onMouseDown)
       canvas.removeEventListener('mousemove', onMouseMove)

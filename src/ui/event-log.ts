@@ -28,9 +28,10 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
   const box = document.createElement('div')
   box.style.cssText = [
     'position: absolute',
-    'top: 12px',
+    // Unter der Rangliste oben rechts (die belegt den oberen Bereich).
+    'top: 232px',
     'right: 12px',
-    'max-width: 280px',
+    'max-width: 260px',
     'display: flex',
     'flex-direction: column',
     'gap: 3px',

@@ -7,10 +7,9 @@
  */
 
 import { createAI, type AI } from './ai/ai'
-import { BUILDING_LABEL } from './core/buildings'
 import { canBuildAt, createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
-import { createInputHandler } from './input/input'
+import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
 import { pickDistinctColors } from './ui/colors'
@@ -122,6 +121,8 @@ function startMatch(
     simIntervalId = window.setInterval(runSimTick, ms)
   }
 
+  let inputHandler: InputHandler | null = null
+
   const hud = createHUD(
     container,
     state,
@@ -129,6 +130,7 @@ function startMatch(
       sliderPct = pct
     },
     onRequestNewMatch,
+    (type) => inputHandler?.toggleBuildMode(type),
   )
 
   const minimap = createMinimap({
@@ -170,7 +172,7 @@ function startMatch(
       renderer.clearHoverTile()
     },
     onBuildModeChange: (mode) => {
-      hud.setBuildMode(mode === null ? null : BUILDING_LABEL[mode])
+      hud.setBuildMode(mode)
       renderer.setBuildPreview(mode)
     },
     onRadialMenu: (tile, screenX, screenY) => {
@@ -201,6 +203,8 @@ function startMatch(
       },
     },
   })
+
+  inputHandler = input
 
   hud.setSpeed(speed)
 
