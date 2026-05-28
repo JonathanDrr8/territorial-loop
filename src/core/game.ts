@@ -720,6 +720,7 @@ function tryLaunchBoat(state: GameState, player: Player, targetTile: TileRef): v
 
   player.troops -= troops
   state.boats.push({ ownerId: player.id, troops, path: plan.path, progress: 0, targetTile })
+  emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
 }
 
 /** Alle Tiles die `playerId` besitzt (für Boot-Start-Küsten). O(N) — nur bei Boot-Start. */
