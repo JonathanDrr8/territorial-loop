@@ -575,6 +575,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   applyIntents(state, intents)
   growPopulations(state)
   generateGold(state)
+  resolveAttackCollisions(state)
   resolveAttacks(state)
   advanceBoats(state)
   spawnTradeShips(state)
@@ -895,6 +896,15 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   if (!reachableByLand(state, player, intent.targetTile)) return
 
   player.troops -= troops
+  // Mehrere Klicks auf dieselbe Front bündeln: existiert schon ein Angriff auf
+  // diesen Gegner, fließen die Truppen in dessen Reserve und der Front-Fokus folgt
+  // dem neuen Klick — statt viele kleine Einzelangriffe (Pillen) zu erzeugen.
+  const existing = player.attacks.find((a) => a.targetPlayerId === targetOwner)
+  if (existing !== undefined) {
+    existing.reserveTroops += troops
+    existing.focusTile = intent.targetTile
+    return
+  }
   player.attacks.push({
     targetPlayerId: targetOwner,
     reserveTroops: troops,
@@ -1283,6 +1293,29 @@ function checkVictory(state: GameState): void {
 /* ============================================================================
  * Attack-Resolution
  * ========================================================================== */
+
+/**
+ * Greifen sich zwei Spieler GEGENSEITIG an, heben sich ihre Reserven 1:1 auf
+ * (Kollision an der Front) — die kleinere Reserve verschwindet ganz, nur der
+ * Überschuss des Stärkeren setzt sich durch. Pro Paar einmal je Tick; läuft vor
+ * `resolveAttacks`, leergelaufene Angriffe werden dort entfernt.
+ */
+function resolveAttackCollisions(state: GameState): void {
+  for (const a of orderedPlayers(state)) {
+    if (!a.isAlive) continue
+    for (const atkA of a.attacks) {
+      const bId = atkA.targetPlayerId
+      if (bId <= 0 || bId <= a.id) continue // Wildnis schlägt nicht zurück; Paar nur einmal
+      const b = state.players.get(bId)
+      if (b === undefined || !b.isAlive) continue
+      const atkB = b.attacks.find((x) => x.targetPlayerId === a.id)
+      if (atkB === undefined) continue
+      const d = Math.min(atkA.reserveTroops, atkB.reserveTroops)
+      atkA.reserveTroops -= d
+      atkB.reserveTroops -= d
+    }
+  }
+}
 
 function resolveAttacks(state: GameState): void {
   for (const player of orderedPlayers(state)) {

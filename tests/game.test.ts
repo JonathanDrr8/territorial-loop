@@ -12,7 +12,7 @@ import {
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
-import { getOwner } from '../src/world/map'
+import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
 import { directedKey } from '../src/core/diplomacy'
@@ -365,6 +365,68 @@ describe('tick — intents', () => {
     expect(player.attacks[0]?.reserveTroops).toBeLessThanOrEqual(5_000)
     // troops sank by ~5k (abzüglich etwas Wachstum) — niedriger als vorher
     expect(player.troops).toBeLessThan(troopsBefore)
+  })
+
+  it('multiple attacks on the same target merge into one', () => {
+    const state = createGame(baseConfig())
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+    player.troops = 20_000
+    const targetTile = adjacentNeutralTile(state, 1)
+    expect(targetTile).toBeGreaterThanOrEqual(0)
+    tick(state, [
+      { type: 'attack', playerId: 1, targetTile, troops: 3_000 },
+      { type: 'attack', playerId: 1, targetTile, troops: 4_000 },
+    ])
+    // Beide Klicks auf dieselbe Front → genau EIN gebündelter Angriff, nicht zwei.
+    const onTarget = player.attacks.filter((a) => a.targetPlayerId === 0)
+    expect(onTarget.length).toBe(1)
+  })
+
+  it('mutual attacks cancel 1:1 (collision)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+      p.weightedTiles = 0
+    }
+    const claim = (x: number, y: number, id: number, p: typeof p1): number => {
+      const r = tileRef(x, y, W, Hgt)
+      setOwner(state.map, r, id)
+      p.tilesOwned++
+      p.frontier.add(r)
+      return r
+    }
+    for (let x = 10; x <= 12; x++) claim(x, 10, 1, p1)
+    for (let x = 13; x <= 15; x++) claim(x, 10, 2, p2)
+    const t13 = tileRef(13, 10, W, Hgt)
+    const t12 = tileRef(12, 10, W, Hgt)
+    p1.attacks.push({
+      targetPlayerId: 2,
+      reserveTroops: 2000,
+      focusTile: t13,
+      frontTile: t13,
+      startTick: 0,
+    })
+    p2.attacks.push({
+      targetPlayerId: 1,
+      reserveTroops: 2000,
+      focusTile: t12,
+      frontTile: t12,
+      startTick: 0,
+    })
+    tick(state, [])
+    // Gleich starke gegenseitige Angriffe heben sich komplett auf → beide verschwinden.
+    expect(p1.attacks.length).toBe(0)
+    expect(p2.attacks.length).toBe(0)
   })
 
   it('attack intent on own tile is ignored', () => {
