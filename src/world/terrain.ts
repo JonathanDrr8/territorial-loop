@@ -29,8 +29,6 @@ export const MOUNTAIN_MAG = 120
 
 export type TerrainType = 'flat' | 'continents' | 'islands'
 
-const NUM_FREQ_COMPONENTS = 10
-
 // Höhen-Verteilung (Anteil der Land-Tiles): Ebene / Hügel / Berg / Extrem-Berg.
 const HILL_PCT = 0.25
 const MOUNTAIN_PCT = 0.12
@@ -87,25 +85,53 @@ export function tileTroopWeight(terrain: Uint8Array, ref: number): number {
   return PLAINS_TROOP_WEIGHT
 }
 
-/** Erzeugt eine tileable Cosinus-Noise-Ebene als Float32Array über die ganze Karte. */
-function buildNoise(w: number, h: number, prng: PRNG): Float32Array {
+/**
+ * Tileable fraktales Noise (FBM): summiert Oktaven mit steigender Frequenz und
+ * fallender Amplitude (Persistence). Niedrige Oktaven formen große Strukturen
+ * (Kontinente/Gebirgsrümpfe), hohe Oktaven brechen Küsten/Grate fraktal auf —
+ * das 1/f-Spektrum ergibt das „erdähnliche" Aussehen statt wabbliger Blobs.
+ *
+ * Tileable bleibt es, weil alle Frequenz-Komponenten ganzzahlig sind (am Torus-
+ * Rand also stetig). Pro Oktave werden `compsPerOctave` Komponenten mit zufälliger
+ * Richtung (theta) auf dem Frequenz-Ring gewählt → isotrop, keine Achsen-Artefakte.
+ */
+function buildFractalNoise(
+  w: number,
+  h: number,
+  prng: PRNG,
+  octaves: number,
+  baseFreq: number,
+  lacunarity: number,
+  persistence: number,
+  compsPerOctave: number,
+): Float32Array {
   const components: NoiseComponent[] = []
-  for (let i = 0; i < NUM_FREQ_COMPONENTS; i++) {
-    const fx = prng.nextInt(1, 6)
-    const fy = prng.nextInt(1, 6)
-    const phase = prng.nextFloat(0, Math.PI * 2)
-    const amplitude = 1 / (1 + Math.max(fx, fy) * 0.4)
-    components.push({ fx, fy, phase, amplitude })
+  let amp = 1
+  let freq = baseFreq
+  let totalAmp = 0
+  for (let o = 0; o < octaves; o++) {
+    for (let k = 0; k < compsPerOctave; k++) {
+      const theta = prng.nextFloat(0, Math.PI * 2)
+      let fx = Math.abs(Math.round(freq * Math.cos(theta)))
+      const fy = Math.abs(Math.round(freq * Math.sin(theta)))
+      if (fx === 0 && fy === 0) fx = 1
+      const phase = prng.nextFloat(0, Math.PI * 2)
+      const a = amp / compsPerOctave
+      components.push({ fx, fy, phase, amplitude: a })
+      totalAmp += a
+    }
+    amp *= persistence
+    freq *= lacunarity
   }
-  const totalAmp = components.reduce((sum, c) => sum + c.amplitude, 0)
   const values = new Float32Array(w * h)
   for (let y = 0; y < h; y++) {
+    const yw = y * w
     for (let x = 0; x < w; x++) {
       let n = 0
       for (const c of components) {
         n += c.amplitude * Math.cos(2 * Math.PI * ((c.fx * x) / w + (c.fy * y) / h) + c.phase)
       }
-      values[y * w + x] = n / totalAmp
+      values[yw + x] = totalAmp > 0 ? n / totalAmp : 0
     }
   }
   return values
@@ -133,14 +159,33 @@ export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType): vo
   }
 
   // --- Land/Wasser ---
+  // Kontinent-Maske (sehr niederfrequent → wenige große Landmassen) mischt mit
+  // einem fraktalen Detail-Feld (fraktale Küsten). Das Detail wird per Domain-
+  // Warping leicht verzerrt → organische, weniger „ge-ripplete" Küstenlinien.
   const landRatio = type === 'continents' ? 0.7 : 0.35
-  const landNoise = buildNoise(w, h, prng)
+  const mask = buildFractalNoise(w, h, prng, 2, 1.0, 2.0, 0.6, 2)
+  const detail = buildFractalNoise(w, h, prng, 5, 1.8, 2.0, 0.55, 2)
+  const warpX = buildFractalNoise(w, h, prng, 2, 1.0, 2.0, 0.5, 1)
+  const warpY = buildFractalNoise(w, h, prng, 2, 1.0, 2.0, 0.5, 1)
+  const warpAmp = Math.max(4, Math.round(Math.min(w, h) * 0.05))
+
+  const landNoise = new Float32Array(len)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x
+      const wx = (((x + Math.round(warpAmp * (warpX[i] ?? 0))) % w) + w) % w
+      const wy = (((y + Math.round(warpAmp * (warpY[i] ?? 0))) % h) + h) % h
+      landNoise[i] = 0.6 * (mask[i] ?? 0) + 0.4 * (detail[wy * w + wx] ?? 0)
+    }
+  }
   const landSorted = new Float32Array(landNoise)
   landSorted.sort()
   const landThreshold = percentile(landSorted, 1 - landRatio)
 
-  // --- Höhe (eigene Noise-Ebene) ---
-  const heightNoise = buildNoise(w, h, prng)
+  // --- Höhe (eigenes fraktales Feld) ---
+  // Wenige Oktaven → Berge/Hügel bilden zusammenhängende Gebirgszüge statt
+  // einzelner Sprenkel (wichtig damit Terrain die Expansion sichtbar formt).
+  const heightNoise = buildFractalNoise(w, h, prng, 3, 2.2, 2.0, 0.5, 2)
   // Perzentil-Schwellen nur über die Land-Tiles bestimmen, damit die Höhen-Anteile
   // sich auf das Land beziehen (nicht aufs Wasser).
   const landHeights: number[] = []
