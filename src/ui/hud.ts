@@ -163,13 +163,17 @@ export function createHUD(
   dangerStyle.textContent = '@keyframes tl-danger-pulse{0%,100%{opacity:0.35}50%{opacity:0.9}}'
   document.head.appendChild(dangerStyle)
   const dangerVignette = document.createElement('div')
+  // Radialer Verlauf (transparente Mitte → rote Ränder) statt teurem box-shadow-Blur,
+  // plus `will-change: opacity` → eigenes GPU-Layer, der Puls wird nur composited
+  // (kein Neu-Rastern pro Frame → kein Lag über dem Canvas).
   dangerVignette.style.cssText = [
     'position: absolute',
     'inset: 0',
     'pointer-events: none',
     'z-index: 9',
     'display: none',
-    'box-shadow: inset 0 0 120px 24px rgba(225,40,40,0.85)',
+    'will-change: opacity',
+    'background: radial-gradient(ellipse at center, rgba(225,40,40,0) 52%, rgba(225,40,40,0.6) 100%)',
   ].join(';')
   container.appendChild(dangerVignette)
 
