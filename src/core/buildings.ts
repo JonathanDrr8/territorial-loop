@@ -39,7 +39,7 @@ export function isBuildingComplete(b: Building, tick: number): boolean {
 /** Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude des Typs. */
 const BASE_BUILD_COST: Record<BuildingType, number> = {
   city: 25_000,
-  defense: 12_000,
+  defense: 25_000,
   port: 20_000,
 }
 
