@@ -11,6 +11,13 @@ export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
 export type TerrainChoice = 'flat' | 'continents' | 'islands'
 
+/**
+ * Opt-in „Experimentell"-Toggles. Vorerst leer — das Gerüst steht, künftige
+ * Features (Wälder, Flüsse, Fische, erdähnlicher Noise …) kommen hier als
+ * boolesche Flags hinein, nicht fest ins Core-Gameplay.
+ */
+export type ExperimentalFlags = Record<string, boolean>
+
 export interface StartMenuValues {
   playerName: string
   /** Karten-Breite und -Höhe getrennt → beliebige Seitenverhältnisse möglich. */
@@ -22,6 +29,8 @@ export interface StartMenuValues {
   tempo: MatchTempo
   terrain: TerrainChoice
   soundEnabled: boolean
+  /** Opt-in experimentelle Feature-Toggles (persistiert; vorerst Platzhalter). */
+  experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */
   seed?: string
 }
@@ -364,6 +373,21 @@ export function createStartMenu(
   help.appendChild(helpBody)
   panel.appendChild(help)
 
+  // Aufklappbarer „Experimentell"-Bereich — Gerüst für künftige opt-in Toggles.
+  const experimental = document.createElement('details')
+  experimental.style.cssText = 'margin-top: 10px; font-size: 12px; opacity: 0.85'
+  const expSummary = document.createElement('summary')
+  expSummary.textContent = 'Experimentell'
+  expSummary.style.cssText = `cursor: pointer; color: ${ACCENT}; opacity: 0.85`
+  const expBody = document.createElement('div')
+  expBody.style.cssText = 'margin-top: 8px; line-height: 1.5; opacity: 0.7'
+  expBody.textContent =
+    'Hier kommen künftig optionale Features zum Ausprobieren (Wälder, Flüsse, Fische, ' +
+    'erdähnlicher Noise …). Noch nichts aktiv.'
+  experimental.appendChild(expSummary)
+  experimental.appendChild(expBody)
+  panel.appendChild(experimental)
+
   // Start button
   const collectValues = (): StartMenuValues => {
     const seedRaw = seedInput.value.trim()
@@ -377,6 +401,7 @@ export function createStartMenu(
       tempo: initial.tempo,
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
+      experimental: { ...initial.experimental },
       ...(seedRaw.length > 0 && { seed: seedRaw }),
     }
   }

@@ -12,6 +12,7 @@ const DEFAULTS: StartMenuValues = {
   tempo: 'normal',
   terrain: 'flat',
   soundEnabled: true,
+  experimental: {},
 }
 
 describe('preferences', () => {
@@ -34,9 +35,18 @@ describe('preferences', () => {
       tempo: 'siege',
       terrain: 'islands',
       soundEnabled: false,
+      experimental: { earthlikeNoise: true },
     }
     saveMenuPrefs(custom)
     expect(loadMenuPrefs(DEFAULTS)).toEqual(custom)
+  })
+
+  it('round-trips experimental flags und filtert nicht-boolesche Werte', () => {
+    window.localStorage.setItem(
+      'territorial-loop:menu-prefs:v1',
+      JSON.stringify({ ...DEFAULTS, experimental: { foo: true, bar: 'nope', baz: false } }),
+    )
+    expect(loadMenuPrefs(DEFAULTS).experimental).toEqual({ foo: true, baz: false })
   })
 
   it('ignores invalid map size, falls back to default', () => {

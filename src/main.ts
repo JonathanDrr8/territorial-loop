@@ -36,6 +36,7 @@ const DEFAULT_MENU: StartMenuValues = {
   tempo: 'normal',
   terrain: 'continents',
   soundEnabled: true,
+  experimental: {},
 }
 
 interface MatchSession {

@@ -9,7 +9,13 @@
  * Werten ohne Exception.
  */
 
-import type { Difficulty, MatchTempo, StartMenuValues, TerrainChoice } from './start-menu'
+import type {
+  Difficulty,
+  ExperimentalFlags,
+  MatchTempo,
+  StartMenuValues,
+  TerrainChoice,
+} from './start-menu'
 
 const STORAGE_KEY = 'territorial-loop:menu-prefs:v1'
 
@@ -73,6 +79,13 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (isTempo(parsed.tempo)) result.tempo = parsed.tempo
     if (isTerrain(parsed.terrain)) result.terrain = parsed.terrain
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
+    if (typeof parsed.experimental === 'object' && parsed.experimental !== null) {
+      const exp: ExperimentalFlags = {}
+      for (const [k, v] of Object.entries(parsed.experimental)) {
+        if (typeof v === 'boolean') exp[k] = v
+      }
+      result.experimental = exp
+    }
     return result
   } catch {
     return defaults
