@@ -14,7 +14,7 @@
  */
 
 import { BUILDING_LABEL, BUILDING_TYPES, buildCost, type BuildingType } from '../core/buildings'
-import { growthZones } from '../core/config'
+import { growthZones, troopIncreaseRate } from '../core/config'
 import {
   countBuildingsOfType,
   effectiveMaxTroops,
@@ -27,6 +27,8 @@ import { rgbaToCss } from './colors'
 const DEFAULT_SLIDER_PCT = 30
 const SIM_TICKS_PER_SECOND = 10
 const RANK_COLLAPSED = 5
+/** Sample-Intervall (Ticks) für die geglättete Gold-Einkommensrate. */
+const GOLD_SAMPLE_TICKS = 30
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -105,6 +107,11 @@ export function createHUD(
   let currentSliderPct = DEFAULT_SLIDER_PCT
   let rankSort: RankSort = 'troops'
   let rankExpanded = false
+  // Geglättetes Gold-Einkommen (Gold/s) — mittelt sprunghaften Handel. Per Sample
+  // alle GOLD_SAMPLE_TICKS Ticks aktualisiert (EMA).
+  let goldRatePerSec = 0
+  let lastGoldSampleTick = -1
+  let lastGoldSampleValue = 0
 
   /* ---- Oben links: kompakte Info + Steuerungs-Hinweis ---------------------- */
   const infoBox = document.createElement('div')
@@ -296,10 +303,25 @@ export function createHUD(
   barWrap.appendChild(optimumTick)
   barWrap.appendChild(stallTick)
   barWrap.appendChild(barCaption)
-  actionBar.appendChild(barWrap)
+
+  // Zeile: Truppen-pro-Sekunde (links, in Wachstums-Zonenfarbe) + Balken.
+  const barRow = document.createElement('div')
+  barRow.style.cssText = 'display: flex; align-items: center; gap: 8px'
+  const troopRateEl = document.createElement('div')
+  troopRateEl.style.cssText = [
+    'flex: 0 0 64px',
+    'text-align: right',
+    'font-size: 12px',
+    'font-weight: bold',
+    'font-variant-numeric: tabular-nums',
+  ].join(';')
+  barWrap.style.flex = '1'
+  barRow.appendChild(troopRateEl)
+  barRow.appendChild(barWrap)
+  actionBar.appendChild(barRow)
 
   const barLegend = document.createElement('div')
-  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-bottom: 8px'
+  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-bottom: 8px; margin-top: 3px'
   actionBar.appendChild(barLegend)
 
   const sliderWrap = document.createElement('div')
@@ -342,6 +364,12 @@ export function createHUD(
     'display: none',
   ].join(';')
   actionBar.appendChild(buildTooltip)
+
+  // Gold-Zeile über den Bau-Buttons (Gold wird hauptsächlich fürs Bauen genutzt):
+  // Vorrat + geglättete Einkommensrate (mittelt sprunghaften Handel).
+  const goldEl = document.createElement('div')
+  goldEl.style.cssText = 'font-size: 12px; margin-bottom: 5px; color: #e8c14a'
+  actionBar.appendChild(goldEl)
 
   // Bau-Buttons-Reihe (Glyph, Name, Hotkey, Kosten) — setzen den Bau-Modus.
   const buildRow = document.createElement('div')
@@ -504,10 +532,32 @@ export function createHUD(
     const frac = total / cap
     const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
     const pct = Math.round(frac * 100)
-    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)} &nbsp; <span style="color:#e8c14a">${fmtCompact(human.gold)} Gold</span>`
+    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
     const combatLegend =
       combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
     barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
+
+    // Truppen/s (links neben dem Balken), in derselben Zonenfarbe wie die Truppenzahl;
+    // negativ (über Cap → Abschmelzen) wird rot.
+    const ratePerSec =
+      troopIncreaseRate(total, cap, { producingTroops: idle }) * SIM_TICKS_PER_SECOND
+    const rateColor = ratePerSec < 0 ? '#e05a5a' : stateColor
+    const rateSign = ratePerSec >= 0 ? '+' : '−'
+    troopRateEl.style.color = rateColor
+    troopRateEl.innerHTML = `${rateSign}${fmtCompact(Math.abs(ratePerSec))}<span style="font-size:9px;opacity:0.7">/s</span>`
+
+    // Gold-Vorrat + geglättete Einkommensrate (EMA über GOLD_SAMPLE_TICKS).
+    if (lastGoldSampleTick < 0) {
+      lastGoldSampleTick = state.tick
+      lastGoldSampleValue = human.gold
+    } else if (state.tick - lastGoldSampleTick >= GOLD_SAMPLE_TICKS) {
+      const dTicks = state.tick - lastGoldSampleTick
+      const sampleRate = ((human.gold - lastGoldSampleValue) / dTicks) * SIM_TICKS_PER_SECOND
+      goldRatePerSec = goldRatePerSec * 0.7 + sampleRate * 0.3
+      lastGoldSampleTick = state.tick
+      lastGoldSampleValue = human.gold
+    }
+    goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> Gold <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span>`
 
     for (const type of BUILDING_TYPES) {
       const costEl = buildCostEls.get(type)
