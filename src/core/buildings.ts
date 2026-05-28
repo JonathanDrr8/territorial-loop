@@ -9,13 +9,15 @@
  *  - Verteidigungsposten: Tiles in Reichweite sind beim Verteidigen zäher
  *    (Magnitude-Multiplikator, stapelt mit Terrain).
  *  - Hafen: Voraussetzung für Schiffe, nur nahe Wasser baubar.
+ *  - Fabrik: verbindet sich per Luftlinie mit eigenen Städten/Häfen/Fabriken
+ *    (Cluster) und produziert Gold skaliert mit verbundenen Städten+Häfen.
  */
 
 import type { TileRef } from '../world/torus'
 
-export type BuildingType = 'city' | 'defense' | 'port'
+export type BuildingType = 'city' | 'defense' | 'port' | 'factory'
 
-export const BUILDING_TYPES: readonly BuildingType[] = ['city', 'defense', 'port']
+export const BUILDING_TYPES: readonly BuildingType[] = ['city', 'defense', 'port', 'factory']
 
 export interface Building {
   type: BuildingType
@@ -41,6 +43,7 @@ const BASE_BUILD_COST: Record<BuildingType, number> = {
   city: 25_000,
   defense: 25_000,
   port: 20_000,
+  factory: 50_000,
 }
 
 /** Anzeige-Namen (UI). */
@@ -48,6 +51,7 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
   city: 'Stadt',
   defense: 'Verteidigung',
   port: 'Hafen',
+  factory: 'Fabrik',
 }
 
 /**

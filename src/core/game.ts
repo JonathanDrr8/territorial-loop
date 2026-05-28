@@ -25,6 +25,8 @@ import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus
 import {
   BASE_GOLD_PER_TICK,
   BOT_START_TROOPS,
+  FACTORY_GOLD_PER_DEST,
+  FACTORY_LINK_RANGE,
   HUMAN_START_TROOPS,
   attackerLossPerTile,
   defenderLossPerTile,
@@ -639,10 +641,81 @@ function decayGrudge(state: GameState): void {
 }
 
 function generateGold(state: GameState): void {
-  // Flaches Gold-Einkommen pro lebendem Spieler (+ Handelsschiff-Gold beim Eintreffen).
+  // Flacher Start-Trickle (NICHT größen-abhängig) + Fabrik-Netzwerk-Einkommen
+  // (+ Handelsschiff-Gold beim Eintreffen, separat).
   for (const player of state.players.values()) {
-    if (player.isAlive) player.gold += BASE_GOLD_PER_TICK
+    if (player.isAlive) player.gold += BASE_GOLD_PER_TICK + factoryGoldPerTick(state, player.id)
   }
+}
+
+/**
+ * Gold pro Tick aus dem Fabrik-Netzwerk eines Spielers. Eigene fertige Städte/Häfen/
+ * Fabriken werden per Luftlinie (`FACTORY_LINK_RANGE`) transitiv zu Clustern verbunden
+ * (Union-Find). Jede Fabrik produziert `FACTORY_GOLD_PER_DEST` × (Anzahl Städte+Häfen im
+ * selben Cluster) × Fabrik-Level. Isolierte Fabriken ohne verbundene Ziele = 0.
+ */
+function factoryGoldPerTick(state: GameState, playerId: number): number {
+  const nodes: { tile: TileRef; isDest: boolean; isFactory: boolean; level: number }[] = []
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== playerId || !isBuildingComplete(b, state.tick)) continue
+    if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
+      nodes.push({
+        tile: b.tile,
+        isDest: b.type === 'city' || b.type === 'port',
+        isFactory: b.type === 'factory',
+        level: b.level,
+      })
+    }
+  }
+  const n = nodes.length
+  if (n === 0) return 0
+
+  // Union-Find über Reichweiten-Kanten (Torus-Luftlinie).
+  const parent = Array.from({ length: n }, (_, i) => i)
+  const find = (i: number): number => {
+    let r = i
+    while (parent[r] !== r) r = parent[r] ?? r
+    let c = i
+    while (parent[c] !== c) {
+      const next = parent[c] ?? c
+      parent[c] = r
+      c = next
+    }
+    return r
+  }
+  const { width, height } = state.map
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i]
+    if (a === undefined) continue
+    const ax = a.tile % width
+    const ay = Math.floor(a.tile / width)
+    for (let j = i + 1; j < n; j++) {
+      const b = nodes[j]
+      if (b === undefined) continue
+      const bx = b.tile % width
+      const by = Math.floor(b.tile / width)
+      if (torusDistance(ax, ay, bx, by, width, height) <= FACTORY_LINK_RANGE) {
+        parent[find(i)] = find(j)
+      }
+    }
+  }
+
+  // Ziele (Stadt/Hafen) pro Cluster zählen, dann Fabrik-Beiträge summieren.
+  const destPerCluster = new Map<number, number>()
+  for (let i = 0; i < n; i++) {
+    if (nodes[i]?.isDest === true) {
+      const root = find(i)
+      destPerCluster.set(root, (destPerCluster.get(root) ?? 0) + 1)
+    }
+  }
+  let gold = 0
+  for (let i = 0; i < n; i++) {
+    const node = nodes[i]
+    if (node?.isFactory !== true) continue
+    const dests = destPerCluster.get(find(i)) ?? 0
+    gold += FACTORY_GOLD_PER_DEST * dests * node.level
+  }
+  return Math.floor(gold)
 }
 
 /** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */

@@ -44,16 +44,20 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
   port: 'P',
+  factory: 'F',
 }
 const BUILDING_HOTKEY: Record<BuildingType, string> = {
   city: '1',
   defense: '2',
   port: '3',
+  factory: '4',
 }
 const BUILDING_TOOLTIP: Record<BuildingType, string> = {
   city: `Stadt — +${fmtCompact(CITY_CAP_BONUS)} Truppen-Maximum je Stufe.`,
   defense: `Verteidigungsposten — im Umkreis ${DEFENSE_BASE_RANGE.toString()} (+${DEFENSE_RANGE_PER_LEVEL.toString()}/Stufe) wird Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer.`,
   port: 'Hafen — nötig für Transport- & Handelsschiffe (nur am Wasser baubar).',
+  factory:
+    'Fabrik — verbindet sich per Luftlinie mit eigenen Städten/Häfen/Fabriken und produziert Gold je verbundener Stadt/Hafen.',
 }
 
 type RankSort = 'troops' | 'gold'

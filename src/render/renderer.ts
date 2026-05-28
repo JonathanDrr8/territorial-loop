@@ -15,16 +15,18 @@
 
 import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange } from '../core/buildings'
+import { FACTORY_LINK_RANGE } from '../core/config'
 import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
 import { type Boat, type TradeShip, shipWorldPos as shipWorldPosOf } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
-import { neighbors4, tileRef } from '../world/torus'
+import { neighbors4, tileRef, torusDistance } from '../world/torus'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
   port: 'P',
+  factory: 'F',
 }
 
 /**
@@ -79,6 +81,20 @@ const BUILDING_SPRITES: Record<BuildingType, SpriteDef> = {
     ],
     palette: { S: '#eef2f5', m: '#5a3a22', H: '#9c6b43' },
   },
+  // Fabrik: Gebäude mit rauchendem Schornstein.
+  factory: {
+    rows: [
+      '.....s..',
+      '....s...',
+      '...C....',
+      '...C....',
+      'WWWWWWWW',
+      'WDWDWDWW',
+      'WWWWWWWW',
+      'WDDWWDDW',
+    ],
+    palette: { W: '#9098a0', D: '#34383f', C: '#6b5560', s: '#d2d7dd' },
+  },
 }
 
 /** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
@@ -87,6 +103,14 @@ function rgbaToCssLocal(rgba: number): string {
   const g = (rgba >>> 16) & 0xff
   const b = (rgba >>> 8) & 0xff
   return `rgb(${r},${g},${b})`
+}
+
+/** Packed RGBA → "r,g,b"-Triplet (für rgba(...) mit eigenem Alpha). */
+function rgbaTripletLocal(rgba: number): string {
+  const r = (rgba >>> 24) & 0xff
+  const g = (rgba >>> 16) & 0xff
+  const b = (rgba >>> 8) & 0xff
+  return `${String(r)},${String(g)},${String(b)}`
 }
 
 export interface Camera {
@@ -887,6 +911,54 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     return c
   }
 
+  /**
+   * Zeichnet die Fabrik-Netzwerk-Verbindungen: von jeder Fabrik eine dezente Linie zu
+   * jedem eigenen Wirtschafts-Gebäude (Stadt/Hafen/Fabrik) in `FACTORY_LINK_RANGE`
+   * (Luftlinie). Fabrik-Fabrik-Linien nur einmal. Nur ab mittlerem Zoom (Anti-Clutter).
+   */
+  function drawBuildingLinks(): void {
+    if (state.buildings.size === 0 || camera.zoom < 1.4) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    type Eco = { tile: number; ownerId: number; factory: boolean }
+    const eco: Eco[] = []
+    for (const b of state.buildings.values()) {
+      if (state.tick < b.completesAtTick) continue
+      if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
+        eco.push({ tile: b.tile, ownerId: b.ownerId, factory: b.type === 'factory' })
+      }
+    }
+    if (eco.length < 2) return
+    screenCtx.save()
+    screenCtx.lineWidth = 1.5
+    for (const f of eco) {
+      if (!f.factory) continue
+      const fx = (f.tile % mapW) + 0.5
+      const fy = Math.floor(f.tile / mapW) + 0.5
+      const fp = nearestWrappedScreenPos(fx, fy)
+      const player = state.players.get(f.ownerId)
+      const col = player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
+      for (const e of eco) {
+        if (e === f || e.ownerId !== f.ownerId) continue
+        if (e.factory && e.tile < f.tile) continue // Fabrik-Fabrik nur einmal
+        const ex = e.tile % mapW
+        const ey = Math.floor(e.tile / mapW)
+        if (
+          torusDistance(f.tile % mapW, Math.floor(f.tile / mapW), ex, ey, mapW, mapH) >
+          FACTORY_LINK_RANGE
+        )
+          continue
+        const ep = nearestWrappedScreenPos(ex + 0.5, ey + 0.5)
+        screenCtx.strokeStyle = `rgba(${col},0.45)`
+        screenCtx.beginPath()
+        screenCtx.moveTo(fp.sx, fp.sy)
+        screenCtx.lineTo(ep.sx, ep.sy)
+        screenCtx.stroke()
+      }
+    }
+    screenCtx.restore()
+  }
+
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
     const cssW = container.clientWidth
@@ -1217,6 +1289,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawAttackFronts()
     drawAttackTargets()
     drawShips()
+    drawBuildingLinks()
     drawBuildings()
     drawBuildPreview()
     drawMarkers()

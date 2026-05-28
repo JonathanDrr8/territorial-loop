@@ -32,6 +32,7 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
   defense: 'D',
   port: 'P',
+  factory: 'F',
 }
 
 /** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe). */
@@ -39,6 +40,7 @@ const BUILDING_HINT: Record<BuildingType, string> = {
   city: `+${fmtCompact(CITY_CAP_BONUS)} Truppen-Cap/Stufe`,
   defense: `Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer`,
   port: 'Voraussetzung für Schiffe',
+  factory: 'Gold übers Netzwerk (Städte/Häfen in Reichweite)',
 }
 
 const ATTACK_ACCENT = '#e8d24a'

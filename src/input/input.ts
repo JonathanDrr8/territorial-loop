@@ -16,11 +16,12 @@ import { tileRef } from '../world/torus'
 import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
 
-/** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Markt, 4=Hafen). */
+/** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Hafen, 4=Fabrik). */
 const BUILD_HOTKEYS: Record<string, BuildingType> = {
   '1': 'city',
   '2': 'defense',
   '3': 'port',
+  '4': 'factory',
 }
 
 /** WASD → Kamera-Pan-Richtung (dx, dy in Welt-Tiles pro Schritt-Einheit). */

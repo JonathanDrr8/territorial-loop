@@ -276,6 +276,19 @@ export function createAI(
       const tile = pickCoastalTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
+    // 2b. Wirtschaft: Fabrik bauen, wenn es Ziele (Stadt/Hafen) zum Vernetzen gibt und
+    //     noch nicht mehr Fabriken als Ziele existieren (sonst lohnt sich keine weitere).
+    const dests =
+      countBuildingsOfType(state, player.id, 'city') +
+      countBuildingsOfType(state, player.id, 'port')
+    if (
+      dests > 0 &&
+      countBuildingsOfType(state, player.id, 'factory') < dests &&
+      gold >= costOf('factory')
+    ) {
+      const tile = pickOwnTile(state, player, false)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'factory' }
+    }
     // 3. Bedrohte Front → Verteidigungsposten (hinter der Grenze, nicht drauf)
     if (gold >= costOf('defense')) {
       const tile = pickDefenseTile(state, player)

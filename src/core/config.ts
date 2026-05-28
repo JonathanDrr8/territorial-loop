@@ -31,6 +31,17 @@ export const BOT_DEFAULT_ATTACK_PCT = 5
 export const BASE_GOLD_PER_TICK = 100
 
 /**
+ * Fabrik-Netzwerk-Wirtschaft (kein Gold-Wachstum mit Gebietsgröße!). Eine Fabrik
+ * verbindet sich per Luftlinie (Torus-Distanz ≤ `FACTORY_LINK_RANGE`) transitiv mit
+ * eigenen Städten/Häfen/Fabriken zu einem Cluster und produziert pro Tick
+ * `FACTORY_GOLD_PER_DEST` Gold je verbundener Stadt/Hafen im Cluster (× Fabrik-Level).
+ * Eine isolierte Fabrik (keine verbundenen Ziele) bringt nichts — man muss vernetzen.
+ * Startwerte, per Playtest tunbar.
+ */
+export const FACTORY_LINK_RANGE = 40
+export const FACTORY_GOLD_PER_DEST = 14
+
+/**
  * Terrain-Magnitude — bestimmt Verlust- und Geschwindigkeits-Faktoren beim Kampf.
  * Im MVP gibt es nur Plains (alle Tiles sind Land). Werte aus OpenFront.
  */

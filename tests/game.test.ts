@@ -10,6 +10,8 @@ import {
 import {
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
+  BASE_GOLD_PER_TICK,
+  FACTORY_GOLD_PER_DEST,
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
@@ -333,6 +335,57 @@ describe('tick — grudge (Groll)', () => {
     // viele Ticks → vollständig vergessen (Eintrag gelöscht)
     for (let i = 0; i < 600; i++) tick(state, [])
     expect(state.grudge.has(directedKey(2, 1))).toBe(false)
+  })
+})
+
+describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
+  it('Fabrik produziert Gold je verbundener Stadt/Hafen; isolierte Fabrik nur Sockel', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+
+    // Fabrik + Stadt nah beieinander (in Reichweite) für Spieler 1.
+    const cityTile = tileRef(20, 20, W, H)
+    const factoryTile = tileRef(21, 20, W, H)
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 0
+    tick(state, [])
+    // Sockel + 1 verbundene Stadt × Level 1.
+    expect(p1.gold).toBe(BASE_GOLD_PER_TICK + FACTORY_GOLD_PER_DEST)
+  })
+
+  it('isolierte Fabrik ohne verbundene Ziele bringt nur den Sockel', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    const factoryTile = tileRef(40, 40, W, H)
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 0
+    tick(state, [])
+    expect(p1.gold).toBe(BASE_GOLD_PER_TICK)
   })
 })
 
