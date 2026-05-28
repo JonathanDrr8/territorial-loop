@@ -220,6 +220,12 @@ export interface GameState {
    * roten Grenz-Tint (mit Nachglühen), unabhängig davon ob gerade aktiv angegriffen wird.
    */
   readonly grudge: Map<number, number>
+  /**
+   * Kürzlich eroberte Tiles (TileRef → Eroberungs-Tick). Der Renderer lässt sie kurz
+   * aufleuchten (Farbe nach Beziehung des neuen Besitzers zum Menschen) → man sieht
+   * exakt, wo ein Angriff gerade Wirkung zeigt. Wird nach wenigen Ticks geprunt.
+   */
+  readonly recentCaptures: Map<TileRef, number>
 }
 
 /* ============================================================================
@@ -317,6 +323,7 @@ export function createGame(config: GameConfig): GameState {
     allianceRequests: new Set<number>(),
     embargoes: new Set<number>(),
     grudge: new Map<number, number>(),
+    recentCaptures: new Map<TileRef, number>(),
   }
 
   placeSpawns(state)
@@ -582,6 +589,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   spawnTradeShips(state)
   advanceTradeShips(state)
   decayGrudge(state)
+  pruneRecentCaptures(state)
   expireAlliances(state)
   checkEliminations(state)
   checkVictory(state)
@@ -594,6 +602,16 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
 const GRUDGE_DECAY = 0.99
 /** Unter diesem Wert wird ein Groll-Eintrag gelöscht (gilt als vergessen). */
 const GRUDGE_MIN = 1
+/** Wie lange (Ticks) ein frisch erobertes Tile aufleuchtet, bevor es vergessen wird. */
+export const CAPTURE_FADE_TICKS = 6
+
+/** Entfernt ausgeblendete Eroberungs-Funken (älter als [[CAPTURE_FADE_TICKS]]). */
+function pruneRecentCaptures(state: GameState): void {
+  if (state.recentCaptures.size === 0) return
+  for (const [tile, capturedAt] of state.recentCaptures) {
+    if (state.tick - capturedAt >= CAPTURE_FADE_TICKS) state.recentCaptures.delete(tile)
+  }
+}
 
 /** Beendet abgelaufene Allianzen (Laufzeit überschritten) und meldet das im Log. */
 function expireAlliances(state: GameState): void {
@@ -1555,6 +1573,7 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
 
   setOwner(map, ref, attackerId)
   state.dirtyTiles.push(ref) // Owner-Wechsel → Renderer malt dieses Tile (+ Nachbarn) neu
+  state.recentCaptures.set(ref, state.tick) // frisch erobert → kurzes Aufleuchten im Render
 
   // Gebäude auf dem eroberten Tile: Verteidigungsposten werden zerstört, alle
   // anderen (Stadt/Markt/Hafen) übernimmt der Eroberer mitsamt Level.

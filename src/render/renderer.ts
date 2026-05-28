@@ -15,7 +15,7 @@
 
 import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
-import { canBuildAt, type GameState, type Player } from '../core/game'
+import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
 import { type Boat, type TradeShip, shipWorldPos as shipWorldPosOf } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
@@ -466,6 +466,59 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
           const wy = f.tileY + dy * mapH
           const sx = (wx - camera.x) * z + halfW
           const sy = (wy - camera.y) * z + halfH
+          if (sx + z < 0 || sx > cssW || sy + z < 0 || sy > cssH) continue
+          screenCtx.fillRect(sx, sy, z, z)
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
+  /**
+   * Lässt frisch eroberte Tiles kurz aufleuchten — man sieht exakt, wo ein Angriff
+   * gerade Wirkung zeigt. Eigene Eroberungen leuchten hell (cyan-weiß), Verbündete
+   * grün, Gegner rot; im Zuschauer-Modus neutral weiß. Verblasst über
+   * [[CAPTURE_FADE_TICKS]].
+   */
+  function drawCaptureFlashes(): void {
+    if (state.recentCaptures.size === 0) return
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const halfW = cssW / 2
+    const halfH = cssH / 2
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const humanId = lutHumanId
+    screenCtx.save()
+    for (const [tile, capturedAt] of state.recentCaptures) {
+      const age = state.tick - capturedAt
+      if (age < 0 || age >= CAPTURE_FADE_TICKS) continue
+      const fade = 1 - age / CAPTURE_FADE_TICKS
+      const owner = (state.map.state[tile] ?? 0) & OWNER_MASK
+      let rgb: string
+      let peak: number
+      if (humanId < 0) {
+        rgb = '255,255,255'
+        peak = 0.55
+      } else if (owner === humanId) {
+        rgb = '150,255,210' // eigene Eroberung — hell hervorgehoben
+        peak = 0.85
+      } else if (areAllied(state.alliances, humanId, owner)) {
+        rgb = '120,230,140'
+        peak = 0.5
+      } else {
+        rgb = '255,70,70' // jemand nimmt Land (auch: dir genommenes)
+        peak = 0.6
+      }
+      const alpha = fade * peak
+      screenCtx.fillStyle = `rgba(${rgb},${alpha.toFixed(3)})`
+      const tx = tile % mapW
+      const ty = Math.floor(tile / mapW)
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = (tx + dx * mapW - camera.x) * z + halfW
+          const sy = (ty + dy * mapH - camera.y) * z + halfH
           if (sx + z < 0 || sx > cssW || sy + z < 0 || sy > cssH) continue
           screenCtx.fillRect(sx, sy, z, z)
         }
@@ -1120,6 +1173,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     }
     drawTiled()
     drawDefenseRanges()
+    drawCaptureFlashes()
     drawFlashes()
     drawHoverOutline()
     drawAttackFronts()

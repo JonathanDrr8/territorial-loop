@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CAPTURE_FADE_TICKS,
   createGame,
   effectiveMaxTroops,
   tick,
@@ -427,6 +428,22 @@ describe('tick — intents', () => {
     // Gleich starke gegenseitige Angriffe heben sich komplett auf → beide verschwinden.
     expect(p1.attacks.length).toBe(0)
     expect(p2.attacks.length).toBe(0)
+  })
+
+  it('records recently captured tiles and prunes them after the flash lifetime', () => {
+    const state = createGame(baseConfig())
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+    player.troops = 20_000
+    const targetTile = adjacentNeutralTile(state, 1)
+    expect(targetTile).toBeGreaterThanOrEqual(0)
+    tick(state, [{ type: 'attack', playerId: 1, targetTile, troops: 10_000 }])
+    // Frisch eroberte Tiles sind für das Aufleuchten vermerkt.
+    expect(state.recentCaptures.size).toBeGreaterThan(0)
+    // Keine neuen Eroberungen → nach der Flash-Lebensdauer sind alle wieder weg.
+    player.attacks = []
+    for (let i = 0; i <= CAPTURE_FADE_TICKS; i++) tick(state, [])
+    expect(state.recentCaptures.size).toBe(0)
   })
 
   it('attack intent on own tile is ignored', () => {
