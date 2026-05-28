@@ -24,6 +24,14 @@ export const HUMAN_DEFAULT_ATTACK_PCT = 20
 export const BOT_DEFAULT_ATTACK_PCT = 5
 
 /**
+ * Dauer (Sim-Ticks) für das sanfte Zurückziehen eines abgebrochenen Angriffs. Statt die
+ * Reserve sofort zurückzugeben, fließt sie über diese Spanne zurück (~2.5 s bei 10 Ticks/s,
+ * `SIM_BASE_INTERVAL_MS = 100` in main.ts). Verhindert Sofort-Abbruch-Abuse und fühlt sich
+ * wie ein echter Rückzug an. Ein zweiter Abbruch-Klick beendet sofort.
+ */
+export const ATTACK_CANCEL_TICKS = 25
+
+/**
  * Flaches Gold-Einkommen pro Tick und lebendem Spieler — unabhängig von der
  * Gebietsgröße (bewusster Balance-Trade-off: kleine Nationen sind Gold-effizient
  * pro Fläche). Eco-Gebäude und Handelsschiffe kommen additiv obendrauf.

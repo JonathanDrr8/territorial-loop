@@ -23,6 +23,7 @@ import {
 } from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
 import {
+  ATTACK_CANCEL_TICKS,
   BASE_GOLD_PER_TICK,
   BOT_START_TROOPS,
   FACTORY_GOLD_PER_DEST,
@@ -155,6 +156,12 @@ export interface Attack {
   startTick: number
   /** Rundum-Ausbreitung (kein Richtungs-Fokus → gleichmäßig in alle Wildnis). */
   omni?: boolean
+  /**
+   * Gesetzt, sobald der Angriff abgebrochen wird (Tick des Abbruch-Befehls). Ein abbrechender
+   * Angriff erobert nichts mehr; seine Reserve fließt über [[ATTACK_CANCEL_TICKS]] zurück in
+   * den Spieler-Pool. Ein zweiter Abbruch-Befehl beendet sofort (Rest zurück).
+   */
+  cancelStartTick?: number
 }
 
 export interface Player {
@@ -1269,7 +1276,13 @@ function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): 
   const attack = player.attacks[intent.attackIndex]
   if (attack === undefined) return
 
-  // Reserve-Truppen zurück in den Spieler-Pool
+  // Erster Abbruch-Befehl: sanftes Zurückziehen einleiten (Reserve fließt über
+  // ATTACK_CANCEL_TICKS zurück, kein Vormarsch mehr — siehe windDownCancellingAttack).
+  // Zweiter Befehl auf einen schon abbrechenden Angriff: sofort fertig (Rest zurück).
+  if (attack.cancelStartTick === undefined) {
+    attack.cancelStartTick = state.tick
+    return
+  }
   player.troops += attack.reserveTroops
   player.attacks.splice(intent.attackIndex, 1)
 }
@@ -1758,12 +1771,38 @@ function resolveAttacks(state: GameState): void {
     for (let i = player.attacks.length - 1; i >= 0; i--) {
       const attack = player.attacks[i]
       if (attack === undefined) continue
-      const stillActive = advanceAttack(state, player, attack)
+      // Abbrechende Angriffe erobern nichts mehr — ihre Reserve fließt nur noch zurück.
+      const stillActive =
+        attack.cancelStartTick === undefined
+          ? advanceAttack(state, player, attack)
+          : windDownCancellingAttack(state, player, attack)
       if (!stillActive) {
         player.attacks.splice(i, 1)
       }
     }
   }
+}
+
+/**
+ * Führt einen abgebrochenen Angriff einen Tick weiter zurück: ein Anteil der Reserve
+ * (gleichmäßig über die Rest-Ticks bis [[ATTACK_CANCEL_TICKS]]) fließt in den Spieler-Pool.
+ * Erobert nichts. Returnt `false`, sobald die Reserve aufgebraucht oder die Frist abgelaufen
+ * ist (Rest wird dann komplett zurückgegeben).
+ */
+function windDownCancellingAttack(state: GameState, player: Player, attack: Attack): boolean {
+  const start = attack.cancelStartTick ?? state.tick
+  const elapsed = state.tick - start
+  if (attack.reserveTroops <= 0) return false
+  if (elapsed >= ATTACK_CANCEL_TICKS) {
+    player.troops += attack.reserveTroops
+    attack.reserveTroops = 0
+    return false
+  }
+  const remainingTicks = Math.max(1, ATTACK_CANCEL_TICKS - elapsed)
+  const refund = Math.min(attack.reserveTroops, Math.ceil(attack.reserveTroops / remainingTicks))
+  player.troops += refund
+  attack.reserveTroops -= refund
+  return attack.reserveTroops > 0
 }
 
 /** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */

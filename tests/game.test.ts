@@ -12,6 +12,7 @@ import {
   BOT_START_TROOPS,
   BASE_GOLD_PER_TICK,
   FACTORY_GOLD_PER_DEST,
+  ATTACK_CANCEL_TICKS,
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
@@ -499,6 +500,67 @@ describe('Rundum-Ausbreitung (omni)', () => {
   })
 })
 
+describe('Angriff abbrechen (Wind-down)', () => {
+  /** Bereitet ein Spiel mit p1 (1 Tile) + angrenzendem neutralen Ziel und einem laufenden Angriff vor. */
+  function setupCancelGame(reserve: number): {
+    state: GameState
+    p1: NonNullable<ReturnType<GameState['players']['get']>>
+    target: number
+  } {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const center = tileRef(5, 5, W, Hgt)
+    const target = tileRef(6, 5, W, Hgt) // angrenzendes neutrales Ziel
+    setOwner(state.map, center, 1)
+    p1.tilesOwned = 1
+    p1.frontier.add(center)
+    p1.attacks.push({
+      targetPlayerId: 0,
+      reserveTroops: reserve,
+      focusTile: target,
+      frontTile: target,
+      startTick: 0,
+    })
+    return { state, p1, target }
+  }
+
+  it('hält den Vormarsch sofort an und zieht die Reserve über die Zeit zurück', () => {
+    const { state, p1, target } = setupCancelGame(2000)
+    tick(state, [{ type: 'cancel-attack', playerId: 1, attackIndex: 0 }])
+    // Angriff läuft noch, ist aber als abbrechend markiert; Reserve sinkt bereits.
+    expect(p1.attacks.length).toBe(1)
+    expect(p1.attacks[0]?.cancelStartTick).toBeDefined()
+    expect(p1.attacks[0]?.reserveTroops).toBeLessThan(2000)
+    // Während des Abbruchs wird nichts mehr erobert.
+    expect(getOwner(state.map, target)).toBe(0)
+    // Nach Ablauf der Frist ist der Angriff weg und das Ziel weiterhin neutral.
+    for (let i = 0; i < ATTACK_CANCEL_TICKS + 2 && p1.attacks.length > 0; i++) tick(state, [])
+    expect(p1.attacks.length).toBe(0)
+    expect(getOwner(state.map, target)).toBe(0)
+    // Die zurückgezogenen Truppen sind (mindestens) wieder im Pool.
+    expect(p1.troops).toBeGreaterThanOrEqual(2000)
+  })
+
+  it('beendet bei zweitem Abbruch-Befehl sofort', () => {
+    const { state, p1 } = setupCancelGame(2000)
+    tick(state, [{ type: 'cancel-attack', playerId: 1, attackIndex: 0 }])
+    expect(p1.attacks.length).toBe(1)
+    tick(state, [{ type: 'cancel-attack', playerId: 1, attackIndex: 0 }])
+    expect(p1.attacks.length).toBe(0)
+    expect(p1.troops).toBeGreaterThanOrEqual(2000)
+  })
+})
+
 describe('eingeschlossene Taschen (keine Blasen)', () => {
   it('eine vom Angreifer umzingelte neutrale Tasche fällt frei', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
@@ -674,7 +736,7 @@ describe('tick — intents', () => {
     }
   })
 
-  it('cancel-attack returns reserve troops and removes attack', () => {
+  it('cancel-attack zieht die Reserve über die Zeit zurück und entfernt den Angriff', () => {
     const state = createGame(baseConfig())
     const player = state.players.get(1)
     if (player === undefined) throw new Error('player missing')
@@ -687,8 +749,12 @@ describe('tick — intents', () => {
     expect(reserve).toBeGreaterThan(0)
     const troopsBefore = player.troops
     tick(state, [{ type: 'cancel-attack', playerId: 1, attackIndex: 0 }])
+    // Sanftes Zurückziehen: der Angriff bleibt zunächst (als abbrechend markiert) …
+    expect(player.attacks).toHaveLength(1)
+    expect(player.attacks[0]?.cancelStartTick).toBeDefined()
+    // … und löst sich erst über ATTACK_CANCEL_TICKS auf; die Reserve fließt komplett zurück.
+    for (let i = 0; i < ATTACK_CANCEL_TICKS + 2 && player.attacks.length > 0; i++) tick(state, [])
     expect(player.attacks).toHaveLength(0)
-    // Die zum Cancel-Zeitpunkt verbliebene Reserve fließt zurück in den Pool.
     expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + reserve)
   })
 
