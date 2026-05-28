@@ -68,48 +68,53 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   if (ctx === null) throw new Error('Minimap: 2D context not available')
   ctx.imageSmoothingEnabled = false
 
-  function drawViewportBox(): void {
-    const ctx2 = ctx
-    if (ctx2 === null) return
+  /** Box-Geometrie (Minimap-Pixel) des sichtbaren Viewports. */
+  function viewportBox(): { x: number; y: number; bw: number; bh: number } {
     const viewport = getViewportSize()
     const z = camera.zoom
-    // Welt-Koords der sichtbaren Region
     const worldW = viewport.width / z
     const worldH = viewport.height / z
-    const worldLeft = camera.x - worldW / 2
-    const worldTop = camera.y - worldH / 2
-
-    // Minimap-Pixel pro Welt-Tile
-    const sx = w / mapW
-    const sy = h / mapH
-
-    // Box-Position auf der Minimap (kann negativ sein oder über mapW hinaus gehen)
-    const boxX = worldLeft * sx
-    const boxY = worldTop * sy
-    const boxW = worldW * sx
-    const boxH = worldH * sy
-
-    ctx2.lineWidth = 1
-    ctx2.strokeStyle = VIEWPORT_COLOR
-
-    // Zeichne die Box 3×3 mal mit Wrap-Offsets — wenn sie über den Rand geht
-    // erscheint die "andere Hälfte" auf der gegenüberliegenden Seite.
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        ctx2.strokeRect(boxX + dx * w, boxY + dy * h, boxW, boxH)
-      }
+    return {
+      x: (camera.x - worldW / 2) * (w / mapW),
+      y: (camera.y - worldH / 2) * (h / mapH),
+      bw: worldW * (w / mapW),
+      bh: worldH * (h / mapH),
     }
   }
 
   function update(): void {
     const ctx2 = ctx
     if (ctx2 === null) return
-    // Hintergrund clearen (für Transparenz / saubere Wrap-Box)
     ctx2.clearRect(0, 0, w, h)
-    // Bitmap downscaled malen
-    ctx2.drawImage(getBitmap(), 0, 0, w, h)
-    // Viewport-Box drüber
-    drawViewportBox()
+    const bitmap = getBitmap()
+    const { x: boxX, y: boxY, bw, bh } = viewportBox()
+
+    // 1) Ganze Karte gedimmt als Hintergrund.
+    ctx2.globalAlpha = 0.42
+    ctx2.drawImage(bitmap, 0, 0, w, h)
+    ctx2.globalAlpha = 1
+
+    // 2) Sichtbaren Viewport-Bereich voll-hell „ausstanzen" (3×3 wegen Torus-Wrap)
+    //    → man sieht sofort, welcher Anteil der Welt gerade im Bild ist (Weltgröße).
+    ctx2.save()
+    ctx2.beginPath()
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        ctx2.rect(boxX + dx * w, boxY + dy * h, bw, bh)
+      }
+    }
+    ctx2.clip()
+    ctx2.drawImage(bitmap, 0, 0, w, h)
+    ctx2.restore()
+
+    // 3) Rahmen um den sichtbaren Bereich.
+    ctx2.lineWidth = 1.5
+    ctx2.strokeStyle = VIEWPORT_COLOR
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        ctx2.strokeRect(boxX + dx * w, boxY + dy * h, bw, bh)
+      }
+    }
   }
 
   return {
