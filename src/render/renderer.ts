@@ -70,6 +70,8 @@ export interface Renderer {
   destroy(): void
 }
 
+// Inland-Tönung: Anteil Eigenfarbe über der Terrain-Basis (Rest = Landschaft sichtbar).
+const INTERIOR_TINT = 0.32
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
@@ -219,25 +221,33 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     }
     // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30).
     const tier = height >= 20 ? 2 : height >= 10 ? 1 : 0
+    // Terrain-Basisfarbe nach Höhe — DIE sichtbare Landschaft. Eigenes/fremdes Inland
+    // wird darüber nur leicht getönt, sodass die Landschaft durchscheint.
+    let tr: number
+    let tg: number
+    let tb: number
+    if (tier === 0) {
+      tr = 26
+      tg = 32
+      tb = 28
+    } else if (tier === 1) {
+      tr = 58
+      tg = 52
+      tb = 36
+    } else {
+      tr = 92
+      tg = 82
+      tb = 66
+    }
+
     const owner = v & OWNER_MASK
     let r: number
     let g: number
     let b: number
     if (owner === 0) {
-      // Neutrales Land: gestufte Terrain-Palette
-      if (tier === 0) {
-        r = 26
-        g = 32
-        b = 28
-      } else if (tier === 1) {
-        r = 58
-        g = 52
-        b = 36
-      } else {
-        r = 92
-        g = 82
-        b = 66
-      }
+      r = tr
+      g = tg
+      b = tb
     } else {
       const c = lut?.get(owner)
       if (c === undefined) {
@@ -254,6 +264,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
         const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
         if (isBorder) {
+          // Rand klar in Besitzerfarbe (Mensch hell-weiß) → Gebiet bleibt erkennbar.
           if (owner === lutHumanId) {
             r = 240
             g = 240
@@ -264,22 +275,12 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
             b = c.bb
           }
         } else {
-          r = c.ir
-          g = c.ig
-          b = c.ib
+          // Inland: Terrain durchscheinen lassen, nur leichte Eigenfarbe drüber.
+          const a = INTERIOR_TINT
+          r = Math.round(tr * (1 - a) + c.ir * a)
+          g = Math.round(tg * (1 - a) + c.ig * a)
+          b = Math.round(tb * (1 - a) + c.ib * a)
         }
-      }
-    }
-    // Höhen-Relief auf Spieler-Tiles: Ebene abgedunkelt, Berge heller + Richtung Fels
-    if (owner !== 0) {
-      const rf = tier === 0 ? 0.82 : tier === 1 ? 1.06 : 1.32
-      r = Math.min(255, r * rf)
-      g = Math.min(255, g * rf)
-      b = Math.min(255, b * rf)
-      if (tier === 2) {
-        r = Math.min(255, r * 0.7 + 150 * 0.3)
-        g = Math.min(255, g * 0.7 + 142 * 0.3)
-        b = Math.min(255, b * 0.7 + 132 * 0.3)
       }
     }
     data[o] = r
