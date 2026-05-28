@@ -13,7 +13,17 @@
  * "Neues Match" über onNewMatch.
  */
 
-import { BUILDING_LABEL, BUILDING_TYPES, buildCost, type BuildingType } from '../core/buildings'
+import {
+  BUILDING_LABEL,
+  BUILDING_TYPES,
+  CITY_CAP_BONUS,
+  DEFENSE_BASE_RANGE,
+  DEFENSE_MAG_MULTIPLIER,
+  DEFENSE_RANGE_PER_LEVEL,
+  MARKET_GOLD_PER_TICK,
+  buildCost,
+  type BuildingType,
+} from '../core/buildings'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import {
   countBuildingsOfType,
@@ -43,10 +53,10 @@ const BUILDING_HOTKEY: Record<BuildingType, string> = {
   port: '4',
 }
 const BUILDING_TOOLTIP: Record<BuildingType, string> = {
-  city: 'Stadt — erhöht dein Truppen-Maximum dauerhaft.',
-  defense: 'Verteidigungsposten — Tiles in Reichweite werden teurer und langsamer zu erobern.',
-  market: 'Markt — bringt zusätzliches Gold pro Tick.',
-  port: 'Hafen — Voraussetzung für Transport- und Handelsschiffe (nur am Wasser baubar).',
+  city: `Stadt — +${fmtCompact(CITY_CAP_BONUS)} Truppen-Maximum je Stufe.`,
+  defense: `Verteidigungsposten — im Umkreis ${DEFENSE_BASE_RANGE.toString()} (+${DEFENSE_RANGE_PER_LEVEL.toString()}/Stufe) wird Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer.`,
+  market: `Markt — +${fmtCompact(MARKET_GOLD_PER_TICK * SIM_TICKS_PER_SECOND)} Gold/s je Stufe.`,
+  port: 'Hafen — nötig für Transport- & Handelsschiffe (nur am Wasser baubar).',
 }
 
 type RankSort = 'troops' | 'gold'

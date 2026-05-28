@@ -14,6 +14,9 @@
 import {
   BUILDING_LABEL,
   BUILDING_TYPES,
+  CITY_CAP_BONUS,
+  DEFENSE_MAG_MULTIPLIER,
+  MARKET_GOLD_PER_TICK,
   MAX_BUILDING_LEVEL,
   buildCost,
   upgradeCost,
@@ -32,11 +35,11 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   port: 'P',
 }
 
-/** Kurzbeschreibung pro Typ — was das Gebäude bringt. */
+/** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe). */
 const BUILDING_HINT: Record<BuildingType, string> = {
-  city: '+Truppen-Cap',
-  defense: 'Tiles in Reichweite zäher',
-  market: '+Gold/Tick',
+  city: `+${fmtCompact(CITY_CAP_BONUS)} Truppen-Cap/Stufe`,
+  defense: `Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer`,
+  market: `+${fmtCompact(MARKET_GOLD_PER_TICK * 10)} Gold/s/Stufe`,
   port: 'Voraussetzung für Schiffe',
 }
 
