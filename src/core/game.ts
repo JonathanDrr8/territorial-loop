@@ -961,17 +961,17 @@ function growPopulations(state: GameState): void {
       maxTroops(player.weightedTiles, { bot: !player.isHuman }) + cityCapBonus(state, player.id)
     // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
+    // Wachstum geht konsistent von der FREIEN Bevölkerung aus, gebremst durch ihren
+    // freien Cap-Platz (Cap minus die im Angriff gebundenen Truppen). So verzerren
+    // gebundene Angriffstruppen das Wachstum nicht — und sie produzieren nicht selbst.
     const committed = committedTroops(player)
-    // Gebundene (im Angriff befindliche) Truppen tragen NICHT zur Produktion bei —
-    // nur die freien Truppen produzieren Nachschub.
-    const rate = troopIncreaseRate(player.troops + committed, max, {
-      producingTroops: player.troops,
-    })
+    const freeCap = Math.max(0, max - committed)
+    const rate = troopIncreaseRate(player.troops, freeCap)
     if (rate < 0) {
-      // Über dem Cap (nach Gebietsverlust): Überschuss langsam abschmelzen.
+      // Über dem freien Cap (z.B. nach Gebietsverlust): Überschuss langsam abschmelzen.
       player.troops = Math.max(0, player.troops + rate)
     } else {
-      player.troops = Math.min(player.troops + rate, Math.max(0, max - committed))
+      player.troops = Math.min(player.troops + rate, freeCap)
     }
   }
 }

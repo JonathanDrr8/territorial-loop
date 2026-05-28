@@ -548,9 +548,10 @@ export function createHUD(
     barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
 
     // Truppen/s (links neben dem Balken), in derselben Zonenfarbe wie die Truppenzahl;
-    // negativ (über Cap → Abschmelzen) wird rot.
-    const ratePerSec =
-      troopIncreaseRate(total, cap, { producingTroops: idle }) * SIM_TICKS_PER_SECOND
+    // negativ (über Cap → Abschmelzen) wird rot. Wie growPopulations: freie Bevölkerung
+    // gegen ihren freien Cap-Platz.
+    const freeCap = Math.max(0, cap - combat)
+    const ratePerSec = troopIncreaseRate(idle, freeCap) * SIM_TICKS_PER_SECOND
     const rateColor = ratePerSec < 0 ? '#e05a5a' : stateColor
     const rateSign = ratePerSec >= 0 ? '+' : '−'
     troopRateEl.style.color = rateColor
