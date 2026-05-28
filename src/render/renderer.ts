@@ -67,6 +67,17 @@ const MARKER_RADIUS_END = 40
 const FLASH_DURATION_MS = 280
 const MAX_FLASHES_PER_TICK = 600
 
+/** Schwerpunkt-Neuberechnung alle N Sim-Ticks (Performance vs. Aktualität). */
+const CENTROID_INTERVAL = 10
+
+/** Kompaktes Zahlenformat fürs Overlay: 1234567 → "1.2M", 12345 → "12k". */
+function fmtCompactRender(value: number): string {
+  const v = Math.round(value)
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(v)
+}
+
 interface ClickMarker {
   worldX: number
   worldY: number
@@ -131,16 +142,34 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const mapState = state.map.state
     const players = state.players
     const len = mapState.length
+    const w = state.map.width
+    const h = state.map.height
 
-    // Mini-LUT pro Frame: ownerId → [r,g,b,a]
-    const lut = new Map<number, readonly [number, number, number, number]>()
+    // Mini-LUT pro Frame: ownerId → { inner [r,g,b], border [r,g,b] }
+    // border = aufgehellte Variante (OpenFront-Stil: Grenztiles heller als Inneres).
+    interface ColorEntry {
+      readonly ir: number
+      readonly ig: number
+      readonly ib: number
+      readonly br: number
+      readonly bg: number
+      readonly bb: number
+    }
+    const lut = new Map<number, ColorEntry>()
+    let humanId = -1
     for (const p of players.values()) {
-      lut.set(p.id, [
-        (p.color >>> 24) & 0xff,
-        (p.color >>> 16) & 0xff,
-        (p.color >>> 8) & 0xff,
-        p.color & 0xff,
-      ])
+      const r = (p.color >>> 24) & 0xff
+      const g = (p.color >>> 16) & 0xff
+      const b = (p.color >>> 8) & 0xff
+      lut.set(p.id, {
+        ir: r,
+        ig: g,
+        ib: b,
+        br: Math.min(255, Math.round(r * 1.35 + 50)),
+        bg: Math.min(255, Math.round(g * 1.35 + 50)),
+        bb: Math.min(255, Math.round(b * 1.35 + 50)),
+      })
+      if (p.isHuman) humanId = p.id
     }
 
     const terrain = state.map.terrain
@@ -158,24 +187,43 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         continue
       }
       const owner = v & OWNER_MASK
+      data[o + 3] = 255
       if (owner === 0) {
         data[o] = NEUTRAL_R
         data[o + 1] = NEUTRAL_G
         data[o + 2] = NEUTRAL_B
-        data[o + 3] = 255
-      } else {
-        const rgba = lut.get(owner)
-        if (rgba === undefined) {
-          data[o] = 255
-          data[o + 1] = 0
+        continue
+      }
+      const c = lut.get(owner)
+      if (c === undefined) {
+        data[o] = 255
+        data[o + 1] = 0
+        data[o + 2] = 255
+        continue
+      }
+      // Border-Check: grenzt das Tile an einen anderen Owner (oder Wasser/neutral)?
+      const x = i % w
+      const y = (i - x) / w
+      const ol = (mapState[y * w + (x === 0 ? w - 1 : x - 1)] ?? 0) & OWNER_MASK
+      const or = (mapState[y * w + (x === w - 1 ? 0 : x + 1)] ?? 0) & OWNER_MASK
+      const ou = (mapState[(y === 0 ? h - 1 : y - 1) * w + x] ?? 0) & OWNER_MASK
+      const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
+      const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
+      if (isBorder) {
+        if (owner === humanId) {
+          // Eigenes Reich: helle, fast-weiße Grenze
+          data[o] = 240
+          data[o + 1] = 240
           data[o + 2] = 255
-          data[o + 3] = 255
         } else {
-          data[o] = rgba[0]
-          data[o + 1] = rgba[1]
-          data[o + 2] = rgba[2]
-          data[o + 3] = rgba[3]
+          data[o] = c.br
+          data[o + 1] = c.bg
+          data[o + 2] = c.bb
         }
+      } else {
+        data[o] = c.ir
+        data[o + 1] = c.ig
+        data[o + 2] = c.ib
       }
     }
 
@@ -292,6 +340,179 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   // gegen einen Snapshot vom letzten Paint und sammeln pro Tick die Änderungen.
   let lastOwnerSnapshot: Uint16Array | null = null
   const flashes: CaptureFlash[] = []
+  // Schwerpunkt pro Spieler (für Namens-Label + Angriffspfeile). Gedrosselt
+  // alle CENTROID_INTERVAL Ticks neu berechnet — Torus-sicher via Sinus/Cosinus.
+  const centroids = new Map<number, { x: number; y: number }>()
+  let lastCentroidTick = -1
+
+  function maybeRecomputeCentroids(): void {
+    if (lastCentroidTick >= 0 && state.tick - lastCentroidTick < CENTROID_INTERVAL) return
+    lastCentroidTick = state.tick
+    const w = state.map.width
+    const h = state.map.height
+    const mapState = state.map.state
+    interface Acc {
+      sx: number
+      cx: number
+      sy: number
+      cy: number
+      n: number
+    }
+    const acc = new Map<number, Acc>()
+    const kx = (2 * Math.PI) / w
+    const ky = (2 * Math.PI) / h
+    for (let i = 0; i < mapState.length; i++) {
+      const owner = (mapState[i] ?? 0) & OWNER_MASK
+      if (owner === 0) continue
+      let a = acc.get(owner)
+      if (a === undefined) {
+        a = { sx: 0, cx: 0, sy: 0, cy: 0, n: 0 }
+        acc.set(owner, a)
+      }
+      const x = i % w
+      const y = (i - x) / w
+      a.sx += Math.sin(x * kx)
+      a.cx += Math.cos(x * kx)
+      a.sy += Math.sin(y * ky)
+      a.cy += Math.cos(y * ky)
+      a.n++
+    }
+    centroids.clear()
+    for (const [owner, a] of acc) {
+      const mx = (Math.atan2(a.sx, a.cx) / (2 * Math.PI)) * w
+      const my = (Math.atan2(a.sy, a.cy) / (2 * Math.PI)) * h
+      centroids.set(owner, {
+        x: ((mx % w) + w) % w,
+        y: ((my % h) + h) % h,
+      })
+    }
+  }
+
+  /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
+  function worldToScreenX(wx: number): number {
+    return (wx - camera.x) * camera.zoom + container.clientWidth / 2
+  }
+  function worldToScreenY(wy: number): number {
+    return (wy - camera.y) * camera.zoom + container.clientHeight / 2
+  }
+
+  function drawLabels(): void {
+    maybeRecomputeCentroids()
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    screenCtx.save()
+    screenCtx.font = 'bold 13px ui-monospace, SFMono-Regular, Menlo, monospace'
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'middle'
+    screenCtx.lineWidth = 3
+    for (const p of state.players.values()) {
+      if (!p.isAlive || p.tilesOwned === 0) continue
+      const c = centroids.get(p.id)
+      if (c === undefined) continue
+      const name = p.name
+      const troopsLabel = fmtCompactRender(p.troops)
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = worldToScreenX(c.x + dx * mapW)
+          const sy = worldToScreenY(c.y + dy * mapH)
+          if (sx < -60 || sx > cssW + 60 || sy < -30 || sy > cssH + 30) continue
+          screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+          screenCtx.strokeText(name, sx, sy - 8)
+          screenCtx.strokeText(troopsLabel, sx, sy + 8)
+          screenCtx.fillStyle = '#ffffff'
+          screenCtx.fillText(name, sx, sy - 8)
+          screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
+          screenCtx.fillText(troopsLabel, sx, sy + 8)
+        }
+      }
+    }
+    // Zoom-abhängig nicht skaliert (feste Screen-Größe); z wird nur für Sichtbarkeits-
+    // Clipping oben implizit über die Screen-Koords genutzt.
+    void z
+    screenCtx.restore()
+  }
+
+  function drawAttackArrows(): void {
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    screenCtx.save()
+    screenCtx.font = 'bold 11px ui-monospace, monospace'
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'middle'
+    for (const p of state.players.values()) {
+      if (p.attacks.length === 0) continue
+      const c = centroids.get(p.id)
+      if (c === undefined) continue
+      const r = (p.color >>> 24) & 0xff
+      const g = (p.color >>> 16) & 0xff
+      const b = (p.color >>> 8) & 0xff
+      const stroke = `rgba(${r},${g},${b},0.85)`
+      for (const atk of p.attacks) {
+        const fx = atk.focusTile % mapW
+        const fy = Math.floor(atk.focusTile / mapW)
+        // Kürzesten Wrap-Weg vom Centroid zum focusTile wählen
+        let ddx = fx - c.x
+        if (ddx > mapW / 2) ddx -= mapW
+        else if (ddx < -mapW / 2) ddx += mapW
+        let ddy = fy - c.y
+        if (ddy > mapH / 2) ddy -= mapH
+        else if (ddy < -mapH / 2) ddy += mapH
+        const tx = c.x + ddx
+        const ty = c.y + ddy
+        const label = fmtCompactRender(atk.reserveTroops)
+        for (let rx = -1; rx <= 1; rx++) {
+          for (let ry = -1; ry <= 1; ry++) {
+            const ox = rx * mapW
+            const oy = ry * mapH
+            const x0 = worldToScreenX(c.x + ox)
+            const y0 = worldToScreenY(c.y + oy)
+            const x1 = worldToScreenX(tx + ox)
+            const y1 = worldToScreenY(ty + oy)
+            // Beide Endpunkte off-screen → skip
+            const onScreen =
+              (x1 > -40 && x1 < cssW + 40 && y1 > -40 && y1 < cssH + 40) ||
+              (x0 > -40 && x0 < cssW + 40 && y0 > -40 && y0 < cssH + 40)
+            if (!onScreen) continue
+            drawArrow(x0, y0, x1, y1, stroke)
+            screenCtx.lineWidth = 3
+            screenCtx.strokeStyle = 'rgba(0,0,0,0.8)'
+            screenCtx.strokeText(label, x1, y1 - 12)
+            screenCtx.fillStyle = '#fff'
+            screenCtx.fillText(label, x1, y1 - 12)
+          }
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
+  function drawArrow(x0: number, y0: number, x1: number, y1: number, color: string): void {
+    const angle = Math.atan2(y1 - y0, x1 - x0)
+    const head = 9
+    screenCtx.lineWidth = 2
+    screenCtx.strokeStyle = color
+    screenCtx.beginPath()
+    screenCtx.moveTo(x0, y0)
+    screenCtx.lineTo(x1, y1)
+    screenCtx.stroke()
+    screenCtx.beginPath()
+    screenCtx.moveTo(x1, y1)
+    screenCtx.lineTo(
+      x1 - head * Math.cos(angle - Math.PI / 6),
+      y1 - head * Math.sin(angle - Math.PI / 6),
+    )
+    screenCtx.moveTo(x1, y1)
+    screenCtx.lineTo(
+      x1 - head * Math.cos(angle + Math.PI / 6),
+      y1 - head * Math.sin(angle + Math.PI / 6),
+    )
+    screenCtx.stroke()
+  }
 
   function drawHoverOutline(): void {
     if (hoverTile === null) return
@@ -438,8 +659,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawTiled()
     drawFlashes()
     drawHoverOutline()
+    drawAttackArrows()
     drawAttackTargets()
     drawMarkers()
+    drawLabels()
   }
 
   function addClickMarker(worldX: number, worldY: number): void {
