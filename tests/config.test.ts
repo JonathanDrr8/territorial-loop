@@ -100,6 +100,17 @@ describe('troopIncreaseRate', () => {
     expect(Number.isInteger(troopIncreaseRate(5000, 100_000))).toBe(true)
   })
 
+  it('gebundene Truppen produzieren nicht (producingTroops senkt die Rate)', () => {
+    const full = troopIncreaseRate(10_000, 100_000)
+    // nur 2000 frei (8000 im Angriff) → deutlich weniger Produktion
+    const partial = troopIncreaseRate(10_000, 100_000, { producingTroops: 2000 })
+    expect(partial).toBeLessThan(full)
+    expect(partial).toBeGreaterThan(0)
+    // alles gebunden → nur Basis-Produktion (10) × Cap-Faktor
+    const none = troopIncreaseRate(10_000, 100_000, { producingTroops: 0 })
+    expect(none).toBe(Math.floor(10 * (1 - 10_000 / 100_000)))
+  })
+
   it('rate strictly decreases past the optimum', () => {
     const max = 1_000_000
     const at60 = troopIncreaseRate(max * 0.6, max)

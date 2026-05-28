@@ -82,7 +82,7 @@ export const OVER_CAP_DECAY = 0.03
 export function troopIncreaseRate(
   troops: number,
   max: number,
-  opts: { readonly bot?: boolean } = {},
+  opts: { readonly bot?: boolean; readonly producingTroops?: number } = {},
 ): number {
   if (troops < 0) throw new RangeError(`troops must be >= 0, got ${troops}`)
   if (max < 0) throw new RangeError(`max must be >= 0, got ${max}`)
@@ -90,7 +90,10 @@ export function troopIncreaseRate(
   if (troops > max) return -Math.ceil((troops - max) * OVER_CAP_DECAY)
   if (troops === max) return 0
 
-  let toAdd = 10 + Math.pow(troops, 0.73) / 4
+  // Produziert wird aus der „arbeitenden" Bevölkerung — gebundene (im Angriff
+  // befindliche) Truppen tragen nicht bei. Default: die Gesamtzahl produziert.
+  const producing = opts.producingTroops ?? troops
+  let toAdd = 10 + Math.pow(producing, 0.73) / 4
   if (opts.bot === true) toAdd *= 0.5
   const ratio = 1 - troops / max
   return Math.floor(toAdd * ratio)

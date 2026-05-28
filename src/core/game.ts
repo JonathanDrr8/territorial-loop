@@ -934,7 +934,11 @@ function growPopulations(state: GameState): void {
     // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
     const committed = committedTroops(player)
-    const rate = troopIncreaseRate(player.troops + committed, max)
+    // Gebundene (im Angriff befindliche) Truppen tragen NICHT zur Produktion bei —
+    // nur die freien Truppen produzieren Nachschub.
+    const rate = troopIncreaseRate(player.troops + committed, max, {
+      producingTroops: player.troops,
+    })
     if (rate < 0) {
       // Über dem Cap (nach Gebietsverlust): Überschuss langsam abschmelzen.
       player.troops = Math.max(0, player.troops + rate)
@@ -1332,8 +1336,13 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   setOwner(map, ref, attackerId)
   state.dirtyTiles.push(ref) // Owner-Wechsel → Renderer malt dieses Tile (+ Nachbarn) neu
 
-  // Gebäude auf dem eroberten Tile wird zerstört (Investition geht verloren).
-  state.buildings.delete(ref)
+  // Gebäude auf dem eroberten Tile: Verteidigungsposten werden zerstört, alle
+  // anderen (Stadt/Markt/Hafen) übernimmt der Eroberer mitsamt Level.
+  const captured = state.buildings.get(ref)
+  if (captured !== undefined) {
+    if (captured.type === 'defense') state.buildings.delete(ref)
+    else state.buildings.set(ref, { ...captured, ownerId: attackerId })
+  }
 
   const weight = tileTroopWeight(map.terrain, ref)
   const attacker = players.get(attackerId)
