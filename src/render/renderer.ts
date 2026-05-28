@@ -627,10 +627,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     maybeRecomputeCentroids()
     const cssW = container.clientWidth
     const cssH = container.clientHeight
-    const mapW = state.map.width
-    const mapH = state.map.height
+    const z = camera.zoom
+    // Schrift skaliert mit dem Zoom (bei nahem Zoom größer/lesbarer), gedeckelt.
+    const fontSize = Math.max(12, Math.min(26, Math.round(11 + z * 0.7)))
+    const gap = Math.round(fontSize * 0.6)
+    const margin = fontSize + 4
     screenCtx.save()
-    screenCtx.font = 'bold 13px ui-monospace, SFMono-Regular, Menlo, monospace'
+    screenCtx.font = `bold ${fontSize.toString()}px ui-monospace, SFMono-Regular, Menlo, monospace`
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.lineWidth = 3
@@ -638,24 +641,27 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       if (!p.isAlive || p.tilesOwned === 0) continue
       const c = centroids.get(p.id)
       if (c === undefined) continue
+      // Nächste Wrap-Kopie des Schwerpunkts (genau ein Label je Nation).
+      const { sx, sy } = nearestWrappedScreenPos(c.x + 0.5, c.y + 0.5)
+      // Liegt der Schwerpunkt weit außerhalb (> 1 Viewport), ist die Nation nicht in
+      // Sicht → kein Label. Sonst: an den Rand klemmen, damit man sieht welches Land
+      // angrenzt (auch wenn der Schwerpunkt selbst außerhalb des Bildes liegt).
+      if (sx < -cssW || sx > 2 * cssW || sy < -cssH || sy > 2 * cssH) continue
+      const offscreen = sx < 0 || sx > cssW || sy < 0 || sy > cssH
+      const lx = Math.max(margin, Math.min(cssW - margin, sx))
+      const ly = Math.max(margin, Math.min(cssH - margin, sy))
       const name = p.name
       const troopsLabel = fmtCompactRender(p.troops)
-      // Labels pro sichtbarer Wrap-Kopie (jedes gewrappte Gebiet bekommt seinen Namen).
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const sx = worldToScreenX(c.x + dx * mapW)
-          const sy = worldToScreenY(c.y + dy * mapH)
-          if (sx < -60 || sx > cssW + 60 || sy < -30 || sy > cssH + 30) continue
-          screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
-          screenCtx.strokeText(name, sx, sy - 8)
-          screenCtx.strokeText(troopsLabel, sx, sy + 8)
-          screenCtx.fillStyle = '#ffffff'
-          screenCtx.fillText(name, sx, sy - 8)
-          screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
-          screenCtx.fillText(troopsLabel, sx, sy + 8)
-        }
-      }
+      screenCtx.globalAlpha = offscreen ? 0.6 : 1
+      screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+      screenCtx.strokeText(name, lx, ly - gap)
+      screenCtx.strokeText(troopsLabel, lx, ly + gap)
+      screenCtx.fillStyle = '#ffffff'
+      screenCtx.fillText(name, lx, ly - gap)
+      screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
+      screenCtx.fillText(troopsLabel, lx, ly + gap)
     }
+    screenCtx.globalAlpha = 1
     screenCtx.restore()
   }
 
