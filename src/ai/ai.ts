@@ -6,10 +6,9 @@
  * abhängig). Pro Entscheidung kann die KI mehrere Aktionen auf einmal anstoßen:
  *
  *  - **Militär** (immer versucht): Land-Angriff auf ein Frontier-Nachbar-Tile;
- *    mit kleiner Wahrscheinlichkeit ein amphibischer Angriff auf ein entferntes
- *    Gegner-Tile (der Core wandelt einen über Wasser getrennten Angriff
- *    automatisch in ein Transport-Boot um).
- *  - **Wirtschaft/Bau** (gold-gated): Markt → Stadt → Verteidigung → Hafen,
+ *    mit kleiner Wahrscheinlichkeit ein expliziter Boot-Befehl (BoatIntent) auf
+ *    ein entferntes Küsten-Gegner-Tile über Wasser.
+ *  - **Wirtschaft/Bau** (gold-gated): Stadt → Hafen → Verteidigung,
  *    nach einfachen Prioritäten.
  *  - **Diplomatie**: Bündnis-Anfragen annehmen (gegen den Stärksten verbünden),
  *    selbst anfragen wenn man nicht führt, und bei klarer Führung verraten.
