@@ -68,6 +68,25 @@ export function terrainMagnitude(terrain: Uint8Array, ref: number): number {
   return PLAINS_MAG
 }
 
+/** Truppen-Cap-Beitrag eines Tiles nach Höhe: Ebene viel, Berg wenig. */
+export const PLAINS_TROOP_WEIGHT = 1.5
+export const HILL_TROOP_WEIGHT = 1.0
+export const MOUNTAIN_TROOP_WEIGHT = 0.5
+
+/**
+ * Wie viel ein Tile zum Truppen-Cap beiträgt (gewichtet nach Höhe). Ebene trägt
+ * am meisten Bevölkerung (1.5), Hügel normal (1.0), Berg wenig (0.5). Wasser und
+ * Extrem-Berge (nicht begehbar, nie besessen) tragen nichts.
+ */
+export function tileTroopWeight(terrain: Uint8Array, ref: number): number {
+  if (!isPassable(terrain, ref)) return 0
+  const v = terrain[ref] ?? 0
+  const height = v & HEIGHT_MASK
+  if (height >= 20) return MOUNTAIN_TROOP_WEIGHT
+  if (height >= 10) return HILL_TROOP_WEIGHT
+  return PLAINS_TROOP_WEIGHT
+}
+
 /** Erzeugt eine tileable Cosinus-Noise-Ebene als Float32Array über die ganze Karte. */
 function buildNoise(w: number, h: number, prng: PRNG): Float32Array {
   const components: NoiseComponent[] = []

@@ -22,7 +22,6 @@ import { countBuildingsOfType, effectiveMaxTroops, type GameState, type Player }
 import { buildCost, type BuildingType } from '../core/buildings'
 import { areAllied, hasAllianceRequest } from '../core/diplomacy'
 import type { Intent } from '../core/intent'
-import { maxTroops } from '../core/config'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
 import { isLand } from '../world/terrain'
@@ -258,7 +257,7 @@ export function createAI(
   }
 
   function planMilitary(state: GameState, player: Player): Intent | null {
-    const max = maxTroops(player.tilesOwned)
+    const max = effectiveMaxTroops(state, player.id)
     const popRatio = max > 0 ? player.troops / max : 0
     const preferEnemies = popRatio >= profile.popThresholdForPvp
 

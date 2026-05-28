@@ -18,6 +18,7 @@ import {
   isLand,
   isPassable,
   terrainMagnitude,
+  tileTroopWeight,
   type TerrainType,
 } from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
@@ -128,6 +129,12 @@ export interface Player {
   readonly isHuman: boolean
   troops: number
   tilesOwned: number
+  /**
+   * Terrain-gewichtete Tile-Summe (Ebene 1.5 / Hügel 1 / Berg 0.5) — Basis für den
+   * Truppen-Cap. Plains-reiche Nationen tragen mehr Bevölkerung als Berg-Nationen.
+   * `tilesOwned` bleibt die reine Anzahl (für Gebiets-%).
+   */
+  weightedTiles: number
   frontier: Set<TileRef>
   attacks: Attack[]
   isAlive: boolean
@@ -232,6 +239,7 @@ export function createGame(config: GameConfig): GameState {
       isHuman: def.isHuman,
       troops: startTroops,
       tilesOwned: 0,
+      weightedTiles: 0,
       frontier: new Set<TileRef>(),
       attacks: [],
       isAlive: true,
@@ -308,6 +316,7 @@ function placeSpawns(state: GameState): void {
         if (getOwner(map, ref) === 0) {
           setOwner(map, ref, player.id)
           player.tilesOwned++
+          player.weightedTiles += tileTroopWeight(map.terrain, ref)
         }
       }
     }
@@ -759,7 +768,7 @@ export function totalTroops(player: Player): number {
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
-    const max = maxTroops(player.tilesOwned) + cityCapBonus(state, player.id)
+    const max = maxTroops(player.weightedTiles) + cityCapBonus(state, player.id)
     // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
     const committed = committedTroops(player)
@@ -768,11 +777,11 @@ function growPopulations(state: GameState): void {
   }
 }
 
-/** Effektiver Truppen-Cap inkl. Stadt-Bonus (für HUD/AI). */
+/** Effektiver Truppen-Cap inkl. Stadt-Bonus, terrain-gewichtet (für HUD/AI). */
 export function effectiveMaxTroops(state: GameState, playerId: number): number {
   const p = state.players.get(playerId)
   if (p === undefined) return 0
-  return maxTroops(p.tilesOwned) + cityCapBonus(state, playerId)
+  return maxTroops(p.weightedTiles) + cityCapBonus(state, playerId)
 }
 
 /** Hängt ein Ereignis ans Log (chronologisch). */
@@ -921,6 +930,7 @@ function checkEliminations(state: GameState): void {
       // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
       player.attacks = []
       player.troops = 0
+      player.weightedTiles = 0
     }
   }
 }
@@ -1125,12 +1135,19 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   // Gebäude auf dem eroberten Tile wird zerstört (Investition geht verloren).
   state.buildings.delete(ref)
 
+  const weight = tileTroopWeight(map.terrain, ref)
   const attacker = players.get(attackerId)
-  if (attacker !== undefined) attacker.tilesOwned++
+  if (attacker !== undefined) {
+    attacker.tilesOwned++
+    attacker.weightedTiles += weight
+  }
 
   if (oldOwner > 0) {
     const oldPlayer = players.get(oldOwner)
-    if (oldPlayer !== undefined) oldPlayer.tilesOwned--
+    if (oldPlayer !== undefined) {
+      oldPlayer.tilesOwned--
+      oldPlayer.weightedTiles = Math.max(0, oldPlayer.weightedTiles - weight)
+    }
   }
 
   updateFrontierAfterCapture(state, ref, oldOwner, attackerId)

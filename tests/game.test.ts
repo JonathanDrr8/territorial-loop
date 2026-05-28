@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { createGame, tick, type GameConfig, type GameState } from '../src/core/game'
+import {
+  createGame,
+  effectiveMaxTroops,
+  tick,
+  type GameConfig,
+  type GameState,
+} from '../src/core/game'
 import {
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
@@ -188,7 +194,8 @@ describe('tick — growth', () => {
     const human = state.players.get(1)
     if (human === undefined) throw new Error('player 1 missing')
     const before = human.troops
-    const expectedRate = troopIncreaseRate(before, maxTroops(human.tilesOwned))
+    // Cap ist terrain-gewichtet → weightedTiles, nicht die reine Tile-Anzahl.
+    const expectedRate = troopIncreaseRate(before, maxTroops(human.weightedTiles))
     tick(state, [])
     expect(human.troops).toBe(before + expectedRate)
   })
@@ -203,11 +210,24 @@ describe('tick — growth', () => {
     expect(p.troops).toBe(before)
   })
 
+  it('plains-heavy nation has a higher troop cap than a mountain-heavy one', () => {
+    const state = createGame(baseConfig())
+    const a = state.players.get(1)
+    const b = state.players.get(2)
+    if (a === undefined || b === undefined) throw new Error('players missing')
+    // gleiche Tile-Anzahl, aber Ebene (Gewicht 1.5) vs. Berg (Gewicht 0.5)
+    a.tilesOwned = 100
+    a.weightedTiles = 100 * 1.5
+    b.tilesOwned = 100
+    b.weightedTiles = 100 * 0.5
+    expect(effectiveMaxTroops(state, 1)).toBeGreaterThan(effectiveMaxTroops(state, 2))
+  })
+
   it('does not grow past cap (stays at cap)', () => {
     const state = createGame(baseConfig())
     const p = state.players.get(1)
     if (p === undefined) throw new Error('player missing')
-    const max = maxTroops(p.tilesOwned)
+    const max = maxTroops(p.weightedTiles)
     p.troops = max
     tick(state, [])
     // Rate ist 0 wenn troops == max, also troops bleibt bei max
