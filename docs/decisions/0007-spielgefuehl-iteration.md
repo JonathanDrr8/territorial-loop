@@ -104,19 +104,36 @@ Kontinente mit fraktalen Küsten und zusammenhängenden Gebirgszügen statt wabb
 Blobs/Sprenkel. Darauf aufbauend prägt Terrain die Expansion sichtbar: der Spawn-Blob
 meidet Höhen (`SPAWN_TERRAIN_PENALTY`), und die Angriffs-Welle umfließt Gebirge stärker
 (`TERRAIN_WAVE_PENALTY` 0.06 → 0.15). Die Höhen-Bremse (`terrainSlow`) bleibt.
+Küstennahe Spawns werden NICHT erzwungen — Binnen-Lagen ohne Boot-Option sind okay.
+
+### Boot-Ziel-Toleranz + Angriffs-Steuerung + Bedrohungs-Feedback
+
+- **Boot-Ziel snappt** auf die nächste _erreichbare_ Küste der angeklickten Landmasse
+  (`coastalTilesNear`, mehrere Kandidaten) — kein exaktes Küsten-Pixel nötig. Ohne
+  eigene Küste klarer Log-Hinweis statt stillem Fehlschlag.
+- **Angriffe bündeln:** mehrere Klicks auf denselben Gegner verschmelzen in einen
+  Angriff (Reserve addiert, Front-Fokus folgt) statt vieler Pillen.
+- **Angriffs-Kollision (1:1):** `resolveAttackCollisions` — greifen sich zwei Spieler
+  gegenseitig an, heben sich die Reserven 1:1 auf, nur der Überschuss bleibt.
+- **Abbrechen & Zurückrufen:** ausgehende Angriffe im HUD-Panel anklickbar (Reserve
+  zurück); fahrende eigene Boote zurückrufbar (`Boat.returning`, `BoatRecallIntent`) —
+  sie kehren um und geben die Truppen zurück.
+- **Bedrohung sichtbar:** eine pulsierende rote Bildschirm-Vignette zeigt an, dass man
+  gerade angegriffen wird (vorher nur die Zahl an der Grenze).
 
 ## Konsequenzen
 
 - Mehrere Balance-Werte (Tempo, Cap-Sockel, Decay-Raten, FRONT_SMOOTHING,
   Spawn-Größe, Terrain-Penalties) sind playtest-getunt und können sich weiter ändern.
 - `Attack` trägt jetzt `frontTile` und `startTick` (Anzeige); `GameState` trägt
-  `grudge`. Neuer Intent-Typ `BoatIntent`.
+  `grudge`. Neue Intent-Typen `BoatIntent`, `BoatRecallIntent`; `Boat.returning`.
 - KI-Verteidigungsposten werden per BFS ins Hinterland gesetzt (überleben einen Push,
   decken mehr Eigenland ab), nicht mehr aufs unmittelbare Front-Tile.
 - Tests decken die neuen Formeln/Verhalten ab (`growthZones`, Cap-Abschmelzen,
-  Groll-Decay, Defense-Clamp, Boot-Intent, Spawn-meidet-Höhen, Defense-Platzierung).
+  Groll-Decay, Defense-Clamp, Boot-Intent + Ziel-Snap + Rückruf, Spawn-meidet-Höhen,
+  Defense-Platzierung, Angriffs-Merge, Angriffs-Kollision).
 
 ## Offen / später (mit Jonathan zu besprechen)
 
-Kriegszustand-Mechanik, Kriegsschiffe + Handelsblockade, Angriffs-Kollision (Reserven
-verrechnen), Radial-Kontextmenü (Boot/Bau/Diplomatie an einem Ort), Start-Menü-Redesign.
+Kriegszustand-Mechanik, Kriegsschiffe + Handelsblockade, Radial-Kontextmenü
+(Boot/Bau/Diplomatie an einem Ort), Start-Menü-Redesign.
