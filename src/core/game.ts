@@ -119,6 +119,12 @@ export interface Attack {
    * gezielt in eine Richtung statt diamantförmig zu expandieren.
    */
   focusTile: TileRef
+  /**
+   * Aktueller Front-Schwerpunkt (folgt der vorrückenden Grenze) — nur für die
+   * Anzeige (Angriffs-Pille). Startet auf `focusTile` und wird pro Tick auf den
+   * Mittelpunkt der gerade eroberten Tiles nachgeführt.
+   */
+  frontTile: TileRef
   /** Tick, an dem der Angriff gestartet wurde (für die Dauer-Anzeige im HUD). */
   startTick: number
 }
@@ -851,6 +857,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
     targetPlayerId: targetOwner,
     reserveTroops: troops,
     focusTile: intent.targetTile,
+    frontTile: intent.targetTile,
     startTick: state.tick,
   })
 }
@@ -1004,6 +1011,7 @@ function landBoat(state: GameState, boat: Boat): void {
     targetPlayerId: owner,
     reserveTroops: remaining,
     focusTile: target,
+    frontTile: target,
     startTick: state.tick,
   })
   emitEvent(state, `${attacker.name} landet Truppen an`, attacker.color)
@@ -1208,6 +1216,15 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   })
   keyed.sort((a, b) => a.key - b.key)
 
+  // Front-Schwerpunkt der diesen Tick eroberten Tiles akkumulieren (relativ zum
+  // bisherigen frontTile, torus-sicher), damit die Angriffs-Pille der Front folgt.
+  const { width: fw, height: fh } = state.map
+  const anchorX = attack.frontTile % fw
+  const anchorY = Math.floor(attack.frontTile / fw)
+  let sumDx = 0
+  let sumDy = 0
+  let captured = 0
+
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break
     const ref = keyed[i]?.t
@@ -1245,6 +1262,15 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     // (kleiner werdenden) Gebiet → die Eroberung wird pro Tile zäher.
 
     captureTile(state, ref, attacker.id)
+    sumDx += signedTorusDelta(ref % fw, anchorX, fw)
+    sumDy += signedTorusDelta(Math.floor(ref / fw), anchorY, fh)
+    captured++
+  }
+
+  if (captured > 0) {
+    const mx = (((anchorX + Math.round(sumDx / captured)) % fw) + fw) % fw
+    const my = (((anchorY + Math.round(sumDy / captured)) % fh) + fh) % fh
+    attack.frontTile = my * fw + mx
   }
 
   return attack.reserveTroops > 0

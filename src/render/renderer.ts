@@ -675,8 +675,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const fill = rgbaToCssLocal(p.color)
       const isOwn = humanId >= 0 && p.id === humanId
       for (const atk of p.attacks) {
-        const fx = (atk.focusTile % mapW) + 0.5
-        const fy = Math.floor(atk.focusTile / mapW) + 0.5
+        // frontTile folgt der vorrückenden Grenze (focusTile war der statische Klick).
+        const fx = (atk.frontTile % mapW) + 0.5
+        const fy = Math.floor(atk.frontTile / mapW) + 0.5
         const { sx, sy } = nearestWrappedScreenPos(fx, fy)
         if (sx < -40 || sx > cssW + 40 || sy < -24 || sy > cssH + 24) continue
         const label = fmtCompactRender(atk.reserveTroops)
