@@ -16,9 +16,8 @@ import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
 
-// Wachstums-/Effizienz-Zonen (Anteil des Caps). Optimum ~42% (max Wachstum); ab
-// STAGNATE_FRAC lässt das Wachstum nach (gelb), ab STRONG_STAGNATE_FRAC stark (rot).
-const GROWTH_OPTIMUM_FRAC = 0.42
+// Wachstums-Zustands-Zonen (Anteil des Caps): bis STAGNATE_FRAC grün (wachsend),
+// danach gelb (stagnierend), ab STRONG_STAGNATE_FRAC rot (stark stagnierend).
 const STAGNATE_FRAC = 0.75
 const STRONG_STAGNATE_FRAC = 0.92
 
@@ -122,15 +121,15 @@ export function createHUD(
     seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
     barWrap.appendChild(seg)
   }
-  // Effizienz-Striche: Wachstums-Optimum (~42% des Caps, grün) und die Schwellen, ab
-  // denen das Wachstum stagniert (gelb) bzw. stark stagniert (rot). Statische Positionen.
+  // Effizienz-Striche an den Zustands-Grenzen: ab STAGNATE_FRAC stagniert das
+  // Wachstum (gelb), ab STRONG_STAGNATE_FRAC stark (rot). Decken sich mit der
+  // Färbung der Truppenzahl — links der gelben Marke = grün/wachsend.
   for (const [frac, col] of [
-    [GROWTH_OPTIMUM_FRAC, '#5dd75d'],
     [STAGNATE_FRAC, '#e8d24a'],
     [STRONG_STAGNATE_FRAC, '#e05a5a'],
   ] as const) {
     const tick = document.createElement('div')
-    tick.style.cssText = `position:absolute;top:0;bottom:0;width:2px;left:${(frac * 100).toString()}%;background:${col};opacity:0.6`
+    tick.style.cssText = `position:absolute;top:0;bottom:0;width:2px;left:${(frac * 100).toString()}%;background:${col};opacity:0.7`
     barWrap.appendChild(tick)
   }
   hud.appendChild(barWrap)
