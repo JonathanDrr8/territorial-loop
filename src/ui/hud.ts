@@ -40,6 +40,12 @@ const BUILDING_HOTKEY: Record<BuildingType, string> = {
   market: '3',
   port: '4',
 }
+const BUILDING_TOOLTIP: Record<BuildingType, string> = {
+  city: 'Stadt — erhöht dein Truppen-Maximum dauerhaft.',
+  defense: 'Verteidigungsposten — Tiles in Reichweite werden teurer und langsamer zu erobern.',
+  market: 'Markt — bringt zusätzliches Gold pro Tick.',
+  port: 'Hafen — Voraussetzung für Transport- und Handelsschiffe (nur am Wasser baubar).',
+}
 
 type RankSort = 'troops' | 'gold'
 
@@ -304,6 +310,25 @@ export function createHUD(
   sliderWrap.appendChild(slider)
   actionBar.appendChild(sliderWrap)
 
+  // Tooltip über der Leiste — erklärt beim Hover, was ein Gebäude bewirkt.
+  const buildTooltip = document.createElement('div')
+  buildTooltip.style.cssText = [
+    'position: absolute',
+    'left: 16px',
+    'right: 16px',
+    'bottom: calc(100% + 8px)',
+    'background: rgba(12,14,20,0.95)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 6px',
+    'padding: 6px 10px',
+    'font-size: 11px',
+    'line-height: 1.4',
+    'text-align: center',
+    'pointer-events: none',
+    'display: none',
+  ].join(';')
+  actionBar.appendChild(buildTooltip)
+
   // Bau-Buttons-Reihe (Glyph, Name, Hotkey, Kosten) — setzen den Bau-Modus.
   const buildRow = document.createElement('div')
   buildRow.style.cssText = 'display: flex; gap: 6px'
@@ -342,9 +367,12 @@ export function createHUD(
     })
     btn.addEventListener('mouseenter', () => {
       if (btn.dataset.active !== '1') btn.style.background = 'rgba(255,255,255,0.14)'
+      buildTooltip.textContent = BUILDING_TOOLTIP[type]
+      buildTooltip.style.display = 'block'
     })
     btn.addEventListener('mouseleave', () => {
       if (btn.dataset.active !== '1') btn.style.background = 'rgba(255,255,255,0.06)'
+      buildTooltip.style.display = 'none'
     })
     buildRow.appendChild(btn)
     buildButtons.set(type, btn)
