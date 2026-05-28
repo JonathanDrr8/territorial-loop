@@ -78,6 +78,12 @@ const INTERIOR_TINT = 0.32
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
+// Flachwasser-Saum: Wasser-Tiles, die an Land grenzen, werden heller/türkiser —
+// ergibt eine klare Küstenlinie (Tiefen-Gradient), damit Wasser nie mit dem
+// Gebiet einer Nation verwechselt wird.
+const SHALLOW_R = 64
+const SHALLOW_G = 122
+const SHALLOW_B = 150
 const ROCK_R = 70
 const ROCK_G = 66
 const ROCK_B = 62
@@ -258,11 +264,24 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const t = terrain[i] ?? 0
     const o = i * 4
     data[o + 3] = 255
-    // Wasser: terrain-bit 7 = 0
+    // Wasser: terrain-bit 7 = 0. Grenzt es an Land, malen wir Flachwasser (heller)
+    // statt Tiefsee → sichtbare Küstenlinie. Hängt nur am (statischen) Terrain,
+    // muss daher nie inkrementell aktualisiert werden.
     if ((t & IS_LAND_BIT) === 0) {
-      data[o] = WATER_R
-      data[o + 1] = WATER_G
-      data[o + 2] = WATER_B
+      const wx = i % w
+      const wy = (i - wx) / w
+      const nL = terrain[wy * w + (wx === 0 ? w - 1 : wx - 1)] ?? 0
+      const nR = terrain[wy * w + (wx === w - 1 ? 0 : wx + 1)] ?? 0
+      const nU = terrain[(wy === 0 ? h - 1 : wy - 1) * w + wx] ?? 0
+      const nD = terrain[(wy === h - 1 ? 0 : wy + 1) * w + wx] ?? 0
+      const coastal =
+        (nL & IS_LAND_BIT) !== 0 ||
+        (nR & IS_LAND_BIT) !== 0 ||
+        (nU & IS_LAND_BIT) !== 0 ||
+        (nD & IS_LAND_BIT) !== 0
+      data[o] = coastal ? SHALLOW_R : WATER_R
+      data[o + 1] = coastal ? SHALLOW_G : WATER_G
+      data[o + 2] = coastal ? SHALLOW_B : WATER_B
       return
     }
     const height = t & HEIGHT_MASK
