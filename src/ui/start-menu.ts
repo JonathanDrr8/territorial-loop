@@ -284,7 +284,7 @@ export function createStartMenu(
   section('Gegner')
   const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
-  const wildCount = makeSliderRow('Wilde Nationen', 0, 16, 1, initial.wildCount)
+  const wildCount = makeSliderRow('Wilde Nationen', 0, 400, 1, initial.wildCount)
   panel.appendChild(wildCount.element)
 
   // Eroberungs-Tempo wird nicht mehr im Start-Menü gewählt — feste Balance,

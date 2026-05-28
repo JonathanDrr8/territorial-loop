@@ -177,6 +177,8 @@ export interface Renderer {
 
 // Inland-Tönung: Anteil Eigenfarbe über der Terrain-Basis (Rest = Landschaft sichtbar).
 const INTERIOR_TINT = 0.32
+/** Ab diesem Zoom werden auch wilde Nationen beschriftet (rausgezoomt nur Mensch/KI). */
+const WILD_LABEL_MIN_ZOOM = 2.5
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
@@ -790,6 +792,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.lineWidth = 3
     for (const p of state.players.values()) {
       if (!p.isAlive || p.tilesOwned === 0) continue
+      // Wilde Nationen können zu Hunderten existieren → ihre Labels würden die Karte
+      // zukleistern. Nur nah herangezoomt beschriften (dann sind ohnehin nur wenige in
+      // Sicht); rausgezoomt bleibt die Karte sauber (nur Mensch/KI). Hover zeigt sie immer.
+      if (p.wild && z < WILD_LABEL_MIN_ZOOM) continue
       const c = centroids.get(p.id)
       if (c === undefined) continue
       // Nächste Wrap-Kopie des Schwerpunkts (genau ein Label je Nation).

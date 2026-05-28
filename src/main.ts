@@ -43,6 +43,23 @@ const DEFAULT_MENU: StartMenuValues = {
 /** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */
 const WILD_COLOR = 0x8f8a78ff
 
+/**
+ * Leichte, deterministische Farbvariation pro wilder Nation (um die feste, erdige
+ * WILD_COLOR herum), damit sich bei vielen Wilden benachbarte Gebiete unterscheiden
+ * lassen — ohne aus dem gedämpften „Barbaren"-Look auszubrechen. Rein kosmetisch.
+ */
+function wildColorVariant(i: number): number {
+  const jitter = (seed: number, range: number): number => {
+    const h = Math.sin(seed) * 43758.5453
+    return Math.round((h - Math.floor(h)) * range * 2 - range)
+  }
+  const clamp = (v: number): number => Math.max(64, Math.min(190, v))
+  const r = clamp(((WILD_COLOR >>> 24) & 0xff) + jitter(i * 12.9898 + 1, 30))
+  const g = clamp(((WILD_COLOR >>> 16) & 0xff) + jitter(i * 78.233 + 2, 28))
+  const b = clamp(((WILD_COLOR >>> 8) & 0xff) + jitter(i * 37.719 + 3, 26))
+  return ((r << 24) | (g << 16) | (b << 8) | 0xff) >>> 0
+}
+
 interface MatchSession {
   destroy(): void
 }
@@ -50,8 +67,8 @@ interface MatchSession {
 function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   const aiCount = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
   const humanCount = spectator ? 0 : 1
-  const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen die feste WILD_COLOR
-  const names = pickRandomNames(aiCount + menu.wildCount)
+  const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen WILD_COLOR-Varianten
+  const names = pickRandomNames(aiCount)
   const seed =
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
 
@@ -78,8 +95,8 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   for (let i = 0; i < menu.wildCount; i++) {
     players.push({
       id: id++,
-      name: names[nameIdx++] ?? `Wilde ${String(i + 1)}`,
-      color: WILD_COLOR,
+      name: `Wilde ${String(i + 1)}`,
+      color: wildColorVariant(i),
       isHuman: false,
       wild: true,
     })

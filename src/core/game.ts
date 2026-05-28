@@ -271,6 +271,8 @@ export interface GameState {
 const SPAWN_HALF_SIZE = 2 // 5×5-Kern muss Land sein (Zentrums-Validierung)
 /** Ziel-Größe eines Start-Gebiets (Tiles) — organisch gewachsen, nicht quadratisch. */
 const SPAWN_TARGET_TILES = 80
+/** Start-Größe wilder Nationen — klein gehalten (Puffer/Beute, oft hunderte auf der Karte). */
+const WILD_SPAWN_TILES = 14
 
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
@@ -409,7 +411,9 @@ function placeSpawns(state: GameState): void {
   for (const player of playerList) {
     const [cx, cy] = findSpawnCenter(state, rng, width, height, placedCenters, minDist)
     placedCenters.push([cx, cy])
-    growSpawn(state, player, cx, cy, target)
+    // Wilde starten klein (Puffer/Beute); reguläre Spieler bekommen das volle Ziel.
+    const playerTarget = player.wild ? Math.min(target, WILD_SPAWN_TILES) : target
+    growSpawn(state, player, cx, cy, playerTarget)
   }
 }
 

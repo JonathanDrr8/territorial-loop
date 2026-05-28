@@ -440,6 +440,25 @@ describe('wilde Nationen', () => {
     wild.weightedTiles = 100
     expect(effectiveMaxTroops(state, 2)).toBe(Math.floor(effectiveMaxTroops(state, 1) * 0.5))
   })
+
+  it('starten mit kleinem Spawn (Puffer/Beute) — deutlich kleiner als reguläre Spieler', () => {
+    const state = createGame(
+      baseConfig({
+        terrain: 'flat',
+        mapWidth: 128,
+        mapHeight: 128,
+        players: [
+          { id: 1, name: 'KI', color: 0xff0000ff, isHuman: false },
+          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
+        ],
+      }),
+    )
+    const ai = state.players.get(1)
+    const wild = state.players.get(2)
+    if (ai === undefined || wild === undefined) throw new Error('players missing')
+    expect(wild.tilesOwned).toBeLessThanOrEqual(14)
+    expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
+  })
 })
 
 describe('Bauen auf eigenem Gebäude = Upgrade', () => {
