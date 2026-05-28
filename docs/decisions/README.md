@@ -60,3 +60,6 @@ Triviale Entscheidungen (z.B. "Datei-Naming") brauchen keine ADRs.
 - [0007 — Spielgefühl-Iteration](./0007-spielgefuehl-iteration.md)
 - [0008 — Fabrik-Wirtschaft, Kriegsschiffe, Wilde Nationen](./0008-wirtschaft-seekrieg-wilde.md)
 - [0009 — Multiplayer (Lockstep) — Implementierungsplan (Proposed)](./0009-multiplayer.md)
+- [0010 — HUD-Komplettumbau — Plan (Proposed)](./0010-hud-redesign.md)
+- [0011 — Kamera-Box statt endlosem Tiling — Plan (Proposed)](./0011-kamera-box-kein-tiling.md)
+- [0012 — Skalierung auf viele KI-Bots — Plan (Proposed)](./0012-viele-bots-performance.md)
