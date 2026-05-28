@@ -14,7 +14,7 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
+import { BUILD_TIME_TICKS, defenseRange } from '../core/buildings'
 import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
 import { type Boat, type TradeShip, shipWorldPos as shipWorldPosOf } from '../core/ships'
@@ -804,59 +804,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   // Diagonales Schraffur-Pattern für Verteidigungs-Schutzzonen (einmal erstellt).
-  let defensePattern: CanvasPattern | null | undefined
-  function getDefensePattern(): CanvasPattern | null {
-    if (defensePattern !== undefined) return defensePattern
-    const tile = document.createElement('canvas')
-    tile.width = 8
-    tile.height = 8
-    const tctx = tile.getContext('2d')
-    if (tctx === null) {
-      defensePattern = null
-      return null
-    }
-    tctx.strokeStyle = 'rgba(120,210,255,0.28)'
-    tctx.lineWidth = 1.5
-    tctx.beginPath()
-    tctx.moveTo(0, 8)
-    tctx.lineTo(8, 0)
-    tctx.moveTo(-2, 2)
-    tctx.lineTo(2, -2)
-    tctx.moveTo(6, 10)
-    tctx.lineTo(10, 6)
-    tctx.stroke()
-    defensePattern = screenCtx.createPattern(tile, 'repeat')
-    return defensePattern
-  }
-
-  /** Schraffiert die Reichweite gebauter Verteidigungsposten (zeigt geschützte Tiles). */
-  function drawDefenseRanges(): void {
-    if (state.buildings.size === 0) return
-    const pat = getDefensePattern()
-    if (pat === null) return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
-    const mapW = state.map.width
-    const z = camera.zoom
-    screenCtx.save()
-    for (const b of state.buildings.values()) {
-      if (b.type !== 'defense' || !isBuildingComplete(b, state.tick)) continue
-      const r = defenseRange(b.level) * z
-      const tx = (b.tile % mapW) + 0.5
-      const ty = Math.floor(b.tile / mapW) + 0.5
-      const { sx, sy } = nearestWrappedScreenPos(tx, ty)
-      if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
-      screenCtx.beginPath()
-      screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
-      screenCtx.fillStyle = pat
-      screenCtx.fill()
-      screenCtx.strokeStyle = 'rgba(120,210,255,0.4)'
-      screenCtx.lineWidth = 1
-      screenCtx.stroke()
-    }
-    screenCtx.restore()
-  }
-
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
     const cssW = container.clientWidth
@@ -1172,7 +1119,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       lastBitmapTick = state.tick
     }
     drawTiled()
-    drawDefenseRanges()
     drawCaptureFlashes()
     drawFlashes()
     drawHoverOutline()
