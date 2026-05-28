@@ -1,6 +1,8 @@
 # Architektur — territorial-loop
 
-> **Status:** Phase B (Architektur). MVP-Scope siehe `docs/Concept.md`.
+> **Status:** Spielbar, über den MVP hinaus mit Mechanik-Tiefe (Terrain-Höhen,
+> Gold-Wirtschaft, Gebäude, Schiffe, Diplomatie). MVP-Scope siehe `docs/Concept.md`,
+> die Tiefen-Mechaniken in [ADR-0006](decisions/0006-mechanik-tiefe.md).
 > Konkrete OpenFront-Mechaniken-Referenz: Memory-File `openfront-mechanics-notes`.
 
 ## Leitprinzipien
@@ -144,29 +146,36 @@ type Intent =
 ```
 core.tick(intents):
   1. intents-apply       → für jedes Intent: Validierung + State-Mutation
-                           (z.B. 'attack' erzeugt neuen Attack im Player + Frontier-Update)
+                           ('attack' — bei über Wasser getrenntem Ziel automatisch
+                            ein Transport-Boot; Bau/Upgrade; Diplomatie-Aktionen)
   2. growth              → für jeden Player: troops += troopIncreaseRate()
-                           (Formel aus openfront-mechanics-notes)
-  3. attacks-resolve     → für jeden aktiven Attack:
-                           a) bestimme Tiles-Pro-Tick via Frontier-Set
-                           b) wähle deterministisch (rng.shuffleArray) eroberbare Tiles
-                           c) für jedes Tile: Verlust-Berechnung,
-                              Tile-Owner-Wechsel, Frontier-Update für beide Player,
-                              tilesOwned-Cache aktualisieren
-                           d) wenn reserveTroops <= 0: Attack entfernen
-  4. eliminate-check     → für jeden Player: wenn tilesOwned == 0 → isAlive = false
-  5. victory-check       → wenn ein Player tilesOwned/totalTiles >= victoryThreshold:
-                           phase = 'ended', winner = player.id (Match läuft weiter!)
-  6. tick += 1
+  3. gold               → für jeden Player: gold += BASE_GOLD_PER_TICK + Märkte
+  4. attacks-resolve     → für jeden aktiven Attack: Tiles-Pro-Tick via Frontier,
+                           deterministische Tile-Wahl, Verlust-Berechnung
+                           (Terrain × Verteidigungsposten × Verräter-Malus),
+                           Owner-Wechsel + Frontier-/tilesOwned-Update
+  5. boats              → Boote bewegen; bei Ankunft Brückenkopf erobern + Angriff
+  6. trade-ships        → Häfen senden gestaffelt Schiffe; bei Ankunft Gold an beide
+  7. eliminate-check     → tilesOwned == 0 → isAlive = false
+  8. victory-check       → tilesOwned/totalLand >= victoryThreshold → phase 'ended'
+                           (Match läuft weiter)
+  9. peak-stats + tick += 1
 ```
+
+Statische Vorberechnung in `createGame`: `waterComponents` und `landComponents`
+(Flood-Fill, [`world/water-path.ts`](../src/world/water-path.ts)) — O(1)-Antworten auf
+„gibt es eine Wasserroute?" und „ist das Ziel über Land erreichbar (sonst Boot)?".
 
 Game-Over-Logik ist explizit nicht-blockierend: Bei Sieg wird `winner` gesetzt + Banner gezeigt, aber Sim läuft weiter (Jonathans Wunsch — KI weiter beobachten können).
 
 ## World: Pathfinding & Frontier
 
-**MVP-Variante:** Kein A\* nötig. Eroberung läuft ausschließlich über die Frontier-Set-Expansion (welche Tiles eines Spielers haben Nachbarn die nicht ihm gehören). Tiles werden über die Frontier deterministisch ausgewählt — kein klassisches Pathfinding.
+**Land-Eroberung:** Kein A\* nötig. Expansion läuft über die Frontier-Set-Expansion
+(welche eigenen Tiles grenzen an nicht-eigene), deterministisch ausgewählt.
 
-**Post-MVP:** Wenn Boats/Cities dazukommen, brauchen wir A\* mit Torus-Heuristik (manhattanTorus statt manhattan).
+**Wasser (Schiffe):** `world/water-path.ts` implementiert Zusammenhangskomponenten-
+Labeling (Flood-Fill über Wasser bzw. begehbares Land) und A\* mit Torus-Manhattan-
+Heuristik über Wasser-Tiles. Genutzt für Transport-Boot- und Handelsschiff-Routen.
 
 ## Render: Canvas 2D + Offscreen-Bitmap
 
@@ -328,3 +337,5 @@ type UIEvent =
 - [ADR-0002](decisions/0002-map-datenstruktur.md) — Map als Dual-TypedArray
 - [ADR-0003](decisions/0003-tick-modell.md) — Fixed 10 Hz Sim, entkoppelter Render
 - [ADR-0004](decisions/0004-openfront-mechaniken.md) — OpenFront-Formeln 1:1 als MVP-Baseline
+- [ADR-0005](decisions/0005-canvas2d-statt-pixi.md) — Canvas 2D statt Pixi/WebGL
+- [ADR-0006](decisions/0006-mechanik-tiefe.md) — Mechanik-Tiefe (Gold/Gebäude/Terrain/Schiffe/Diplomatie)

@@ -1,10 +1,11 @@
 /**
- * Bau-Menü — Popup am Cursor bei Rechtsklick (ohne Drag) auf ein eigenes Tile.
+ * Kontext-Menü — Popup am Cursor bei Rechtsklick (ohne Drag) auf ein Tile.
  *
- * Liest den GameState read-only und emittiert Build-/Upgrade-Intents. Auf einem
- * leeren eigenen Tile zeigt es die vier Gebäudetypen mit Kosten + Leistbarkeit;
- * auf einem bereits bebauten Tile die Upgrade-Option. Fremde Tiles öffnen (noch)
- * kein Menü — Diplomatie folgt in Phase 6.
+ * Liest den GameState read-only und emittiert Intents:
+ *  - Eigenes leeres Tile → vier Gebäudetypen mit Kosten + Leistbarkeit.
+ *  - Eigenes bebautes Tile → Upgrade-Option.
+ *  - Tile eines lebenden Gegners → Diplomatie (Allianz / Embargo).
+ *  - Neutrales Tile → kein Menü.
  *
  * Bewusst ein anliegendes Panel statt eines echten Radialkranzes: Kosten und
  * Leistbarkeit pro Option müssen lesbar danebenstehen, das schlägt Optik.
