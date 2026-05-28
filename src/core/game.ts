@@ -86,6 +86,14 @@ export interface Player {
 
 export type GamePhase = 'running' | 'ended'
 
+/** Ein Spielereignis fürs Log (Eliminierung, Sieg, später Allianzen/Verrat/Embargo). */
+export interface GameEvent {
+  readonly tick: number
+  readonly text: string
+  /** Optionale Akzent-Farbe (RGBA-packed), z.B. die Farbe des betroffenen Spielers. */
+  readonly color?: number
+}
+
 export interface GameState {
   tick: number
   readonly map: GameMap
@@ -96,6 +104,8 @@ export interface GameState {
   phase: GamePhase
   /** Spieler-ID des Siegers oder `null` wenn noch keiner gewonnen hat. */
   winner: number | null
+  /** Chronologische Ereignis-Liste; die UI liest sie und zeigt die letzten an. */
+  events: GameEvent[]
 }
 
 /* ============================================================================
@@ -150,6 +160,7 @@ export function createGame(config: GameConfig): GameState {
     config,
     phase: 'running',
     winner: null,
+    events: [],
   }
 
   placeSpawns(state)
@@ -358,10 +369,18 @@ function growPopulations(state: GameState): void {
   }
 }
 
+/** Hängt ein Ereignis ans Log (chronologisch). */
+function emitEvent(state: GameState, text: string, color?: number): void {
+  state.events.push(
+    color === undefined ? { tick: state.tick, text } : { tick: state.tick, text, color },
+  )
+}
+
 function checkEliminations(state: GameState): void {
   for (const player of state.players.values()) {
     if (player.isAlive && player.tilesOwned === 0) {
       player.isAlive = false
+      emitEvent(state, `${player.name} wurde eliminiert`, player.color)
       // Eventuell laufende Angriffe sind durch tilesOwned=0 implizit gestoppt;
       // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
       player.attacks = []
@@ -385,6 +404,7 @@ function checkVictory(state: GameState): void {
     if (player.tilesOwned / totalTiles >= threshold) {
       state.phase = 'ended'
       state.winner = player.id
+      emitEvent(state, `${player.name} hat das Match gewonnen!`, player.color)
       return
     }
   }

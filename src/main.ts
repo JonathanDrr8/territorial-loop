@@ -12,6 +12,7 @@ import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { pickDistinctColors } from './ui/colors'
+import { createEventLog } from './ui/event-log'
 import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
@@ -136,6 +137,7 @@ function startMatch(
   })
 
   const tooltip = createHoverTooltip(container, state, HUMAN_ID)
+  const eventLog = createEventLog(container, state)
 
   const input = createInputHandler({
     canvas: renderer.canvas,
@@ -192,6 +194,7 @@ function startMatch(
     renderer.render()
     minimap.update()
     hud.update()
+    eventLog.update()
     renderRafId = requestAnimationFrame(renderLoop)
   }
   renderRafId = requestAnimationFrame(renderLoop)
@@ -213,6 +216,7 @@ function startMatch(
       hud.destroy()
       minimap.destroy()
       tooltip.destroy()
+      eventLog.destroy()
       renderer.destroy()
       sound.destroy()
     },
