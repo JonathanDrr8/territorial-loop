@@ -10,6 +10,7 @@
  */
 
 import type { GameState } from '../core/game'
+import { areAllied, pairKey } from '../core/diplomacy'
 import { shipWorldPos } from '../core/ships'
 import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
@@ -113,10 +114,20 @@ export function createHoverTooltip(
       const pct = ((player.tilesOwned / totalTiles) * 100).toFixed(2)
       const avgPerTile = player.tilesOwned > 0 ? Math.floor(player.troops / player.tilesOwned) : 0
       const dead = player.isAlive ? '' : ' <span style="opacity:0.6">†</span>'
+      // Verbündet? → Restzeit der Allianz anzeigen.
+      let alliance = ''
+      if (humanId >= 0 && areAllied(state.alliances, humanId, owner)) {
+        const expiry = state.allianceExpiry.get(pairKey(humanId, owner))
+        const remain =
+          expiry !== undefined ? Math.max(0, Math.floor((expiry - state.tick) / 10)) : 0
+        const mm = Math.floor(remain / 60)
+        const ss = remain % 60
+        alliance = `<br><span style="color:#5adc78">🤝 Verbündet · noch ${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}</span>`
+      }
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
-        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>`
+        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${alliance}`
     }
 
     tooltip.style.display = 'block'

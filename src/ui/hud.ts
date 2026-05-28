@@ -25,6 +25,7 @@ import {
   type BuildingType,
 } from '../core/buildings'
 import { growthZones, troopIncreaseRate } from '../core/config'
+import { areAllied, pairKey } from '../core/diplomacy'
 import {
   countBuildingsOfType,
   effectiveMaxTroops,
@@ -643,6 +644,7 @@ export function createHUD(
     const valueOf = (p: Player): number => (rankSort === 'gold' ? p.gold : totalTroops(p))
     players.sort((a, b) => valueOf(b) - valueOf(a))
     const visible = rankExpanded ? players : players.slice(0, RANK_COLLAPSED)
+    const human = findHuman()
 
     const rows: string[] = []
     let rank = 0
@@ -659,11 +661,21 @@ export function createHUD(
           ? `<b style="color:#e8c14a">${goldTxt}</b> · ${troopsTxt}T`
           : `<b>${troopsTxt}</b>T · <span style="color:#e8c14a">${goldTxt}</span>`
       const bg = isMe ? 'background:rgba(255,255,255,0.12);border-radius:4px;' : ''
+      // Verbündete: Name grün + Hover-Tooltip mit Allianz-Restzeit.
+      const allied = human !== undefined && !p.isHuman && areAllied(state.alliances, human.id, p.id)
+      const nameColor = allied ? 'color:#5adc78;' : ''
+      let title = ''
+      if (allied) {
+        const expiry = state.allianceExpiry.get(pairKey(human.id, p.id))
+        const remain =
+          expiry !== undefined ? Math.max(0, (expiry - state.tick) / SIM_TICKS_PER_SECOND) : 0
+        title = ` title="Verbündet · läuft in ${fmtDuration(remain)} aus"`
+      }
       rows.push(
-        `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}">` +
+        `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}"${title}>` +
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
           `<span style="color:${rgbaToCss(p.color)}">■</span>` +
-          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}${dead}</span>` +
+          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${allied ? '🤝 ' : ''}${escapeHtml(p.name)}${dead}</span>` +
           `<span style="opacity:0.55;font-size:10px">${pctTiles}</span>` +
           `<span style="min-width:88px;text-align:right;font-size:10px">${primary}</span>` +
           `</div>`,
