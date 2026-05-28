@@ -13,7 +13,16 @@
 
 import type { Camera } from '../render/renderer'
 import { tileRef } from '../world/torus'
+import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
+
+/** Hotkey → Gebäudetyp für den Bau-Modus. */
+const BUILD_HOTKEYS: Record<string, BuildingType> = {
+  q: 'city',
+  w: 'defense',
+  e: 'market',
+  r: 'port',
+}
 
 export interface InputEvents {
   pause(): void
@@ -45,6 +54,13 @@ export interface InputDeps {
   readonly onHover?: (worldX: number, worldY: number, screenX: number, screenY: number) => void
   /** Optional: wird ausgerufen wenn der Cursor das Canvas verlässt. */
   readonly onHoverEnd?: () => void
+  /** Optional: Bau-Modus hat sich geändert (für HUD-Feedback). null = kein Bau-Modus. */
+  readonly onBuildModeChange?: (mode: BuildingType | null) => void
+  /**
+   * Optional: Rechtsklick ohne Drag → Radialmenü an Welt-Tile öffnen.
+   * Liefert TileRef + Screen-Position (CSS-Pixel).
+   */
+  readonly onRadialMenu?: (tile: number, screenX: number, screenY: number) => void
 }
 
 export interface InputHandler {
@@ -72,13 +88,40 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let dragging = false
   let lastDragX = 0
   let lastDragY = 0
+  // Rechtsklick: Drag-Distanz tracken — bei kaum Bewegung = Radialmenü statt Pan.
+  let rmbDownX = 0
+  let rmbDownY = 0
+  let rmbMoved = false
+  const DRAG_THRESHOLD = 6
+  // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
+  let buildMode: BuildingType | null = null
+
+  function setBuildMode(mode: BuildingType | null): void {
+    if (buildMode === mode) return
+    buildMode = mode
+    deps.onBuildModeChange?.(mode)
+  }
+
+  function screenToTile(clientX: number, clientY: number): number {
+    const rect = canvas.getBoundingClientRect()
+    const sx = clientX - rect.left
+    const sy = clientY - rect.top
+    const halfW = canvas.clientWidth / 2
+    const halfH = canvas.clientHeight / 2
+    const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
+    const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
+    return tileRef(worldX, worldY, mapWidth, mapHeight)
+  }
 
   function onMouseDown(e: MouseEvent): void {
     if (e.button === 2) {
-      // Rechtsklick → Drag-Pan startet
+      // Rechtsklick → Drag-Pan startet (oder Radialmenü falls keine Bewegung)
       dragging = true
       lastDragX = e.clientX
       lastDragY = e.clientY
+      rmbDownX = e.clientX
+      rmbDownY = e.clientY
+      rmbMoved = false
       e.preventDefault()
     }
   }
@@ -89,6 +132,12 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       const dy = e.clientY - lastDragY
       lastDragX = e.clientX
       lastDragY = e.clientY
+      if (
+        Math.abs(e.clientX - rmbDownX) > DRAG_THRESHOLD ||
+        Math.abs(e.clientY - rmbDownY) > DRAG_THRESHOLD
+      ) {
+        rmbMoved = true
+      }
       camera.x -= dx / camera.zoom
       camera.y -= dy / camera.zoom
       camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
@@ -114,29 +163,42 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   function onMouseUp(e: MouseEvent): void {
     if (e.button === 2) {
       dragging = false
-    } else if (e.button === 0) {
-      // Linksklick auf Welt-Position → Attack-Intent
-      const rect = canvas.getBoundingClientRect()
-      const sx = e.clientX - rect.left
-      const sy = e.clientY - rect.top
-      const halfW = canvas.clientWidth / 2
-      const halfH = canvas.clientHeight / 2
-      const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
-      const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
-      const target = tileRef(worldX, worldY, mapWidth, mapHeight)
-
-      const troops = deps.getPlayerTroops()
-      const pct = deps.getSliderPct()
-      const sendTroops = Math.floor((troops * pct) / 100)
-      if (sendTroops > 0) {
-        emit({
-          type: 'attack',
-          playerId: deps.playerId,
-          targetTile: target,
-          troops: sendTroops,
-        })
-        deps.onAttackClick?.(worldX, worldY)
+      // Rechtsklick ohne nennenswerte Bewegung → Radialmenü an dem Tile
+      if (!rmbMoved && deps.onRadialMenu !== undefined) {
+        const rect = canvas.getBoundingClientRect()
+        deps.onRadialMenu(
+          screenToTile(e.clientX, e.clientY),
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+        )
       }
+      return
+    }
+    if (e.button !== 0) return
+
+    const rect = canvas.getBoundingClientRect()
+    const sx = e.clientX - rect.left
+    const sy = e.clientY - rect.top
+    const halfW = canvas.clientWidth / 2
+    const halfH = canvas.clientHeight / 2
+    const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
+    const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
+    const target = tileRef(worldX, worldY, mapWidth, mapHeight)
+
+    // Bau-Modus aktiv → Linksklick platziert das Gebäude (Core validiert eigenes Tile/Gold)
+    if (buildMode !== null) {
+      emit({ type: 'build', playerId: deps.playerId, tile: target, buildingType: buildMode })
+      setBuildMode(null)
+      return
+    }
+
+    // Sonst: Angriff
+    const troops = deps.getPlayerTroops()
+    const pct = deps.getSliderPct()
+    const sendTroops = Math.floor((troops * pct) / 100)
+    if (sendTroops > 0) {
+      emit({ type: 'attack', playerId: deps.playerId, targetTile: target, troops: sendTroops })
+      deps.onAttackClick?.(worldX, worldY)
     }
   }
 
@@ -167,6 +229,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onKeyDown(e: KeyboardEvent): void {
+    const key = e.key.toLowerCase()
     if (e.code === 'Space') {
       events.pause()
       e.preventDefault()
@@ -176,8 +239,13 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       events.setSpeed(2)
     } else if (e.key === '5') {
       events.setSpeed(5)
+    } else if (key in BUILD_HOTKEYS) {
+      const mode = BUILD_HOTKEYS[key]
+      if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
     } else if (e.key === 'Escape') {
-      events.escape?.()
+      // Esc bricht erst den Bau-Modus ab, sonst zurück zum Menü
+      if (buildMode !== null) setBuildMode(null)
+      else events.escape?.()
     }
   }
 

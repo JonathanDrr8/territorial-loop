@@ -13,8 +13,24 @@
  * portabel und für unsere Map-Größen mehr als schnell genug.
  */
 
+import type { BuildingType } from '../core/buildings'
 import type { GameState } from '../core/game'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
+
+const BUILDING_GLYPH: Record<BuildingType, string> = {
+  city: 'C',
+  defense: 'D',
+  market: '$',
+  port: 'P',
+}
+
+/** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
+function rgbaToCssLocal(rgba: number): string {
+  const r = (rgba >>> 24) & 0xff
+  const g = (rgba >>> 16) & 0xff
+  const b = (rgba >>> 8) & 0xff
+  return `rgb(${r},${g},${b})`
+}
 
 export interface Camera {
   /** Welt-Koord die am Screen-Center erscheint. */
@@ -512,6 +528,61 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  function drawBuildings(): void {
+    if (state.buildings.size === 0) return
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const radius = Math.max(6, Math.min(11, z * 4))
+    screenCtx.save()
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'middle'
+    screenCtx.font = `bold ${Math.round(radius * 1.3).toString()}px ui-monospace, monospace`
+    for (const b of state.buildings.values()) {
+      const player = state.players.get(b.ownerId)
+      const ring = player === undefined ? '#fff' : rgbaToCssLocal(player.color)
+      const glyph = BUILDING_GLYPH[b.type]
+      const tx = (b.tile % mapW) + 0.5
+      const ty = Math.floor(b.tile / mapW) + 0.5
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = worldToScreenX(tx + dx * mapW)
+          const sy = worldToScreenY(ty + dy * mapH)
+          if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+          // Marker-Hintergrund + Spielerfarbe-Ring
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+          screenCtx.fillStyle = 'rgba(15,15,20,0.92)'
+          screenCtx.fill()
+          screenCtx.lineWidth = 2
+          screenCtx.strokeStyle = ring
+          screenCtx.stroke()
+          // Glyph
+          screenCtx.fillStyle = '#fff'
+          screenCtx.fillText(glyph, sx, sy + 0.5)
+          // Level-Punkte (über dem Marker)
+          if (b.level > 1) {
+            screenCtx.fillStyle = '#ffd24a'
+            for (let l = 0; l < b.level; l++) {
+              screenCtx.beginPath()
+              screenCtx.arc(
+                sx - radius * 0.5 + l * radius * 0.5,
+                sy - radius - 3,
+                1.6,
+                0,
+                Math.PI * 2,
+              )
+              screenCtx.fill()
+            }
+          }
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
   function drawArrow(x0: number, y0: number, x1: number, y1: number, color: string): void {
     const angle = Math.atan2(y1 - y0, x1 - x0)
     const head = 9
@@ -682,6 +753,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawHoverOutline()
     drawAttackArrows()
     drawAttackTargets()
+    drawBuildings()
     drawMarkers()
     drawLabels()
   }

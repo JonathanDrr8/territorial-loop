@@ -406,7 +406,11 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
 }
 
 /** Anzahl Gebäude eines Typs die `playerId` besitzt (für eskalierende Kosten). */
-function countBuildingsOfType(state: GameState, playerId: number, type: BuildingType): number {
+export function countBuildingsOfType(
+  state: GameState,
+  playerId: number,
+  type: BuildingType,
+): number {
   let n = 0
   for (const b of state.buildings.values()) {
     if (b.ownerId === playerId && b.type === type) n++
@@ -415,7 +419,7 @@ function countBuildingsOfType(state: GameState, playerId: number, type: Building
 }
 
 /** Prüft ob ein Tile in `PORT_WATER_RANGE` an Wasser grenzt (für Hafen-Bau). */
-function nearWater(state: GameState, tile: TileRef): boolean {
+export function nearWater(state: GameState, tile: TileRef): boolean {
   const { width, height } = state.map
   const tx = tile % width
   const ty = Math.floor(tile / width)

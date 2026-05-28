@@ -30,6 +30,8 @@ export interface HUDApi {
   update(): void
   /** Update the speed indicator (0 = Pause, 1/2/5 = Sim-Speed-Multiplier). */
   setSpeed(speed: SpeedMultiplier): void
+  /** Zeigt/versteckt den Bau-Modus-Hinweis. `null` = kein Bau-Modus aktiv. */
+  setBuildMode(label: string | null): void
   destroy(): void
 }
 
@@ -114,8 +116,22 @@ export function createHUD(
   const hint = document.createElement('div')
   hint.style.cssText = 'margin-top: 6px; font-size: 11px; opacity: 0.7'
   hint.innerHTML =
-    'Linksklick: Angriff &nbsp;·&nbsp; Rechte Maustaste + Ziehen: Karte &nbsp;·&nbsp; Mausrad: Zoom<br/>Leertaste: Pause &nbsp;·&nbsp; 1/2/5: Geschwindigkeit &nbsp;·&nbsp; Esc: Menü'
+    'Linksklick: Angriff &nbsp;·&nbsp; Rechte Maustaste + Ziehen: Karte &nbsp;·&nbsp; Mausrad: Zoom<br/>Rechtsklick (eigenes Tile): Bau-Menü &nbsp;·&nbsp; Q/W/E/R: Bau-Modus<br/>Leertaste: Pause &nbsp;·&nbsp; 1/2/5: Geschwindigkeit &nbsp;·&nbsp; Esc: Menü'
   hud.appendChild(hint)
+
+  // Bau-Modus-Hinweis (nur sichtbar wenn ein Hotkey-Bau-Modus aktiv ist)
+  const buildModeEl = document.createElement('div')
+  buildModeEl.style.cssText = [
+    'margin-top: 6px',
+    'padding: 5px 8px',
+    'font-size: 11px',
+    'border-radius: 4px',
+    'background: rgba(232,193,74,0.18)',
+    'border: 1px solid rgba(232,193,74,0.5)',
+    'color: #e8c14a',
+    'display: none',
+  ].join(';')
+  hud.appendChild(buildModeEl)
 
   container.appendChild(hud)
 
@@ -256,6 +272,14 @@ export function createHUD(
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
       pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'
+    },
+    setBuildMode(label: string | null): void {
+      if (label === null) {
+        buildModeEl.style.display = 'none'
+      } else {
+        buildModeEl.innerHTML = `Bau-Modus: <b>${escapeHtml(label)}</b> — Linksklick platzieren, Esc abbrechen`
+        buildModeEl.style.display = 'block'
+      }
     },
     destroy(): void {
       hud.remove()

@@ -7,10 +7,12 @@
  */
 
 import { createAI, type AI } from './ai/ai'
+import { BUILDING_LABEL } from './core/buildings'
 import { createGame, tick, type GameConfig } from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
+import { createBuildMenu } from './ui/build-menu'
 import { pickDistinctColors } from './ui/colors'
 import { createEventLog } from './ui/event-log'
 import { createHoverTooltip } from './ui/hover-tooltip'
@@ -138,6 +140,9 @@ function startMatch(
 
   const tooltip = createHoverTooltip(container, state, HUMAN_ID)
   const eventLog = createEventLog(container, state)
+  const buildMenu = createBuildMenu(container, state, HUMAN_ID, (intent) =>
+    pendingIntents.push(intent),
+  )
 
   const input = createInputHandler({
     canvas: renderer.canvas,
@@ -160,6 +165,12 @@ function startMatch(
       tooltip.hide()
       renderer.clearHoverTile()
     },
+    onBuildModeChange: (mode) => {
+      hud.setBuildMode(mode === null ? null : BUILDING_LABEL[mode])
+    },
+    onRadialMenu: (tile, screenX, screenY) => {
+      buildMenu.open(tile, screenX, screenY)
+    },
     events: {
       pause(): void {
         paused = !paused
@@ -171,7 +182,13 @@ function startMatch(
         restartSimInterval()
         if (!paused) hud.setSpeed(speed)
       },
-      escape: onRequestNewMatch,
+      escape(): void {
+        if (buildMenu.isOpen()) {
+          buildMenu.close()
+          return
+        }
+        onRequestNewMatch()
+      },
     },
   })
 
@@ -217,6 +234,7 @@ function startMatch(
       minimap.destroy()
       tooltip.destroy()
       eventLog.destroy()
+      buildMenu.destroy()
       renderer.destroy()
       sound.destroy()
     },
