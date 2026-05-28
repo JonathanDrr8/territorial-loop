@@ -68,8 +68,12 @@ export interface Renderer {
   clearHoverTile(): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
-  /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
-  centerOnPlayer(playerId: number): void
+  /**
+   * Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers.
+   * `screenOffsetY` (CSS-Pixel, positiv) hebt den Schwerpunkt optisch nach oben —
+   * nützlich, damit der Start-Spawn nicht vom unteren HUD-Panel verdeckt wird.
+   */
+  centerOnPlayer(playerId: number, screenOffsetY?: number): void
   destroy(): void
 }
 
@@ -556,7 +560,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
-  function centerOnPlayer(playerId: number): void {
+  function centerOnPlayer(playerId: number, screenOffsetY = 0): void {
     const w = state.map.width
     const h = state.map.height
     const ms = state.map.state
@@ -581,7 +585,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
     const my = (Math.atan2(sy, cy) / (2 * Math.PI)) * h
     camera.x = ((mx % w) + w) % w
-    camera.y = ((my % h) + h) % h
+    // Schwerpunkt optisch nach oben heben: Kamera-Ziel um offset/zoom nach unten.
+    camera.y = (((my + screenOffsetY / camera.zoom) % h) + h) % h
   }
 
   /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
@@ -659,19 +664,26 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.save()
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
-    // Erst die fremden (dezent), dann die eingehenden (rot) — damit die roten oben liegen.
+    // Eigene Angriffe (grüne Pille) und eingehende Angriffe auf einen (rote Pille)
+    // werden hervorgehoben und zuletzt gezeichnet; fremde bleiben eine dezente Zahl.
+    const own: Array<{ sx: number; sy: number; label: string }> = []
     const incoming: Array<{ sx: number; sy: number; label: string }> = []
     screenCtx.lineWidth = 3
     screenCtx.font = 'bold 12px ui-monospace, monospace'
     for (const p of state.players.values()) {
       if (p.attacks.length === 0) continue
       const fill = rgbaToCssLocal(p.color)
+      const isOwn = humanId >= 0 && p.id === humanId
       for (const atk of p.attacks) {
         const fx = (atk.focusTile % mapW) + 0.5
         const fy = Math.floor(atk.focusTile / mapW) + 0.5
         const { sx, sy } = nearestWrappedScreenPos(fx, fy)
         if (sx < -40 || sx > cssW + 40 || sy < -24 || sy > cssH + 24) continue
         const label = fmtCompactRender(atk.reserveTroops)
+        if (isOwn) {
+          own.push({ sx, sy, label })
+          continue
+        }
         if (humanId >= 0 && atk.targetPlayerId === humanId) {
           incoming.push({ sx, sy, label })
           continue
@@ -682,22 +694,26 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         screenCtx.fillText(label, sx, sy)
       }
     }
-    // Eingehende Angriffe auf den Menschen: rote Pille mit Schwert + Truppenzahl.
+    // Pillen: eigene grün, eingehende rot — beide mit Schwert + Truppenzahl.
     screenCtx.font = 'bold 14px ui-monospace, monospace'
-    for (const { sx, sy, label } of incoming) {
-      const text = `⚔ ${label}`
-      const w = screenCtx.measureText(text).width + 14
-      const h = 20
-      screenCtx.fillStyle = 'rgba(225,40,40,0.92)'
-      screenCtx.strokeStyle = 'rgba(0,0,0,0.6)'
-      screenCtx.lineWidth = 2
-      roundRect(screenCtx, sx - w / 2, sy - h / 2, w, h, 6)
-      screenCtx.fill()
-      screenCtx.stroke()
-      screenCtx.fillStyle = '#ffffff'
-      screenCtx.fillText(text, sx, sy + 0.5)
-    }
+    for (const { sx, sy, label } of own) drawAttackPill(sx, sy, label, 'rgba(60,200,90,0.92)')
+    for (const { sx, sy, label } of incoming) drawAttackPill(sx, sy, label, 'rgba(225,40,40,0.92)')
     screenCtx.restore()
+  }
+
+  /** Zeichnet eine abgerundete Pille mit Schwert + Label an (sx,sy). */
+  function drawAttackPill(sx: number, sy: number, label: string, fill: string): void {
+    const text = `⚔ ${label}`
+    const w = screenCtx.measureText(text).width + 14
+    const h = 20
+    screenCtx.fillStyle = fill
+    screenCtx.strokeStyle = 'rgba(0,0,0,0.6)'
+    screenCtx.lineWidth = 2
+    roundRect(screenCtx, sx - w / 2, sy - h / 2, w, h, 6)
+    screenCtx.fill()
+    screenCtx.stroke()
+    screenCtx.fillStyle = '#ffffff'
+    screenCtx.fillText(text, sx, sy + 0.5)
   }
 
   /** Pfad eines abgerundeten Rechtecks (kein Stroke/Fill — Aufrufer entscheidet). */
