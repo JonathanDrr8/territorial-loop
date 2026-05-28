@@ -54,8 +54,10 @@ describe('troopIncreaseRate', () => {
     expect(troopIncreaseRate(100_000, 100_000)).toBe(0)
   })
 
-  it('is zero above cap (no negative growth)', () => {
-    expect(troopIncreaseRate(150_000, 100_000)).toBe(0)
+  it('schmilzt über dem Cap langsam ab (negatives Wachstum)', () => {
+    // 50_000 über Cap → -ceil(50_000 * 0.03) = -1500
+    expect(troopIncreaseRate(150_000, 100_000)).toBe(-1500)
+    expect(troopIncreaseRate(150_000, 100_000)).toBeLessThan(0)
   })
 
   it('is zero when cap is zero (no division by zero)', () => {
@@ -160,8 +162,8 @@ describe('tilesPerTick', () => {
     expect(tilesPerTick(10_000, 1000, 4, false)).toBeCloseTo(1 * 4 * 1.5)
     // 1:1 → factor 0.5 → 0.5 * 2 * 1.5 = 1.5
     expect(tilesPerTick(1000, 1000, 2, false)).toBeCloseTo(0.5 * 2 * 1.5)
-    // stark unterlegen → unterer Faktor 0.05
-    expect(tilesPerTick(1, 1000, 10, false)).toBeCloseTo(0.05 * 10 * 1.5)
+    // stark unterlegen → unterer Faktor 0.02
+    expect(tilesPerTick(1, 1000, 10, false)).toBeCloseTo(0.02 * 10 * 1.5)
   })
 
   it('against zero-troop defender: counts as full 2:1 overmatch', () => {
@@ -194,12 +196,12 @@ describe('attackerLossPerTile', () => {
     expect(loss).toBeCloseTo(27.2, 2)
   })
 
-  it('clamps ratio at 2 (heavily outnumbered attack)', () => {
-    // ratio raw = 10000/100 = 100 → clamped to 2
+  it('clamps ratio at 4 (heavily outnumbered attack)', () => {
+    // ratio raw = 10000/100 = 100 → clamped to 4 (Verteidiger-Buff)
     const loss = attackerLossPerTile(100, 10_000, 100, false)
-    // currentLoss = 2 * 80 * 0.8 = 128
+    // currentLoss = 4 * 80 * 0.8 = 256
     // altLoss = 1.3 * 100 * 0.8 = 104
-    // result = 0.6*128 + 0.4*104 = 76.8 + 41.6 = 118.4
-    expect(loss).toBeCloseTo(118.4, 2)
+    // result = 0.6*256 + 0.4*104 = 153.6 + 41.6 = 195.2
+    expect(loss).toBeCloseTo(195.2, 2)
   })
 })

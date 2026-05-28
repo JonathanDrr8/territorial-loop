@@ -419,7 +419,7 @@ describe('tick — intents', () => {
     // (Spawns haben Mindestabstand). Ohne Front sollte die Reserve zurückfließen.
     player.troops -= 500
     const troopsBefore = player.troops
-    player.attacks.push({ targetPlayerId: 2, reserveTroops: 500, focusTile: 0 })
+    player.attacks.push({ targetPlayerId: 2, reserveTroops: 500, focusTile: 0, startTick: 0 })
     tick(state, [])
     expect(player.attacks).toHaveLength(0)
     expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + 500)

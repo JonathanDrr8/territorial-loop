@@ -72,8 +72,13 @@ export function maxTroops(numTilesOwned: number, opts: { readonly bot?: boolean 
  *
  * Bei `bot: true` wird `toAdd` zusätzlich halbiert.
  *
- * Wenn `troops >= max` oder `max == 0`, ist die Rate 0 (kein negatives Wachstum).
+ * Wenn `troops == max` oder `max == 0`, ist die Rate 0. **Über** dem Cap (z.B.
+ * nachdem eine Nation Gebiet — und damit Cap — verloren hat) ist die Rate negativ:
+ * der Überschuss schmilzt langsam ab (`OVER_CAP_DECAY`), damit eine dezimierte
+ * Nation nicht dauerhaft auf einem riesigen Truppenberg sitzt.
  */
+export const OVER_CAP_DECAY = 0.03
+
 export function troopIncreaseRate(
   troops: number,
   max: number,
@@ -82,7 +87,8 @@ export function troopIncreaseRate(
   if (troops < 0) throw new RangeError(`troops must be >= 0, got ${troops}`)
   if (max < 0) throw new RangeError(`max must be >= 0, got ${max}`)
   if (max === 0) return 0
-  if (troops >= max) return 0
+  if (troops > max) return -Math.ceil((troops - max) * OVER_CAP_DECAY)
+  if (troops === max) return 0
 
   let toAdd = 10 + Math.pow(troops, 0.73) / 4
   if (opts.bot === true) toAdd *= 0.5
@@ -163,7 +169,9 @@ export function tilesPerTick(
   // Geschwindigkeit skaliert mit dem Angriff:Verteidigung-Verhältnis, gedeckelt bei
   // MAX_ATTACK_RATIO (2:1). Unverteidigt (def==0) gilt als volle Übermacht.
   const ratio = defenderTroops > 0 ? attackTroops / defenderTroops : MAX_ATTACK_RATIO
-  const factor = Math.max(0.05, Math.min(1, ratio / MAX_ATTACK_RATIO))
+  // Unterlegene Angriffe kriechen nur noch sehr langsam (Minimum 0.02 statt 0.05),
+  // damit sich kleine Angriffe nicht mehr so leicht in große Nationen reinarbeiten.
+  const factor = Math.max(0.02, Math.min(1, ratio / MAX_ATTACK_RATIO))
   return factor * frontWidth * PLAYER_RATE_AT_CAP
 }
 
@@ -194,7 +202,9 @@ export function attackerLossPerTile(
 
   const safeAttack = attackTroops > 0 ? attackTroops : 1
   const safeTiles = defenderTilesOwned > 0 ? defenderTilesOwned : 1
-  const ratio = Math.max(0.6, Math.min(2, defenderTroops / safeAttack))
+  // Verlust-Verhältnis bis 4× gedeckelt (vorher 2×): stark unterlegene Angriffe
+  // zahlen pro Tile deutlich mehr und zehren sich schneller auf → Verteidigung zäher.
+  const ratio = Math.max(0.6, Math.min(4, defenderTroops / safeAttack))
   const currentLoss = ratio * mag * 0.8
   const altLoss = 1.3 * (defenderTroops / safeTiles) * (mag / 100)
   return 0.6 * currentLoss + 0.4 * altLoss

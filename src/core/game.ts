@@ -119,6 +119,8 @@ export interface Attack {
    * gezielt in eine Richtung statt diamantförmig zu expandieren.
    */
   focusTile: TileRef
+  /** Tick, an dem der Angriff gestartet wurde (für die Dauer-Anzeige im HUD). */
+  startTick: number
 }
 
 export interface Player {
@@ -831,6 +833,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
     targetPlayerId: targetOwner,
     reserveTroops: troops,
     focusTile: intent.targetTile,
+    startTick: state.tick,
   })
 }
 
@@ -907,7 +910,12 @@ function growPopulations(state: GameState): void {
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
     const committed = committedTroops(player)
     const rate = troopIncreaseRate(player.troops + committed, max)
-    player.troops = Math.min(player.troops + rate, Math.max(0, max - committed))
+    if (rate < 0) {
+      // Über dem Cap (nach Gebietsverlust): Überschuss langsam abschmelzen.
+      player.troops = Math.max(0, player.troops + rate)
+    } else {
+      player.troops = Math.min(player.troops + rate, Math.max(0, max - committed))
+    }
   }
 }
 
@@ -974,7 +982,12 @@ function landBoat(state: GameState, boat: Boat): void {
   // Verteidiger verliert nur Land, keine Truppen (siehe advanceAttack).
   const remaining = Math.floor(boat.troops - aLoss)
   captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
-  attacker.attacks.push({ targetPlayerId: owner, reserveTroops: remaining, focusTile: target })
+  attacker.attacks.push({
+    targetPlayerId: owner,
+    reserveTroops: remaining,
+    focusTile: target,
+    startTick: state.tick,
+  })
   emitEvent(state, `${attacker.name} landet Truppen an`, attacker.color)
 }
 
