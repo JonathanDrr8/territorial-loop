@@ -7,6 +7,7 @@ import {
   maxTroops,
 } from '../src/core/config'
 import { getOwner } from '../src/world/map'
+import { IS_LAND_BIT } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
 
 /** Validate that every tile in each player's frontier is actually a border tile. */
@@ -351,6 +352,28 @@ describe('tick — intents', () => {
     expect(player.attacks).toHaveLength(0)
     // Die zum Cancel-Zeitpunkt verbliebene Reserve fließt zurück in den Pool.
     expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + reserve)
+  })
+
+  it('higher terrain is conquered more slowly (fewer tiles over time)', () => {
+    // Zwei identische Läufe: einmal in Ebene, einmal in Berg-Terrain.
+    function expandedTiles(mountain: boolean): number {
+      const state = createGame(baseConfig())
+      if (mountain) {
+        // Alle Tiles auf Berg-Höhe setzen (begehbar, aber hohe Magnitude).
+        for (let i = 0; i < state.map.terrain.length; i++) {
+          state.map.terrain[i] = IS_LAND_BIT | 25
+        }
+      }
+      const player = state.players.get(1)
+      if (player === undefined) throw new Error('player missing')
+      const target = adjacentNeutralTile(state, 1)
+      expect(target).toBeGreaterThanOrEqual(0)
+      player.troops = 1_000_000
+      tick(state, [{ type: 'attack', playerId: 1, targetTile: target, troops: 500_000 }])
+      for (let i = 0; i < 20; i++) tick(state, [])
+      return player.tilesOwned
+    }
+    expect(expandedTiles(false)).toBeGreaterThan(expandedTiles(true))
   })
 
   it('an attack with no reachable front refunds its reserve', () => {

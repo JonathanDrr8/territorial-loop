@@ -13,6 +13,7 @@
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import {
+  PLAINS_MAG,
   generateTerrain,
   isLand,
   isPassable,
@@ -990,7 +991,18 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const integerPart = Math.floor(rate)
   const fraction = rate - integerPart
   const extra = state.rng.next() < fraction ? 1 : 0
-  const wantCapture = Math.min(integerPart + extra, tiles.length)
+  let wantCapture = Math.min(integerPart + extra, tiles.length)
+
+  // Höheres Terrain wird langsamer erobert: die tatsächlich pro Tick eroberten
+  // Tiles werden im Verhältnis Ebene/Durchschnitts-Magnitude der Front gedrosselt
+  // (Ebene 1.0, Hügel ~0.8, Berg ~0.67) — auch wenn die Rohrate sonst alle
+  // Front-Tiles auf einmal nähme. Auf Ebene (Faktor 1) bleibt alles unverändert.
+  const terrainSlow = PLAINS_MAG / Math.max(PLAINS_MAG, avgFrontMagnitude(state, tiles))
+  if (terrainSlow < 1) {
+    const slowed = wantCapture * terrainSlow
+    const slowInt = Math.floor(slowed)
+    wantCapture = slowInt + (state.rng.next() < slowed - slowInt ? 1 : 0)
+  }
 
   if (wantCapture <= 0) return true
 
@@ -1054,6 +1066,14 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   }
 
   return attack.reserveTroops > 0
+}
+
+/** Durchschnittliche Terrain-Magnitude der eroberbaren Front-Tiles (min. Ebene). */
+function avgFrontMagnitude(state: GameState, tiles: readonly TileRef[]): number {
+  if (tiles.length === 0) return PLAINS_MAG
+  let sum = 0
+  for (const t of tiles) sum += terrainMagnitude(state.map.terrain, t)
+  return sum / tiles.length
 }
 
 /**
