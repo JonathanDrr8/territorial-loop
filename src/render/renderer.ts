@@ -27,6 +27,60 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   port: 'P',
 }
 
+/**
+ * Kleine Pixel-Art-Icons pro Gebäudetyp (8×8), als Zeilen + Paletten-Mapping. Werden
+ * einmal auf ein Offscreen-Canvas gerendert und im Marker crisp hochskaliert (statt
+ * der Buchstaben C/D/P) → mehr visuelle Tiefe auf der Karte.
+ */
+interface SpriteDef {
+  readonly rows: readonly string[]
+  readonly palette: Readonly<Record<string, string>>
+}
+const BUILDING_SPRITES: Record<BuildingType, SpriteDef> = {
+  // Stadt: Gebäude mit rotem Dach + Fenstern.
+  city: {
+    rows: [
+      '..RRRR..',
+      '.RRRRRR.',
+      'RRRRRRRR',
+      '.WWWWWW.',
+      '.WdWWdW.',
+      '.WWWWWW.',
+      '.WdWWdW.',
+      '.WWWWWW.',
+    ],
+    palette: { R: '#c75a4a', W: '#ddd0b0', d: '#36456a' },
+  },
+  // Verteidigung: Steinturm mit Zinnen + Tor.
+  defense: {
+    rows: [
+      'S.S.S.S.',
+      'SSSSSSSS',
+      'SssssssS',
+      'SssssssS',
+      'SssDDssS',
+      'SssDDssS',
+      'SSSSSSSS',
+      '........',
+    ],
+    palette: { S: '#b3b9c0', s: '#7c828b', D: '#2c313a' },
+  },
+  // Hafen: kleines Segelboot.
+  port: {
+    rows: [
+      '...S....',
+      '...SS...',
+      '...SSS..',
+      '...SSSS.',
+      '...m....',
+      '...m....',
+      'HHHHHHHH',
+      '.HHHHHH.',
+    ],
+    palette: { S: '#eef2f5', m: '#5a3a22', H: '#9c6b43' },
+  },
+}
+
 /** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
 function rgbaToCssLocal(rgba: number): string {
   const r = (rgba >>> 24) & 0xff
@@ -803,7 +857,36 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     ctx.closePath()
   }
 
-  // Diagonales Schraffur-Pattern für Verteidigungs-Schutzzonen (einmal erstellt).
+  // Vorgerenderte Pixel-Sprites pro Gebäudetyp (einmal erstellt, dann crisp skaliert).
+  const spriteCache = new Map<BuildingType, HTMLCanvasElement | null>()
+  function getBuildingSprite(type: BuildingType): HTMLCanvasElement | null {
+    const cached = spriteCache.get(type)
+    if (cached !== undefined) return cached
+    const def = BUILDING_SPRITES[type]
+    const h = def.rows.length
+    const w = def.rows[0]?.length ?? 0
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const ctx = c.getContext('2d')
+    if (ctx === null) {
+      spriteCache.set(type, null)
+      return null
+    }
+    for (let y = 0; y < h; y++) {
+      const row = def.rows[y] ?? ''
+      for (let x = 0; x < w; x++) {
+        const col = def.palette[row[x] ?? '']
+        if (col !== undefined) {
+          ctx.fillStyle = col
+          ctx.fillRect(x, y, 1, 1)
+        }
+      }
+    }
+    spriteCache.set(type, c)
+    return c
+  }
+
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
     const cssW = container.clientWidth
@@ -841,9 +924,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
           screenCtx.lineWidth = 2
           screenCtx.strokeStyle = ring
           screenCtx.stroke()
-          // Glyph
-          screenCtx.fillStyle = '#fff'
-          screenCtx.fillText(glyph, sx, sy + 0.5)
+          // Pixel-Sprite (statt Buchstabe); Fallback auf Glyph wenn kein Canvas.
+          const spr = getBuildingSprite(b.type)
+          if (spr !== null) {
+            const ss = radius * 1.7
+            const prevSmooth = screenCtx.imageSmoothingEnabled
+            screenCtx.imageSmoothingEnabled = false
+            screenCtx.drawImage(spr, sx - ss / 2, sy - ss / 2, ss, ss)
+            screenCtx.imageSmoothingEnabled = prevSmooth
+          } else {
+            screenCtx.fillStyle = '#fff'
+            screenCtx.fillText(glyph, sx, sy + 0.5)
+          }
           screenCtx.globalAlpha = 1
           // Bau-Fortschrittsleiste unter dem Marker (nur während des Baus).
           if (inProgress) {
