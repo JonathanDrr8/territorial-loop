@@ -16,7 +16,7 @@
 import type { BuildingType } from '../core/buildings'
 import { defenseRange } from '../core/buildings'
 import { canBuildAt, type GameState, type Player } from '../core/game'
-import { areAllied } from '../core/diplomacy'
+import { areAllied, directedKey } from '../core/diplomacy'
 import type { Boat, TradeShip } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { neighbors4, tileRef } from '../world/torus'
@@ -181,20 +181,28 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let lut: Map<number, ColorEntry> | null = null
   let lutHumanId = -1
   let bitmapBaked = false
-  // Grenzfarbe je Spieler AUS SICHT des Menschen: Verbündete grün, Angreifer rot
-  // (Intensität nach Größenverhältnis = „Groll"), alle anderen weiß, eigenes hell.
+  // Grenzfarbe je Spieler AUS SICHT des Menschen: eigenes leuchtet hell-cyan,
+  // Verbündete grün, Nationen die einem kürzlich Land genommen haben rot (Intensität
+  // = „Groll", klingt nach), alle anderen weiß.
   let borderTints = new Map<number, readonly [number, number, number]>()
   let lastBorderSig = ''
 
-  /** Greift `p` den Menschen aktuell an? */
-  function isAttackingHuman(p: Player, humanId: number): boolean {
-    for (const a of p.attacks) if (a.targetPlayerId === humanId) return true
-    return false
+  /** Groll-Stufe (0–3) von `p` gegen den Menschen — nach kürzlich genommenem Land. */
+  function grudgeLevel(p: Player, humanId: number, humanTiles: number): number {
+    const g = state.grudge.get(directedKey(p.id, humanId)) ?? 0
+    if (g <= 0) return 0
+    // Anteil am eigenen (verbliebenen) Gebiet → kleiner Räuber blass, großer grell.
+    const ratio = g / humanTiles
+    if (ratio < 0.05) return 0
+    if (ratio < 0.3) return 1
+    if (ratio < 1.0) return 2
+    return 3
   }
 
   /**
    * Berechnet die Grenz-Tints relativ zum Menschen und gibt eine Signatur zurück,
-   * die sich nur bei Beziehungs-/Größenstufen-Wechseln ändert (→ seltenes Rebake).
+   * die sich nur bei Beziehungs-/Groll-Stufen-Wechseln ändert (→ seltenes Rebake;
+   * der Groll-Wert selbst ändert sich jeden Tick, die Stufe nur selten).
    */
   function computeBorderTints(): string {
     const m = new Map<number, readonly [number, number, number]>()
@@ -211,20 +219,21 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         tint = c ? [c.br, c.bg, c.bb] : [255, 0, 255]
         cat = 'c'
       } else if (p.id === humanId) {
-        tint = [240, 240, 255]
+        // Eigenleuchten: hell cyan-weiß, hebt sich klar vom neutralen Weiß ab.
+        tint = [150, 245, 255]
         cat = 'me'
       } else if (areAllied(state.alliances, humanId, p.id)) {
         tint = [90, 220, 120]
         cat = 'ally'
-      } else if (isAttackingHuman(p, humanId)) {
-        // „Groll" nach Größenverhältnis: klein = blass, groß = grell rot.
-        const ratio = p.tilesOwned / humanTiles
-        const lvl = ratio < 0.5 ? 0 : ratio < 1.5 ? 1 : 2
-        tint = lvl === 0 ? [170, 110, 110] : lvl === 1 ? [220, 80, 80] : [255, 55, 55]
-        cat = 'a' + lvl.toString()
       } else {
-        tint = [235, 235, 235]
-        cat = 'w'
+        const lvl = grudgeLevel(p, humanId, humanTiles)
+        if (lvl === 0) {
+          tint = [235, 235, 235]
+          cat = 'w'
+        } else {
+          tint = lvl === 1 ? [180, 110, 110] : lvl === 2 ? [225, 75, 75] : [255, 45, 45]
+          cat = 'g' + lvl.toString()
+        }
       }
       m.set(p.id, tint)
       sig += p.id.toString() + cat + ';'

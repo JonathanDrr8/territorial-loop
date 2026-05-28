@@ -199,6 +199,13 @@ export interface GameState {
   readonly allianceRequests: Set<number>
   /** Verhängte Embargos als gerichtete Schlüssel from→to. */
   readonly embargoes: Set<number>
+  /**
+   * „Groll" als gerichteter Schlüssel Angreifer→Opfer ([[directedKey]]) → abklingender
+   * Wert, der mit jedem vom Opfer eroberten Tile steigt und pro Tick zerfällt. Misst,
+   * wie viel Land ein Spieler einem anderen *kürzlich* genommen hat — Basis für den
+   * roten Grenz-Tint (mit Nachglühen), unabhängig davon ob gerade aktiv angegriffen wird.
+   */
+  readonly grudge: Map<number, number>
 }
 
 /* ============================================================================
@@ -286,6 +293,7 @@ export function createGame(config: GameConfig): GameState {
     alliances: new Set<number>(),
     allianceRequests: new Set<number>(),
     embargoes: new Set<number>(),
+    grudge: new Map<number, number>(),
   }
 
   placeSpawns(state)
@@ -524,11 +532,27 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   advanceBoats(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
+  decayGrudge(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
   state.tick++
   return state
+}
+
+/** Faktor pro Tick, mit dem „Groll" abklingt (Nachglühen über ~viele Sekunden). */
+const GRUDGE_DECAY = 0.99
+/** Unter diesem Wert wird ein Groll-Eintrag gelöscht (gilt als vergessen). */
+const GRUDGE_MIN = 1
+
+/** Lässt allen aufgebauten Groll pro Tick etwas abklingen; vergisst Kleinstwerte. */
+function decayGrudge(state: GameState): void {
+  if (state.grudge.size === 0) return
+  for (const [key, value] of state.grudge) {
+    const next = value * GRUDGE_DECAY
+    if (next < GRUDGE_MIN) state.grudge.delete(key)
+    else state.grudge.set(key, next)
+  }
 }
 
 function generateGold(state: GameState): void {
@@ -1267,6 +1291,9 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
       oldPlayer.tilesOwned--
       oldPlayer.weightedTiles = Math.max(0, oldPlayer.weightedTiles - weight)
     }
+    // „Groll" des Bestohlenen gegen den Angreifer erhöhen (abklingend, → roter Rand).
+    const key = directedKey(attackerId, oldOwner)
+    state.grudge.set(key, (state.grudge.get(key) ?? 0) + weight)
   }
 
   updateFrontierAfterCapture(state, ref, oldOwner, attackerId)

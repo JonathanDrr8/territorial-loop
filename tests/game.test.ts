@@ -15,6 +15,7 @@ import {
 import { getOwner } from '../src/world/map'
 import { IS_LAND_BIT } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
+import { directedKey } from '../src/core/diplomacy'
 
 /** Validate that every tile in each player's frontier is actually a border tile. */
 function assertFrontierConsistency(state: GameState): void {
@@ -292,6 +293,20 @@ describe('tick — victory', () => {
     expect(state.tick).toBe(tickAfterWin + 1)
     expect(state.phase).toBe('ended')
     expect(state.winner).toBe(1)
+  })
+})
+
+describe('tick — grudge (Groll)', () => {
+  it('klingt pro Tick ab und wird unter dem Minimum vergessen', () => {
+    const state = createGame(baseConfig())
+    state.grudge.set(directedKey(2, 1), 100)
+    tick(state, [])
+    const after = state.grudge.get(directedKey(2, 1)) ?? 0
+    expect(after).toBeGreaterThan(0)
+    expect(after).toBeLessThan(100) // abgeklungen
+    // viele Ticks → vollständig vergessen (Eintrag gelöscht)
+    for (let i = 0; i < 600; i++) tick(state, [])
+    expect(state.grudge.has(directedKey(2, 1))).toBe(false)
   })
 })
 
