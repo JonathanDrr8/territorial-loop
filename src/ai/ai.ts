@@ -1,24 +1,31 @@
 /**
- * Allround-KI.
+ * Allround-KI — nutzt alle Spielmechaniken.
  *
- * Strategie:
- * - Pro Spieler eigene PRNG-Instanz (seed = `ai-${playerId}-${gameSeed}`),
- *   damit die KI deterministisch ist, aber unabhängig vom Sim-PRNG.
- * - Cooldown zwischen Entscheidungen: 30-100 Ticks (3-10 Sekunden bei 10 Hz).
- * - Entscheidung:
- *   - Bevölkerung >= 60% des Caps → Angriff auf Gegner-Tile bevorzugt
- *   - Sonst → Expansion in nahegelegenes neutrales Tile
- * - Truppen-Einsatz: 30% der Bevölkerung pro Angriff.
+ * Pro Spieler eine eigene PRNG (`ai-${id}-${seed}`) → deterministisch, aber
+ * unabhängig vom Sim-PRNG. Zwischen Entscheidungen ein Cooldown (difficulty-
+ * abhängig). Pro Entscheidung kann die KI mehrere Aktionen auf einmal anstoßen:
  *
- * Die KI sieht alles (kein Fog-of-War im MVP) und greift nur Tiles an die
- * direkt an die eigene Frontier grenzen — keine "Springer"-Angriffe.
+ *  - **Militär** (immer versucht): Land-Angriff auf ein Frontier-Nachbar-Tile;
+ *    mit kleiner Wahrscheinlichkeit ein amphibischer Angriff auf ein entferntes
+ *    Gegner-Tile (der Core wandelt einen über Wasser getrennten Angriff
+ *    automatisch in ein Transport-Boot um).
+ *  - **Wirtschaft/Bau** (gold-gated): Markt → Stadt → Verteidigung → Hafen,
+ *    nach einfachen Prioritäten.
+ *  - **Diplomatie**: Bündnis-Anfragen annehmen (gegen den Stärksten verbünden),
+ *    selbst anfragen wenn man nicht führt, und bei klarer Führung verraten.
+ *
+ * Die KI sieht alles (kein Fog-of-War). Alle Zufallswahlen laufen über die
+ * AI-PRNG → reproduzierbar.
  */
 
-import type { Player, GameState } from '../core/game'
+import { countBuildingsOfType, effectiveMaxTroops, type GameState, type Player } from '../core/game'
+import { buildCost, type BuildingType } from '../core/buildings'
+import { areAllied, hasAllianceRequest } from '../core/diplomacy'
 import type { Intent } from '../core/intent'
 import { maxTroops } from '../core/config'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
+import { isLand } from '../world/terrain'
 import { neighbors4 } from '../world/torus'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
@@ -28,20 +35,51 @@ interface DifficultyProfile {
   readonly cooldownMin: number
   readonly cooldownMax: number
   readonly popThresholdForPvp: number
+  /** Wahrscheinlichkeit pro Entscheidung ein Gebäude zu bauen (wenn Gold reicht). */
+  readonly buildChance: number
+  /** Wahrscheinlichkeit pro Entscheidung eine Diplomatie-Aktion zu prüfen. */
+  readonly diploChance: number
+  /** Wahrscheinlichkeit statt Land-Angriff einen amphibischen Angriff zu wagen. */
+  readonly boatChance: number
+  /** Führungs-Verhältnis (Tiles Leader / #2) ab dem die KI ein Bündnis verrät. */
+  readonly betrayLeadRatio: number
 }
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
-  // Langsamere Entscheidungen, kleinere Wellen, beschäftigt sich länger mit
-  // neutralem Land bevor sie zu Gegnern wechselt.
-  easy: { attackPct: 18, cooldownMin: 60, cooldownMax: 180, popThresholdForPvp: 0.75 },
-  // Mittelfeld — entspricht dem ursprünglichen Allround-Verhalten.
-  normal: { attackPct: 30, cooldownMin: 30, cooldownMax: 100, popThresholdForPvp: 0.6 },
-  // Aggressiv: fast doppelt so oft Entscheidungen, größere Wellen, schneller PvP.
-  hard: { attackPct: 42, cooldownMin: 18, cooldownMax: 60, popThresholdForPvp: 0.45 },
+  easy: {
+    attackPct: 18,
+    cooldownMin: 60,
+    cooldownMax: 180,
+    popThresholdForPvp: 0.75,
+    buildChance: 0.15,
+    diploChance: 0.1,
+    boatChance: 0.05,
+    betrayLeadRatio: 2.0,
+  },
+  normal: {
+    attackPct: 30,
+    cooldownMin: 30,
+    cooldownMax: 100,
+    popThresholdForPvp: 0.6,
+    buildChance: 0.3,
+    diploChance: 0.2,
+    boatChance: 0.12,
+    betrayLeadRatio: 1.6,
+  },
+  hard: {
+    attackPct: 42,
+    cooldownMin: 18,
+    cooldownMax: 60,
+    popThresholdForPvp: 0.45,
+    buildChance: 0.5,
+    diploChance: 0.3,
+    boatChance: 0.2,
+    betrayLeadRatio: 1.3,
+  },
 }
 
 export interface AI {
-  /** Aufgerufen pro Sim-Tick. Returnt Intents für diesen Tick (0 oder 1). */
+  /** Aufgerufen pro Sim-Tick. Returnt 0..n Intents für diesen Tick. */
   decide(state: GameState): readonly Intent[]
 }
 
@@ -54,7 +92,8 @@ export function createAI(
   const rng = createPRNG(`ai-${playerId.toString()}-${gameSeed}`)
   let nextDecisionTick = rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
-  function pickTarget(state: GameState, player: Player, preferEnemies: boolean): number {
+  /** Ein Land-Nachbar-Ziel der Frontier (bevorzugt Gegner oder Neutrale). */
+  function pickLandTarget(state: GameState, player: Player, preferEnemies: boolean): number {
     const { width, height } = state.map
     const enemyTiles: number[] = []
     const neutralTiles: number[] = []
@@ -66,6 +105,8 @@ export function createAI(
         seen.add(n)
         const owner = getOwner(state.map, n)
         if (owner === player.id) continue
+        // Verbündete nicht angreifen.
+        if (owner > 0 && areAllied(state.alliances, player.id, owner)) continue
         if (owner === 0) neutralTiles.push(n)
         else enemyTiles.push(n)
       }
@@ -78,32 +119,192 @@ export function createAI(
     return rng.randElement(pool)
   }
 
+  /**
+   * Ein entferntes Gegner-Tile für einen amphibischen Angriff. Wir wählen ein
+   * Frontier-Tile eines lebenden, nicht-verbündeten Gegners — der Core prüft, ob
+   * eine Wasserroute existiert, und startet ggf. ein Boot.
+   */
+  function pickBoatTarget(state: GameState, player: Player): number {
+    const enemies: Player[] = []
+    for (const p of state.players.values()) {
+      if (p.id === player.id || !p.isAlive) continue
+      if (areAllied(state.alliances, player.id, p.id)) continue
+      if (p.frontier.size > 0) enemies.push(p)
+    }
+    if (enemies.length === 0) return -1
+    enemies.sort((a, b) => a.id - b.id)
+    const enemy = rng.randElement(enemies)
+    if (enemy === undefined) return -1
+    const tiles = [...enemy.frontier]
+    return rng.randElement(tiles) ?? -1
+  }
+
+  /** Wählt ein eigenes Frontier-Tile (optional eines das an einen Gegner grenzt). */
+  function pickOwnTile(state: GameState, player: Player, borderingEnemy: boolean): number {
+    const { width, height } = state.map
+    const candidates: number[] = []
+    for (const ref of player.frontier) {
+      if (state.buildings.has(ref)) continue
+      if (!borderingEnemy) {
+        candidates.push(ref)
+        continue
+      }
+      for (const n of neighbors4(ref, width, height)) {
+        const owner = getOwner(state.map, n)
+        if (owner > 0 && owner !== player.id) {
+          candidates.push(ref)
+          break
+        }
+      }
+    }
+    return candidates.length > 0 ? (rng.randElement(candidates) ?? -1) : -1
+  }
+
+  /** Ein eigenes, unbebautes Frontier-Tile das ans Wasser grenzt (für Häfen). */
+  function pickCoastalTile(state: GameState, player: Player): number {
+    const { width, height } = state.map
+    const candidates: number[] = []
+    for (const ref of player.frontier) {
+      if (state.buildings.has(ref)) continue
+      for (const n of neighbors4(ref, width, height)) {
+        if (!isLand(state.map.terrain, n)) {
+          candidates.push(ref)
+          break
+        }
+      }
+    }
+    return candidates.length > 0 ? (rng.randElement(candidates) ?? -1) : -1
+  }
+
+  /** Plant einen Bau nach einfachen Prioritäten (Markt → Stadt → Verteidigung → Hafen). */
+  function planBuild(state: GameState, player: Player): Intent | null {
+    const gold = player.gold
+    const costOf = (t: BuildingType): number =>
+      buildCost(t, countBuildingsOfType(state, player.id, t))
+
+    // 1. Wirtschaft ankurbeln: wenig Märkte → Markt
+    if (countBuildingsOfType(state, player.id, 'market') < 2 && gold >= costOf('market')) {
+      const tile = pickOwnTile(state, player, false)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'market' }
+    }
+    // 2. Truppen-Cap ist der Engpass → Stadt
+    if (player.troops >= 0.9 * effectiveMaxTroops(state, player.id) && gold >= costOf('city')) {
+      const tile = pickOwnTile(state, player, false)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
+    }
+    // 3. Bedrohte Front → Verteidigungsposten
+    if (gold >= costOf('defense')) {
+      const tile = pickOwnTile(state, player, true)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'defense' }
+    }
+    // 4. Am Wasser ohne Hafen → Hafen (für Handel/Schiffe)
+    if (countBuildingsOfType(state, player.id, 'port') === 0 && gold >= costOf('port')) {
+      const tile = pickCoastalTile(state, player)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
+    }
+    return null
+  }
+
+  /** Diplomatie-Aktion: annehmen / anfragen / verraten — gegen den Stärksten spielen. */
+  function planDiplomacy(state: GameState, player: Player): Intent | null {
+    const living: Player[] = []
+    for (const p of state.players.values()) if (p.isAlive) living.push(p)
+    if (living.length < 3) return null // unter 3 Spielern lohnt Bündnis-Politik kaum
+    living.sort((a, b) => b.tilesOwned - a.tilesOwned || a.id - b.id)
+    const leader = living[0]
+    if (leader === undefined) return null
+    const amLeader = leader.id === player.id
+    const allies = living.filter(
+      (o) => o.id !== player.id && areAllied(state.alliances, player.id, o.id),
+    )
+
+    // 1. Verrat: führe ich klar und habe einen Verbündeten → schwächsten Verbündeten verraten
+    if (amLeader && allies.length > 0) {
+      const second = living[1]
+      const margin =
+        second !== undefined && second.tilesOwned > 0
+          ? leader.tilesOwned / second.tilesOwned
+          : Infinity
+      if (margin >= profile.betrayLeadRatio) {
+        allies.sort((a, b) => a.tilesOwned - b.tilesOwned || a.id - b.id)
+        const victim = allies[0]
+        if (victim !== undefined) {
+          return { type: 'break-alliance', playerId: player.id, targetPlayerId: victim.id }
+        }
+      }
+    }
+
+    // 2. Offenes Bündnis-Angebot annehmen (nicht wenn ich führe — dann lieber solo)
+    if (!amLeader) {
+      for (const o of living) {
+        if (o.id === player.id) continue
+        if (hasAllianceRequest(state.allianceRequests, o.id, player.id)) {
+          return { type: 'accept-alliance', playerId: player.id, targetPlayerId: o.id }
+        }
+      }
+    }
+
+    // 3. Selbst anfragen: ich führe nicht und habe keinen Verbündeten → mit einem
+    //    anderen Nicht-Anführer gegen den Leader verbünden
+    if (!amLeader && allies.length === 0) {
+      for (const o of living) {
+        if (o.id === player.id || o.id === leader.id) continue
+        if (areAllied(state.alliances, player.id, o.id)) continue
+        if (hasAllianceRequest(state.allianceRequests, player.id, o.id)) continue
+        return { type: 'request-alliance', playerId: player.id, targetPlayerId: o.id }
+      }
+    }
+    return null
+  }
+
+  function planMilitary(state: GameState, player: Player): Intent | null {
+    const max = maxTroops(player.tilesOwned)
+    const popRatio = max > 0 ? player.troops / max : 0
+    const preferEnemies = popRatio >= profile.popThresholdForPvp
+
+    // Gelegentlich amphibisch: entferntes Gegner-Tile, Core entscheidet Boot vs. nichts.
+    if (preferEnemies && rng.next() < profile.boatChance) {
+      const boatTarget = pickBoatTarget(state, player)
+      if (boatTarget >= 0) {
+        const troops = Math.floor((player.troops * profile.attackPct) / 100)
+        if (troops > 0)
+          return { type: 'attack', playerId: player.id, targetTile: boatTarget, troops }
+      }
+    }
+
+    const targetTile = pickLandTarget(state, player, preferEnemies)
+    if (targetTile < 0) return null
+    const troops = Math.floor((player.troops * profile.attackPct) / 100)
+    if (troops <= 0) return null
+    return { type: 'attack', playerId: player.id, targetTile, troops }
+  }
+
   return {
     decide(state: GameState): readonly Intent[] {
       const player = state.players.get(playerId)
       if (player === undefined || !player.isAlive) return []
       if (state.tick < nextDecisionTick) return []
-
       nextDecisionTick = state.tick + rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
-      const max = maxTroops(player.tilesOwned)
-      const popRatio = max > 0 ? player.troops / max : 0
-      const preferEnemies = popRatio >= profile.popThresholdForPvp
+      const intents: Intent[] = []
 
-      const targetTile = pickTarget(state, player, preferEnemies)
-      if (targetTile < 0) return []
+      // Militär zuerst (bleibt das primäre Verhalten).
+      const military = planMilitary(state, player)
+      if (military !== null) intents.push(military)
 
-      const troops = Math.floor((player.troops * profile.attackPct) / 100)
-      if (troops <= 0) return []
+      // Wirtschaft/Bau.
+      if (rng.next() < profile.buildChance) {
+        const build = planBuild(state, player)
+        if (build !== null) intents.push(build)
+      }
 
-      return [
-        {
-          type: 'attack',
-          playerId,
-          targetTile,
-          troops,
-        },
-      ]
+      // Diplomatie.
+      if (rng.next() < profile.diploChance) {
+        const diplo = planDiplomacy(state, player)
+        if (diplo !== null) intents.push(diplo)
+      }
+
+      return intents
     },
   }
 }

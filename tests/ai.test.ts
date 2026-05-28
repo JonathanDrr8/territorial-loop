@@ -76,6 +76,32 @@ describe('createAI', () => {
     expect(intentsA).toEqual(intentsB)
   })
 
+  it('uses buildings and diplomacy over a long four-player game', () => {
+    const config: GameConfig = {
+      mapWidth: 64,
+      mapHeight: 64,
+      seed: 'ai-mechanics',
+      victoryPct: 90,
+      terrain: 'flat',
+      players: [
+        { id: 1, name: 'A1', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'A2', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'A3', color: 0x0000ffff, isHuman: false },
+        { id: 4, name: 'A4', color: 0xffff00ff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    const ais = config.players.map((p) => createAI(p.id, state.seed, 'hard'))
+    for (let t = 0; t < 2500; t++) {
+      const intents = ais.flatMap((ai) => [...ai.decide(state)])
+      tick(state, intents)
+    }
+    // Mindestens ein Gebäude wurde gebaut.
+    expect(state.buildings.size).toBeGreaterThan(0)
+    // Diplomatie fand statt (Anfrage und/oder Bündnis).
+    expect(state.alliances.size + state.allianceRequests.size).toBeGreaterThan(0)
+  })
+
   it('different player IDs → different intent streams (even same seed)', () => {
     // Make a config with 2 AIs so we can compare their behavior
     const config: GameConfig = {
