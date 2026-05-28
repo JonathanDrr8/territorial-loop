@@ -58,7 +58,7 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
       typeof parsed.aiCount === 'number' &&
       Number.isInteger(parsed.aiCount) &&
       parsed.aiCount >= 1 &&
-      parsed.aiCount <= 7
+      parsed.aiCount <= 32
     ) {
       result.aiCount = parsed.aiCount
     }

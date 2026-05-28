@@ -25,8 +25,11 @@ describe('pickRandomNames', () => {
     expect(() => pickRandomNames(1.5)).toThrow(RangeError)
   })
 
-  it('rejects requests larger than the pool', () => {
-    expect(() => pickRandomNames(NAME_POOL_SIZE + 1)).toThrow(RangeError)
+  it('pads with generic names when more than the pool is requested', () => {
+    const names = pickRandomNames(NAME_POOL_SIZE + 3)
+    expect(names).toHaveLength(NAME_POOL_SIZE + 3)
+    // alle eindeutig (Pool-Namen + generische "Nation N")
+    expect(new Set(names).size).toBe(NAME_POOL_SIZE + 3)
   })
 
   it('can return the whole pool when requested', () => {

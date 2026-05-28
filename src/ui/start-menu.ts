@@ -231,7 +231,7 @@ export function createStartMenu(
   panel.appendChild(terrainRow)
 
   // AI count
-  const aiCount = makeSliderRow('Anzahl KI', 1, 7, 1, initial.aiCount)
+  const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
 
   // Match tempo — discrete select

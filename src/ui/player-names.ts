@@ -61,19 +61,17 @@ const POOL: readonly string[] = [
 ]
 
 /**
- * Wählt `count` eindeutige Namen aus dem Pool. Wirft wenn mehr Namen verlangt
- * werden als der Pool hergibt.
+ * Wählt `count` Namen. Bis zur Pool-Größe eindeutige Zufallsnamen; werden mehr
+ * verlangt (viele KI), wird mit generischen Namen ("Nation N") aufgefüllt.
  */
 export function pickRandomNames(count: number): string[] {
   if (count < 0 || !Number.isInteger(count)) {
     throw new RangeError(`pickRandomNames: count must be a non-negative integer, got ${count}`)
   }
-  if (count > POOL.length) {
-    throw new RangeError(`pickRandomNames: pool has ${POOL.length} names, ${count} requested`)
-  }
-  // Fisher-Yates partial shuffle: nur die ersten `count` Slots randomisieren
   const arr = [...POOL]
-  for (let i = 0; i < count; i++) {
+  // Fisher-Yates partial shuffle: nur so viele Slots randomisieren wie nötig
+  const shuffleN = Math.min(count, arr.length)
+  for (let i = 0; i < shuffleN; i++) {
     const j = i + Math.floor(Math.random() * (arr.length - i))
     const a = arr[i]
     const b = arr[j]
@@ -83,7 +81,9 @@ export function pickRandomNames(count: number): string[] {
     arr[i] = b
     arr[j] = a
   }
-  return arr.slice(0, count)
+  const names = arr.slice(0, shuffleN)
+  for (let n = names.length; n < count; n++) names.push(`Nation ${(n + 1).toString()}`)
+  return names
 }
 
 /** Gesamtanzahl verfügbarer Namen — nützlich für UI-Konsistenz-Checks. */
