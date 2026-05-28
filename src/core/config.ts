@@ -91,6 +91,46 @@ export function troopIncreaseRate(
 }
 
 /**
+ * Charakterisiert die Wachstumskurve für einen gegebenen Cap als zwei Marken
+ * (Anteile des Caps `0..1`), für die HUD-Visualisierung der Truppen-Effizienz:
+ *  - `optimum`: wo die absolute Wachstumsrate maximal ist (Peak der Kurve, ~42%).
+ *    Links davon wächst man immer besser → „wachsend"; rechts wird es zunehmend
+ *    weniger → ab hier „stagnierend".
+ *  - `stall`: ab hier ist die Rate auf ein Drittel des Peaks gefallen →
+ *    „stark stagnierend".
+ *
+ * Per Sampling der `troopIncreaseRate`-Kurve ermittelt (cap-abhängig, da der
+ * `toAdd`-Term von der absoluten Truppenzahl abhängt). Reine Anzeige-Hilfe,
+ * keine Sim-Logik.
+ */
+export function growthZones(cap: number): { readonly optimum: number; readonly stall: number } {
+  if (cap <= 0) return { optimum: 0, stall: 1 }
+  const SAMPLES = 100
+  const rateAt = (frac: number): number => troopIncreaseRate(Math.floor(frac * cap), cap)
+  let optimum = 0
+  let peakRate = 0
+  for (let s = 1; s <= SAMPLES; s++) {
+    const frac = s / SAMPLES
+    const rate = rateAt(frac)
+    if (rate > peakRate) {
+      peakRate = rate
+      optimum = frac
+    }
+  }
+  if (peakRate <= 0) return { optimum: 0, stall: 1 }
+  let stall = 1
+  for (let s = 1; s <= SAMPLES; s++) {
+    const frac = s / SAMPLES
+    if (frac <= optimum) continue
+    if (rateAt(frac) <= peakRate / 3) {
+      stall = frac
+      break
+    }
+  }
+  return { optimum, stall }
+}
+
+/**
  * Anzahl Tiles die ein Angriff pro Tick erobern darf (kann fractional sein).
  *
  * OpenFront-Formel:

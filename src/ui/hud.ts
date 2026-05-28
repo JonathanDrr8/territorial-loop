@@ -10,16 +10,11 @@
  * differential update auf Listenebene.
  */
 
-import { troopIncreaseRate } from '../core/config'
+import { growthZones, troopIncreaseRate } from '../core/config'
 import { effectiveMaxTroops, totalTroops, type GameState, type Player } from '../core/game'
 import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
-
-// Wachstums-Zustands-Zonen (Anteil des Caps): bis STAGNATE_FRAC grün (wachsend),
-// danach gelb (stagnierend), ab STRONG_STAGNATE_FRAC rot (stark stagnierend).
-const STAGNATE_FRAC = 0.75
-const STRONG_STAGNATE_FRAC = 0.92
 
 /** Kompaktes Zahlenformat: 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
 function fmtCompact(value: number): string {
@@ -121,17 +116,18 @@ export function createHUD(
     seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
     barWrap.appendChild(seg)
   }
-  // Effizienz-Striche an den Zustands-Grenzen: ab STAGNATE_FRAC stagniert das
-  // Wachstum (gelb), ab STRONG_STAGNATE_FRAC stark (rot). Decken sich mit der
-  // Färbung der Truppenzahl — links der gelben Marke = grün/wachsend.
-  for (const [frac, col] of [
-    [STAGNATE_FRAC, '#e8d24a'],
-    [STRONG_STAGNATE_FRAC, '#e05a5a'],
-  ] as const) {
-    const tick = document.createElement('div')
-    tick.style.cssText = `position:absolute;top:0;bottom:0;width:2px;left:${(frac * 100).toString()}%;background:${col};opacity:0.7`
-    barWrap.appendChild(tick)
-  }
+  // Effizienz-Striche: der Optimum-Strich (cyan) sitzt am Peak der Wachstumskurve
+  // — links davon wächst man am besten (grün), rechts wird es zunehmend weniger
+  // (gelb), ab dem Stagnations-Strich (rot) ist das Wachstum stark gebremst. Beide
+  // werden pro Frame aus dem aktuellen Cap neu positioniert (Cap ist dynamisch).
+  const optimumTick = document.createElement('div')
+  optimumTick.style.cssText =
+    'position:absolute;top:-2px;bottom:-2px;width:3px;background:#46d9e6;box-shadow:0 0 4px #46d9e6;border-radius:1px'
+  const stallTick = document.createElement('div')
+  stallTick.style.cssText =
+    'position:absolute;top:0;bottom:0;width:2px;background:#e05a5a;opacity:0.8'
+  barWrap.appendChild(optimumTick)
+  barWrap.appendChild(stallTick)
   hud.appendChild(barWrap)
 
   const barLegend = document.createElement('div')
@@ -292,12 +288,16 @@ export function createHUD(
     segCombat.style.width = pctW(combat)
     segCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
 
-    // Truppenzahl nach Wachstums-Zustand färben: grün wachsend, gelb stagnierend,
-    // rot stark stagnierend (je näher am Cap, desto langsamer das Wachstum).
+    // Effizienz-Striche aus der aktuellen Wachstumskurve positionieren.
+    const zones = growthZones(cap)
+    optimumTick.style.left = `${(zones.optimum * 100).toString()}%`
+    stallTick.style.left = `${(zones.stall * 100).toString()}%`
+    // Truppenzahl nach Wachstums-Zustand färben: bis zum Optimum grün (wachsend),
+    // danach gelb (stagnierend), ab dem Stagnations-Strich rot (stark stagnierend).
     const frac = total / cap
-    const stateColor =
-      frac < STAGNATE_FRAC ? '#5dd75d' : frac < STRONG_STAGNATE_FRAC ? '#e8d24a' : '#e05a5a'
-    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> / ${fmtCompact(cap)}`
+    const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
+    const pct = Math.round(frac * 100)
+    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
     const combatLegend =
       combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
     barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`

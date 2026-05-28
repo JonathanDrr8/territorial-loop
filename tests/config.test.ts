@@ -5,6 +5,7 @@ import {
   tilesPerTick,
   attackerLossPerTile,
   defenderLossPerTile,
+  growthZones,
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
   PLAINS_MAG,
@@ -113,6 +114,32 @@ describe('constants', () => {
     expect(Number.isInteger(HUMAN_START_TROOPS)).toBe(true)
     expect(Number.isInteger(BOT_START_TROOPS)).toBe(true)
     expect(HUMAN_START_TROOPS).toBeGreaterThan(BOT_START_TROOPS)
+  })
+})
+
+describe('growthZones', () => {
+  it('optimum liegt nahe dem Peak der Wachstumskurve (~35-50%)', () => {
+    const { optimum } = growthZones(85_500)
+    expect(optimum).toBeGreaterThanOrEqual(0.3)
+    expect(optimum).toBeLessThanOrEqual(0.55)
+  })
+
+  it('stall liegt rechts vom Optimum und vor dem Cap', () => {
+    const { optimum, stall } = growthZones(85_500)
+    expect(stall).toBeGreaterThan(optimum)
+    expect(stall).toBeLessThanOrEqual(1)
+  })
+
+  it('die Rate am Stagnations-Strich ist höchstens ein Drittel der Peak-Rate', () => {
+    const cap = 85_500
+    const { optimum, stall } = growthZones(cap)
+    const peakRate = troopIncreaseRate(Math.floor(optimum * cap), cap)
+    const stallRate = troopIncreaseRate(Math.floor(stall * cap), cap)
+    expect(stallRate).toBeLessThanOrEqual(peakRate / 3 + 1)
+  })
+
+  it('degeneriert sauber bei cap 0', () => {
+    expect(growthZones(0)).toEqual({ optimum: 0, stall: 1 })
   })
 })
 
