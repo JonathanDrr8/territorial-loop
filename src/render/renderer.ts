@@ -18,7 +18,7 @@ import { defenseRange } from '../core/buildings'
 import { canBuildAt, type GameState } from '../core/game'
 import type { Boat, TradeShip } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
-import { tileRef } from '../world/torus'
+import { neighbors4, tileRef } from '../world/torus'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -157,31 +157,27 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     zoom: 2,
   }
 
-  function paintBitmap(): void {
-    const data = imageData.data
-    const mapState = state.map.state
-    const players = state.players
-    const len = mapState.length
-    const w = state.map.width
-    const h = state.map.height
+  // Mini-LUT: ownerId → { inner [r,g,b], border [r,g,b] }. Spielerfarben sind für
+  // das Match statisch → einmal bauen (nicht pro Frame).
+  interface ColorEntry {
+    readonly ir: number
+    readonly ig: number
+    readonly ib: number
+    readonly br: number
+    readonly bg: number
+    readonly bb: number
+  }
+  let lut: Map<number, ColorEntry> | null = null
+  let lutHumanId = -1
+  let bitmapBaked = false
 
-    // Mini-LUT pro Frame: ownerId → { inner [r,g,b], border [r,g,b] }
-    // border = aufgehellte Variante (OpenFront-Stil: Grenztiles heller als Inneres).
-    interface ColorEntry {
-      readonly ir: number
-      readonly ig: number
-      readonly ib: number
-      readonly br: number
-      readonly bg: number
-      readonly bb: number
-    }
-    const lut = new Map<number, ColorEntry>()
-    let humanId = -1
-    for (const p of players.values()) {
+  function buildLut(): void {
+    const m = new Map<number, ColorEntry>()
+    for (const p of state.players.values()) {
       const r = (p.color >>> 24) & 0xff
       const g = (p.color >>> 16) & 0xff
       const b = (p.color >>> 8) & 0xff
-      lut.set(p.id, {
+      m.set(p.id, {
         ir: r,
         ig: g,
         ib: b,
@@ -189,133 +185,151 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         bg: Math.min(255, Math.round(g * 1.35 + 50)),
         bb: Math.min(255, Math.round(b * 1.35 + 50)),
       })
-      if (p.isHuman) humanId = p.id
+      if (p.isHuman) lutHumanId = p.id
     }
+    lut = m
+  }
 
+  /** Berechnet die Farbe eines einzelnen Tiles und schreibt sie in die ImageData. */
+  function colorTile(i: number): void {
+    const data = imageData.data
+    const mapState = state.map.state
     const terrain = state.map.terrain
-    for (let i = 0; i < len; i++) {
-      const v = mapState[i]
-      if (v === undefined) continue
-      const t = terrain[i] ?? 0
-      const o = i * 4
-      data[o + 3] = 255
-      // Wasser: terrain-bit 7 = 0 → unpassierbar, owner ignoriert
-      if ((t & IS_LAND_BIT) === 0) {
-        data[o] = WATER_R
-        data[o + 1] = WATER_G
-        data[o + 2] = WATER_B
-        continue
-      }
-      const height = t & HEIGHT_MASK
-      // Extrem-Berg: unpassierbar, Fels-Ton (owner irrelevant — wird nie erobert)
-      if (height === IMPASSABLE_HEIGHT) {
-        data[o] = ROCK_R
-        data[o + 1] = ROCK_G
-        data[o + 2] = ROCK_B
-        continue
-      }
-      // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30).
-      const tier = height >= 20 ? 2 : height >= 10 ? 1 : 0
-      const owner = v & OWNER_MASK
-      let r: number
-      let g: number
-      let b: number
-      if (owner === 0) {
-        // Neutrales Land: deutlich gestufte Terrain-Palette (auch ohne Besitzerfarbe lesbar)
-        if (tier === 0) {
-          r = 26
-          g = 32
-          b = 28
-        } else if (tier === 1) {
-          r = 58
-          g = 52
-          b = 36
-        } else {
-          r = 92
-          g = 82
-          b = 66
-        }
+    const w = state.map.width
+    const h = state.map.height
+    const v = mapState[i]
+    if (v === undefined) return
+    const t = terrain[i] ?? 0
+    const o = i * 4
+    data[o + 3] = 255
+    // Wasser: terrain-bit 7 = 0
+    if ((t & IS_LAND_BIT) === 0) {
+      data[o] = WATER_R
+      data[o + 1] = WATER_G
+      data[o + 2] = WATER_B
+      return
+    }
+    const height = t & HEIGHT_MASK
+    // Extrem-Berg: unpassierbar, Fels-Ton (wird nie erobert)
+    if (height === IMPASSABLE_HEIGHT) {
+      data[o] = ROCK_R
+      data[o + 1] = ROCK_G
+      data[o + 2] = ROCK_B
+      return
+    }
+    // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30).
+    const tier = height >= 20 ? 2 : height >= 10 ? 1 : 0
+    const owner = v & OWNER_MASK
+    let r: number
+    let g: number
+    let b: number
+    if (owner === 0) {
+      // Neutrales Land: gestufte Terrain-Palette
+      if (tier === 0) {
+        r = 26
+        g = 32
+        b = 28
+      } else if (tier === 1) {
+        r = 58
+        g = 52
+        b = 36
       } else {
-        const c = lut.get(owner)
-        if (c === undefined) {
-          r = 255
-          g = 0
-          b = 255
-        } else {
-          // Border-Check: grenzt das Tile an einen anderen Owner (oder Wasser/neutral)?
-          const x = i % w
-          const y = (i - x) / w
-          const ol = (mapState[y * w + (x === 0 ? w - 1 : x - 1)] ?? 0) & OWNER_MASK
-          const or = (mapState[y * w + (x === w - 1 ? 0 : x + 1)] ?? 0) & OWNER_MASK
-          const ou = (mapState[(y === 0 ? h - 1 : y - 1) * w + x] ?? 0) & OWNER_MASK
-          const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
-          const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
-          if (isBorder) {
-            if (owner === humanId) {
-              r = 240
-              g = 240
-              b = 255
-            } else {
-              r = c.br
-              g = c.bg
-              b = c.bb
-            }
+        r = 92
+        g = 82
+        b = 66
+      }
+    } else {
+      const c = lut?.get(owner)
+      if (c === undefined) {
+        r = 255
+        g = 0
+        b = 255
+      } else {
+        // Border-Check: grenzt das Tile an einen anderen Owner?
+        const x = i % w
+        const y = (i - x) / w
+        const ol = (mapState[y * w + (x === 0 ? w - 1 : x - 1)] ?? 0) & OWNER_MASK
+        const or = (mapState[y * w + (x === w - 1 ? 0 : x + 1)] ?? 0) & OWNER_MASK
+        const ou = (mapState[(y === 0 ? h - 1 : y - 1) * w + x] ?? 0) & OWNER_MASK
+        const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
+        const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
+        if (isBorder) {
+          if (owner === lutHumanId) {
+            r = 240
+            g = 240
+            b = 255
           } else {
-            r = c.ir
-            g = c.ig
-            b = c.ib
+            r = c.br
+            g = c.bg
+            b = c.bb
           }
+        } else {
+          r = c.ir
+          g = c.ig
+          b = c.ib
         }
       }
-      // Höhen-Relief auf Spieler-Tiles: Ebene leicht abgedunkelt (Tiefland), Hügel
-      // neutral, Berge deutlich heller + Richtung Fels-Grau getönt — so ist die Höhe
-      // auch innerhalb des eigenen Reichs klar erkennbar.
-      if (owner !== 0) {
-        const rf = tier === 0 ? 0.82 : tier === 1 ? 1.06 : 1.32
-        r = Math.min(255, r * rf)
-        g = Math.min(255, g * rf)
-        b = Math.min(255, b * rf)
-        if (tier === 2) {
-          // 30% Richtung Fels-Ton mischen → Berge wirken steinig
-          r = Math.min(255, r * 0.7 + 150 * 0.3)
-          g = Math.min(255, g * 0.7 + 142 * 0.3)
-          b = Math.min(255, b * 0.7 + 132 * 0.3)
-        }
+    }
+    // Höhen-Relief auf Spieler-Tiles: Ebene abgedunkelt, Berge heller + Richtung Fels
+    if (owner !== 0) {
+      const rf = tier === 0 ? 0.82 : tier === 1 ? 1.06 : 1.32
+      r = Math.min(255, r * rf)
+      g = Math.min(255, g * rf)
+      b = Math.min(255, b * rf)
+      if (tier === 2) {
+        r = Math.min(255, r * 0.7 + 150 * 0.3)
+        g = Math.min(255, g * 0.7 + 142 * 0.3)
+        b = Math.min(255, b * 0.7 + 132 * 0.3)
       }
-      data[o] = r
-      data[o + 1] = g
-      data[o + 2] = b
+    }
+    data[o] = r
+    data[o + 1] = g
+    data[o + 2] = b
+  }
+
+  /**
+   * Aktualisiert das Offscreen-Bitmap. Erster Aufruf: komplette Karte backen.
+   * Danach inkrementell — nur die in `state.dirtyTiles` gemeldeten Tiles (+ ihre
+   * 4 Nachbarn, deren Border-Status kippen kann) werden neu gefärbt. So ist der
+   * Aufwand O(geänderte Tiles) statt O(Kartengröße) — Voraussetzung für große Karten.
+   */
+  function paintBitmap(): void {
+    if (lut === null) buildLut()
+    const w = state.map.width
+    const h = state.map.height
+
+    if (!bitmapBaked) {
+      const len = state.map.state.length
+      for (let i = 0; i < len; i++) colorTile(i)
+      offscreenCtx.putImageData(imageData, 0, 0)
+      bitmapBaked = true
+      return
     }
 
+    const dirty = state.dirtyTiles
+    if (dirty.length === 0) return // keine Owner-Änderung → Bitmap unverändert
+
+    const mapState = state.map.state
+    const now = performance.now()
+    let flashesAdded = 0
+    const recolored = new Set<number>()
+    for (const ref of dirty) {
+      if (flashesAdded < MAX_FLASHES_PER_TICK && ((mapState[ref] ?? 0) & OWNER_MASK) !== 0) {
+        flashes.push({ tileX: ref % w, tileY: Math.floor(ref / w), startTime: now })
+        flashesAdded++
+      }
+      if (!recolored.has(ref)) {
+        recolored.add(ref)
+        colorTile(ref)
+      }
+      for (const n of neighbors4(ref, w, h)) {
+        if (!recolored.has(n)) {
+          recolored.add(n)
+          colorTile(n)
+        }
+      }
+    }
     offscreenCtx.putImageData(imageData, 0, 0)
-
-    // Diff gegen vorigen Snapshot: Owner-Wechsel sammeln, in flashes pushen.
-    // Beim ersten Paint gibt's keinen Snapshot — dann nur kopieren ohne Flashes.
-    if (lastOwnerSnapshot !== null && lastOwnerSnapshot.length === mapState.length) {
-      const now = performance.now()
-      let added = 0
-      for (let i = 0; i < mapState.length; i++) {
-        const prev = lastOwnerSnapshot[i]
-        const curr = mapState[i]
-        if (prev === undefined || curr === undefined) continue
-        const prevOwner = prev & OWNER_MASK
-        const currOwner = curr & OWNER_MASK
-        if (prevOwner === currOwner) continue
-        // Skip wenn jetzt neutral (z.B. wenn jemand alle Tiles verlor — Anti-Spam)
-        if (currOwner === 0) continue
-        flashes.push({
-          tileX: i % state.map.width,
-          tileY: Math.floor(i / state.map.width),
-          startTime: now,
-        })
-        added++
-        if (added >= MAX_FLASHES_PER_TICK) break
-      }
-    }
-    if (lastOwnerSnapshot === null || lastOwnerSnapshot.length !== mapState.length) {
-      lastOwnerSnapshot = new Uint16Array(mapState.length)
-    }
-    lastOwnerSnapshot.set(mapState)
   }
 
   function drawFlashes(): void {
@@ -398,9 +412,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
-  // Capture-Flash: kurzer Highlight wenn Tile-Owner gewechselt hat. Wir vergleichen
-  // gegen einen Snapshot vom letzten Paint und sammeln pro Tick die Änderungen.
-  let lastOwnerSnapshot: Uint16Array | null = null
+  // Capture-Flash: kurzer Highlight wenn Tile-Owner gewechselt hat — gespeist aus
+  // `state.dirtyTiles` (vom Core pro Tick gemeldet), kein O(N)-Diff mehr.
   const flashes: CaptureFlash[] = []
   // Schwerpunkt pro Spieler (für Namens-Label + Angriffspfeile). Gedrosselt
   // alle CENTROID_INTERVAL Ticks neu berechnet — Torus-sicher via Sinus/Cosinus.
@@ -891,6 +904,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   function render(): void {
     if (state.tick !== lastBitmapTick) {
+      // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
+      // das inkrementelle Update des letzten Ticks nicht — einmal voll neu backen.
+      if (state.tick - lastBitmapTick !== 1) bitmapBaked = false
       paintBitmap()
       lastBitmapTick = state.tick
     }

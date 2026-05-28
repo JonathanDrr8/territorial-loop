@@ -175,6 +175,12 @@ export interface GameState {
   events: GameEvent[]
   /** Gebäude pro Tile. */
   buildings: Map<TileRef, Building>
+  /**
+   * Tiles deren Owner sich in diesem Tick geändert hat (für inkrementelles
+   * Rendering). Wird zu Tick-Beginn geleert und von `captureTile` befüllt; der
+   * Renderer liest sie read-only und malt nur diese (+ Nachbarn) neu.
+   */
+  dirtyTiles: TileRef[]
   /** Wasser-Zusammenhangskomponenten (Index pro Tile, -1 = Land). Statisch. */
   readonly waterComponents: Int32Array
   /** Begehbare-Land-Komponenten (Index pro Tile, -1 = Wasser/unpassierbar). Statisch. */
@@ -261,6 +267,7 @@ export function createGame(config: GameConfig): GameState {
     winner: null,
     events: [],
     buildings: new Map<TileRef, Building>(),
+    dirtyTiles: [],
     waterComponents: labelWaterComponents(map),
     landComponents: labelLandComponents(map),
     passableLandCount: countPassableLand(map),
@@ -408,6 +415,7 @@ function initializeAllFrontiers(state: GameState): void {
  *   6. tick++
  */
 export function tick(state: GameState, intents: readonly Intent[]): GameState {
+  state.dirtyTiles.length = 0 // pro Tick frisch sammeln (für inkrementelles Rendering)
   applyIntents(state, intents)
   growPopulations(state)
   generateGold(state)
@@ -1131,6 +1139,7 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   if (oldOwner === attackerId) return
 
   setOwner(map, ref, attackerId)
+  state.dirtyTiles.push(ref) // Owner-Wechsel → Renderer malt dieses Tile (+ Nachbarn) neu
 
   // Gebäude auf dem eroberten Tile wird zerstört (Investition geht verloren).
   state.buildings.delete(ref)
