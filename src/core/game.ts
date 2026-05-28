@@ -42,8 +42,27 @@ import {
   defenseRange,
   upgradeCost,
 } from './buildings'
-import type { AttackIntent, BuildIntent, CancelAttackIntent, Intent, UpgradeIntent } from './intent'
+import type {
+  AcceptAllianceIntent,
+  AttackIntent,
+  BreakAllianceIntent,
+  BuildIntent,
+  CancelAttackIntent,
+  Intent,
+  RequestAllianceIntent,
+  SetEmbargoIntent,
+  UpgradeIntent,
+} from './intent'
 import { createPRNG, type PRNG } from './random'
+import {
+  AECHTUNG_DURATION_TICKS,
+  TRAITOR_DEFENSE_PENALTY,
+  areAllied,
+  directedKey,
+  hasAllianceRequest,
+  isTradeBlocked,
+  pairKey,
+} from './diplomacy'
 import {
   type Boat,
   BOAT_SPEED,
@@ -117,6 +136,11 @@ export interface Player {
   peakTilesOwned: number
   /** Höchster jemals erreichter `troops`-Stand. */
   peakTroops: number
+  /**
+   * Tick bis zu dem der Spieler als Verräter geächtet ist (0 = nicht geächtet).
+   * Solange aktiv: −50% Verteidigung gegen Nationen die er nicht selbst angreift.
+   */
+  traitorUntil: number
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -151,6 +175,12 @@ export interface GameState {
   boats: Boat[]
   /** Aktive Handelsschiffe. */
   tradeShips: TradeShip[]
+  /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
+  readonly alliances: Set<number>
+  /** Offene Bündnis-Angebote als gerichtete Schlüssel from→to ([[directedKey]]). */
+  readonly allianceRequests: Set<number>
+  /** Verhängte Embargos als gerichtete Schlüssel from→to. */
+  readonly embargoes: Set<number>
 }
 
 /* ============================================================================
@@ -194,6 +224,7 @@ export function createGame(config: GameConfig): GameState {
       gold: 0,
       peakTilesOwned: 0,
       peakTroops: startTroops,
+      traitorUntil: 0,
     })
   }
 
@@ -212,6 +243,9 @@ export function createGame(config: GameConfig): GameState {
     landComponents: labelLandComponents(map),
     boats: [],
     tradeShips: [],
+    alliances: new Set<number>(),
+    allianceRequests: new Set<number>(),
+    embargoes: new Set<number>(),
   }
 
   placeSpawns(state)
@@ -407,6 +441,23 @@ function defenseMagMultiplier(state: GameState, tile: TileRef, defenderId: numbe
   return 1
 }
 
+/**
+ * Verteidigungs-Multiplikator für die Angreifer-Verluste, wenn der Verteidiger
+ * ein geächteter Verräter ist: gegen Nationen, die er NICHT selbst gerade
+ * angreift, verteidigt er um TRAITOR_DEFENSE_PENALTY geschwächt (Angreifer
+ * verlieren entsprechend weniger). Greift er den Angreifer selbst an, kein Malus.
+ */
+function traitorDefenseMul(state: GameState, defenderId: number, attackerId: number): number {
+  if (defenderId <= 0) return 1
+  const defender = state.players.get(defenderId)
+  if (defender === undefined || defender.traitorUntil <= state.tick) return 1
+  // Greift der Verräter den aktuellen Angreifer selbst an? Dann kein Malus.
+  for (const atk of defender.attacks) {
+    if (atk.targetPlayerId === attackerId) return 1
+  }
+  return TRAITOR_DEFENSE_PENALTY
+}
+
 function updatePeakStats(state: GameState): void {
   for (const p of state.players.values()) {
     if (p.troops > p.peakTroops) p.peakTroops = p.troops
@@ -429,6 +480,18 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
         break
       case 'upgrade':
         applyUpgradeIntent(state, intent)
+        break
+      case 'request-alliance':
+        applyRequestAllianceIntent(state, intent)
+        break
+      case 'accept-alliance':
+        applyAcceptAllianceIntent(state, intent)
+        break
+      case 'break-alliance':
+        applyBreakAllianceIntent(state, intent)
+        break
+      case 'set-embargo':
+        applySetEmbargoIntent(state, intent)
         break
     }
   }
@@ -502,6 +565,73 @@ function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
   b.level++
 }
 
+/* ============================================================================
+ * Diplomatie-Intents
+ * ========================================================================== */
+
+/** Beide Spieler existieren und leben? Liefert die beiden Player oder null. */
+function livingPair(state: GameState, a: number, b: number): [Player, Player] | null {
+  if (a === b) return null
+  const pa = state.players.get(a)
+  const pb = state.players.get(b)
+  if (pa === undefined || pb === undefined || !pa.isAlive || !pb.isAlive) return null
+  return [pa, pb]
+}
+
+function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [from, to] = pair
+  if (areAllied(state.alliances, from.id, to.id)) return
+  // Hatte die Gegenseite bereits angefragt → Bündnis kommt sofort zustande.
+  if (hasAllianceRequest(state.allianceRequests, to.id, from.id)) {
+    state.allianceRequests.delete(directedKey(to.id, from.id))
+    state.alliances.add(pairKey(from.id, to.id))
+    emitEvent(state, `${from.name} und ${to.name} sind verbündet`, from.color)
+    return
+  }
+  if (hasAllianceRequest(state.allianceRequests, from.id, to.id)) return
+  state.allianceRequests.add(directedKey(from.id, to.id))
+  emitEvent(state, `${from.name} bietet ${to.name} ein Bündnis an`, from.color)
+}
+
+function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [accepter, requester] = pair
+  // Es muss ein Angebot requester→accepter geben.
+  if (!hasAllianceRequest(state.allianceRequests, requester.id, accepter.id)) return
+  state.allianceRequests.delete(directedKey(requester.id, accepter.id))
+  state.alliances.add(pairKey(accepter.id, requester.id))
+  emitEvent(state, `${accepter.name} und ${requester.name} sind verbündet`, accepter.color)
+}
+
+function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [traitor, betrayed] = pair
+  if (!areAllied(state.alliances, traitor.id, betrayed.id)) return
+  state.alliances.delete(pairKey(traitor.id, betrayed.id))
+  traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
+  emitEvent(state, `${traitor.name} verrät ${betrayed.name}!`, traitor.color)
+}
+
+function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [from, to] = pair
+  const key = directedKey(from.id, to.id)
+  if (intent.enabled) {
+    if (state.embargoes.has(key)) return
+    state.embargoes.add(key)
+    emitEvent(state, `${from.name} verhängt ein Embargo gegen ${to.name}`, from.color)
+  } else {
+    if (!state.embargoes.has(key)) return
+    state.embargoes.delete(key)
+    emitEvent(state, `${from.name} hebt das Embargo gegen ${to.name} auf`, from.color)
+  }
+}
+
 function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
@@ -511,6 +641,8 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
 
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Selbst-Angriff
+  // Verbündete kann man nicht angreifen — erst das Bündnis brechen.
+  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) return
 
   const troops = Math.min(intent.troops, player.troops)
   if (troops <= 0) return
@@ -643,7 +775,9 @@ function landBoat(state: GameState, boat: Boat): void {
   const defTiles = vsNull ? 1 : (defender?.tilesOwned ?? 1)
   const mag =
     terrainMagnitude(state.map.terrain, target) * defenseMagMultiplier(state, target, owner)
-  const aLoss = attackerLossPerTile(boat.troops, defTroops, defTiles, vsNull, mag)
+  const aLoss =
+    attackerLossPerTile(boat.troops, defTroops, defTiles, vsNull, mag) *
+    traitorDefenseMul(state, owner, boat.ownerId)
 
   if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
 
@@ -708,11 +842,9 @@ function spawnTradeShips(state: GameState): void {
   }
 }
 
-/**
- * Hook für Phase 6 (Diplomatie): einseitige Handelsembargos. Vorerst nie aktiv.
- */
-function isTradeEmbargoed(_state: GameState, _from: number, _to: number): boolean {
-  return false
+/** Ruht der Handel zwischen `from` und `to` wegen eines Embargos einer der Seiten? */
+function isTradeEmbargoed(state: GameState, from: number, to: number): boolean {
+  return isTradeBlocked(state.embargoes, from, to)
 }
 
 function advanceTradeShips(state: GameState): void {
@@ -851,13 +983,14 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     // Terrain-Magnitude, multipliziert mit Verteidigungsposten-Bonus des Verteidigers.
     const mag =
       terrainMagnitude(state.map.terrain, ref) * defenseMagMultiplier(state, ref, currentOwner)
-    const aLoss = attackerLossPerTile(
-      attack.reserveTroops,
-      isCurrentlyTerraNullius ? 0 : defenderTroops,
-      isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
-      isCurrentlyTerraNullius,
-      mag,
-    )
+    const aLoss =
+      attackerLossPerTile(
+        attack.reserveTroops,
+        isCurrentlyTerraNullius ? 0 : defenderTroops,
+        isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
+        isCurrentlyTerraNullius,
+        mag,
+      ) * traitorDefenseMul(state, currentOwner, attacker.id)
 
     if (attack.reserveTroops < aLoss) {
       attack.reserveTroops = 0

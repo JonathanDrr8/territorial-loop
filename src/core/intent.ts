@@ -12,7 +12,15 @@
 import type { TileRef } from '../world/torus'
 import type { BuildingType } from './buildings'
 
-export type Intent = AttackIntent | CancelAttackIntent | BuildIntent | UpgradeIntent
+export type Intent =
+  | AttackIntent
+  | CancelAttackIntent
+  | BuildIntent
+  | UpgradeIntent
+  | RequestAllianceIntent
+  | AcceptAllianceIntent
+  | BreakAllianceIntent
+  | SetEmbargoIntent
 
 /**
  * Spieler startet einen Angriff auf ein Ziel-Tile.
@@ -58,4 +66,37 @@ export interface UpgradeIntent {
   readonly type: 'upgrade'
   readonly playerId: number
   readonly tile: TileRef
+}
+
+/** Spieler bietet einem anderen ein Bündnis an. Doppel-Anfrage schließt es sofort. */
+export interface RequestAllianceIntent {
+  readonly type: 'request-alliance'
+  readonly playerId: number
+  readonly targetPlayerId: number
+}
+
+/** Spieler nimmt das Bündnis-Angebot von `targetPlayerId` an. */
+export interface AcceptAllianceIntent {
+  readonly type: 'accept-alliance'
+  readonly playerId: number
+  readonly targetPlayerId: number
+}
+
+/**
+ * Spieler bricht das Bündnis mit `targetPlayerId` — Verrat. Sofort wirksam,
+ * aber der Verräter wird zeitbegrenzt geächtet (Verteidigungs-Malus gegen alle
+ * Nationen die er nicht selbst angreift).
+ */
+export interface BreakAllianceIntent {
+  readonly type: 'break-alliance'
+  readonly playerId: number
+  readonly targetPlayerId: number
+}
+
+/** Spieler verhängt/hebt ein Handelsembargo gegen `targetPlayerId` auf (Toggle). */
+export interface SetEmbargoIntent {
+  readonly type: 'set-embargo'
+  readonly playerId: number
+  readonly targetPlayerId: number
+  readonly enabled: boolean
 }
