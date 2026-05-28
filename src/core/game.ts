@@ -768,6 +768,16 @@ export function nearWater(state: GameState, tile: TileRef): boolean {
 }
 
 /**
+ * Erreicht `playerId` das Ziel über Land (gleiche Landmasse an der Frontier)?
+ * Read-only-Helfer für die UI (Radialmenü: Angriff vs. Transportboot anbieten).
+ */
+export function canReachByLand(state: GameState, playerId: number, targetTile: TileRef): boolean {
+  const player = state.players.get(playerId)
+  if (player === undefined) return false
+  return reachableByLand(state, player, targetTile)
+}
+
+/**
  * Darf `playerId` auf `tile` ein Gebäude vom Typ `type` bauen? Single Source of
  * Truth für `applyBuildIntent` UND die UI-Platzierungsvorschau (Geist grün/rot).
  * Prüft Besitz, Begehbarkeit, freies Tile, Hafen-am-Wasser und Gold.

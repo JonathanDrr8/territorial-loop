@@ -162,8 +162,12 @@ function startMatch(
 
   const tooltip = createHoverTooltip(container, state, HUMAN_ID)
   const eventLog = createEventLog(container, state)
-  const buildMenu = createBuildMenu(container, state, HUMAN_ID, (intent) =>
-    pendingIntents.push(intent),
+  const buildMenu = createBuildMenu(
+    container,
+    state,
+    HUMAN_ID,
+    (intent) => pendingIntents.push(intent),
+    () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
   )
 
   const input = createInputHandler({
