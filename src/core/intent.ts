@@ -16,6 +16,8 @@ export type Intent =
   | AttackIntent
   | BoatIntent
   | BoatRecallIntent
+  | LaunchWarshipIntent
+  | RecallWarshipIntent
   | CancelAttackIntent
   | BuildIntent
   | UpgradeIntent
@@ -66,6 +68,24 @@ export interface BoatRecallIntent {
   readonly type: 'boat-recall'
   readonly playerId: number
   readonly boatIndex: number
+}
+
+/**
+ * Spieler entsendet ein Kriegsschiff zu einem Wasser-Ziel. Startet von einem
+ * fertigen eigenen Hafen mit Wasserweg zum Ziel; kostet `WARSHIP_COST` Gold und
+ * unterliegt dem Kriegsschiff-Limit. Das Schiff patrouilliert die Route (Ping-Pong).
+ */
+export interface LaunchWarshipIntent {
+  readonly type: 'launch-warship'
+  readonly playerId: number
+  readonly targetTile: TileRef
+}
+
+/** Spieler ruft sein `warshipIndex`-tes Kriegsschiff zurück (fährt zur Küste, löst sich auf). */
+export interface RecallWarshipIntent {
+  readonly type: 'recall-warship'
+  readonly playerId: number
+  readonly warshipIndex: number
 }
 
 /**

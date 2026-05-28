@@ -18,8 +18,9 @@
  */
 
 import { countBuildingsOfType, effectiveMaxTroops, type GameState, type Player } from '../core/game'
-import { buildCost, defenseRange, type BuildingType } from '../core/buildings'
+import { buildCost, defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, hasAllianceRequest } from '../core/diplomacy'
+import { MAX_WARSHIPS_PER_PLAYER, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -39,6 +40,8 @@ interface DifficultyProfile {
   readonly diploChance: number
   /** Wahrscheinlichkeit statt Land-Angriff einen amphibischen Angriff zu wagen. */
   readonly boatChance: number
+  /** Wahrscheinlichkeit pro Entscheidung ein Kriegsschiff zur Blockade zu entsenden. */
+  readonly warshipChance: number
   /** Führungs-Verhältnis (Tiles Leader / #2) ab dem die KI ein Bündnis verrät. */
   readonly betrayLeadRatio: number
 }
@@ -52,6 +55,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     buildChance: 0.15,
     diploChance: 0.1,
     boatChance: 0.05,
+    warshipChance: 0.03,
     betrayLeadRatio: 2.0,
   },
   normal: {
@@ -62,6 +66,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     buildChance: 0.3,
     diploChance: 0.2,
     boatChance: 0.12,
+    warshipChance: 0.06,
     betrayLeadRatio: 1.6,
   },
   hard: {
@@ -72,6 +77,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     buildChance: 0.5,
     diploChance: 0.3,
     boatChance: 0.2,
+    warshipChance: 0.12,
     betrayLeadRatio: 1.3,
   },
 }
@@ -371,6 +377,35 @@ export function createAI(
     return { type: 'attack', playerId: player.id, targetTile, troops }
   }
 
+  /** Entsendet (mit Hafen + Gold) ein Kriegsschiff zum Wasser neben einem Gegner-Hafen. */
+  function planWarship(state: GameState, player: Player): Intent | null {
+    if (player.gold < WARSHIP_COST) return null
+    const active = state.warships.reduce((n, w) => (w.ownerId === player.id ? n + 1 : n), 0)
+    if (active >= MAX_WARSHIPS_PER_PLAYER) return null
+    let hasPort = false
+    for (const b of state.buildings.values()) {
+      if (b.type === 'port' && b.ownerId === player.id && isBuildingComplete(b, state.tick)) {
+        hasPort = true
+        break
+      }
+    }
+    if (!hasPort) return null
+    const { width, height } = state.map
+    // Wasser-Tile neben einem Hafen eines lebenden, nicht-verbündeten Gegners (Blockade).
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'port' || b.ownerId === player.id) continue
+      const enemy = state.players.get(b.ownerId)
+      if (enemy === undefined || !enemy.isAlive) continue
+      if (areAllied(state.alliances, player.id, b.ownerId)) continue
+      for (const n of neighbors4(b.tile, width, height)) {
+        if (!isLand(state.map.terrain, n)) {
+          return { type: 'launch-warship', playerId: player.id, targetTile: n }
+        }
+      }
+    }
+    return null
+  }
+
   return {
     decide(state: GameState): readonly Intent[] {
       const player = state.players.get(playerId)
@@ -383,6 +418,12 @@ export function createAI(
       // Militär zuerst (bleibt das primäre Verhalten).
       const military = planMilitary(state, player)
       if (military !== null) intents.push(military)
+
+      // Gelegentlich ein Kriegsschiff zur Handelsblockade.
+      if (rng.next() < profile.warshipChance) {
+        const warship = planWarship(state, player)
+        if (warship !== null) intents.push(warship)
+      }
 
       // Wirtschaft/Bau.
       if (rng.next() < profile.buildChance) {

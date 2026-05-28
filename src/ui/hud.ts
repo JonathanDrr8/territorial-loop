@@ -118,6 +118,7 @@ export function createHUD(
   onBoatClick: () => void,
   onCancelAttack: (attackIndex: number) => void,
   onRecallBoat: (boatIndex: number) => void,
+  onRecallWarship: (warshipIndex: number) => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -201,14 +202,18 @@ export function createHUD(
     'display: none',
   ].join(';')
   container.appendChild(attackPanel)
-  // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote zurückrufen.
+  // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote & Kriegsschiffe zurückrufen.
   attackPanel.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement | null)?.closest('[data-cancel],[data-recall]')
+    const el = (e.target as HTMLElement | null)?.closest(
+      '[data-cancel],[data-recall],[data-recall-warship]',
+    )
     if (!(el instanceof HTMLElement)) return
     const cancel = el.dataset.cancel
     const recall = el.dataset.recall
+    const recallWar = el.dataset.recallWarship
     if (cancel !== undefined) onCancelAttack(Number(cancel))
     else if (recall !== undefined) onRecallBoat(Number(recall))
+    else if (recallWar !== undefined) onRecallWarship(Number(recallWar))
   })
 
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
@@ -705,6 +710,16 @@ export function createHUD(
         `<div data-recall="${String(boatIdx)}" title="Boot zurückrufen" style="${clickable}"><span style="color:#46d9e6">🚢</span> ${fmtCompact(boat.troops)} · ${label} <span style="opacity:0.55">↩</span></div>`,
       )
       boatIdx++
+    }
+    // Eigene Kriegsschiffe — klickbar zum Zurückrufen.
+    let warIdx = 0
+    for (const ws of state.warships) {
+      if (ws.ownerId !== human.id) continue
+      const label = ws.returning ? 'kehrt um' : `${String(Math.max(0, Math.round(ws.hp)))} HP`
+      rows.push(
+        `<div data-recall-warship="${String(warIdx)}" title="Kriegsschiff zurückrufen" style="${clickable}"><span style="color:#9fb2c4">⚓</span> ${label} <span style="opacity:0.55">↩</span></div>`,
+      )
+      warIdx++
     }
     // Eingehende Angriffe (nicht klickbar).
     let incoming = 0

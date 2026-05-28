@@ -53,6 +53,8 @@ import type {
   BoatIntent,
   BoatRecallIntent,
   BreakAllianceIntent,
+  LaunchWarshipIntent,
+  RecallWarshipIntent,
   BuildIntent,
   CancelAttackIntent,
   Intent,
@@ -75,15 +77,28 @@ import {
   type Boat,
   BOAT_SPEED,
   MAX_BOATS_PER_PLAYER,
+  MAX_WARSHIPS_PER_PLAYER,
+  NAVAL_RANGE,
   TRADE_INTERVAL_TICKS,
   TRADE_SHIP_SPEED,
   type TradeShip,
+  type Warship,
+  WARSHIP_COST,
+  WARSHIP_DAMAGE_PER_TICK,
+  WARSHIP_HP,
+  WARSHIP_SPEED,
   planBoatLaunch,
   planWaterRoute,
   shipArrived,
+  shipWorldPos,
   tradeGold,
 } from './ships'
-import { labelLandComponents, labelWaterComponents } from '../world/water-path'
+import {
+  adjacentWaterByComponent,
+  findWaterPath,
+  labelLandComponents,
+  labelWaterComponents,
+} from '../world/water-path'
 
 /* ============================================================================
  * Types
@@ -214,6 +229,8 @@ export interface GameState {
   boats: Boat[]
   /** Aktive Handelsschiffe. */
   tradeShips: TradeShip[]
+  /** Aktive Kriegsschiffe. */
+  warships: Warship[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
   readonly alliances: Set<number>
   /** Ablauf-Tick je Allianz ([[pairKey]] → Tick) — Allianzen laufen automatisch aus. */
@@ -329,6 +346,7 @@ export function createGame(config: GameConfig): GameState {
     passableLandCount: countPassableLand(map),
     boats: [],
     tradeShips: [],
+    warships: [],
     alliances: new Set<number>(),
     allianceExpiry: new Map<number, number>(),
     allianceRequests: new Set<number>(),
@@ -597,6 +615,8 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   resolveAttackCollisions(state)
   resolveAttacks(state)
   advanceBoats(state)
+  advanceWarships(state)
+  resolveNavalCombat(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
   decayGrudge(state)
@@ -795,6 +815,12 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
         break
       case 'boat-recall':
         applyBoatRecallIntent(state, intent)
+        break
+      case 'launch-warship':
+        applyLaunchWarshipIntent(state, intent)
+        break
+      case 'recall-warship':
+        applyRecallWarshipIntent(state, intent)
         break
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
@@ -1197,6 +1223,204 @@ function applyBoatRecallIntent(state: GameState, intent: BoatRecallIntent): void
     }
     seen++
   }
+}
+
+/**
+ * Plant die Wasserroute eines Kriegsschiffs: vom dem Ziel nächstgelegenen eigenen
+ * fertigen Hafen (mit Wasserweg zur Ziel-Wasserkomponente) zum Ziel-Wasser-Tile.
+ * `null` wenn das Ziel kein Wasser ist oder kein Hafen das Ziel-Meer erreicht.
+ */
+function planWarshipRoute(
+  state: GameState,
+  playerId: number,
+  targetTile: TileRef,
+): TileRef[] | null {
+  const comp = state.waterComponents
+  const targetComp = comp[targetTile]
+  if (targetComp === undefined || targetComp < 0) return null // Ziel ist kein Wasser
+  const { width, height } = state.map
+  const tx = targetTile % width
+  const ty = Math.floor(targetTile / width)
+  let bestStart = -1
+  let bestDist = Infinity
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'port' || b.ownerId !== playerId || !isBuildingComplete(b, state.tick)) continue
+    const startWater = adjacentWaterByComponent(state.map, comp, b.tile).get(targetComp)
+    if (startWater === undefined) continue
+    const d = torusDistance(b.tile % width, Math.floor(b.tile / width), tx, ty, width, height)
+    if (d < bestDist) {
+      bestDist = d
+      bestStart = startWater
+    }
+  }
+  if (bestStart < 0) return null
+  return findWaterPath(state.map, bestStart, targetTile, comp)
+}
+
+/** Entsendet ein Kriegsschiff zu einem Wasser-Ziel (von einem eigenen Hafen, gegen Gold). */
+function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  const t = intent.targetTile
+  if (t < 0 || t >= state.map.state.length) return
+  const note = (msg: string): void => {
+    if (player.isHuman) emitEvent(state, `${player.name}: ${msg}`, player.color)
+  }
+  const active = state.warships.reduce((n, w) => (w.ownerId === player.id ? n + 1 : n), 0)
+  if (active >= MAX_WARSHIPS_PER_PLAYER) {
+    note('Kriegsschiff-Limit erreicht')
+    return
+  }
+  if (player.gold < WARSHIP_COST) {
+    note('zu wenig Gold für ein Kriegsschiff')
+    return
+  }
+  const route = planWarshipRoute(state, player.id, t)
+  if (route === null) {
+    note('kein Hafen mit Wasserweg zum Ziel')
+    return
+  }
+  player.gold -= WARSHIP_COST
+  state.warships.push({
+    ownerId: player.id,
+    path: route,
+    progress: 0,
+    dir: 1,
+    hp: WARSHIP_HP,
+    returning: false,
+  })
+  emitEvent(state, `${player.name} entsendet ein Kriegsschiff`, player.color)
+}
+
+/** Ruft das `warshipIndex`-te eigene Kriegsschiff zurück (fährt zur Küste, löst sich auf). */
+function applyRecallWarshipIntent(state: GameState, intent: RecallWarshipIntent): void {
+  let seen = 0
+  for (const w of state.warships) {
+    if (w.ownerId !== intent.playerId) continue
+    if (seen === intent.warshipIndex) {
+      w.returning = true
+      return
+    }
+    seen++
+  }
+}
+
+/** Bewegt Kriegsschiffe: Ping-Pong-Patrouille entlang der Route; zurückgerufene fahren heim. */
+function advanceWarships(state: GameState): void {
+  if (state.warships.length === 0) return
+  const survivors: Warship[] = []
+  for (const w of state.warships) {
+    if (w.returning) {
+      w.progress -= WARSHIP_SPEED
+      if (w.progress > 0) survivors.push(w)
+      continue
+    }
+    const maxP = w.path.length - 1
+    w.progress += WARSHIP_SPEED * w.dir
+    if (w.progress >= maxP) {
+      w.progress = maxP
+      w.dir = -1
+    } else if (w.progress <= 0) {
+      w.progress = 0
+      w.dir = 1
+    }
+    survivors.push(w)
+  }
+  state.warships = survivors
+}
+
+/**
+ * Naval-Combat (feste Reihenfolge, deterministisch): feindliche Kriegsschiffe in
+ * Reichweite beschädigen sich gegenseitig (HP); feindliche Handelsschiffe (Blockade)
+ * und Transportboote in Reichweite eines Kriegsschiffs werden versenkt; Kriegsschiffe
+ * mit HP ≤ 0 sinken. „Feindlich" = anderer Besitzer und nicht verbündet.
+ */
+function resolveNavalCombat(state: GameState): void {
+  if (state.warships.length === 0) return
+  const { width: w, height: h } = state.map
+  const wpos = state.warships.map((ws) => shipWorldPos(ws, w, h))
+
+  // 1. Kriegsschiff gegen Kriegsschiff (symmetrischer HP-Schaden pro Tick).
+  for (let i = 0; i < state.warships.length; i++) {
+    const a = state.warships[i]
+    const pa = wpos[i]
+    if (a === undefined || pa === undefined) continue
+    for (let j = i + 1; j < state.warships.length; j++) {
+      const b = state.warships[j]
+      const pb = wpos[j]
+      if (b === undefined || pb === undefined) continue
+      if (a.ownerId === b.ownerId || areAllied(state.alliances, a.ownerId, b.ownerId)) continue
+      if (torusDistance(pa.wx, pa.wy, pb.wx, pb.wy, w, h) <= NAVAL_RANGE) {
+        a.hp -= WARSHIP_DAMAGE_PER_TICK
+        b.hp -= WARSHIP_DAMAGE_PER_TICK
+      }
+    }
+  }
+
+  // Ist ein zu allen `owners` feindliches Kriegsschiff in Reichweite von `pos`?
+  const hostileWarshipNear = (pos: { wx: number; wy: number }, owners: number[]): boolean => {
+    for (let i = 0; i < state.warships.length; i++) {
+      const ws = state.warships[i]
+      const p = wpos[i]
+      if (ws === undefined || p === undefined) continue
+      let hostile = true
+      for (const o of owners) {
+        if (ws.ownerId === o || areAllied(state.alliances, ws.ownerId, o)) {
+          hostile = false
+          break
+        }
+      }
+      if (!hostile) continue
+      if (torusDistance(pos.wx, pos.wy, p.wx, p.wy, w, h) <= NAVAL_RANGE) return true
+    }
+    return false
+  }
+
+  // 2. Handelsblockade: feindliche Handelsschiffe in Reichweite zerstören (kein Gold).
+  if (state.tradeShips.length > 0) {
+    const tsSurv: TradeShip[] = []
+    for (const ts of state.tradeShips) {
+      const pos = shipWorldPos(ts, w, h)
+      if (hostileWarshipNear(pos, [ts.fromOwnerId, ts.toOwnerId])) {
+        const owner = state.players.get(ts.fromOwnerId)
+        emitEvent(state, `Handelsschiff blockiert`, owner?.color ?? 0xffffffff)
+        continue
+      }
+      tsSurv.push(ts)
+    }
+    state.tradeShips = tsSurv
+  }
+
+  // 3. Feindliche Transportboote in Reichweite versenken (Truppen verloren).
+  if (state.boats.length > 0) {
+    const bSurv: Boat[] = []
+    for (const boat of state.boats) {
+      const pos = shipWorldPos(boat, w, h)
+      if (hostileWarshipNear(pos, [boat.ownerId])) {
+        const owner = state.players.get(boat.ownerId)
+        emitEvent(
+          state,
+          `${owner?.name ?? '?'}s Transportboot versenkt`,
+          owner?.color ?? 0xffffffff,
+        )
+        continue
+      }
+      bSurv.push(boat)
+    }
+    state.boats = bSurv
+  }
+
+  // 4. Versenkte Kriegsschiffe (HP ≤ 0) entfernen.
+  const wSurv: Warship[] = []
+  for (const ws of state.warships) {
+    if (ws.hp <= 0) {
+      const owner = state.players.get(ws.ownerId)
+      emitEvent(state, `${owner?.name ?? '?'}s Kriegsschiff versenkt`, owner?.color ?? 0xffffffff)
+      continue
+    }
+    wSurv.push(ws)
+  }
+  state.warships = wSurv
 }
 
 /** Truppen die der Spieler aktuell in laufenden Angriffen gebunden hat. */

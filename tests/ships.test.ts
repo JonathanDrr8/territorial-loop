@@ -7,6 +7,8 @@ import {
   shipTile,
   shipArrived,
   TRADE_INTERVAL_TICKS,
+  WARSHIP_COST,
+  WARSHIP_HP,
 } from '../src/core/ships'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
 import { getOwner, setOwner } from '../src/world/map'
@@ -273,5 +275,97 @@ describe('trade ships via tick', () => {
     // both owners gained at least the ship's gold (plus base income over ticks)
     expect(human.gold - goldBeforeHuman).toBeGreaterThanOrEqual(ship.gold)
     expect(enemy.gold - goldBeforeEnemy).toBeGreaterThanOrEqual(ship.gold)
+  })
+})
+
+describe('warships via tick', () => {
+  it('launches a warship from an own port to a water target (costs gold)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    const portTile = own(state, 3, 1, 1) // coastal land of player 1
+    state.buildings.set(portTile, {
+      type: 'port',
+      ownerId: 1,
+      tile: portTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('no player')
+    p1.gold = WARSHIP_COST + 5000
+    const target = tileRef(4, 1, W, H) // Wasser-Spalte
+    tick(state, [{ type: 'launch-warship', playerId: 1, targetTile: target }])
+    expect(state.warships.length).toBe(1)
+    expect(state.warships[0]?.ownerId).toBe(1)
+    expect(p1.gold).toBeLessThan(WARSHIP_COST + 5000)
+  })
+
+  it('does not launch a warship without a port', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 3, 1, 1)
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('no player')
+    p1.gold = WARSHIP_COST + 5000
+    tick(state, [{ type: 'launch-warship', playerId: 1, targetTile: tileRef(4, 1, W, H) }])
+    expect(state.warships.length).toBe(0)
+  })
+
+  it('blockades: an enemy warship destroys a trade ship in range', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    own(state, 5, 1, 2)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: WARSHIP_HP,
+      returning: false,
+    })
+    state.tradeShips.push({
+      fromOwnerId: 2,
+      toOwnerId: 2,
+      path: water,
+      progress: 0,
+      gold: 200,
+      originPort: water[0],
+      destPort: water[1],
+    })
+    tick(state, [])
+    expect(state.tradeShips.length).toBe(0) // blockiert/zerstört
+    expect(state.warships.length).toBe(1) // Kriegsschiff bleibt
+  })
+
+  it('warship vs warship: the one with more HP survives', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    own(state, 5, 1, 2)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
+    state.warships.push({ ownerId: 1, path: water, progress: 0, dir: 1, hp: 100, returning: false })
+    state.warships.push({ ownerId: 2, path: water, progress: 0, dir: 1, hp: 50, returning: false })
+    for (let i = 0; i < 12 && state.warships.length > 1; i++) tick(state, [])
+    expect(state.warships.length).toBe(1)
+    expect(state.warships[0]?.ownerId).toBe(1)
+  })
+
+  it('a recalled warship sails home and disbands', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 1,
+      dir: 1,
+      hp: WARSHIP_HP,
+      returning: false,
+    })
+    tick(state, [{ type: 'recall-warship', playerId: 1, warshipIndex: 0 }])
+    expect(state.warships.length).toBe(0)
   })
 })

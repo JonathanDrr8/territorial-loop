@@ -26,6 +26,17 @@ export const TRADE_GOLD_BASE = 200
 /** Zusätzliches Gold pro Tile Reisedistanz. */
 export const TRADE_GOLD_PER_TILE = 6
 
+/** Kriegsschiffe: patrouillieren Wasser, fangen feindliche Handelsschiffe ab
+ * (Blockade), versenken feindliche Boote und bekämpfen feindliche Kriegsschiffe. */
+export const MAX_WARSHIPS_PER_PLAYER = 3
+export const WARSHIP_SPEED = 1.5
+export const WARSHIP_COST = 30_000
+export const WARSHIP_HP = 100
+/** HP-Schaden pro Tick zwischen zwei feindlichen Kriegsschiffen in Reichweite. */
+export const WARSHIP_DAMAGE_PER_TICK = 12
+/** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift. */
+export const NAVAL_RANGE = 3
+
 /** Ein Transport-Boot unterwegs zu einem Lande-Ziel. */
 export interface Boat {
   readonly ownerId: number
@@ -52,13 +63,32 @@ export interface TradeShip {
   readonly destPort: TileRef
 }
 
+/** Ein Kriegsschiff, das seine Route ping-pong patrouilliert (dir kehrt am Ende um). */
+export interface Warship {
+  readonly ownerId: number
+  /** Wasser-Tiles der Patrouillen-Route. */
+  readonly path: readonly TileRef[]
+  progress: number
+  /** Fahrtrichtung entlang `path`: +1 vorwärts, -1 rückwärts (Ping-Pong-Patrouille). */
+  dir: 1 | -1
+  hp: number
+  /** Zurückgerufen → fährt zur Start-Küste und wird dort aufgelöst. */
+  returning: boolean
+}
+
+/** Struktureller Typ für die Bewegungs-/Positions-Helfer (Boot/Handel/Kriegsschiff). */
+interface MovingShip {
+  readonly path: readonly TileRef[]
+  progress: number
+}
+
 /** Gold-Ertrag einer Handelsfahrt der gegebenen Wasser-Distanz. */
 export function tradeGold(distanceTiles: number): number {
   return TRADE_GOLD_BASE + Math.round(distanceTiles * TRADE_GOLD_PER_TILE)
 }
 
 /** Aktuelle Tile-Position eines Schiffs (für Rendering). */
-export function shipTile(ship: Boat | TradeShip): TileRef {
+export function shipTile(ship: MovingShip): TileRef {
   const idx = Math.min(Math.floor(ship.progress), ship.path.length - 1)
   return ship.path[idx] ?? ship.path[0] ?? 0
 }
@@ -68,7 +98,7 @@ export function shipTile(ship: Boat | TradeShip): TileRef {
  * torus-sicher (interpoliert über die kürzere Wrap-Richtung). Für Rendering + Hover.
  */
 export function shipWorldPos(
-  ship: Boat | TradeShip,
+  ship: MovingShip,
   mapW: number,
   mapH: number,
 ): { wx: number; wy: number } {
@@ -91,7 +121,7 @@ export function shipWorldPos(
 }
 
 /** Ob ein Schiff seine Route abgeschlossen hat. */
-export function shipArrived(ship: Boat | TradeShip): boolean {
+export function shipArrived(ship: MovingShip): boolean {
   return ship.progress >= ship.path.length - 1
 }
 

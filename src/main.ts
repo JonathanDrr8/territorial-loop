@@ -168,6 +168,8 @@ function startMatch(
     (attackIndex) =>
       pendingIntents.push({ type: 'cancel-attack', playerId: HUMAN_ID, attackIndex }),
     (boatIndex) => pendingIntents.push({ type: 'boat-recall', playerId: HUMAN_ID, boatIndex }),
+    (warshipIndex) =>
+      pendingIntents.push({ type: 'recall-warship', playerId: HUMAN_ID, warshipIndex }),
   )
 
   const minimap = createMinimap({

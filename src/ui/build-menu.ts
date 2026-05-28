@@ -18,14 +18,16 @@ import {
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
   buildCost,
+  isBuildingComplete,
   upgradeCost,
   type BuildingType,
 } from '../core/buildings'
 import { canReachByLand, countBuildingsOfType, nearWater, type GameState } from '../core/game'
 import { areAllied, directedKey, hasAllianceRequest, pairKey } from '../core/diplomacy'
+import { WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { getOwner } from '../world/map'
-import { isPassable } from '../world/terrain'
+import { isLand, isPassable } from '../world/terrain'
 import { rgbaToCss } from './colors'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
@@ -379,6 +381,32 @@ export function createBuildMenu(
           })
         }
       }
+    } else if (!isLand(state.map.terrain, tile)) {
+      // Wasser-Tile → Kriegsschiff entsenden (braucht eigenen Hafen + Gold).
+      title = 'Wasser'
+      titleColor = 'rgba(120,200,235,0.95)'
+      let hasPort = false
+      for (const b of state.buildings.values()) {
+        if (b.type === 'port' && b.ownerId === humanPlayerId && isBuildingComplete(b, state.tick)) {
+          hasPort = true
+          break
+        }
+      }
+      actions.push({
+        glyph: '⚓',
+        label: 'Kriegsschiff',
+        detail: hasPort
+          ? 'patrouilliert & blockiert feindlichen Handel'
+          : 'Hafen nötig (vom Hafen entsandt)',
+        costText: fmtCompact(WARSHIP_COST),
+        affordable: player.gold >= WARSHIP_COST,
+        enabled: hasPort,
+        accent: '#9fb2c4',
+        run: () => {
+          emit({ type: 'launch-warship', playerId: humanPlayerId, targetTile: tile })
+          close()
+        },
+      })
     } else if (!isPassable(state.map.terrain, tile)) {
       close()
       return

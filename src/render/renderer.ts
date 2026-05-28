@@ -18,7 +18,13 @@ import { BUILD_TIME_TICKS, defenseRange } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
-import { type Boat, type TradeShip, shipWorldPos as shipWorldPosOf } from '../core/ships'
+import {
+  type Boat,
+  type TradeShip,
+  type Warship,
+  WARSHIP_HP,
+  shipWorldPos as shipWorldPosOf,
+} from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { neighbors4, tileRef, torusDistance } from '../world/torus'
 
@@ -95,6 +101,21 @@ const BUILDING_SPRITES: Record<BuildingType, SpriteDef> = {
     ],
     palette: { W: '#9098a0', D: '#34383f', C: '#6b5560', s: '#d2d7dd' },
   },
+}
+
+/** Pixel-Sprite für Kriegsschiffe (grauer Rumpf, Deck, Mast + rote Flagge). */
+const WARSHIP_SPRITE: SpriteDef = {
+  rows: [
+    '...f....',
+    '...m....',
+    '..DDDD..',
+    '.DDDDDD.',
+    'HHHHHHHH',
+    'HHHHHHHH',
+    '.HHHHHH.',
+    '..HHHH..',
+  ],
+  palette: { H: '#5c6670', D: '#8a929c', m: '#3a3f47', f: '#d24a4a' },
 }
 
 /** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
@@ -881,22 +902,15 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     ctx.closePath()
   }
 
-  // Vorgerenderte Pixel-Sprites pro Gebäudetyp (einmal erstellt, dann crisp skaliert).
-  const spriteCache = new Map<BuildingType, HTMLCanvasElement | null>()
-  function getBuildingSprite(type: BuildingType): HTMLCanvasElement | null {
-    const cached = spriteCache.get(type)
-    if (cached !== undefined) return cached
-    const def = BUILDING_SPRITES[type]
+  // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert).
+  function renderSpriteCanvas(def: SpriteDef): HTMLCanvasElement | null {
     const h = def.rows.length
     const w = def.rows[0]?.length ?? 0
     const c = document.createElement('canvas')
     c.width = w
     c.height = h
     const ctx = c.getContext('2d')
-    if (ctx === null) {
-      spriteCache.set(type, null)
-      return null
-    }
+    if (ctx === null) return null
     for (let y = 0; y < h; y++) {
       const row = def.rows[y] ?? ''
       for (let x = 0; x < w; x++) {
@@ -907,8 +921,20 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         }
       }
     }
+    return c
+  }
+  const spriteCache = new Map<BuildingType, HTMLCanvasElement | null>()
+  function getBuildingSprite(type: BuildingType): HTMLCanvasElement | null {
+    const cached = spriteCache.get(type)
+    if (cached !== undefined) return cached
+    const c = renderSpriteCanvas(BUILDING_SPRITES[type])
     spriteCache.set(type, c)
     return c
+  }
+  let warshipSpriteCache: HTMLCanvasElement | null | undefined
+  function getWarshipSprite(): HTMLCanvasElement | null {
+    if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
+    return warshipSpriteCache
   }
 
   /**
@@ -1042,12 +1068,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   }
 
   /** Interpolierte Welt-Position eines Schiffs entlang seiner Route (wrap-aware). */
-  function shipWorldPos(ship: Boat | TradeShip): { wx: number; wy: number } {
+  function shipWorldPos(ship: Boat | TradeShip | Warship): { wx: number; wy: number } {
     return shipWorldPosOf(ship, state.map.width, state.map.height)
   }
 
   function drawShips(): void {
-    if (state.boats.length === 0 && state.tradeShips.length === 0) return
+    if (state.boats.length === 0 && state.tradeShips.length === 0 && state.warships.length === 0)
+      return
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const mapW = state.map.width
@@ -1101,6 +1128,39 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         screenCtx.strokeText(label, sx, ty)
         screenCtx.fillStyle = '#ffffff'
         screenCtx.fillText(label, sx, ty)
+      }
+    }
+    // Kriegsschiffe: Pixel-Sprite (Rumpf + Flagge) im Beziehungs-Ring + HP-Leiste.
+    const warSprite = getWarshipSprite()
+    const warR = r * 1.6
+    for (const ws of state.warships) {
+      const { wx, wy } = shipWorldPos(ws)
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      if (sx < -warR || sx > cssW + warR || sy < -warR || sy > cssH + warR) continue
+      // Beziehungs-Ring als Hintergrund-Scheibe.
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, warR, 0, Math.PI * 2)
+      screenCtx.fillStyle = 'rgba(15,18,24,0.85)'
+      screenCtx.fill()
+      screenCtx.lineWidth = 2
+      screenCtx.strokeStyle = shipRelationRing(ws.ownerId)
+      screenCtx.stroke()
+      if (warSprite !== null) {
+        const ss = warR * 1.8
+        const prev = screenCtx.imageSmoothingEnabled
+        screenCtx.imageSmoothingEnabled = false
+        screenCtx.drawImage(warSprite, sx - ss / 2, sy - ss / 2, ss, ss)
+        screenCtx.imageSmoothingEnabled = prev
+      }
+      // HP-Leiste über dem Schiff.
+      const hpFrac = Math.max(0, Math.min(1, ws.hp / WARSHIP_HP))
+      if (hpFrac < 1) {
+        const bw = warR * 2
+        const byl = sy - warR - 5
+        screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
+        screenCtx.fillRect(sx - warR, byl, bw, 3)
+        screenCtx.fillStyle = hpFrac > 0.4 ? '#5dd75d' : '#e84545'
+        screenCtx.fillRect(sx - warR, byl, bw * hpFrac, 3)
       }
     }
     screenCtx.restore()
