@@ -927,19 +927,33 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       }
     }
 
-    // Handelsschiffe: goldene Punkte
+    // Handelsschiffe: in Fraktionsfarbe des Absenders, Rand nach Beziehung.
     for (const ship of state.tradeShips) {
       const { wx, wy } = shipWorldPos(ship)
-      drawDot(wx, wy, '#e8c14a', 'rgba(0,0,0,0.6)')
+      const owner = state.players.get(ship.fromOwnerId)
+      const fill = owner === undefined ? '#e8c14a' : rgbaToCssLocal(owner.color)
+      drawDot(wx, wy, fill, shipRelationRing(ship.fromOwnerId))
     }
-    // Transport-Boote: in Besitzerfarbe, kräftiger Rand
+    // Transport-Boote: in Besitzerfarbe, Rand nach Beziehung.
     for (const boat of state.boats) {
       const { wx, wy } = shipWorldPos(boat)
       const player = state.players.get(boat.ownerId)
       const fill = player === undefined ? '#fff' : rgbaToCssLocal(player.color)
-      drawDot(wx, wy, fill, '#fff')
+      drawDot(wx, wy, fill, shipRelationRing(boat.ownerId))
     }
     screenCtx.restore()
+  }
+
+  /** Rand-Farbe eines Schiffs nach Beziehung des Besitzers zum Menschen. */
+  function shipRelationRing(ownerId: number): string {
+    const humanId = lutHumanId
+    if (humanId < 0 || ownerId === humanId) return 'rgba(255,255,255,0.9)'
+    if (areAllied(state.alliances, humanId, ownerId)) return 'rgba(90,220,120,0.95)'
+    const human = state.players.get(humanId)
+    const humanTiles = human ? Math.max(1, human.tilesOwned) : 1
+    const grudge = state.grudge.get(directedKey(ownerId, humanId)) ?? 0
+    if (grudge / humanTiles >= 0.05) return 'rgba(232,60,60,0.95)'
+    return 'rgba(0,0,0,0.75)' // neutral: schwarzer Rand
   }
 
   function drawHoverOutline(): void {
