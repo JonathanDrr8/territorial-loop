@@ -196,6 +196,14 @@ export interface GameState {
 const SPAWN_HALF_SIZE = 2 // 5×5 = (2*2+1)^2
 
 /**
+ * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
+ * Eroberungs-Reihenfolge wie zusätzliche Distanz behandelt (mag-Differenz zur
+ * Ebene × Faktor). Hügel ≈ +1,2, Berg ≈ +2,4 Tiles „weiter weg" → die Welle
+ * umfließt Erhebungen, statt sie als sauberen Diamant zu schlucken.
+ */
+const TERRAIN_WAVE_PENALTY = 0.06
+
+/**
  * Erzeugt einen neuen Spielzustand und platziert alle Spieler-Spawns.
  *
  * Spawn-Platzierung: Rejection Sampling — pro Spieler bis zu 1000 Versuche,
@@ -1006,24 +1014,24 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
   if (wantCapture <= 0) return true
 
-  // Direktionale Wave: sortiere eroberbare Tiles nach Torus-Distanz zum focus.
-  // So fließt der Angriff zum Klick-Punkt hin statt diamantförmig in alle Richtungen.
-  // Vorher shufflen damit Tiles mit gleicher Distanz zufällig (aber deterministisch)
-  // sortiert sind — sonst hängt die Wahl an der Insertion-Order des Frontier-Sets.
+  // Direktionale Wave: sortiere eroberbare Tiles nach Torus-Distanz zum focus,
+  // plus einem Terrain-Aufschlag — höheres Terrain „fühlt sich weiter weg an" und
+  // wird später erobert. So fließt die Welle um Hügel/Berge herum statt als sauberer
+  // Diamant, und die Höhen zeichnen sich in der Gebietsform ab.
+  // Vorher shufflen damit Tiles mit gleichem Schlüssel deterministisch zufällig liegen.
   state.rng.shuffleArray(tiles)
   const { width: mapW, height: mapH } = state.map
   const focusX = attack.focusTile % mapW
   const focusY = Math.floor(attack.focusTile / mapW)
-  tiles.sort((a, b) => {
-    const ax = a % mapW
-    const ay = Math.floor(a / mapW)
-    const bx = b % mapW
-    const by = Math.floor(b / mapW)
-    return (
-      torusDistance(ax, ay, focusX, focusY, mapW, mapH) -
-      torusDistance(bx, by, focusX, focusY, mapW, mapH)
-    )
-  })
+  const sortKey = (t: TileRef): number => {
+    const tx = t % mapW
+    const ty = Math.floor(t / mapW)
+    const dist = torusDistance(tx, ty, focusX, focusY, mapW, mapH)
+    const terrainPenalty =
+      (terrainMagnitude(state.map.terrain, t) - PLAINS_MAG) * TERRAIN_WAVE_PENALTY
+    return dist + terrainPenalty
+  }
+  tiles.sort((a, b) => sortKey(a) - sortKey(b))
 
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break

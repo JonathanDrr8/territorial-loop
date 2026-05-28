@@ -70,9 +70,6 @@ export interface Renderer {
   destroy(): void
 }
 
-const NEUTRAL_R = 30
-const NEUTRAL_G = 30
-const NEUTRAL_B = 35
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
@@ -217,14 +214,27 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         data[o + 2] = ROCK_B
         continue
       }
+      // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30).
+      const tier = height >= 20 ? 2 : height >= 10 ? 1 : 0
       const owner = v & OWNER_MASK
       let r: number
       let g: number
       let b: number
       if (owner === 0) {
-        r = NEUTRAL_R
-        g = NEUTRAL_G
-        b = NEUTRAL_B
+        // Neutrales Land: deutlich gestufte Terrain-Palette (auch ohne Besitzerfarbe lesbar)
+        if (tier === 0) {
+          r = 26
+          g = 32
+          b = 28
+        } else if (tier === 1) {
+          r = 58
+          g = 52
+          b = 36
+        } else {
+          r = 92
+          g = 82
+          b = 66
+        }
       } else {
         const c = lut.get(owner)
         if (c === undefined) {
@@ -257,12 +267,20 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
           }
         }
       }
-      // Höhen-Helligkeit: Hügel/Berg leicht heller, wie beleuchtetes Relief
-      const hf = height >= 20 ? 1.18 : height >= 10 ? 1.09 : 1
-      if (hf !== 1) {
-        r = Math.min(255, r * hf)
-        g = Math.min(255, g * hf)
-        b = Math.min(255, b * hf)
+      // Höhen-Relief auf Spieler-Tiles: Ebene leicht abgedunkelt (Tiefland), Hügel
+      // neutral, Berge deutlich heller + Richtung Fels-Grau getönt — so ist die Höhe
+      // auch innerhalb des eigenen Reichs klar erkennbar.
+      if (owner !== 0) {
+        const rf = tier === 0 ? 0.82 : tier === 1 ? 1.06 : 1.32
+        r = Math.min(255, r * rf)
+        g = Math.min(255, g * rf)
+        b = Math.min(255, b * rf)
+        if (tier === 2) {
+          // 30% Richtung Fels-Ton mischen → Berge wirken steinig
+          r = Math.min(255, r * 0.7 + 150 * 0.3)
+          g = Math.min(255, g * 0.7 + 142 * 0.3)
+          b = Math.min(255, b * 0.7 + 132 * 0.3)
+        }
       }
       data[o] = r
       data[o + 1] = g
