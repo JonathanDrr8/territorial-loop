@@ -84,7 +84,9 @@ export interface InputHandler {
   destroy(): void
 }
 
-const ZOOM_MIN_ABS = 0.5
+// Absolute Untergrenze klein genug, dass auch sehr große Karten ganz rausgezoomt
+// werden können — das Kacheln verhindert ohnehin die fit-basierte Grenze in minZoom().
+const ZOOM_MIN_ABS = 0.08
 const ZOOM_MAX = 16
 const ZOOM_STEP = 1.15
 
@@ -92,13 +94,13 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
 
   /**
-   * Dynamisches Zoom-Minimum: nicht weiter raus als bis die Karte ~70% des
-   * Viewports füllt — sonst kachelt sich die Welt vielfach zur "Tapete".
-   * Niemals unter ZOOM_MIN_ABS.
+   * Dynamisches Zoom-Minimum: nicht weiter raus als bis die Karte ~87% des
+   * Viewports füllt — so sieht man (große) Karten praktisch komplett, ohne dass
+   * sich die Welt vielfach zur "Tapete" kachelt. Niemals unter ZOOM_MIN_ABS.
    */
   function minZoom(): number {
-    const fitW = canvas.clientWidth / (mapWidth * 1.4)
-    const fitH = canvas.clientHeight / (mapHeight * 1.4)
+    const fitW = canvas.clientWidth / (mapWidth * 1.15)
+    const fitH = canvas.clientHeight / (mapHeight * 1.15)
     return Math.max(ZOOM_MIN_ABS, Math.min(fitW, fitH))
   }
 
