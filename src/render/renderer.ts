@@ -556,57 +556,33 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
-  function drawAttackArrows(): void {
+  /**
+   * Zeichnet pro aktivem Angriff die Reserve-Truppenzahl direkt an der Front
+   * (Fokus-Tile, das die Welle ansteuert) — in Besitzerfarbe, ohne Pfeil. So sieht
+   * man die Truppen-Verteilung an den Fronten statt eines Pfeil-Wirrwarrs.
+   */
+  function drawAttackFronts(): void {
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     const mapW = state.map.width
-    const mapH = state.map.height
     screenCtx.save()
-    screenCtx.font = 'bold 11px ui-monospace, monospace'
+    screenCtx.font = 'bold 12px ui-monospace, monospace'
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
+    screenCtx.lineWidth = 3
     for (const p of state.players.values()) {
       if (p.attacks.length === 0) continue
-      const c = centroids.get(p.id)
-      if (c === undefined) continue
-      const r = (p.color >>> 24) & 0xff
-      const g = (p.color >>> 16) & 0xff
-      const b = (p.color >>> 8) & 0xff
-      const stroke = `rgba(${r},${g},${b},0.85)`
+      const fill = rgbaToCssLocal(p.color)
       for (const atk of p.attacks) {
-        const fx = atk.focusTile % mapW
-        const fy = Math.floor(atk.focusTile / mapW)
-        // Kürzesten Wrap-Weg vom Centroid zum focusTile wählen
-        let ddx = fx - c.x
-        if (ddx > mapW / 2) ddx -= mapW
-        else if (ddx < -mapW / 2) ddx += mapW
-        let ddy = fy - c.y
-        if (ddy > mapH / 2) ddy -= mapH
-        else if (ddy < -mapH / 2) ddy += mapH
-        const tx = c.x + ddx
-        const ty = c.y + ddy
+        const fx = (atk.focusTile % mapW) + 0.5
+        const fy = Math.floor(atk.focusTile / mapW) + 0.5
+        const { sx, sy } = nearestWrappedScreenPos(fx, fy)
+        if (sx < -30 || sx > cssW + 30 || sy < -20 || sy > cssH + 20) continue
         const label = fmtCompactRender(atk.reserveTroops)
-        // Einzel-Instanz: beide Endpunkte mit DEMSELBEN Wrap-Offset (Kopie nächst
-        // der Kamera), damit der Pfeil nicht mehrfach erscheint.
-        const z = camera.zoom
-        const kx = Math.round((camera.x - c.x) / mapW)
-        const ky = Math.round((camera.y - c.y) / mapH)
-        const ox = kx * mapW
-        const oy = ky * mapH
-        const x0 = (c.x + ox - camera.x) * z + cssW / 2
-        const y0 = (c.y + oy - camera.y) * z + cssH / 2
-        const x1 = (tx + ox - camera.x) * z + cssW / 2
-        const y1 = (ty + oy - camera.y) * z + cssH / 2
-        const onScreen =
-          (x1 > -40 && x1 < cssW + 40 && y1 > -40 && y1 < cssH + 40) ||
-          (x0 > -40 && x0 < cssW + 40 && y0 > -40 && y0 < cssH + 40)
-        if (!onScreen) continue
-        drawArrow(x0, y0, x1, y1, stroke)
-        screenCtx.lineWidth = 3
-        screenCtx.strokeStyle = 'rgba(0,0,0,0.8)'
-        screenCtx.strokeText(label, x1, y1 - 12)
-        screenCtx.fillStyle = '#fff'
-        screenCtx.fillText(label, x1, y1 - 12)
+        screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+        screenCtx.strokeText(label, sx, sy)
+        screenCtx.fillStyle = fill
+        screenCtx.fillText(label, sx, sy)
       }
     }
     screenCtx.restore()
@@ -729,29 +705,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       drawDot(wx, wy, fill, '#fff')
     }
     screenCtx.restore()
-  }
-
-  function drawArrow(x0: number, y0: number, x1: number, y1: number, color: string): void {
-    const angle = Math.atan2(y1 - y0, x1 - x0)
-    const head = 9
-    screenCtx.lineWidth = 2
-    screenCtx.strokeStyle = color
-    screenCtx.beginPath()
-    screenCtx.moveTo(x0, y0)
-    screenCtx.lineTo(x1, y1)
-    screenCtx.stroke()
-    screenCtx.beginPath()
-    screenCtx.moveTo(x1, y1)
-    screenCtx.lineTo(
-      x1 - head * Math.cos(angle - Math.PI / 6),
-      y1 - head * Math.sin(angle - Math.PI / 6),
-    )
-    screenCtx.moveTo(x1, y1)
-    screenCtx.lineTo(
-      x1 - head * Math.cos(angle + Math.PI / 6),
-      y1 - head * Math.sin(angle + Math.PI / 6),
-    )
-    screenCtx.stroke()
   }
 
   function drawHoverOutline(): void {
@@ -921,7 +874,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawTiled()
     drawFlashes()
     drawHoverOutline()
-    drawAttackArrows()
+    drawAttackFronts()
     drawAttackTargets()
     drawShips()
     drawBuildings()
