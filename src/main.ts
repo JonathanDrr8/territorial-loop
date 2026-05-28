@@ -42,12 +42,28 @@ interface MatchSession {
   destroy(): void
 }
 
-function buildConfig(menu: StartMenuValues): GameConfig {
-  const aiNames = pickRandomNames(menu.aiCount)
-  const totalPlayers = 1 + menu.aiCount
+function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
+  const totalPlayers = 1 + menu.aiCount // gleiche Nationen-Zahl; im Spectator ist der erste auch KI
   const colors = pickDistinctColors(totalPlayers)
+  const names = pickRandomNames(spectator ? totalPlayers : menu.aiCount)
   const seed =
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
+  const players = spectator
+    ? names.map((name, i) => ({
+        id: HUMAN_ID + i,
+        name,
+        color: colors[i] ?? 0x00ff00ff,
+        isHuman: false,
+      }))
+    : [
+        { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
+        ...names.map((name, i) => ({
+          id: HUMAN_ID + 1 + i,
+          name,
+          color: colors[i + 1] ?? 0x00ff00ff,
+          isHuman: false,
+        })),
+      ]
   return {
     mapWidth: menu.mapWidth,
     mapHeight: menu.mapHeight,
@@ -55,15 +71,7 @@ function buildConfig(menu: StartMenuValues): GameConfig {
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     terrain: menu.terrain,
-    players: [
-      { id: HUMAN_ID, name: menu.playerName, color: colors[0] ?? 0xff0000ff, isHuman: true },
-      ...aiNames.map((name, i) => ({
-        id: HUMAN_ID + 1 + i,
-        name,
-        color: colors[i + 1] ?? 0x00ff00ff,
-        isHuman: false,
-      })),
-    ],
+    players,
   }
 }
 
@@ -71,8 +79,9 @@ function startMatch(
   container: HTMLElement,
   menu: StartMenuValues,
   onRequestNewMatch: () => void,
+  spectator: boolean,
 ): MatchSession {
-  const config = buildConfig(menu)
+  const config = buildConfig(menu, spectator)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
@@ -158,6 +167,7 @@ function startMatch(
     mapWidth: state.map.width,
     mapHeight: state.map.height,
     playerId: HUMAN_ID,
+    interactive: !spectator,
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
@@ -298,7 +308,7 @@ function main(): void {
 
   function showMenu(): void {
     const initial = loadMenuPrefs(DEFAULT_MENU)
-    const menu = createStartMenu(container, initial, (values) => {
+    const menu = createStartMenu(container, initial, (values, spectator) => {
       saveMenuPrefs(values)
       menu.destroy()
       if (session !== null) {
@@ -311,13 +321,18 @@ function main(): void {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
-            session = startMatch(container, values, () => {
-              if (session !== null) {
-                session.destroy()
-                session = null
-              }
-              showMenu()
-            })
+            session = startMatch(
+              container,
+              values,
+              () => {
+                if (session !== null) {
+                  session.destroy()
+                  session = null
+                }
+                showMenu()
+              },
+              spectator,
+            )
           } finally {
             removeLoading()
           }

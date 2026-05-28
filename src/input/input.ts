@@ -54,6 +54,8 @@ export interface InputDeps {
   readonly playerId: number
   readonly emit: (intent: Intent) => void
   readonly events: InputEvents
+  /** Spieler-Aktionen erlaubt (Angriff/Bau/Menü)? false im Zuschauer-Modus — nur Kamera. */
+  readonly interactive?: boolean
   /**
    * Optional: wird beim erfolgreichen Linksklick mit den Welt-Koords (vor `tileRef`)
    * aufgerufen — z.B. für visuelles Klick-Feedback im Renderer.
@@ -227,7 +229,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
     if (e.button === 2) {
       // Rechtsklick ohne nennenswerte Bewegung → Radialmenü an dem Tile
-      if (!wasMoved && deps.onRadialMenu !== undefined) {
+      if (!wasMoved && deps.interactive !== false && deps.onRadialMenu !== undefined) {
         const rect = canvas.getBoundingClientRect()
         deps.onRadialMenu(
           screenToTile(e.clientX, e.clientY),
@@ -239,6 +241,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     }
     // Linke Taste: war es ein Drag (Pan), keine Klick-Aktion.
     if (wasMoved) return
+    // Zuschauer-Modus: keine Spieler-Aktionen (Angriff/Bau).
+    if (deps.interactive === false) return
 
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left
@@ -308,7 +312,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       events.cycleSpeed(-1)
     } else if (e.key === '.') {
       events.cycleSpeed(1)
-    } else if (key in BUILD_HOTKEYS) {
+    } else if (key in BUILD_HOTKEYS && deps.interactive !== false) {
       const mode = BUILD_HOTKEYS[key]
       if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
     } else if (e.key === 'Escape') {

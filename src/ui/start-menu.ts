@@ -157,7 +157,7 @@ function makeSliderRow(
 export function createStartMenu(
   container: HTMLElement,
   initial: StartMenuValues,
-  onStart: (values: StartMenuValues) => void,
+  onStart: (values: StartMenuValues, spectator: boolean) => void,
 ): StartMenuApi {
   const overlay = document.createElement('div')
   overlay.style.cssText = [
@@ -365,13 +365,9 @@ export function createStartMenu(
   panel.appendChild(help)
 
   // Start button
-  const startBtn = document.createElement('button')
-  startBtn.className = 'tl-start'
-  startBtn.textContent = 'Match starten'
-  startBtn.style.cssText = BUTTON_STYLE
-  startBtn.addEventListener('click', () => {
+  const collectValues = (): StartMenuValues => {
     const seedRaw = seedInput.value.trim()
-    onStart({
+    return {
       playerName: nameInput.value.trim() || 'Du',
       mapWidth: Number(widthSelect.value),
       mapHeight: Number(heightSelect.value),
@@ -382,9 +378,38 @@ export function createStartMenu(
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
       ...(seedRaw.length > 0 && { seed: seedRaw }),
-    })
+    }
+  }
+
+  const startBtn = document.createElement('button')
+  startBtn.className = 'tl-start'
+  startBtn.textContent = 'Match starten'
+  startBtn.style.cssText = BUTTON_STYLE
+  startBtn.addEventListener('click', () => {
+    onStart(collectValues(), false)
   })
   panel.appendChild(startBtn)
+
+  // Zuschauen — startet ein Match ganz ohne menschlichen Spieler (nur KI beobachten).
+  const watchBtn = document.createElement('button')
+  watchBtn.textContent = 'Zuschauen'
+  watchBtn.style.cssText = [
+    'margin-top: 10px',
+    'width: 100%',
+    'padding: 10px',
+    'background: transparent',
+    'color: white',
+    'border: 1px solid rgba(255,255,255,0.25)',
+    'border-radius: 8px',
+    'font-size: 13px',
+    'font-family: inherit',
+    'cursor: pointer',
+    'opacity: 0.85',
+  ].join(';')
+  watchBtn.addEventListener('click', () => {
+    onStart(collectValues(), true)
+  })
+  panel.appendChild(watchBtn)
 
   overlay.appendChild(panel)
   container.appendChild(overlay)
