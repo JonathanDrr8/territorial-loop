@@ -174,6 +174,31 @@ describe('boat launch + landing via tick', () => {
     expect(state.boats.length).toBe(0)
     expect(human.attacks.length).toBe(0)
   })
+
+  it('a boat intent snaps a non-coastal target to a reachable coast of that landmass', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 3, 1, 1) // human coastal on the left landmass
+    const human = state.players.get(1)
+    if (human === undefined) throw new Error('no human')
+    human.troops = 1000
+    // x=6 ist ein Inland-Tile des rechten Kontinents (Nachbarn x=5/x=7 sind Land).
+    const interior = tileRef(6, 1, W, H)
+    const before = human.troops
+    tick(state, [{ type: 'boat', playerId: 1, targetTile: interior, troops: 500 }])
+    // Truppen wurden ins Boot gesteckt → Start ist geglückt (Klick traf kein Küsten-Tile).
+    expect(human.troops).toBeLessThan(before)
+    // Bis zur Landung weiterticken; danach hält der Mensch einen Brückenkopf auf dem
+    // rechten Kontinent (Spalten 5-7).
+    for (let i = 0; i < 50 && state.boats.length > 0; i++) tick(state, [])
+    let ownsRight = false
+    for (let x = 5; x <= 7; x++) {
+      for (let y = 0; y < H; y++) {
+        if (getOwner(state.map, tileRef(x, y, W, H)) === 1) ownsRight = true
+      }
+    }
+    expect(ownsRight).toBe(true)
+  })
 })
 
 describe('trade ships via tick', () => {

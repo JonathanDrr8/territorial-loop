@@ -922,8 +922,24 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   // Über Land erreichbar → das ist ein Land-Angriff, kein Boot.
   if (reachableByLand(state, player, intent.targetTile)) return
 
+  // Differenziertes Feedback: ohne eigene Küste ist ein Boot unmöglich (man muss erst
+  // Land am Wasser erobern); sonst lag es am fehlenden Wasserweg zum Ziel.
+  const ownerTiles = collectOwnerTiles(state, player.id)
+  const hasCoast = ownerTiles.some((t) => isCoastalTile(state.map, t))
+  if (!hasCoast) {
+    if (player.isHuman) {
+      emitEvent(
+        state,
+        `${player.name}: keine eigene Küste — erobere erst Land am Wasser`,
+        player.color,
+      )
+    }
+    return
+  }
   if (!tryLaunchBoat(state, player, intent.targetTile, intent.troops)) {
-    emitEvent(state, `${player.name}: kein Wasserweg für ein Boot`, player.color)
+    if (player.isHuman) {
+      emitEvent(state, `${player.name}: kein Wasserweg zu diesem Ziel`, player.color)
+    }
   }
 }
 
@@ -955,14 +971,67 @@ function tryLaunchBoat(
   const troops = Math.min(Math.floor(requestedTroops), player.troops)
   if (troops <= 0) return false
 
+  // Toleranz: ein grob auf eine Insel gesetzter Klick muss nicht exakt ein Küsten-Tile
+  // treffen. Wir probieren die nächsten Küsten DERSELBEN Landmasse durch und nehmen die
+  // erste, zu der von einer eigenen Küste ein Wasserweg existiert.
   const ownerTiles = collectOwnerTiles(state, player.id)
-  const plan = planBoatLaunch(state.map, state.waterComponents, ownerTiles, targetTile)
-  if (plan === null) return false
+  const candidates = coastalTilesNear(state.map, targetTile, 16)
+  if (candidates.length === 0) candidates.push(targetTile)
+  let landingTile = -1
+  let path: readonly TileRef[] | null = null
+  for (const c of candidates) {
+    const plan = planBoatLaunch(state.map, state.waterComponents, ownerTiles, c)
+    if (plan !== null) {
+      landingTile = c
+      path = plan.path
+      break
+    }
+  }
+  if (path === null || landingTile < 0) return false
 
   player.troops -= troops
-  state.boats.push({ ownerId: player.id, troops, path: plan.path, progress: 0, targetTile })
+  state.boats.push({ ownerId: player.id, troops, path, progress: 0, targetTile: landingTile })
   emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
   return true
+}
+
+/** Passierbares Land-Tile direkt am Wasser (mind. ein Nicht-Land-Nachbar). */
+function isCoastalTile(map: GameMap, ref: TileRef): boolean {
+  if (!isPassable(map.terrain, ref)) return false
+  const { width, height } = map
+  for (const n of neighbors4(ref, width, height)) {
+    if (!isLand(map.terrain, n)) return true
+  }
+  return false
+}
+
+/**
+ * Sammelt Küsten-Tiles auf DERSELBEN Landmasse wie `start`, nach Land-BFS-Distanz
+ * geordnet (nächste zuerst, bis `limit`). Damit muss ein Boot-Klick nicht exakt ein
+ * Küsten-Tile treffen, und der Aufrufer kann mehrere Lande-Kandidaten probieren —
+ * wichtig, falls die nächste Küste an einem Meer liegt, das nicht mit der eigenen
+ * Küste verbunden ist.
+ */
+function coastalTilesNear(map: GameMap, start: TileRef, limit: number): TileRef[] {
+  const { width, height } = map
+  if (!isLand(map.terrain, start)) return []
+  const result: TileRef[] = []
+  if (isCoastalTile(map, start)) result.push(start)
+  const seen = new Set<number>([start])
+  const queue: number[] = [start]
+  let head = 0
+  const MAX_VISIT = 8000
+  while (head < queue.length && head < MAX_VISIT && result.length < limit) {
+    const cur = queue[head++]
+    if (cur === undefined) break
+    for (const n of neighbors4(cur, width, height)) {
+      if (seen.has(n) || !isLand(map.terrain, n)) continue
+      seen.add(n)
+      if (isCoastalTile(map, n)) result.push(n)
+      queue.push(n)
+    }
+  }
+  return result
 }
 
 /** Alle Tiles die `playerId` besitzt (für Boot-Start-Küsten). O(N) — nur bei Boot-Start. */
