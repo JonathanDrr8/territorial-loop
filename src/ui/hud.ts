@@ -16,6 +16,12 @@ import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
 
+// Wachstums-/Effizienz-Zonen (Anteil des Caps). Optimum ~42% (max Wachstum); ab
+// STAGNATE_FRAC lässt das Wachstum nach (gelb), ab STRONG_STAGNATE_FRAC stark (rot).
+const GROWTH_OPTIMUM_FRAC = 0.42
+const STAGNATE_FRAC = 0.75
+const STRONG_STAGNATE_FRAC = 0.92
+
 /** Kompaktes Zahlenformat: 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
 function fmtCompact(value: number): string {
   const v = Math.round(value)
@@ -115,6 +121,17 @@ export function createHUD(
   for (const seg of [segIdle, segAttack, segCombat]) {
     seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
     barWrap.appendChild(seg)
+  }
+  // Effizienz-Striche: Wachstums-Optimum (~42% des Caps, grün) und die Schwellen, ab
+  // denen das Wachstum stagniert (gelb) bzw. stark stagniert (rot). Statische Positionen.
+  for (const [frac, col] of [
+    [GROWTH_OPTIMUM_FRAC, '#5dd75d'],
+    [STAGNATE_FRAC, '#e8d24a'],
+    [STRONG_STAGNATE_FRAC, '#e05a5a'],
+  ] as const) {
+    const tick = document.createElement('div')
+    tick.style.cssText = `position:absolute;top:0;bottom:0;width:2px;left:${(frac * 100).toString()}%;background:${col};opacity:0.6`
+    barWrap.appendChild(tick)
   }
   hud.appendChild(barWrap)
 
@@ -276,7 +293,12 @@ export function createHUD(
     segCombat.style.width = pctW(combat)
     segCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
 
-    barCaption.innerHTML = `Truppen <b>${fmtCompact(total)}</b> / ${fmtCompact(cap)}`
+    // Truppenzahl nach Wachstums-Zustand färben: grün wachsend, gelb stagnierend,
+    // rot stark stagnierend (je näher am Cap, desto langsamer das Wachstum).
+    const frac = total / cap
+    const stateColor =
+      frac < STAGNATE_FRAC ? '#5dd75d' : frac < STRONG_STAGNATE_FRAC ? '#e8d24a' : '#e05a5a'
+    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> / ${fmtCompact(cap)}`
     const combatLegend =
       combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
     barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
