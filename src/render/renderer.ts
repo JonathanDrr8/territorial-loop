@@ -15,7 +15,8 @@
 
 import type { BuildingType } from '../core/buildings'
 import { defenseRange } from '../core/buildings'
-import { canBuildAt, type GameState } from '../core/game'
+import { canBuildAt, type GameState, type Player } from '../core/game'
+import { areAllied } from '../core/diplomacy'
 import type { Boat, TradeShip } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { neighbors4, tileRef } from '../world/torus'
@@ -174,6 +175,57 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let lut: Map<number, ColorEntry> | null = null
   let lutHumanId = -1
   let bitmapBaked = false
+  // Grenzfarbe je Spieler AUS SICHT des Menschen: Verbündete grün, Angreifer rot
+  // (Intensität nach Größenverhältnis = „Groll"), alle anderen weiß, eigenes hell.
+  let borderTints = new Map<number, readonly [number, number, number]>()
+  let lastBorderSig = ''
+
+  /** Greift `p` den Menschen aktuell an? */
+  function isAttackingHuman(p: Player, humanId: number): boolean {
+    for (const a of p.attacks) if (a.targetPlayerId === humanId) return true
+    return false
+  }
+
+  /**
+   * Berechnet die Grenz-Tints relativ zum Menschen und gibt eine Signatur zurück,
+   * die sich nur bei Beziehungs-/Größenstufen-Wechseln ändert (→ seltenes Rebake).
+   */
+  function computeBorderTints(): string {
+    const m = new Map<number, readonly [number, number, number]>()
+    const humanId = lutHumanId
+    const human = humanId >= 0 ? state.players.get(humanId) : undefined
+    const humanTiles = human ? Math.max(1, human.tilesOwned) : 1
+    let sig = ''
+    for (const p of state.players.values()) {
+      if (!p.isAlive) continue
+      let tint: readonly [number, number, number]
+      let cat: string
+      if (humanId < 0) {
+        const c = lut?.get(p.id)
+        tint = c ? [c.br, c.bg, c.bb] : [255, 0, 255]
+        cat = 'c'
+      } else if (p.id === humanId) {
+        tint = [240, 240, 255]
+        cat = 'me'
+      } else if (areAllied(state.alliances, humanId, p.id)) {
+        tint = [90, 220, 120]
+        cat = 'ally'
+      } else if (isAttackingHuman(p, humanId)) {
+        // „Groll" nach Größenverhältnis: klein = blass, groß = grell rot.
+        const ratio = p.tilesOwned / humanTiles
+        const lvl = ratio < 0.5 ? 0 : ratio < 1.5 ? 1 : 2
+        tint = lvl === 0 ? [170, 110, 110] : lvl === 1 ? [220, 80, 80] : [255, 55, 55]
+        cat = 'a' + lvl.toString()
+      } else {
+        tint = [235, 235, 235]
+        cat = 'w'
+      }
+      m.set(p.id, tint)
+      sig += p.id.toString() + cat + ';'
+    }
+    borderTints = m
+    return sig
+  }
 
   function buildLut(): void {
     const m = new Map<number, ColorEntry>()
@@ -266,11 +318,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         const od = (mapState[(y === h - 1 ? 0 : y + 1) * w + x] ?? 0) & OWNER_MASK
         const isBorder = ol !== owner || or !== owner || ou !== owner || od !== owner
         if (isBorder) {
-          // Rand klar in Besitzerfarbe (Mensch hell-weiß) → Gebiet bleibt erkennbar.
-          if (owner === lutHumanId) {
-            r = 240
-            g = 240
-            b = 255
+          // Rand nach Beziehung zum Menschen (grün=verbündet, rot=greift dich an,
+          // weiß=sonst). Fallback: Besitzerfarbe.
+          const tint = borderTints.get(owner)
+          if (tint !== undefined) {
+            r = tint[0]
+            g = tint[1]
+            b = tint[2]
           } else {
             r = c.br
             g = c.bg
@@ -298,6 +352,13 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
    */
   function paintBitmap(): void {
     if (lut === null) buildLut()
+    // Beziehungs-Tints neu berechnen; ändert sich die Signatur (Allianz/Angriff/
+    // Größenstufe), müssen ALLE Grenzen neu — also einmal voll backen.
+    const sig = computeBorderTints()
+    if (sig !== lastBorderSig) {
+      lastBorderSig = sig
+      bitmapBaked = false
+    }
     const w = state.map.width
     const h = state.map.height
 
