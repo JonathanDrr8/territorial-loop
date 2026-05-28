@@ -20,11 +20,10 @@ ADR hält den abgestimmten Mockup + die konkreten Schritte fest, damit der Umbau
 
 ## Heute (Aktions-Panel unten Mitte, von oben)
 
-`+X/s` (Truppen/s) + Truppenbalken mit Text drauf → (im Kampf-Legende) → `Angriff: Z% · ≈X`
-
-- Slider → `Gold ≈ +Y/s ▸` (+ Economy-Popover) → 4 große Bau-Buttons → Boot-Button. Dazu die
-  **Angriffs-/Aktions-Liste oben links** (`hud.ts`, `top:92px;left:12px`) — die Jonathan als
-  „zu weit weg, um schnell abzubrechen" bemängelt hat.
+Von oben: `+X/s` (Truppen/s) + Truppenbalken mit Text drauf; darunter `Angriff: Z% · ≈X` +
+Slider; dann `Gold ≈ +Y/s ▸` (+ Economy-Popover); 4 große Bau-Buttons; Boot-Button. Dazu die
+**Angriffs-/Aktions-Liste oben links** (`hud.ts`, `top:92px;left:12px`) — die Jonathan als
+„zu weit weg, um schnell abzubrechen" bemängelt hat.
 
 ## Zielbild (Mockup)
 
