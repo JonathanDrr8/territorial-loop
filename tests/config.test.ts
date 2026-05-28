@@ -127,17 +127,19 @@ describe('tilesPerTick', () => {
     expect(tilesPerTick(50_000, 0, 10, true)).toBe(20)
   })
 
-  it('against player: clamped ratio * frontWidth * 3', () => {
-    // ratio = 10*1000/1000 = 10 → clamped to 0.5
-    expect(tilesPerTick(1000, 1000, 4, false)).toBeCloseTo(0.5 * 4 * 3)
-    // ratio = 10*100/1000 = 1 → clamped to 0.5
-    expect(tilesPerTick(100, 1000, 2, false)).toBeCloseTo(0.5 * 2 * 3)
-    // ratio = 10*1/1000 = 0.01 → at lower clamp
-    expect(tilesPerTick(1, 1000, 10, false)).toBeCloseTo(0.01 * 10 * 3)
+  it('against player: speed scales with attack:defense ratio, capped at 2:1', () => {
+    // 2:1 → factor 1 (max): 1 * 4 * 1.5 = 6
+    expect(tilesPerTick(2000, 1000, 4, false)).toBeCloseTo(1 * 4 * 1.5)
+    // ≥2:1 (10:1) → ebenfalls gedeckelt bei factor 1
+    expect(tilesPerTick(10_000, 1000, 4, false)).toBeCloseTo(1 * 4 * 1.5)
+    // 1:1 → factor 0.5 → 0.5 * 2 * 1.5 = 1.5
+    expect(tilesPerTick(1000, 1000, 2, false)).toBeCloseTo(0.5 * 2 * 1.5)
+    // stark unterlegen → unterer Faktor 0.05
+    expect(tilesPerTick(1, 1000, 10, false)).toBeCloseTo(0.05 * 10 * 1.5)
   })
 
-  it('against zero-troop defender: Infinity ratio → clamp to 0.5', () => {
-    expect(tilesPerTick(1000, 0, 5, false)).toBeCloseTo(0.5 * 5 * 3)
+  it('against zero-troop defender: counts as full 2:1 overmatch', () => {
+    expect(tilesPerTick(1000, 0, 5, false)).toBeCloseTo(1 * 5 * 1.5)
   })
 })
 

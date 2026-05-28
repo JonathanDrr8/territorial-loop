@@ -103,6 +103,15 @@ export function troopIncreaseRate(
  * Die zurückgegebene Rate kann fraktional sein — der Aufrufer ist für die
  * deterministische Integer-Konvertierung verantwortlich (z.B. `Math.floor` + PRNG-Bonus).
  */
+/**
+ * Maximales Angriff:Verteidigung-Verhältnis für die Eroberungs-Geschwindigkeit.
+ * Ab 2:1 Übermacht wird man NICHT schneller — so bleibt Verteidigung (und damit
+ * Verteidigungsposten) relevant, statt von purer Truppenzahl überrollt zu werden.
+ */
+export const MAX_ATTACK_RATIO = 2
+/** Eroberungs-Rate pro Front-Tile bei voller (2:1+) Übermacht. */
+const PLAYER_RATE_AT_CAP = 1.5
+
 export function tilesPerTick(
   attackTroops: number,
   defenderTroops: number,
@@ -111,10 +120,11 @@ export function tilesPerTick(
 ): number {
   if (frontWidth <= 0) return 0
   if (vsTerraNullius) return frontWidth * 2
-  // Bei defenderTroops==0 gibt JS Infinity → wird durch clamp auf 0.5 begrenzt
-  const raw = (10 * attackTroops) / defenderTroops
-  const clamped = Math.max(0.01, Math.min(0.5, raw))
-  return clamped * frontWidth * 3
+  // Geschwindigkeit skaliert mit dem Angriff:Verteidigung-Verhältnis, gedeckelt bei
+  // MAX_ATTACK_RATIO (2:1). Unverteidigt (def==0) gilt als volle Übermacht.
+  const ratio = defenderTroops > 0 ? attackTroops / defenderTroops : MAX_ATTACK_RATIO
+  const factor = Math.max(0.05, Math.min(1, ratio / MAX_ATTACK_RATIO))
+  return factor * frontWidth * PLAYER_RATE_AT_CAP
 }
 
 /**
