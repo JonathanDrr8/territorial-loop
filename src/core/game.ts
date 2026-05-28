@@ -239,7 +239,7 @@ const TERRAIN_WAVE_PENALTY = 0.06
  * hoch, dass die Fokus-Richtung verloren geht. Verhindert dünne Finger, die fremde
  * Gebiete zerstückeln.
  */
-const FRONT_SMOOTHING = 5
+const FRONT_SMOOTHING = 8
 
 /**
  * Erzeugt einen neuen Spielzustand und platziert alle Spieler-Spawns.
