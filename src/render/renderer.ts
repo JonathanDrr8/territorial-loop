@@ -15,6 +15,7 @@
 
 import type { BuildingType } from '../core/buildings'
 import type { GameState } from '../core/game'
+import type { Boat, TradeShip } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
@@ -583,6 +584,70 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /** Interpolierte Welt-Position eines Schiffs entlang seiner Route (wrap-aware). */
+  function shipWorldPos(ship: Boat | TradeShip): { wx: number; wy: number } {
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const len = ship.path.length
+    const fIdx = Math.min(Math.floor(ship.progress), len - 1)
+    const frac = ship.progress - fIdx
+    const a = ship.path[fIdx] ?? ship.path[0] ?? 0
+    const b = ship.path[Math.min(fIdx + 1, len - 1)] ?? a
+    const ax = (a % mapW) + 0.5
+    const ay = Math.floor(a / mapW) + 0.5
+    const bx = (b % mapW) + 0.5
+    const by = Math.floor(b / mapW) + 0.5
+    // Wrap-aware Delta: über die kürzere Torus-Richtung interpolieren.
+    let dx = bx - ax
+    let dy = by - ay
+    if (dx > mapW / 2) dx -= mapW
+    else if (dx < -mapW / 2) dx += mapW
+    if (dy > mapH / 2) dy -= mapH
+    else if (dy < -mapH / 2) dy += mapH
+    return { wx: ax + dx * frac, wy: ay + dy * frac }
+  }
+
+  function drawShips(): void {
+    if (state.boats.length === 0 && state.tradeShips.length === 0) return
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const r = Math.max(3, Math.min(7, camera.zoom * 2.5))
+    screenCtx.save()
+
+    const drawDot = (wx: number, wy: number, fill: string, ring: string): void => {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = worldToScreenX(wx + dx * mapW)
+          const sy = worldToScreenY(wy + dy * mapH)
+          if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          screenCtx.fillStyle = fill
+          screenCtx.fill()
+          screenCtx.lineWidth = 1.5
+          screenCtx.strokeStyle = ring
+          screenCtx.stroke()
+        }
+      }
+    }
+
+    // Handelsschiffe: goldene Punkte
+    for (const ship of state.tradeShips) {
+      const { wx, wy } = shipWorldPos(ship)
+      drawDot(wx, wy, '#e8c14a', 'rgba(0,0,0,0.6)')
+    }
+    // Transport-Boote: in Besitzerfarbe, kräftiger Rand
+    for (const boat of state.boats) {
+      const { wx, wy } = shipWorldPos(boat)
+      const player = state.players.get(boat.ownerId)
+      const fill = player === undefined ? '#fff' : rgbaToCssLocal(player.color)
+      drawDot(wx, wy, fill, '#fff')
+    }
+    screenCtx.restore()
+  }
+
   function drawArrow(x0: number, y0: number, x1: number, y1: number, color: string): void {
     const angle = Math.atan2(y1 - y0, x1 - x0)
     const head = 9
@@ -753,6 +818,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawHoverOutline()
     drawAttackArrows()
     drawAttackTargets()
+    drawShips()
     drawBuildings()
     drawMarkers()
     drawLabels()
