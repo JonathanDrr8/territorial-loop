@@ -213,6 +213,11 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const humanId = lutHumanId
     const human = humanId >= 0 ? state.players.get(humanId) : undefined
     const humanTiles = human ? Math.max(1, human.tilesOwned) : 1
+    // Spieler, die der Mensch GERADE aktiv angreift → ihr Rand wird orange markiert,
+    // damit man genau sieht, wo man angreift.
+    const attacked = new Set<number>()
+    if (human)
+      for (const a of human.attacks) if (a.targetPlayerId > 0) attacked.add(a.targetPlayerId)
     let sig = ''
     for (const p of state.players.values()) {
       if (!p.isAlive) continue
@@ -226,6 +231,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         // Eigenleuchten: hell cyan-weiß, hebt sich klar vom neutralen Weiß ab.
         tint = [150, 245, 255]
         cat = 'me'
+      } else if (attacked.has(p.id)) {
+        // Aktives Angriffsziel: kräftiges Orange.
+        tint = [255, 165, 40]
+        cat = 'atk'
       } else if (areAllied(state.alliances, humanId, p.id)) {
         tint = [90, 220, 120]
         cat = 'ally'

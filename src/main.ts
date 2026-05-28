@@ -75,10 +75,11 @@ function startMatch(
   const config = buildConfig(menu)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
-  // Kamera nach dem Generieren auf das eigene Spawn zentrieren — sonst weiß man auf
-  // großen Karten nicht, wo man ist. Offset hebt den Spawn über das untere
-  // Aktionsmenü (das sonst die geometrische Bildmitte verdeckt).
-  renderer.centerOnPlayer(HUMAN_ID, 80)
+  // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
+  // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
+  // das Canvas hier noch nicht final dimensioniert ist.)
+  renderer.centerOnPlayer(HUMAN_ID)
+  let recenterPending = true
   const sound = createSoundEngine()
   sound.setEnabled(menu.soundEnabled)
   ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer, sound }
@@ -213,6 +214,12 @@ function startMatch(
 
   function renderLoop(): void {
     if (destroyed) return
+    // Erste Zentrierung wiederholen, sobald das Canvas garantiert final dimensioniert
+    // ist (initialer Aufruf kann vor dem finalen Layout passieren).
+    if (recenterPending) {
+      recenterPending = false
+      renderer.centerOnPlayer(HUMAN_ID)
+    }
     // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
     if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
       endChimePlayed = true
