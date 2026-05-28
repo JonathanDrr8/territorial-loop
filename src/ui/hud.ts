@@ -28,6 +28,7 @@ import { areAllied, pairKey } from '../core/diplomacy'
 import {
   countBuildingsOfType,
   effectiveMaxTroops,
+  goldBreakdown,
   totalTroops,
   type GameState,
   type Player,
@@ -443,8 +444,27 @@ export function createHUD(
   // Gold-Zeile über den Bau-Buttons (Gold wird hauptsächlich fürs Bauen genutzt):
   // Vorrat + geglättete Einkommensrate (mittelt sprunghaften Handel).
   const goldEl = document.createElement('div')
-  goldEl.style.cssText = 'font-size: 12px; margin-bottom: 5px; color: #e8c14a'
+  goldEl.style.cssText = 'font-size: 12px; margin-bottom: 5px; color: #e8c14a; cursor: pointer'
   actionBar.appendChild(goldEl)
+
+  // Aufklappbare Economy-Aufschlüsselung (Grund-Gold / Fabrik-Netz / Handel).
+  let economyOpen = false
+  const goldDetail = document.createElement('div')
+  goldDetail.style.cssText = [
+    'display: none',
+    'font-size: 11px',
+    'line-height: 1.5',
+    'margin: -2px 0 6px',
+    'padding: 5px 7px',
+    'background: rgba(0,0,0,0.35)',
+    'border-radius: 5px',
+    'color: #d8d2bf',
+  ].join(';')
+  actionBar.appendChild(goldDetail)
+  goldEl.addEventListener('click', () => {
+    economyOpen = !economyOpen
+    goldDetail.style.display = economyOpen ? 'block' : 'none'
+  })
 
   // Bau-Buttons-Reihe (Glyph, Name, Hotkey, Kosten) — setzen den Bau-Modus.
   const buildRow = document.createElement('div')
@@ -675,7 +695,25 @@ export function createHUD(
       lastGoldSampleTick = state.tick
       lastGoldSampleValue = human.gold
     }
-    goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> Gold <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span>`
+    const caret = economyOpen ? '▾' : '▸'
+    goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> Gold <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span> <span style="opacity:0.55">${caret}</span>`
+    if (economyOpen) {
+      const gb = goldBreakdown(state, human.id)
+      const baseSec = gb.base * SIM_TICKS_PER_SECOND
+      const factorySec = gb.factory * SIM_TICKS_PER_SECOND
+      const tradeSec = Math.max(0, Math.round(goldRatePerSec - baseSec - factorySec))
+      const factoryNote =
+        gb.factories > 0
+          ? ` <span style="opacity:0.6">(${String(gb.factories)} Fabrik${gb.factories === 1 ? '' : 'en'} · ${String(gb.dests)} Ziele)</span>`
+          : ''
+      const line = (label: string, perSec: number, note = ''): string =>
+        `<div style="display:flex;justify-content:space-between;gap:10px"><span>${label}${note}</span><span>+${fmtCompact(perSec)}/s</span></div>`
+      goldDetail.innerHTML =
+        line('Grund-Gold', baseSec) +
+        line('Fabrik-Netz', factorySec, factoryNote) +
+        line('Handel', tradeSec) +
+        `<div style="border-top:1px solid rgba(255,255,255,0.18);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;gap:10px"><span><b>Summe</b></span><span><b>≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</b></span></div>`
+    }
 
     for (const type of BUILDING_TYPES) {
       const costEl = buildCostEls.get(type)

@@ -683,17 +683,31 @@ function generateGold(state: GameState): void {
   // Flacher Start-Trickle (NICHT größen-abhängig) + Fabrik-Netzwerk-Einkommen
   // (+ Handelsschiff-Gold beim Eintreffen, separat).
   for (const player of state.players.values()) {
-    if (player.isAlive) player.gold += BASE_GOLD_PER_TICK + factoryGoldPerTick(state, player.id)
+    if (!player.isAlive) continue
+    const gb = goldBreakdown(state, player.id)
+    player.gold += gb.base + gb.factory
   }
 }
 
+/** Aufschlüsselung des stetigen Gold-Einkommens eines Spielers pro Tick (Handel ist lumpig → separat). */
+export interface GoldBreakdown {
+  /** Flacher Grund-Trickle pro Tick (nicht größen-abhängig). */
+  base: number
+  /** Gold pro Tick aus dem Fabrik-Netzwerk. */
+  factory: number
+  /** Anzahl eigener fertiger Fabriken. */
+  factories: number
+  /** Anzahl verbundener Städte/Häfen (in einem Cluster mit ≥1 Fabrik). */
+  dests: number
+}
+
 /**
- * Gold pro Tick aus dem Fabrik-Netzwerk eines Spielers. Eigene fertige Städte/Häfen/
+ * Schlüsselt das stetige Gold-Einkommen eines Spielers auf. Eigene fertige Städte/Häfen/
  * Fabriken werden per Luftlinie (`FACTORY_LINK_RANGE`) transitiv zu Clustern verbunden
- * (Union-Find). Jede Fabrik produziert `FACTORY_GOLD_PER_DEST` × (Anzahl Städte+Häfen im
- * selben Cluster) × Fabrik-Level. Isolierte Fabriken ohne verbundene Ziele = 0.
+ * (Union-Find). Jede Fabrik produziert `FACTORY_GOLD_PER_DEST` × (Städte+Häfen im selben
+ * Cluster) × Fabrik-Level. Isolierte Fabriken ohne verbundene Ziele = 0.
  */
-function factoryGoldPerTick(state: GameState, playerId: number): number {
+export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown {
   const nodes: { tile: TileRef; isDest: boolean; isFactory: boolean; level: number }[] = []
   for (const b of state.buildings.values()) {
     if (b.ownerId !== playerId || !isBuildingComplete(b, state.tick)) continue
@@ -707,7 +721,7 @@ function factoryGoldPerTick(state: GameState, playerId: number): number {
     }
   }
   const n = nodes.length
-  if (n === 0) return 0
+  if (n === 0) return { base: BASE_GOLD_PER_TICK, factory: 0, factories: 0, dests: 0 }
 
   // Union-Find über Reichweiten-Kanten (Torus-Luftlinie).
   const parent = Array.from({ length: n }, (_, i) => i)
@@ -739,22 +753,32 @@ function factoryGoldPerTick(state: GameState, playerId: number): number {
     }
   }
 
-  // Ziele (Stadt/Hafen) pro Cluster zählen, dann Fabrik-Beiträge summieren.
+  // Ziele (Stadt/Hafen) und Fabrik-Präsenz pro Cluster, dann Beiträge summieren.
   const destPerCluster = new Map<number, number>()
+  const factoryClusters = new Set<number>()
+  let factories = 0
   for (let i = 0; i < n; i++) {
-    if (nodes[i]?.isDest === true) {
-      const root = find(i)
-      destPerCluster.set(root, (destPerCluster.get(root) ?? 0) + 1)
+    const node = nodes[i]
+    if (node === undefined) continue
+    const root = find(i)
+    if (node.isDest) destPerCluster.set(root, (destPerCluster.get(root) ?? 0) + 1)
+    if (node.isFactory) {
+      factories++
+      factoryClusters.add(root)
     }
   }
   let gold = 0
   for (let i = 0; i < n; i++) {
     const node = nodes[i]
     if (node?.isFactory !== true) continue
-    const dests = destPerCluster.get(find(i)) ?? 0
-    gold += FACTORY_GOLD_PER_DEST * dests * node.level
+    gold += FACTORY_GOLD_PER_DEST * (destPerCluster.get(find(i)) ?? 0) * node.level
   }
-  return Math.floor(gold)
+  // Verbundene Ziele = Städte/Häfen in einem Cluster mit mindestens einer Fabrik.
+  let dests = 0
+  for (const [root, count] of destPerCluster) {
+    if (factoryClusters.has(root)) dests += count
+  }
+  return { base: BASE_GOLD_PER_TICK, factory: Math.floor(gold), factories, dests }
 }
 
 /** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */

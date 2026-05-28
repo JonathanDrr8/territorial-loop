@@ -3,6 +3,7 @@ import {
   CAPTURE_FADE_TICKS,
   createGame,
   effectiveMaxTroops,
+  goldBreakdown,
   tick,
   type GameConfig,
   type GameState,
@@ -387,6 +388,34 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     p1.gold = 0
     tick(state, [])
     expect(p1.gold).toBe(BASE_GOLD_PER_TICK)
+  })
+
+  it('goldBreakdown schlüsselt Sockel + Fabrik-Netz auf und zählt verbundene Ziele', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const cityTile = tileRef(20, 20, W, H)
+    const portTile = tileRef(20, 22, W, H)
+    const factoryTile = tileRef(21, 20, W, H)
+    for (const [tile, type] of [
+      [cityTile, 'city'],
+      [portTile, 'port'],
+      [factoryTile, 'factory'],
+    ] as const) {
+      state.buildings.set(tile, { type, ownerId: 1, tile, level: 1, completesAtTick: 0 })
+    }
+    const gb = goldBreakdown(state, 1)
+    expect(gb.base).toBe(BASE_GOLD_PER_TICK)
+    // Eine Fabrik (Level 1) verbunden mit Stadt + Hafen (2 Ziele).
+    expect(gb.factories).toBe(1)
+    expect(gb.dests).toBe(2)
+    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 2)
+    // Summe von base + factory entspricht dem tatsächlichen Tick-Einkommen.
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    p1.gold = 0
+    tick(state, [])
+    expect(p1.gold).toBe(gb.base + gb.factory)
   })
 })
 
