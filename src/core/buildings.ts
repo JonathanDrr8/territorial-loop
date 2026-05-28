@@ -43,8 +43,12 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
   port: 'Hafen',
 }
 
-/** Eskalierende Baukosten: jedes weitere Gebäude des Typs kostet doppelt. */
+/**
+ * Baukosten. Verteidigungsposten kosten immer gleich viel (flach); alle anderen
+ * eskalieren — jedes weitere Gebäude des Typs kostet doppelt (Stadt: 25k/50k/100k…).
+ */
 export function buildCost(type: BuildingType, existingCountOfType: number): number {
+  if (type === 'defense') return BASE_BUILD_COST.defense
   return Math.round(BASE_BUILD_COST[type] * Math.pow(2, existingCountOfType))
 }
 
@@ -54,8 +58,9 @@ export function upgradeCost(type: BuildingType, currentLevel: number): number {
 }
 
 // Effekt-Konstanten
-/** Zusätzlicher Truppen-Cap pro Stadt-Level. */
-export const CITY_CAP_BONUS = 60_000
+/** Zusätzlicher Truppen-Cap pro Stadt-Level (linear: L1 +25k, L2 +50k, …; kein
+ * Upgrade-Bonus — eine Stufe-2-Stadt = zwei Stufe-1-Städte, spart nur Platz). */
+export const CITY_CAP_BONUS = 25_000
 /** Gold pro Tick pro Markt-Level. */
 export const MARKET_GOLD_PER_TICK = 40
 /** Reichweite eines Verteidigungspostens (Tiles), plus pro Level. */
