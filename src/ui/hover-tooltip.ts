@@ -9,7 +9,7 @@
  * Pointer-events: none, damit der Tooltip nie Klicks abfängt.
  */
 
-import type { GameState } from '../core/game'
+import { effectiveMaxTroops, type GameState } from '../core/game'
 import { areAllied, pairKey } from '../core/diplomacy'
 import { shipWorldPos } from '../core/ships'
 import { getOwner } from '../world/map'
@@ -112,6 +112,7 @@ export function createHoverTooltip(
       }
       const totalTiles = w * h
       const pct = ((player.tilesOwned / totalTiles) * 100).toFixed(2)
+      const cap = effectiveMaxTroops(state, owner)
       const avgPerTile = player.tilesOwned > 0 ? Math.floor(player.troops / player.tilesOwned) : 0
       const dead = player.isAlive ? '' : ' <span style="opacity:0.6">†</span>'
       // Verbündet? → Restzeit der Allianz anzeigen.
@@ -126,7 +127,7 @@ export function createHoverTooltip(
       }
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
-        `${player.troops.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
+        `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
         `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${alliance}`
     }
 

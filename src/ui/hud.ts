@@ -428,7 +428,7 @@ export function createHUD(
     name.textContent = BUILDING_LABEL[type]
     name.style.cssText = 'opacity: 0.85'
     const cost = document.createElement('span')
-    cost.style.cssText = 'color: #e8c14a; font-size: 9px'
+    cost.style.cssText = 'color: #5dd75d; font-size: 13px; font-weight: bold'
     btn.appendChild(top)
     btn.appendChild(name)
     btn.appendChild(cost)
@@ -593,7 +593,7 @@ export function createHUD(
       if (costEl !== undefined) {
         const c = buildCost(type, countBuildingsOfType(state, human.id, type))
         costEl.textContent = fmtCompact(c)
-        costEl.style.color = human.gold >= c ? '#e8c14a' : '#d66'
+        costEl.style.color = human.gold >= c ? '#5dd75d' : '#ef5350'
       }
     }
   }
