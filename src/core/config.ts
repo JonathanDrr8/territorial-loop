@@ -180,36 +180,54 @@ export function tilesPerTick(
 }
 
 /**
+ * Faktor, mit dem die Eroberung pro Tile auf die Verteidigungsdichte kalibriert ist.
+ * Bei `CONQUEST_COST_FACTOR = 2` kostet die komplette Einnahme eines Landes (auf
+ * Ebene, ohne Verteidigungsposten) genau `2 × Verteidiger-Truppen` — also reicht
+ * 2:1-Übermacht exakt aus. Da der Verteidiger pro verlorenem Tile seine Pro-Tile-
+ * Truppen verliert ([[defenderLossPerTile]]), bleibt die Dichte dabei konstant.
+ */
+export const CONQUEST_COST_FACTOR = 2
+
+/**
  * Truppen-Verlust des Angreifers pro eroberten Tile.
  *
- * OpenFront-Formel (vereinfacht für MVP: nur Plains, keine Cities/DefensePosts,
- * keine Anti-Zerg-Debuffs):
+ *   Gegen TerraNullius: `attackerLoss = mag / 5` (16 bei Plains).
  *
- *   Gegen TerraNullius: `attackerLoss = mag / 5` (16 bei Plains)
- *
- *   Gegen Spieler:
- *     `currentLoss = clamp(def.troops/att.troops, 0.6, 2) * mag * 0.8`
- *     `altLoss     = 1.3 * (def.troops/def.tilesOwned) * (mag/100)`
- *     `attackerLoss = 0.6 * currentLoss + 0.4 * altLoss`
+ *   Gegen Spieler: `CONQUEST_COST_FACTOR × Verteidigungsdichte × (mag/PLAINS_MAG)`,
+ *   wobei Verteidigungsdichte = `def.troops / def.tilesOwned`. So hängen die Kosten
+ *   nur an der lokalen Verteidigungsstärke und am Terrain — nicht am Angreifer. Die
+ *   Reserve bestimmt damit, wie viel Land man nimmt: 2:1 → alles, 1:1 → etwa die
+ *   Hälfte (auf Ebene, ohne Verteidigungsposten).
  *
  * `mag` kommt aus dem Terrain des Ziel-Tiles (Ebene 80 / Hügel 100 / Berg 120),
- * später multipliziert durch Verteidigungsposten. Default `PLAINS_MAG`.
+ * multipliziert durch Verteidigungsposten. Default `PLAINS_MAG`.
  */
 export function attackerLossPerTile(
-  attackTroops: number,
   defenderTroops: number,
   defenderTilesOwned: number,
   vsTerraNullius: boolean,
   mag: number = PLAINS_MAG,
 ): number {
   if (vsTerraNullius) return mag / 5
-
-  const safeAttack = attackTroops > 0 ? attackTroops : 1
   const safeTiles = defenderTilesOwned > 0 ? defenderTilesOwned : 1
-  // Verlust-Verhältnis bis 4× gedeckelt (vorher 2×): stark unterlegene Angriffe
-  // zahlen pro Tile deutlich mehr und zehren sich schneller auf → Verteidigung zäher.
-  const ratio = Math.max(0.6, Math.min(4, defenderTroops / safeAttack))
-  const currentLoss = ratio * mag * 0.8
-  const altLoss = 1.3 * (defenderTroops / safeTiles) * (mag / 100)
-  return 0.6 * currentLoss + 0.4 * altLoss
+  const density = defenderTroops / safeTiles
+  return CONQUEST_COST_FACTOR * density * (mag / PLAINS_MAG)
+}
+
+/**
+ * Truppen-Verlust des Verteidigers pro verlorenem Tile = seine Pro-Tile-Truppenzahl
+ * (`troops / tilesOwned`). Konzeptionell: das verlorene Land nimmt seine Bevölkerung
+ * mit. Dadurch sinken Truppen und Tiles proportional → die Verteidigungsdichte bleibt
+ * konstant, womit 2:1-Übermacht exakt für die komplette Einnahme reicht.
+ *
+ * Gegen TerraNullius: keiner verliert etwas (oldOwner ist neutral).
+ */
+export function defenderLossPerTile(
+  defenderTroops: number,
+  defenderTilesOwned: number,
+  vsTerraNullius: boolean,
+): number {
+  if (vsTerraNullius) return 0
+  if (defenderTilesOwned <= 0) return 0
+  return defenderTroops / defenderTilesOwned
 }

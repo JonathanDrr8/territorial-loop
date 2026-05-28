@@ -4,6 +4,7 @@ import {
   troopIncreaseRate,
   tilesPerTick,
   attackerLossPerTile,
+  defenderLossPerTile,
   growthZones,
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
@@ -181,35 +182,38 @@ describe('tilesPerTick', () => {
 
 describe('attackerLossPerTile', () => {
   it('against TerraNullius: mag / 5 (16 for Plains)', () => {
-    expect(attackerLossPerTile(1000, 0, 1, true)).toBe(PLAINS_MAG / 5)
-    expect(attackerLossPerTile(1000, 0, 1, true)).toBe(16)
+    expect(attackerLossPerTile(0, 1, true)).toBe(PLAINS_MAG / 5)
+    expect(attackerLossPerTile(0, 1, true)).toBe(16)
   })
 
-  it('against player: positive value combining currentLoss and altLoss', () => {
-    const loss = attackerLossPerTile(1000, 1000, 100, false)
-    expect(loss).toBeGreaterThan(0)
-    // ratio = min(2, max(0.6, 1)) = 1
-    // currentLoss = 1 * 80 * 0.8 = 64
-    // altLoss = 1.3 * (1000/100) * (80/100) = 1.3 * 10 * 0.8 = 10.4
-    // attackerLoss = 0.6*64 + 0.4*10.4 = 38.4 + 4.16 = 42.56
-    expect(loss).toBeCloseTo(42.56, 2)
+  it('against player: 2 × Verteidigungsdichte (auf Ebene)', () => {
+    // density = 1000/100 = 10 → 2 × 10 × (80/80) = 20
+    expect(attackerLossPerTile(1000, 100, false)).toBeCloseTo(20)
+    // dichter verteidigt → teurer: 5000/100 = 50 → 2 × 50 = 100
+    expect(attackerLossPerTile(5000, 100, false)).toBeCloseTo(100)
   })
 
-  it('clamps ratio at 0.6 (overpowering attack)', () => {
-    // ratio raw = 10/10000 = 0.001 → clamped to 0.6
-    const loss = attackerLossPerTile(10_000, 10, 1, false)
-    // currentLoss = 0.6 * 80 * 0.8 = 38.4
-    // altLoss = 1.3 * 10 * 0.8 = 10.4
-    // result = 0.6*38.4 + 0.4*10.4 = 23.04 + 4.16 = 27.2
-    expect(loss).toBeCloseTo(27.2, 2)
+  it('skaliert mit dem Terrain (mag/PLAINS_MAG)', () => {
+    // Berg mag=120 → 2 × 10 × (120/80) = 30
+    expect(attackerLossPerTile(1000, 100, false, 120)).toBeCloseTo(30)
   })
 
-  it('clamps ratio at 4 (heavily outnumbered attack)', () => {
-    // ratio raw = 10000/100 = 100 → clamped to 4 (Verteidiger-Buff)
-    const loss = attackerLossPerTile(100, 10_000, 100, false)
-    // currentLoss = 4 * 80 * 0.8 = 256
-    // altLoss = 1.3 * 100 * 0.8 = 104
-    // result = 0.6*256 + 0.4*104 = 153.6 + 41.6 = 195.2
-    expect(loss).toBeCloseTo(195.2, 2)
+  it('Σ Kosten ≈ 2 × Verteidiger-Truppen → 2:1 reicht für komplette Einnahme', () => {
+    // Bei konstanter Dichte (Verteidiger verliert pro Tile seine Pro-Tile-Truppen)
+    // ist die Eroberung eines Tiles 2 × density teuer; über alle Tiles summiert sich
+    // das zu 2 × Gesamttruppen. Hier: 1000 Truppen auf 100 Tiles, density 10.
+    const perTile = attackerLossPerTile(1000, 100, false) // 20
+    expect(perTile * 100).toBeCloseTo(2 * 1000)
+  })
+})
+
+describe('defenderLossPerTile', () => {
+  it('Pro-Tile-Truppen des Verteidigers (dichteerhaltend)', () => {
+    expect(defenderLossPerTile(1000, 100, false)).toBe(10)
+    expect(defenderLossPerTile(50_000, 500, false)).toBe(100)
+  })
+  it('0 gegen TerraNullius und bei 0 Tiles', () => {
+    expect(defenderLossPerTile(1000, 100, true)).toBe(0)
+    expect(defenderLossPerTile(1000, 0, false)).toBe(0)
   })
 })

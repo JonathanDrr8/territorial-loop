@@ -19,16 +19,21 @@ Entscheidungen fest, damit spätere Sessions die Trade-Offs nachvollziehen.
 
 ### Kampf-Balance
 
-- **Verteidiger verliert keine Truppen beim Verteidigen.** Wer angegriffen wird,
-  verliert nur Land, nicht Truppen (`defenderLossPerTile` entfernt). Folge: die
-  Truppen sitzen weiter auf dem schrumpfenden Gebiet → die Eroberung wird pro Tile
-  zäher (`def.troops/tiles` steigt), und geschlagene Nationen behalten Schlagkraft
-  für Gegenangriffe. Bewusste Design-Entscheidung; fühlte sich vorher falsch an.
-- **Verteidigung gegen unterlegene Angriffe verstärkt.** Tempo-Minimum 0.05→0.02
-  (unterlegene Angriffe kriechen statt zu marschieren) und Verlust-Verhältnis bis
-  4× statt 2× gedeckelt — kleine Angriffe arbeiten sich nicht mehr leicht in große
-  Nationen rein. (Hintergrund: der sublineare Cap `^0.6` macht große Reiche pro Feld
-  _dünn_, weshalb konzentrierte kleine Angriffe sonst lokal durchbrechen.)
+- **Eroberung kalibriert auf „2:1 = komplette Einnahme".** Angreifer-Verlust pro
+  Tile = `CONQUEST_COST_FACTOR (2) × Verteidigungsdichte (def.troops/def.tiles) ×
+(mag/PLAINS_MAG)` — hängt nur an lokaler Verteidigung und Terrain, nicht am
+  Angreifer. Der Verteidiger verliert pro verlorenem Tile seine Pro-Tile-Truppen
+  (`defenderLossPerTile`, „verlorenes Land nimmt seine Bevölkerung mit"), wodurch
+  Truppen und Tiles proportional sinken und die **Dichte konstant** bleibt. Damit
+  summieren sich die Kosten zu `2 × Verteidiger-Truppen` → 2:1-Übermacht reicht
+  (auf Ebene, ohne Verteidigungsposten) **exakt** für die komplette Einnahme; mehr
+  Terrain/Verteidigung verlangt mehr. (Zwischenzeitlich war „Verteidiger verliert
+  keine Truppen" probiert — verworfen, weil dann die Dichte beim Schrumpfen steigt
+  und selbst 2:1 sich aufzehrt, bevor das Land fällt.)
+- **Verteidigung gegen unterlegene Angriffe**: Tempo-Minimum 0.05→0.02 — unterlegene
+  Angriffe kriechen statt zu marschieren. (Hintergrund: der sublineare Cap `^0.6`
+  macht große Reiche pro Feld _dünn_; die Reserve eines Angriffs bestimmt, wie viel
+  Land er nimmt — 2:1 alles, 1:1 etwa die Hälfte.)
 - **Truppen über dem Cap schmelzen ab** (`OVER_CAP_DECAY` 3 %/Tick) statt bei 0 zu
   stagnieren — eine dezimierte Nation sitzt nicht mehr dauerhaft auf ihrem alten
   Truppenberg; der Bestand folgt dem gesunkenen Gebiets-Cap nach.

@@ -27,6 +27,7 @@ import {
   BOT_START_TROOPS,
   HUMAN_START_TROOPS,
   attackerLossPerTile,
+  defenderLossPerTile,
   maxTroops,
   tilesPerTick,
   troopIncreaseRate,
@@ -1031,12 +1032,16 @@ function landBoat(state: GameState, boat: Boat): void {
   const mag =
     terrainMagnitude(state.map.terrain, target) * defenseMagMultiplier(state, target, owner)
   const aLoss =
-    attackerLossPerTile(boat.troops, defTroops, defTiles, vsNull, mag) *
+    attackerLossPerTile(defTroops, defTiles, vsNull, mag) *
     traitorDefenseMul(state, owner, boat.ownerId)
 
   if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
 
-  // Verteidiger verliert nur Land, keine Truppen (siehe advanceAttack).
+  // Verlorenes Land nimmt seine Bevölkerung mit (siehe advanceAttack).
+  if (!vsNull && defender !== undefined) {
+    const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+    defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+  }
   const remaining = Math.floor(boat.troops - aLoss)
   captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
   attacker.attacks.push({
@@ -1275,7 +1280,6 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
       terrainMagnitude(state.map.terrain, ref) * defenseMagMultiplier(state, ref, currentOwner)
     const aLoss =
       attackerLossPerTile(
-        attack.reserveTroops,
         isCurrentlyTerraNullius ? 0 : defenderTroops,
         isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
         isCurrentlyTerraNullius,
@@ -1289,9 +1293,13 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
     attack.reserveTroops = Math.max(0, Math.floor(attack.reserveTroops - aLoss))
 
-    // Der Verteidiger verliert nur Land, KEINE Truppen — Verteidigen kostet keine
-    // Truppen (bewusste Design-Entscheidung). Seine Truppen sitzen weiter auf dem
-    // (kleiner werdenden) Gebiet → die Eroberung wird pro Tile zäher.
+    // Verlorenes Land nimmt seine Bevölkerung mit: der Verteidiger verliert pro Tile
+    // seine Pro-Tile-Truppen → Truppen und Tiles sinken proportional, die Dichte
+    // bleibt konstant, und 2:1-Übermacht reicht exakt für die komplette Einnahme.
+    if (!isCurrentlyTerraNullius && defender !== undefined) {
+      const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+      defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+    }
 
     captureTile(state, ref, attacker.id)
     sumDx += signedTorusDelta(ref % fw, anchorX, fw)
