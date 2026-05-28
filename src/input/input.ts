@@ -87,7 +87,8 @@ export interface InputHandler {
 // Absolute Untergrenze klein genug, dass auch sehr große Karten ganz rausgezoomt
 // werden können — das Kacheln verhindert ohnehin die fit-basierte Grenze in minZoom().
 const ZOOM_MIN_ABS = 0.08
-const ZOOM_MAX = 16
+// Weit genug reinzoomen, um einzelne Tiles/Gebäude groß zu sehen.
+const ZOOM_MAX = 40
 const ZOOM_STEP = 1.15
 
 export function createInputHandler(deps: InputDeps): InputHandler {

@@ -26,10 +26,13 @@ export interface StartMenuValues {
   seed?: string
 }
 
+// Ausbreitungs-Tempo (multipliziert die Eroberungs-Rate). Unter 0.5 entsättigt sich
+// die Welle (Rate < verfügbare Front-Tiles) → spürbar langsamer UND Terrain prägt die
+// Gebietsform. „normal" ist der getunte Standardwert.
 export const TEMPO_TO_SPEED: Record<MatchTempo, number> = {
-  fast: 1,
-  normal: 0.6,
-  siege: 0.3,
+  fast: 0.8,
+  normal: 0.45,
+  siege: 0.25,
 }
 
 export interface StartMenuApi {
