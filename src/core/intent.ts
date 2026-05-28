@@ -24,6 +24,7 @@ export type Intent =
   | UpgradeIntent
   | RequestAllianceIntent
   | AcceptAllianceIntent
+  | DeclineAllianceIntent
   | BreakAllianceIntent
   | SetEmbargoIntent
 
@@ -152,6 +153,13 @@ export interface AcceptAllianceIntent {
   readonly type: 'accept-alliance'
   readonly playerId: number
   readonly targetPlayerId: number
+}
+
+/** Spieler lehnt das Bündnis-Angebot von `requesterId` ab (die Anfrage wird verworfen). */
+export interface DeclineAllianceIntent {
+  readonly type: 'decline-alliance'
+  readonly playerId: number
+  readonly requesterId: number
 }
 
 /**

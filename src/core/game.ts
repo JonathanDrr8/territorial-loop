@@ -58,6 +58,7 @@ import type {
   RecallWarshipIntent,
   BuildIntent,
   CancelAttackIntent,
+  DeclineAllianceIntent,
   DefendIntent,
   Intent,
   RequestAllianceIntent,
@@ -878,6 +879,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'accept-alliance':
         applyAcceptAllianceIntent(state, intent)
         break
+      case 'decline-alliance':
+        applyDeclineAllianceIntent(state, intent)
+        break
       case 'break-alliance':
         applyBreakAllianceIntent(state, intent)
         break
@@ -1042,6 +1046,16 @@ function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceInten
   state.allianceRequests.delete(directedKey(requester.id, accepter.id))
   formAlliance(state, accepter.id, requester.id)
   emitEvent(state, `${accepter.name} und ${requester.name} sind verbündet`, accepter.color)
+}
+
+/** Lehnt ein Bündnis-Angebot `requesterId → playerId` ab (verwirft die Anfrage). */
+function applyDeclineAllianceIntent(state: GameState, intent: DeclineAllianceIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.requesterId)
+  if (pair === null) return
+  const [decliner, requester] = pair
+  if (!hasAllianceRequest(state.allianceRequests, requester.id, decliner.id)) return
+  state.allianceRequests.delete(directedKey(requester.id, decliner.id))
+  emitEvent(state, `${decliner.name} lehnt das Bündnis von ${requester.name} ab`, decliner.color)
 }
 
 function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent): void {

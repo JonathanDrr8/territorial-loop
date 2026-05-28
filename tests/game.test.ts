@@ -461,6 +461,19 @@ describe('wilde Nationen', () => {
   })
 })
 
+describe('Bündnis ablehnen', () => {
+  it('decline-alliance verwirft die eingehende Anfrage ohne Bündnis', () => {
+    const state = createGame(baseConfig())
+    // p2 bietet p1 ein Bündnis an.
+    tick(state, [{ type: 'request-alliance', playerId: 2, targetPlayerId: 1 }])
+    expect(state.allianceRequests.has(directedKey(2, 1))).toBe(true)
+    // p1 lehnt ab → Anfrage weg, kein Bündnis.
+    tick(state, [{ type: 'decline-alliance', playerId: 1, requesterId: 2 }])
+    expect(state.allianceRequests.has(directedKey(2, 1))).toBe(false)
+    expect(state.alliances.size).toBe(0)
+  })
+})
+
 describe('Bauen auf eigenem Gebäude = Upgrade', () => {
   it('ein Bau-Intent auf ein eigenes gleiches Gebäude upgradet es (statt Neubau)', () => {
     const state = createGame(baseConfig())

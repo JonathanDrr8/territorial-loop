@@ -14,6 +14,7 @@ import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
 import { pickDistinctColors } from './ui/colors'
 import { createEventLog } from './ui/event-log'
+import { createAlliancePrompt } from './ui/alliance-prompt'
 import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
@@ -211,6 +212,19 @@ function startMatch(
     Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
   )
   const eventLog = createEventLog(container, state)
+  const alliancePrompt = createAlliancePrompt(
+    container,
+    state,
+    HUMAN_ID,
+    (requesterId) =>
+      pendingIntents.push({
+        type: 'accept-alliance',
+        playerId: HUMAN_ID,
+        targetPlayerId: requesterId,
+      }),
+    (requesterId) =>
+      pendingIntents.push({ type: 'decline-alliance', playerId: HUMAN_ID, requesterId }),
+  )
   const buildMenu = createBuildMenu(
     container,
     state,
@@ -309,6 +323,7 @@ function startMatch(
     minimap.update()
     hud.update()
     eventLog.update()
+    alliancePrompt.update()
     renderRafId = requestAnimationFrame(renderLoop)
   }
   renderRafId = requestAnimationFrame(renderLoop)
@@ -331,6 +346,7 @@ function startMatch(
       minimap.destroy()
       tooltip.destroy()
       eventLog.destroy()
+      alliancePrompt.destroy()
       buildMenu.destroy()
       renderer.destroy()
       sound.destroy()
