@@ -56,3 +56,7 @@ Triviale Entscheidungen (z.B. "Datei-Naming") brauchen keine ADRs.
 - [0003 — Tick-Modell: Fixed 10 Hz Sim, entkoppelter Render](./0003-tick-modell.md)
 - [0004 — OpenFront-Mechaniken als MVP-Baseline übernehmen](./0004-openfront-mechaniken.md)
 - [0005 — Canvas 2D ersetzt Pixi.js / WebGL als Renderer](./0005-canvas2d-statt-pixi.md)
+- [0006 — Mechanik-Tiefe über das MVP hinaus](./0006-mechanik-tiefe.md)
+- [0007 — Spielgefühl-Iteration](./0007-spielgefuehl-iteration.md)
+- [0008 — Fabrik-Wirtschaft, Kriegsschiffe, Wilde Nationen](./0008-wirtschaft-seekrieg-wilde.md)
+- [0009 — Multiplayer (Lockstep) — Implementierungsplan (Proposed)](./0009-multiplayer.md)
