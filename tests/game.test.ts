@@ -274,30 +274,35 @@ describe('tick — victory', () => {
   })
 })
 
+/** Ein an die Frontier des Spielers angrenzendes neutrales Tile (für echte, fortlaufende Angriffe). */
+function adjacentNeutralTile(state: GameState, playerId: number): number {
+  const player = state.players.get(playerId)
+  if (player === undefined) return -1
+  const { width, height } = state.map
+  for (const ref of player.frontier) {
+    for (const n of neighbors4(ref, width, height)) {
+      if (getOwner(state.map, n) === 0) return n
+    }
+  }
+  return -1
+}
+
 describe('tick — intents', () => {
   it('attack intent moves troops into player.attacks', () => {
     const state = createGame(baseConfig())
     const player = state.players.get(1)
     if (player === undefined) throw new Error('player missing')
-    const enemy = state.players.get(2)
-    if (enemy === undefined) throw new Error('enemy missing')
-
-    // Suche ein Tile von Spieler 2 als Ziel
-    let targetTile = -1
-    for (let i = 0; i < state.map.state.length; i++) {
-      if (getOwner(state.map, i) === 2) {
-        targetTile = i
-        break
-      }
-    }
+    // Angrenzendes neutrales Tile → der Angriff hat eine Front und bleibt aktiv.
+    const targetTile = adjacentNeutralTile(state, 1)
     expect(targetTile).toBeGreaterThanOrEqual(0)
 
     const troopsBefore = player.troops
     tick(state, [{ type: 'attack', playerId: 1, targetTile, troops: 5_000 }])
-    expect(player.attacks).toHaveLength(1)
-    expect(player.attacks[0]?.targetPlayerId).toBe(2)
-    expect(player.attacks[0]?.reserveTroops).toBe(5_000)
-    // troops sank by 5k, then grew slightly — should be lower than before
+    expect(player.attacks.length).toBeGreaterThanOrEqual(1)
+    expect(player.attacks[0]?.targetPlayerId).toBe(0) // neutral
+    expect(player.attacks[0]?.reserveTroops).toBeGreaterThan(0)
+    expect(player.attacks[0]?.reserveTroops).toBeLessThanOrEqual(5_000)
+    // troops sank by ~5k (abzüglich etwas Wachstum) — niedriger als vorher
     expect(player.troops).toBeLessThan(troopsBefore)
   })
 
@@ -318,19 +323,14 @@ describe('tick — intents', () => {
     const state = createGame(baseConfig())
     const player = state.players.get(1)
     if (player === undefined) throw new Error('player missing')
-    let targetTile = -1
-    for (let i = 0; i < state.map.state.length; i++) {
-      if (getOwner(state.map, i) === 2) {
-        targetTile = i
-        break
-      }
-    }
+    const targetTile = adjacentNeutralTile(state, 1)
+    expect(targetTile).toBeGreaterThanOrEqual(0)
     const tooMany = player.troops * 10
     tick(state, [{ type: 'attack', playerId: 1, targetTile, troops: tooMany }])
     const attack = player.attacks[0]
     expect(attack).toBeDefined()
     if (attack !== undefined) {
-      // Should never exceed troops at the moment of intent
+      // Reserve nie über den verfügbaren Truppen zum Intent-Zeitpunkt
       expect(attack.reserveTroops).toBeLessThanOrEqual(HUMAN_START_TROOPS)
     }
   })
@@ -339,19 +339,32 @@ describe('tick — intents', () => {
     const state = createGame(baseConfig())
     const player = state.players.get(1)
     if (player === undefined) throw new Error('player missing')
-    let targetTile = -1
-    for (let i = 0; i < state.map.state.length; i++) {
-      if (getOwner(state.map, i) === 2) {
-        targetTile = i
-        break
-      }
-    }
+    const targetTile = adjacentNeutralTile(state, 1)
+    expect(targetTile).toBeGreaterThanOrEqual(0)
     tick(state, [{ type: 'attack', playerId: 1, targetTile, troops: 1_000 }])
-    expect(player.attacks).toHaveLength(1)
+    const attack = player.attacks[0]
+    expect(attack).toBeDefined()
+    const reserve = attack?.reserveTroops ?? 0
+    expect(reserve).toBeGreaterThan(0)
     const troopsBefore = player.troops
     tick(state, [{ type: 'cancel-attack', playerId: 1, attackIndex: 0 }])
     expect(player.attacks).toHaveLength(0)
-    expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + 1_000)
+    // Die zum Cancel-Zeitpunkt verbliebene Reserve fließt zurück in den Pool.
+    expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + reserve)
+  })
+
+  it('an attack with no reachable front refunds its reserve', () => {
+    const state = createGame(baseConfig())
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('player missing')
+    // Künstlicher Angriff auf Spieler 2, der nicht an die eigene Frontier grenzt
+    // (Spawns haben Mindestabstand). Ohne Front sollte die Reserve zurückfließen.
+    player.troops -= 500
+    const troopsBefore = player.troops
+    player.attacks.push({ targetPlayerId: 2, reserveTroops: 500, focusTile: 0 })
+    tick(state, [])
+    expect(player.attacks).toHaveLength(0)
+    expect(player.troops).toBeGreaterThanOrEqual(troopsBefore + 500)
   })
 
   it('intents from different players are applied deterministically', () => {

@@ -11,7 +11,7 @@
  */
 
 import { troopIncreaseRate } from '../core/config'
-import { effectiveMaxTroops, type GameState } from '../core/game'
+import { effectiveMaxTroops, totalTroops, type GameState, type Player } from '../core/game'
 import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
@@ -70,6 +70,7 @@ export function createHUD(
   onNewMatch: () => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
+  let currentSliderPct = DEFAULT_SLIDER_PCT
   const hud = document.createElement('div')
   hud.style.cssText = [
     'position: absolute',
@@ -92,10 +93,39 @@ export function createHUD(
   status.style.marginBottom = '8px'
   hud.appendChild(status)
 
+  // Truppen-Leiste (nur eigener Spieler): Cap = volle Breite, Füllung = Gesamttruppen
+  // (frei + im Kampf), heller Abschnitt = was der nächste Angriff sendet.
+  const barCaption = document.createElement('div')
+  barCaption.style.cssText = 'font-size: 11px; margin-bottom: 2px'
+  hud.appendChild(barCaption)
+
+  const barWrap = document.createElement('div')
+  barWrap.style.cssText = [
+    'position: relative',
+    'height: 14px',
+    'background: rgba(255,255,255,0.08)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 4px',
+    'overflow: hidden',
+    'margin-bottom: 3px',
+  ].join(';')
+  const segIdle = document.createElement('div')
+  const segAttack = document.createElement('div')
+  const segCombat = document.createElement('div')
+  for (const seg of [segIdle, segAttack, segCombat]) {
+    seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
+    barWrap.appendChild(seg)
+  }
+  hud.appendChild(barWrap)
+
+  const barLegend = document.createElement('div')
+  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-bottom: 8px'
+  hud.appendChild(barLegend)
+
   const sliderWrap = document.createElement('div')
   sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center'
   const sliderLabel = document.createElement('span')
-  sliderLabel.textContent = `Truppen: ${DEFAULT_SLIDER_PCT}%`
+  sliderLabel.textContent = `Angriff: ${DEFAULT_SLIDER_PCT}%`
   sliderLabel.style.minWidth = '90px'
   const slider = document.createElement('input')
   slider.type = 'range'
@@ -106,7 +136,8 @@ export function createHUD(
   slider.style.flex = '1'
   slider.addEventListener('input', () => {
     const pct = Number(slider.value)
-    sliderLabel.textContent = `Truppen: ${pct}%`
+    currentSliderPct = pct
+    sliderLabel.textContent = `Angriff: ${pct}%`
     onSliderChange(pct)
   })
   sliderWrap.appendChild(sliderLabel)
@@ -205,8 +236,56 @@ export function createHUD(
   pauseOverlay.textContent = 'PAUSE'
   container.appendChild(pauseOverlay)
 
+  /** Aktualisiert die Truppen-Leiste des eigenen Spielers. */
+  function updateTroopBar(): void {
+    let human: Player | undefined
+    for (const p of state.players.values()) {
+      if (p.isHuman) {
+        human = p
+        break
+      }
+    }
+    if (human === undefined || !human.isAlive) {
+      barWrap.style.display = 'none'
+      barCaption.style.display = 'none'
+      barLegend.style.display = 'none'
+      return
+    }
+    barWrap.style.display = ''
+    barCaption.style.display = ''
+    barLegend.style.display = ''
+
+    const cap = Math.max(1, effectiveMaxTroops(state, human.id))
+    const idle = human.troops
+    const total = totalTroops(human)
+    const combat = Math.max(0, total - idle)
+    const attackAmt = Math.floor((idle * currentSliderPct) / 100)
+    const idleBase = Math.max(0, idle - attackAmt)
+    const color = rgbaToCss(human.color)
+    const pctW = (v: number): string => `${Math.max(0, Math.min(100, (v / cap) * 100)).toString()}%`
+
+    segIdle.style.left = '0%'
+    segIdle.style.width = pctW(idleBase)
+    segIdle.style.background = color
+
+    segAttack.style.left = pctW(idleBase)
+    segAttack.style.width = pctW(attackAmt)
+    segAttack.style.background = '#e8d24a' // gold = was der nächste Angriff sendet
+
+    segCombat.style.left = pctW(idleBase + attackAmt)
+    segCombat.style.width = pctW(combat)
+    segCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
+
+    barCaption.innerHTML = `Truppen <b>${fmtCompact(total)}</b> / ${fmtCompact(cap)}`
+    const combatLegend =
+      combat > 0 ? ` &nbsp; <span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>` : ''
+    barLegend.innerHTML = `<span style="color:#e8d24a">▌</span> Angriff ${fmtCompact(attackAmt)} (${currentSliderPct.toString()}%)${combatLegend}`
+  }
+
   function update(): void {
-    const totalTiles = state.map.width * state.map.height
+    // Gebiets-% bezieht sich auf eroberbares Land (ohne Wasser/Extrem-Berge).
+    const totalTiles =
+      state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
     const html: string[] = []
     const gameSeconds = state.tick / SIM_TICKS_PER_SECOND
     const speedLabel = currentSpeed === 0 ? '⏸ Pause' : `${String(currentSpeed)}×`
@@ -218,25 +297,28 @@ export function createHUD(
     for (const p of players) {
       const pct = fmtPct((p.tilesOwned / totalTiles) * 100)
       const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
+      // Gesamttruppen = frei + im Kampf gebunden.
       html.push(
-        `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${p.troops.toLocaleString('de-DE')}T · ${pct}<br>`,
+        `<span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}: ${Math.round(totalTroops(p)).toLocaleString('de-DE')}T · ${pct}<br>`,
       )
-      // Eigene Nation: Cap + Wachstumsrate (pro Sekunde) + Gold-Vorrat
+      // Eigene Nation: Wachstumsrate (pro Sekunde) + Gold-Vorrat
       if (p.isHuman && p.isAlive) {
         const cap = effectiveMaxTroops(state, p.id)
-        const ratePerSec = troopIncreaseRate(p.troops, cap) * 10
+        const ratePerSec = troopIncreaseRate(totalTroops(p), cap) * 10
         html.push(
-          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ Cap ${fmtCompact(cap)} · +${fmtCompact(ratePerSec)}/s · <span style="color:#e8c14a">${fmtCompact(p.gold)} Gold</span></span><br>`,
+          `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ +${fmtCompact(ratePerSec)}/s · <span style="color:#e8c14a">${fmtCompact(p.gold)} Gold</span></span><br>`,
         )
       }
     }
     status.innerHTML = html.join('')
+    updateTroopBar()
 
     if (state.phase === 'ended' && state.winner !== null) {
       const winner = state.players.get(state.winner)
       if (winner !== undefined) {
         banner.style.display = 'block'
-        const totalTiles = state.map.width * state.map.height
+        const totalTiles =
+          state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
         const players = [...state.players.values()].sort(
           (a, b) => b.peakTilesOwned - a.peakTilesOwned,
         )

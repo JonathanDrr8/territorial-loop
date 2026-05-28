@@ -171,6 +171,11 @@ export interface GameState {
   readonly waterComponents: Int32Array
   /** Begehbare-Land-Komponenten (Index pro Tile, -1 = Wasser/unpassierbar). Statisch. */
   readonly landComponents: Int32Array
+  /**
+   * Anzahl begehbarer (eroberbarer) Tiles — Wasser und Extrem-Berge zählen nicht.
+   * Basis für Gebiets-% und Sieg-Schwelle. Statisch (Terrain ändert sich nie).
+   */
+  readonly passableLandCount: number
   /** Aktive Transport-Boote. */
   boats: Boat[]
   /** Aktive Handelsschiffe. */
@@ -241,6 +246,7 @@ export function createGame(config: GameConfig): GameState {
     buildings: new Map<TileRef, Building>(),
     waterComponents: labelWaterComponents(map),
     landComponents: labelLandComponents(map),
+    passableLandCount: countPassableLand(map),
     boats: [],
     tradeShips: [],
     alliances: new Set<number>(),
@@ -728,11 +734,27 @@ function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): 
   player.attacks.splice(intent.attackIndex, 1)
 }
 
+/** Truppen die der Spieler aktuell in laufenden Angriffen gebunden hat. */
+function committedTroops(player: Player): number {
+  let sum = 0
+  for (const a of player.attacks) sum += a.reserveTroops
+  return sum
+}
+
+/** Gesamttruppen eines Spielers: frei verfügbar + in Angriffen gebunden. */
+export function totalTroops(player: Player): number {
+  return player.troops + committedTroops(player)
+}
+
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
     const max = maxTroops(player.tilesOwned) + cityCapBonus(state, player.id)
-    player.troops += troopIncreaseRate(player.troops, max)
+    // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
+    // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
+    const committed = committedTroops(player)
+    const rate = troopIncreaseRate(player.troops + committed, max)
+    player.troops = Math.min(player.troops + rate, Math.max(0, max - committed))
   }
 }
 
@@ -893,15 +915,21 @@ function checkEliminations(state: GameState): void {
   }
 }
 
+/** Zählt die begehbaren (eroberbaren) Tiles einer Karte — Wasser/Extrem-Berge raus. */
+function countPassableLand(map: GameMap): number {
+  let n = 0
+  for (let i = 0; i < map.terrain.length; i++) {
+    if (isPassable(map.terrain, i)) n++
+  }
+  return n
+}
+
 function checkVictory(state: GameState): void {
   if (state.phase === 'ended') return
   // Sieg-Schwelle bezieht sich auf eroberbare Tiles (Land), nicht auf den gesamten
   // Bitmap-Bereich — sonst wäre Sieg auf einer Insel-Karte mit 35% Land unmöglich.
-  let landTotal = 0
-  for (let i = 0; i < state.map.terrain.length; i++) {
-    if (isPassable(state.map.terrain, i)) landTotal++
-  }
-  const totalTiles = landTotal > 0 ? landTotal : state.map.width * state.map.height
+  const totalTiles =
+    state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
   const threshold = state.config.victoryPct / 100
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
@@ -946,8 +974,11 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const { frontWidth, tiles } = collectAttackableTiles(state, attacker, targetId)
 
   if (frontWidth === 0 || tiles.length === 0) {
-    // Kein Fortschritt — Angriff bleibt aktiv, vielleicht öffnet sich später eine Front
-    return true
+    // Keine Front mehr (Ziel nicht mehr erreichbar / aufgebraucht) → der Angriff
+    // endet und seine verbleibende Reserve fließt zurück in den Truppen-Pool.
+    attacker.troops += attack.reserveTroops
+    attack.reserveTroops = 0
+    return false
   }
 
   const defenderTroops = vsTerraNullius ? 0 : (defender?.troops ?? 0)
