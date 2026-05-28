@@ -12,10 +12,10 @@
  */
 
 /** Start-Truppen für menschliche Spieler (klein → längere, spürbare Wachstumskurve). */
-export const HUMAN_START_TROOPS = 8_000
+export const HUMAN_START_TROOPS = 2_500
 
-/** Start-Truppen für Bot-/KI-Spieler (~0.4× Mensch, wie OpenFront). */
-export const BOT_START_TROOPS = 3_000
+/** Start-Truppen für Bot-/„Barbaren"-Spieler. */
+export const BOT_START_TROOPS = 1_000
 
 /** Default Slider-Prozentwert für Angriffe (Mensch). */
 export const HUMAN_DEFAULT_ATTACK_PCT = 20
@@ -36,23 +36,26 @@ export const BASE_GOLD_PER_TICK = 100
  */
 export const PLAINS_MAG = 80
 
+/** Cap-Sockel (≈ Cap eines winzigen Spawns) und Beitrag pro Tile^0.6. */
+export const MAX_TROOPS_BASE = 4_000
+export const MAX_TROOPS_PER_TILE = 950
+/** Cap-Faktor für Bots/„Barbaren" (etwas niedriger als beim Menschen). */
+export const BOT_CAP_FACTOR = 0.8
+
 /**
- * Maximaler Truppen-Cap eines Spielers, abhängig von der Anzahl seiner Tiles.
+ * Maximaler Truppen-Cap, abhängig von der (terrain-gewichteten) Tile-Anzahl.
  *
- * Formel:
- *   `2 * (numTiles^0.6 * 1000 + 50000) + sum(cityLevel) * 250000`
- *
- * City-Term ist im MVP immer 0 (keine Cities). Sublinearer Tile-Exponent (0.6)
- * bremst Snowball-Sieger.
- *
- * Bei `bot: true` wird der Cap durch 3 geteilt (OpenFront-Konvention).
+ * Formel: `MAX_TROOPS_BASE + numTiles^0.6 * MAX_TROOPS_PER_TILE`.
+ * Bewusst kleiner Sockel → ein frisches 5×5-Spawn (gewichtet ~37) ergibt ~12.500;
+ * der Cap wächst dann spürbar mit eroberten Tiles (sublinear, ^0.6, bremst Snowball).
+ * Bei `bot: true` wird der Cap mit `BOT_CAP_FACTOR` skaliert (~10.000 am Spawn).
  */
 export function maxTroops(numTilesOwned: number, opts: { readonly bot?: boolean } = {}): number {
   if (numTilesOwned < 0) {
     throw new RangeError(`numTilesOwned must be >= 0, got ${numTilesOwned}`)
   }
-  const base = 2 * (Math.pow(numTilesOwned, 0.6) * 1000 + 50_000)
-  const value = opts.bot === true ? base / 3 : base
+  const raw = MAX_TROOPS_BASE + Math.pow(numTilesOwned, 0.6) * MAX_TROOPS_PER_TILE
+  const value = opts.bot === true ? raw * BOT_CAP_FACTOR : raw
   return Math.floor(value)
 }
 

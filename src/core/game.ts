@@ -776,7 +776,8 @@ export function totalTroops(player: Player): number {
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
-    const max = maxTroops(player.weightedTiles) + cityCapBonus(state, player.id)
+    const max =
+      maxTroops(player.weightedTiles, { bot: !player.isHuman }) + cityCapBonus(state, player.id)
     // Wachstum bezieht sich auf die Gesamttruppen (frei + gebunden); freie Truppen
     // wachsen, ohne dass die Gesamtzahl den Cap überschreitet.
     const committed = committedTroops(player)
@@ -789,7 +790,7 @@ function growPopulations(state: GameState): void {
 export function effectiveMaxTroops(state: GameState, playerId: number): number {
   const p = state.players.get(playerId)
   if (p === undefined) return 0
-  return maxTroops(p.weightedTiles) + cityCapBonus(state, playerId)
+  return maxTroops(p.weightedTiles, { bot: !p.isHuman }) + cityCapBonus(state, playerId)
 }
 
 /** Hängt ein Ereignis ans Log (chronologisch). */

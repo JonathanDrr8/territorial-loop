@@ -12,8 +12,7 @@ import {
 
 describe('maxTroops', () => {
   it('returns base cap for 0 tiles', () => {
-    // 2 * (0 + 50000) = 100000
-    expect(maxTroops(0)).toBe(100_000)
+    expect(maxTroops(0)).toBe(4_000)
   })
 
   it('grows sublinear with tile count (^0.6 exponent)', () => {
@@ -27,12 +26,12 @@ describe('maxTroops', () => {
     expect(at100k).toBeGreaterThan(at10k)
   })
 
-  it('applies bot divisor (cap / 3) when bot=true', () => {
+  it('applies bot cap factor when bot=true', () => {
     const human = maxTroops(10_000)
     const bot = maxTroops(10_000, { bot: true })
     expect(bot).toBeLessThan(human)
-    // Floor differences allowed; ratio approx 1/3
-    expect(bot / human).toBeCloseTo(1 / 3, 2)
+    // Bots etwas schwächer (~0.8× Cap)
+    expect(bot / human).toBeCloseTo(0.8, 1)
   })
 
   it('rejects negative tile count', () => {
