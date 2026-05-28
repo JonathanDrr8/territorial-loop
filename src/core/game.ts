@@ -12,7 +12,13 @@
  */
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
-import { generateTerrain, isPassable, terrainMagnitude, type TerrainType } from '../world/terrain'
+import {
+  generateTerrain,
+  isLand,
+  isPassable,
+  terrainMagnitude,
+  type TerrainType,
+} from '../world/terrain'
 import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
 import {
   BASE_GOLD_PER_TICK,
@@ -24,7 +30,19 @@ import {
   tilesPerTick,
   troopIncreaseRate,
 } from './config'
-import type { AttackIntent, CancelAttackIntent, Intent } from './intent'
+import {
+  type Building,
+  type BuildingType,
+  CITY_CAP_BONUS,
+  DEFENSE_MAG_MULTIPLIER,
+  MARKET_GOLD_PER_TICK,
+  MAX_BUILDING_LEVEL,
+  PORT_WATER_RANGE,
+  buildCost,
+  defenseRange,
+  upgradeCost,
+} from './buildings'
+import type { AttackIntent, BuildIntent, CancelAttackIntent, Intent, UpgradeIntent } from './intent'
 import { createPRNG, type PRNG } from './random'
 
 /* ============================================================================
@@ -109,6 +127,8 @@ export interface GameState {
   winner: number | null
   /** Chronologische Ereignis-Liste; die UI liest sie und zeigt die letzten an. */
   events: GameEvent[]
+  /** Gebäude pro Tile. */
+  buildings: Map<TileRef, Building>
 }
 
 /* ============================================================================
@@ -165,6 +185,7 @@ export function createGame(config: GameConfig): GameState {
     phase: 'running',
     winner: null,
     events: [],
+    buildings: new Map<TileRef, Building>(),
   }
 
   placeSpawns(state)
@@ -315,11 +336,46 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
 }
 
 function generateGold(state: GameState): void {
+  // Markt-Gold pro Spieler aus den Gebäuden vorberechnen.
+  const marketGold = new Map<number, number>()
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'market') continue
+    marketGold.set(b.ownerId, (marketGold.get(b.ownerId) ?? 0) + MARKET_GOLD_PER_TICK * b.level)
+  }
   for (const player of state.players.values()) {
     if (!player.isAlive) continue
-    // Flaches Basis-Einkommen. Eco-Gebäude + Handel addieren in Phase 4/5.
-    player.gold += BASE_GOLD_PER_TICK
+    player.gold += BASE_GOLD_PER_TICK + (marketGold.get(player.id) ?? 0)
   }
+}
+
+/** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */
+function cityCapBonus(state: GameState, playerId: number): number {
+  let bonus = 0
+  for (const b of state.buildings.values()) {
+    if (b.type === 'city' && b.ownerId === playerId) bonus += CITY_CAP_BONUS * b.level
+  }
+  return bonus
+}
+
+/**
+ * Magnitude-Multiplikator durch Verteidigungsposten des Verteidigers: 5 wenn ein
+ * eigener Posten in Reichweite des Tiles steht, sonst 1. O(Posten) — bei wenigen
+ * Posten günstig.
+ */
+function defenseMagMultiplier(state: GameState, tile: TileRef, defenderId: number): number {
+  if (defenderId === 0) return 1 // TerraNullius hat keine Posten
+  const { width, height } = state.map
+  const tx = tile % width
+  const ty = Math.floor(tile / width)
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'defense' || b.ownerId !== defenderId) continue
+    const bx = b.tile % width
+    const by = Math.floor(b.tile / width)
+    if (torusDistance(tx, ty, bx, by, width, height) <= defenseRange(b.level)) {
+      return DEFENSE_MAG_MULTIPLIER
+    }
+  }
+  return 1
 }
 
 function updatePeakStats(state: GameState): void {
@@ -339,8 +395,78 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
         break
+      case 'build':
+        applyBuildIntent(state, intent)
+        break
+      case 'upgrade':
+        applyUpgradeIntent(state, intent)
+        break
     }
   }
+}
+
+/** Anzahl Gebäude eines Typs die `playerId` besitzt (für eskalierende Kosten). */
+function countBuildingsOfType(state: GameState, playerId: number, type: BuildingType): number {
+  let n = 0
+  for (const b of state.buildings.values()) {
+    if (b.ownerId === playerId && b.type === type) n++
+  }
+  return n
+}
+
+/** Prüft ob ein Tile in `PORT_WATER_RANGE` an Wasser grenzt (für Hafen-Bau). */
+function nearWater(state: GameState, tile: TileRef): boolean {
+  const { width, height } = state.map
+  const tx = tile % width
+  const ty = Math.floor(tile / width)
+  const r = PORT_WATER_RANGE
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const ref = tileRef(tx + dx, ty + dy, width, height)
+      if (!isLand(state.map.terrain, ref)) return true
+    }
+  }
+  return false
+}
+
+function applyBuildIntent(state: GameState, intent: BuildIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  const tile = intent.tile
+  if (tile < 0 || tile >= state.map.state.length) return
+  if (getOwner(state.map, tile) !== player.id) return // nur eigenes Tile
+  if (!isPassable(state.map.terrain, tile)) return
+  if (state.buildings.has(tile)) return // schon bebaut
+  if (intent.buildingType === 'port' && !nearWater(state, tile)) return
+
+  const cost = buildCost(
+    intent.buildingType,
+    countBuildingsOfType(state, player.id, intent.buildingType),
+  )
+  if (player.gold < cost) return
+
+  player.gold -= cost
+  state.buildings.set(tile, {
+    type: intent.buildingType,
+    ownerId: player.id,
+    tile,
+    level: 1,
+  })
+}
+
+function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  const b = state.buildings.get(intent.tile)
+  if (b === undefined || b.ownerId !== player.id) return
+  if (b.level >= MAX_BUILDING_LEVEL) return
+  // Tile könnte zwischenzeitlich verloren sein
+  if (getOwner(state.map, intent.tile) !== player.id) return
+
+  const cost = upgradeCost(b.type, b.level)
+  if (player.gold < cost) return
+  player.gold -= cost
+  b.level++
 }
 
 function applyAttackIntent(state: GameState, intent: AttackIntent): void {
@@ -377,9 +503,16 @@ function applyCancelAttackIntent(state: GameState, intent: CancelAttackIntent): 
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive) continue
-    const max = maxTroops(player.tilesOwned)
+    const max = maxTroops(player.tilesOwned) + cityCapBonus(state, player.id)
     player.troops += troopIncreaseRate(player.troops, max)
   }
+}
+
+/** Effektiver Truppen-Cap inkl. Stadt-Bonus (für HUD/AI). */
+export function effectiveMaxTroops(state: GameState, playerId: number): number {
+  const p = state.players.get(playerId)
+  if (p === undefined) return 0
+  return maxTroops(p.tilesOwned) + cityCapBonus(state, playerId)
 }
 
 /** Hängt ein Ereignis ans Log (chronologisch). */
@@ -504,7 +637,9 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     if (!vsTerraNullius && currentOwner !== targetId && currentOwner !== 0) continue
 
     const isCurrentlyTerraNullius = currentOwner === 0
-    const mag = terrainMagnitude(state.map.terrain, ref)
+    // Terrain-Magnitude, multipliziert mit Verteidigungsposten-Bonus des Verteidigers.
+    const mag =
+      terrainMagnitude(state.map.terrain, ref) * defenseMagMultiplier(state, ref, currentOwner)
     const aLoss = attackerLossPerTile(
       attack.reserveTroops,
       isCurrentlyTerraNullius ? 0 : defenderTroops,
@@ -567,6 +702,9 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   if (oldOwner === attackerId) return
 
   setOwner(map, ref, attackerId)
+
+  // Gebäude auf dem eroberten Tile wird zerstört (Investition geht verloren).
+  state.buildings.delete(ref)
 
   const attacker = players.get(attackerId)
   if (attacker !== undefined) attacker.tilesOwned++

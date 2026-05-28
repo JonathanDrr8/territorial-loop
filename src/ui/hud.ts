@@ -10,8 +10,8 @@
  * differential update auf Listenebene.
  */
 
-import { maxTroops, troopIncreaseRate } from '../core/config'
-import type { GameState } from '../core/game'
+import { troopIncreaseRate } from '../core/config'
+import { effectiveMaxTroops, type GameState } from '../core/game'
 import { rgbaToCss } from './colors'
 
 const DEFAULT_SLIDER_PCT = 30
@@ -207,7 +207,7 @@ export function createHUD(
       )
       // Eigene Nation: Cap + Wachstumsrate (pro Sekunde) + Gold-Vorrat
       if (p.isHuman && p.isAlive) {
-        const cap = maxTroops(p.tilesOwned)
+        const cap = effectiveMaxTroops(state, p.id)
         const ratePerSec = troopIncreaseRate(p.troops, cap) * 10
         html.push(
           `<span style="opacity:0.6; font-size:11px">&nbsp;&nbsp;↳ Cap ${fmtCompact(cap)} · +${fmtCompact(ratePerSec)}/s · <span style="color:#e8c14a">${fmtCompact(p.gold)} Gold</span></span><br>`,

@@ -10,8 +10,9 @@
  */
 
 import type { TileRef } from '../world/torus'
+import type { BuildingType } from './buildings'
 
-export type Intent = AttackIntent | CancelAttackIntent
+export type Intent = AttackIntent | CancelAttackIntent | BuildIntent | UpgradeIntent
 
 /**
  * Spieler startet einen Angriff auf ein Ziel-Tile.
@@ -38,4 +39,23 @@ export interface CancelAttackIntent {
   readonly type: 'cancel-attack'
   readonly playerId: number
   readonly attackIndex: number
+}
+
+/**
+ * Spieler baut ein Gebäude auf einem eigenen, begehbaren Tile.
+ * Die Sim prüft Besitz, Begehbarkeit, Gold und typ-spezifische Bedingungen
+ * (z.B. Hafen nahe Wasser) und zieht die Kosten ab.
+ */
+export interface BuildIntent {
+  readonly type: 'build'
+  readonly playerId: number
+  readonly tile: TileRef
+  readonly buildingType: BuildingType
+}
+
+/** Spieler wertet ein eigenes Gebäude auf das nächste Level auf. */
+export interface UpgradeIntent {
+  readonly type: 'upgrade'
+  readonly playerId: number
+  readonly tile: TileRef
 }
