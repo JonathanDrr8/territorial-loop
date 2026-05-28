@@ -190,7 +190,9 @@ function startMatch(
     }),
   })
 
-  const tooltip = createHoverTooltip(container, state, HUMAN_ID)
+  const tooltip = createHoverTooltip(container, state, HUMAN_ID, () =>
+    Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+  )
   const eventLog = createEventLog(container, state)
   const buildMenu = createBuildMenu(
     container,

@@ -9,7 +9,7 @@
  * Pointer-events: none, damit der Tooltip nie Klicks abfängt.
  */
 
-import { effectiveMaxTroops, type GameState } from '../core/game'
+import { canReachByLand, effectiveMaxTroops, type GameState } from '../core/game'
 import { areAllied, pairKey } from '../core/diplomacy'
 import { shipWorldPos } from '../core/ships'
 import { getOwner } from '../world/map'
@@ -29,10 +29,20 @@ function escapeHtml(s: string): string {
   )
 }
 
+/** Kompakte Zahl für die Cursor-Notiz (z.B. 35100 → "35.1k"). */
+function fmtCompact(value: number): string {
+  const v = Math.round(value)
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(v)
+}
+
 export function createHoverTooltip(
   container: HTMLElement,
   state: GameState,
   humanId: number,
+  /** Truppenzahl, die ein Linksklick gerade losschicken würde (Slider-% der freien Truppen). */
+  getAttackTroops: () => number,
 ): HoverTooltipApi {
   const tooltip = document.createElement('div')
   tooltip.style.cssText = [
@@ -102,8 +112,19 @@ export function createHoverTooltip(
       return
     }
 
+    // Angriffs-Notiz: wie viele Truppen ein Linksklick HIER losschicken würde — nur über
+    // gültigen Land-Angriffszielen (Gegner/Wildnis, über Land erreichbar, nicht verbündet).
+    const atkTroops = getAttackTroops()
+    const attackNote = (over: 'inline' | 'line'): string => {
+      if (atkTroops <= 0 || humanId < 0) return ''
+      if (owner > 0 && areAllied(state.alliances, humanId, owner)) return ''
+      if (!canReachByLand(state, humanId, ref)) return ''
+      const chip = `<span style="color:#e8d24a">⚔ ${fmtCompact(atkTroops)}</span>`
+      return over === 'inline' ? ` · ${chip}` : `<br>${chip}`
+    }
+
     if (owner === 0) {
-      tooltip.innerHTML = '<span style="opacity: 0.7">neutrales Land</span>'
+      tooltip.innerHTML = `<span style="opacity: 0.7">neutrales Land</span>${attackNote('inline')}`
     } else {
       const player = state.players.get(owner)
       if (player === undefined) {
@@ -128,7 +149,7 @@ export function createHoverTooltip(
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
-        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${alliance}`
+        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${alliance}${attackNote('line')}`
     }
 
     tooltip.style.display = 'block'
