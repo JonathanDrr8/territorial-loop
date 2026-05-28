@@ -153,10 +153,25 @@ export function createHUD(
   const helpBody = document.createElement('div')
   helpBody.style.cssText = 'margin-top: 4px; line-height: 1.5'
   helpBody.innerHTML =
-    'Linksklick: Angriff (über Wasser → Boot)<br/>Ziehen (links/rechts) oder WASD: Kamera<br/>Mausrad: Zoom · Rechtsklick: Menü<br/>1–4: Gebäude · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü'
+    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Ziehen (links/rechts) oder WASD: Kamera<br/>Mausrad: Zoom · Rechtsklick: Menü<br/>1–3: Gebäude · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot zurück'
   helpDetails.appendChild(helpBody)
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
+
+  /* ---- Gefahren-Vignette: pulst rot am Bildschirmrand wenn man angegriffen wird --- */
+  const dangerStyle = document.createElement('style')
+  dangerStyle.textContent = '@keyframes tl-danger-pulse{0%,100%{opacity:0.35}50%{opacity:0.9}}'
+  document.head.appendChild(dangerStyle)
+  const dangerVignette = document.createElement('div')
+  dangerVignette.style.cssText = [
+    'position: absolute',
+    'inset: 0',
+    'pointer-events: none',
+    'z-index: 9',
+    'display: none',
+    'box-shadow: inset 0 0 120px 24px rgba(225,40,40,0.85)',
+  ].join(';')
+  container.appendChild(dangerVignette)
 
   /* ---- Oben links (unter Info): Angriffs-Übersicht ------------------------- */
   const attackPanel = document.createElement('div')
@@ -684,14 +699,24 @@ export function createHUD(
       boatIdx++
     }
     // Eingehende Angriffe (nicht klickbar).
+    let incoming = 0
     for (const p of state.players.values()) {
       if (p.id === human.id || !p.isAlive) continue
       for (const atk of p.attacks) {
         if (atk.targetPlayerId !== human.id) continue
+        incoming++
         rows.push(
           `<div><span style="color:#e84545">⚔←</span> ${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</div>`,
         )
       }
+    }
+    // Gefahren-Vignette: pulst rot solange man angegriffen wird.
+    if (incoming > 0) {
+      dangerVignette.style.display = 'block'
+      dangerVignette.style.animation = 'tl-danger-pulse 1.2s ease-in-out infinite'
+    } else {
+      dangerVignette.style.display = 'none'
+      dangerVignette.style.animation = 'none'
     }
     if (rows.length === 0) {
       attackPanel.style.display = 'none'
@@ -831,6 +856,8 @@ export function createHUD(
       actionBar.remove()
       banner.remove()
       pauseOverlay.remove()
+      dangerVignette.remove()
+      dangerStyle.remove()
     },
   }
 }
