@@ -67,6 +67,8 @@ export interface Renderer {
   clearHoverTile(): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
+  /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
+  centerOnPlayer(playerId: number): void
   destroy(): void
 }
 
@@ -462,6 +464,35 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         y: ((my % h) + h) % h,
       })
     }
+  }
+
+  /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
+  function centerOnPlayer(playerId: number): void {
+    const w = state.map.width
+    const h = state.map.height
+    const ms = state.map.state
+    const kx = (2 * Math.PI) / w
+    const ky = (2 * Math.PI) / h
+    let sx = 0
+    let cx = 0
+    let sy = 0
+    let cy = 0
+    let n = 0
+    for (let i = 0; i < ms.length; i++) {
+      if (((ms[i] ?? 0) & OWNER_MASK) !== playerId) continue
+      const x = i % w
+      const y = (i - x) / w
+      sx += Math.sin(x * kx)
+      cx += Math.cos(x * kx)
+      sy += Math.sin(y * ky)
+      cy += Math.cos(y * ky)
+      n++
+    }
+    if (n === 0) return
+    const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
+    const my = (Math.atan2(sy, cy) / (2 * Math.PI)) * h
+    camera.x = ((mx % w) + w) % w
+    camera.y = ((my % h) + h) % h
   }
 
   /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
@@ -948,6 +979,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
     },
+    centerOnPlayer,
     destroy,
   }
 }

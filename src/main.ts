@@ -76,6 +76,9 @@ function startMatch(
   const config = buildConfig(menu)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
+  // Kamera nach dem Generieren auf das eigene Spawn zentrieren — sonst weiß man auf
+  // großen Karten nicht, wo man ist.
+  renderer.centerOnPlayer(HUMAN_ID)
   const sound = createSoundEngine()
   sound.setEnabled(menu.soundEnabled)
   ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer, sound }
