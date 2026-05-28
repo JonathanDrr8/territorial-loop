@@ -381,6 +381,27 @@ export function createBuildMenu(
           })
         }
       }
+      // Rundum ausbreiten: gleichzeitig in alle angrenzende Wildnis expandieren.
+      const omniTroops = getAttackTroops()
+      actions.push({
+        glyph: '⤢',
+        label: 'Rundum ausbreiten',
+        detail: `${fmtCompact(omniTroops)} Truppen in alle Richtungen`,
+        costText: '',
+        affordable: true,
+        enabled: omniTroops > 0,
+        accent: ATTACK_ACCENT,
+        run: () => {
+          emit({
+            type: 'attack',
+            playerId: humanPlayerId,
+            targetTile: tile,
+            troops: omniTroops,
+            omni: true,
+          })
+          close()
+        },
+      })
     } else if (!isLand(state.map.terrain, tile)) {
       // Wasser-Tile → Kriegsschiff entsenden (braucht eigenen Hafen + Gold).
       title = 'Wasser'

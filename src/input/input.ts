@@ -51,6 +51,8 @@ export interface InputDeps {
   /** Wird pro tick aufgerufen um Player-Truppen für die Slider-Konvertierung zu erhalten. */
   readonly getPlayerTroops: () => number
   readonly getSliderPct: () => number
+  /** Optional: setzt den Angriffs-Slider (Shift+Mausrad). */
+  readonly setSliderPct?: (pct: number) => void
   readonly playerId: number
   readonly emit: (intent: Intent) => void
   readonly events: InputEvents
@@ -98,6 +100,8 @@ const ZOOM_MIN_ABS = 0.08
 // Weit genug reinzoomen, um einzelne Tiles/Gebäude groß zu sehen.
 const ZOOM_MAX = 40
 const ZOOM_STEP = 1.15
+/** Schrittweite (Prozentpunkte) der Angriffsgröße pro Shift+Mausrad-Raste. */
+const ATTACK_STEP_PCT = 10
 
 export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
@@ -243,8 +247,19 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     dragButton = null
 
     if (e.button === 2) {
-      // Rechtsklick ohne nennenswerte Bewegung → Radialmenü an dem Tile
-      if (!wasMoved && deps.interactive !== false && deps.onRadialMenu !== undefined) {
+      if (wasMoved || deps.interactive === false) return
+      // Hält man ein Gebäude / ist im Boot-Modus, bricht Rechtsklick das ab (wie Esc)
+      // — statt das Radialmenü zu öffnen.
+      if (buildMode !== null) {
+        setBuildMode(null)
+        return
+      }
+      if (boatMode) {
+        setBoatMode(false)
+        return
+      }
+      // Sonst Rechtsklick ohne Drag → Radialmenü an dem Tile
+      if (deps.onRadialMenu !== undefined) {
         const rect = canvas.getBoundingClientRect()
         deps.onRadialMenu(
           screenToTile(e.clientX, e.clientY),
@@ -306,6 +321,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   function onWheel(e: WheelEvent): void {
     e.preventDefault()
+    // Shift+Mausrad → Angriffsgröße in 10%-Schritten ändern (statt Zoom).
+    if (e.shiftKey && deps.setSliderPct !== undefined && deps.interactive !== false) {
+      const cur = deps.getSliderPct()
+      const next = Math.max(
+        1,
+        Math.min(100, cur + (e.deltaY < 0 ? ATTACK_STEP_PCT : -ATTACK_STEP_PCT)),
+      )
+      deps.setSliderPct(next)
+      return
+    }
     // Welt-Punkt unter Cursor merken, damit der Zoom dort "zentriert" wirkt
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left

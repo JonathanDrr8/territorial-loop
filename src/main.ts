@@ -203,6 +203,10 @@ function startMatch(
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
+    setSliderPct: (pct) => {
+      sliderPct = pct
+      hud.setSliderPct(pct)
+    },
     onAttackClick: (x, y) => {
       renderer.addClickMarker(x, y)
       sound.click()

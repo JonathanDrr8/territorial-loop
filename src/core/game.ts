@@ -153,6 +153,8 @@ export interface Attack {
   frontTile: TileRef
   /** Tick, an dem der Angriff gestartet wurde (für die Dauer-Anzeige im HUD). */
   startTick: number
+  /** Rundum-Ausbreitung (kein Richtungs-Fokus → gleichmäßig in alle Wildnis). */
+  omni?: boolean
 }
 
 export interface Player {
@@ -901,7 +903,13 @@ export function canBuildAt(
   if (tile < 0 || tile >= state.map.state.length) return false
   if (getOwner(state.map, tile) !== playerId) return false // nur eigenes Tile
   if (!isPassable(state.map.terrain, tile)) return false
-  if (state.buildings.has(tile)) return false // schon bebaut
+  const existing = state.buildings.get(tile)
+  if (existing !== undefined) {
+    // Bauen auf eigenem gleichem Gebäude = Upgrade (wenn nicht max + leistbar).
+    if (existing.ownerId !== playerId || existing.type !== type) return false
+    if (existing.level >= MAX_BUILDING_LEVEL) return false
+    return player.gold >= upgradeCost(type, existing.level)
+  }
   if (type === 'port' && !nearWater(state, tile)) return false
   const cost = buildCost(type, countBuildingsOfType(state, playerId, type))
   return player.gold >= cost
@@ -911,6 +919,14 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined) return
   if (!canBuildAt(state, intent.playerId, intent.tile, intent.buildingType)) return
+
+  // Bauen auf eigenem gleichem Gebäude → Upgrade statt Neubau (von canBuildAt garantiert).
+  const existing = state.buildings.get(intent.tile)
+  if (existing !== undefined) {
+    player.gold -= upgradeCost(existing.type, existing.level)
+    existing.level++
+    return
+  }
 
   const cost = buildCost(
     intent.buildingType,
@@ -1019,6 +1035,31 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
 function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
+
+  // Rundum-Ausbreitung: expandiert ohne Fokus gleichmäßig in alle angrenzende Wildnis
+  // (Ziel-Spieler = 0). Bündelt in einen bestehenden Wildnis-Angriff (macht ihn omni).
+  if (intent.omni === true) {
+    const troopsOmni = Math.min(intent.troops, player.troops)
+    if (troopsOmni <= 0) return
+    player.troops -= troopsOmni
+    const wild = player.attacks.find((a) => a.targetPlayerId === 0)
+    if (wild !== undefined) {
+      wild.reserveTroops += troopsOmni
+      wild.omni = true
+      return
+    }
+    const seed = player.frontier.values().next().value ?? 0
+    player.attacks.push({
+      targetPlayerId: 0,
+      reserveTroops: troopsOmni,
+      focusTile: seed,
+      frontTile: seed,
+      startTick: state.tick,
+      omni: true,
+    })
+    return
+  }
+
   if (intent.targetTile < 0 || intent.targetTile >= state.map.state.length) return
   // Ziel muss begehbares Land sein — auf Wasser/unpassierbare Berge gibt's nichts zu erobern.
   if (!isPassable(state.map.terrain, intent.targetTile)) return
@@ -1762,7 +1803,8 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const { width: mapW, height: mapH } = state.map
   const focusX = attack.focusTile % mapW
   const focusY = Math.floor(attack.focusTile / mapW)
-  const focusPull = vsTerraNullius ? 1 : NATION_FOCUS_PULL
+  // Rundum-Ausbreitung (omni): kein Richtungs-Fokus → gleichmäßig über die ganze Front.
+  const focusPull = attack.omni === true ? 0 : vsTerraNullius ? 1 : NATION_FOCUS_PULL
   const keyed = tiles.map((t) => {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
@@ -1782,6 +1824,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   let sumDx = 0
   let sumDy = 0
   let captured = 0
+  const capturedTiles: TileRef[] = []
 
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break
@@ -1823,10 +1866,15 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     }
 
     captureTile(state, ref, attacker.id)
+    capturedTiles.push(ref)
     sumDx += signedTorusDelta(ref % fw, anchorX, fw)
     sumDy += signedTorusDelta(Math.floor(ref / fw), anchorY, fh)
     captured++
   }
+
+  // Eingeschlossene Taschen schließen: vom Angreifer rundum umzingelte fremde/neutrale
+  // Tiles fallen frei (keine „Blasen" hinter einer durchbrochenen Front).
+  if (capturedTiles.length > 0) fillEnclosedPockets(state, attacker, capturedTiles)
 
   if (captured > 0) {
     const mx = (((anchorX + Math.round(sumDx / captured)) % fw) + fw) % fw
@@ -1835,6 +1883,42 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   }
 
   return attack.reserveTroops > 0
+}
+
+/**
+ * Schließt vom Angreifer rundum umzingelte fremde/neutrale Tiles (sie fallen frei) —
+ * verhindert „Blasen"/Löcher hinter einer gerade durchbrochenen Front. Lokal: prüft
+ * nur die Nachbarn der gerade eroberten Tiles, in wenigen Wellen (begrenzt).
+ */
+function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly TileRef[]): void {
+  const { map } = state
+  const { width, height } = map
+  const isEnclosedByAttacker = (ref: TileRef): boolean => {
+    let hasPassable = false
+    for (const nn of neighbors4(ref, width, height)) {
+      if (!isPassable(map.terrain, nn)) continue
+      hasPassable = true
+      if (getOwner(map, nn) !== attacker.id) return false
+    }
+    return hasPassable
+  }
+  let frontier: TileRef[] = [...seeds]
+  let guard = 0
+  while (frontier.length > 0 && guard < 8) {
+    guard++
+    const next: TileRef[] = []
+    for (const ref of frontier) {
+      for (const n of neighbors4(ref, width, height)) {
+        if (!isPassable(map.terrain, n)) continue
+        if (getOwner(map, n) === attacker.id) continue
+        if (isEnclosedByAttacker(n)) {
+          captureTile(state, n, attacker.id)
+          next.push(n)
+        }
+      }
+    }
+    frontier = next
+  }
 }
 
 /** Anzahl der 4-Nachbarn von `tile`, die `ownerId` gehören (0..4). */

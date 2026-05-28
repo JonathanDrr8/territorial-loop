@@ -40,6 +40,11 @@ export interface AttackIntent {
   readonly playerId: number
   readonly targetTile: TileRef
   readonly troops: number
+  /**
+   * Rundum-Ausbreitung: expandiert ohne Richtungs-Fokus gleichmäßig in alle
+   * angrenzende Wildnis (ganze Frontier zugleich) statt gezielt zum Klick-Tile.
+   */
+  readonly omni?: boolean
 }
 
 /**

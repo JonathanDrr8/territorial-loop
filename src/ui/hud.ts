@@ -80,6 +80,8 @@ export interface HUDApi {
   setBuildMode(type: BuildingType | null): void
   /** Markiert den Boot-Modus (Button-Highlight + Hinweisbanner). */
   setBoatMode(on: boolean): void
+  /** Setzt den Angriffs-Slider extern (z.B. Shift+Mausrad) — bewegt Regler + Label. */
+  setSliderPct(pct: number): void
   destroy(): void
 }
 
@@ -865,6 +867,12 @@ export function createHUD(
         btn.style.color = active ? '#1a1a1a' : 'white'
         btn.style.borderColor = active ? '#e8c14a' : 'rgba(255,255,255,0.15)'
       }
+    },
+    setSliderPct(pct: number): void {
+      const v = Math.max(0, Math.min(100, Math.round(pct)))
+      currentSliderPct = v
+      slider.value = String(v)
+      sliderLabel.textContent = `Angriff: ${String(v)}%`
     },
     setBoatMode(on: boolean): void {
       boatHint.style.display = on ? 'block' : 'none'

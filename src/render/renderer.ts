@@ -1046,20 +1046,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
             screenCtx.fillStyle = '#5dd75d'
             screenCtx.fillRect(bxl, byl, bw * buildProgress, bh)
           }
-          // Level-Punkte (über dem Marker)
+          // Level-Nummer über dem Marker (ab Stufe 2).
           if (b.level > 1) {
+            const lvFont = `bold ${String(Math.max(9, Math.round(radius)))}px ui-monospace, monospace`
+            screenCtx.font = lvFont
+            const ly = sy - radius - 4
+            screenCtx.lineWidth = 3
+            screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+            screenCtx.strokeText(String(b.level), sx, ly)
             screenCtx.fillStyle = '#ffd24a'
-            for (let l = 0; l < b.level; l++) {
-              screenCtx.beginPath()
-              screenCtx.arc(
-                sx - radius * 0.5 + l * radius * 0.5,
-                sy - radius - 3,
-                1.6,
-                0,
-                Math.PI * 2,
-              )
-              screenCtx.fill()
-            }
+            screenCtx.fillText(String(b.level), sx, ly)
+            // Marker-Font wiederherstellen (für nächste Glyph-Fallbacks).
+            screenCtx.font = `bold ${Math.round(radius * 1.3).toString()}px ui-monospace, monospace`
           }
         }
       }
@@ -1310,10 +1308,16 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         const sx = worldToScreenX(tx + dx * mapW)
         const sy = worldToScreenY(ty + dy * mapH)
         if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
-        // Verteidigungs-Reichweite als gestrichelter Ring andeuten.
-        if (buildPreviewType === 'defense') {
+        // Verteidigungs-Reichweite bzw. Fabrik-Verbindungsradius als gestrichelten Ring andeuten.
+        const previewRadiusTiles =
+          buildPreviewType === 'defense'
+            ? defenseRange(1)
+            : buildPreviewType === 'factory'
+              ? FACTORY_LINK_RANGE
+              : 0
+        if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, defenseRange(1) * z, 0, Math.PI * 2)
+          screenCtx.arc(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)
           screenCtx.strokeStyle = valid ? 'rgba(93,215,93,0.5)' : 'rgba(224,90,90,0.5)'
           screenCtx.lineWidth = 1.5
           screenCtx.setLineDash([4, 4])

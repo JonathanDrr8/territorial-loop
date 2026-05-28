@@ -412,6 +412,86 @@ describe('wilde Nationen', () => {
   })
 })
 
+describe('Bauen auf eigenem Gebäude = Upgrade', () => {
+  it('ein Bau-Intent auf ein eigenes gleiches Gebäude upgradet es (statt Neubau)', () => {
+    const state = createGame(baseConfig())
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('player missing')
+    p.gold = 500_000
+    const tile = findOwnedTile(state, 1)
+    expect(tile).toBeGreaterThanOrEqual(0)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    expect(state.buildings.get(tile)?.level).toBe(1)
+    // Gleicher Typ aufs gleiche Tile → Upgrade auf Level 2.
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    expect(state.buildings.get(tile)?.level).toBe(2)
+  })
+})
+
+describe('Rundum-Ausbreitung (omni)', () => {
+  it('expandiert gleichzeitig in alle Richtungen', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const center = tileRef(32, 32, W, Hgt)
+    setOwner(state.map, center, 1)
+    p1.tilesOwned = 1
+    p1.frontier.add(center)
+    p1.troops = 5000
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: center, troops: 4000, omni: true }])
+    for (let i = 0; i < 12 && p1.attacks.length > 0; i++) tick(state, [])
+    // In alle vier Richtungen gewachsen.
+    for (const nb of neighbors4(center, W, Hgt)) {
+      expect(getOwner(state.map, nb)).toBe(1)
+    }
+  })
+})
+
+describe('eingeschlossene Taschen (keine Blasen)', () => {
+  it('eine vom Angreifer umzingelte neutrale Tasche fällt frei', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    const claim = (t: number, id: number, p: typeof p1): void => {
+      setOwner(state.map, t, id)
+      p.tilesOwned++
+      p.frontier.add(t)
+    }
+    const pocket = T(4, 4) // bleibt neutral
+    claim(T(4, 3), 1, p1) // N
+    claim(T(4, 5), 1, p1) // S
+    claim(T(5, 4), 1, p1) // O
+    claim(T(3, 3), 1, p1) // grenzt an W
+    claim(T(3, 4), 2, p2) // W — einziges p2-Tile
+    p1.troops = 5000
+    p2.troops = 0
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: T(3, 4), troops: 4000 }])
+    // p1 erobert W; die neutrale Tasche (4,4) wird dadurch umzingelt → fällt frei.
+    expect(getOwner(state.map, T(3, 4))).toBe(1)
+    expect(getOwner(state.map, pocket)).toBe(1)
+  })
+})
+
 /** Ein an die Frontier des Spielers angrenzendes neutrales Tile (für echte, fortlaufende Angriffe). */
 function adjacentNeutralTile(state: GameState, playerId: number): number {
   const player = state.players.get(playerId)
