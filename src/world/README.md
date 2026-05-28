@@ -73,10 +73,13 @@ function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType): void
 ```
 
 `flat` lässt alles Land. `continents` (≈70% Land) und `islands` (≈35% Land)
-nutzen eine Summe aus Cosinus-Komponenten mit ganzzahligen Frequenzen — das
-ist von Natur aus tileable, ohne sichtbare Naht am Torus-Rand. Nach dem
-Noise wird ein Threshold so gewählt, dass die gewünschte Land-Quote erreicht
-wird.
+nutzen tileables **fraktales Noise (FBM)**: mehrere Oktaven mit ganzzahligen
+Frequenzen (1/f-Spektrum) ergeben große Landmassen mit fraktalen Küsten. Eine
+niederfrequente **Kontinent-Maske** sorgt für wenige, klar getrennte Kontinente,
+ein leichtes **Domain-Warping** für organischere Küsten. Höhen kommen aus einem
+eigenen FBM-Feld mit wenigen Oktaven → zusammenhängende Gebirgszüge. Alles ist
+von Natur aus tileable (ganzzahlige Frequenzen → keine Naht am Torus-Rand). Nach
+dem Noise wird ein Threshold je gewünschter Land-Quote bzw. Höhen-Anteil gewählt.
 
 Game-Logik (`core/game.ts`) ignoriert Wasser-Tiles bei Spawn-Platzierung,
 Frontier-Initialisierung, Attack-Resolution und Sieg-Check. Renderer

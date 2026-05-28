@@ -86,16 +86,37 @@ und Bau-Buttons (Hotkey, Kosten, Tooltips). Gold steht über den Bau-Buttons mit
 **geglätteter Einkommensrate** (EMA) — ein exaktes Momentan-Einkommen wäre wegen des
 sprunghaften Handels irreführend.
 
+### Expliziter Boot-Modus statt implizitem Linksklick-Boot
+
+Boote sind jetzt ein bewusster Befehl (`BoatIntent`): ein Boot-Modus-Toggle (Taste
+`b` + HUD-Button mit Hinweisbanner) schickt pro Linksklick **ein** Transport-Boot mit
+der per Slider gewählten Truppengröße zu einem Küsten-Ziel auf einer anderen Landmasse.
+Der frühere implizite Fallback (Angriffs-Klick übers Wasser → Boot) war unzuverlässig
+und nicht auffindbar; ein normaler Angriffs-Klick über Wasser ist nun ein No-Op,
+fehlgeschlagene Boot-Starts melden „kein Wasserweg" im Log. Die KI nutzt denselben
+`BoatIntent`. `BOAT_TROOP_FRACTION` entfällt.
+
+### Erdähnlicher Noise + Terrain formt Expansion
+
+Land/Höhe werden aus tileablem **FBM** (Oktaven, 1/f-Spektrum) + niederfrequenter
+**Kontinent-Maske** + leichtem **Domain-Warping** erzeugt — wenige klar getrennte
+Kontinente mit fraktalen Küsten und zusammenhängenden Gebirgszügen statt wabbliger
+Blobs/Sprenkel. Darauf aufbauend prägt Terrain die Expansion sichtbar: der Spawn-Blob
+meidet Höhen (`SPAWN_TERRAIN_PENALTY`), und die Angriffs-Welle umfließt Gebirge stärker
+(`TERRAIN_WAVE_PENALTY` 0.06 → 0.15). Die Höhen-Bremse (`terrainSlow`) bleibt.
+
 ## Konsequenzen
 
 - Mehrere Balance-Werte (Tempo, Cap-Sockel, Decay-Raten, FRONT_SMOOTHING,
-  Spawn-Größe) sind playtest-getunt und können sich weiter ändern.
+  Spawn-Größe, Terrain-Penalties) sind playtest-getunt und können sich weiter ändern.
 - `Attack` trägt jetzt `frontTile` und `startTick` (Anzeige); `GameState` trägt
-  `grudge`.
-- Tests decken die neuen Formeln ab (`growthZones`, `producingTroops`, Cap-Abschmelzen,
-  Groll-Decay, Defense-Clamp).
+  `grudge`. Neuer Intent-Typ `BoatIntent`.
+- KI-Verteidigungsposten werden per BFS ins Hinterland gesetzt (überleben einen Push,
+  decken mehr Eigenland ab), nicht mehr aufs unmittelbare Front-Tile.
+- Tests decken die neuen Formeln/Verhalten ab (`growthZones`, Cap-Abschmelzen,
+  Groll-Decay, Defense-Clamp, Boot-Intent, Spawn-meidet-Höhen, Defense-Platzierung).
 
 ## Offen / später (mit Jonathan zu besprechen)
 
 Kriegszustand-Mechanik, Kriegsschiffe + Handelsblockade, Angriffs-Kollision (Reserven
-verrechnen), Allianz-Ablauf mit Timer, Steuerungs-Überarbeitung, Start-Menü-Face-Lift.
+verrechnen), Radial-Kontextmenü (Boot/Bau/Diplomatie an einem Ort), Start-Menü-Redesign.

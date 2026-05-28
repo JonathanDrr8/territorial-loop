@@ -2,9 +2,11 @@
  * Tileable Terrain-Generation für den Torus: Land/Wasser + Höhen.
  *
  * **Wichtig:** Die Karte ist ein Torus — naiver 2D-Simplex hat einen sichtbaren
- * Naht-Übergang an den Rändern. Stattdessen nutzen wir eine Summe aus Cosinus-
- * Komponenten mit ganzzahligen Frequenzen — dadurch sind alle Komponenten am
- * Rand automatisch tile-kontinuierlich.
+ * Naht-Übergang an den Rändern. Stattdessen bauen wir das Noise aus Cosinus-
+ * Komponenten mit ganzzahligen Frequenzen — dadurch ist am Rand alles automatisch
+ * tile-kontinuierlich. Land/Höhe nutzen fraktales Noise (FBM, mehrere Oktaven mit
+ * 1/f-Spektrum) + eine niederfrequente Kontinent-Maske + leichtes Domain-Warping
+ * → erdähnliche Kontinente mit fraktalen Küsten und zusammenhängenden Gebirgen.
  *
  * Bit-Layout `terrain[i]` (Uint8):
  *   Bit 7      = IS_LAND (1 = Land, 0 = Wasser)
