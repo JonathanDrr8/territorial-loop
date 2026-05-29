@@ -167,10 +167,11 @@ sicherer, aber teurer — bewusst nicht im ersten Wurf.
 1. **Transport-Naht (lokal, kein Netz).** `IntentTransport` + `LocalTransport` einführen,
    `main.ts`-Sim-Schleife auf `submit`/`onCommitted` umstellen. Verhalten identisch zu heute.
    Tests: Single-Player läuft unverändert; ein „RecordingTransport" zeichnet Intents+Ticks auf.
-2. **Determinismus-Härtung.** Audit aller `Math.sin/cos/atan2/pow/exp/log` in der Sim; Spawn-
-   Trig durch deterministische Eigen-Funktion ersetzen. `hashState()` + Test: zwei `createGame`
-   - identischer Intent-Stream → identischer Hash über N Ticks (gibt es als Test-Idee schon:
-     „same seed and intent stream produce identical states" — auf Hash erweitern).
+2. **Determinismus-Härtung.** ✅ **`hashState()` umgesetzt** (`src/core/hash.ts`, FNV-1a über
+   Tick + Owner-Array + Spieler-Kennzahlen) inkl. Test (identischer Seed+Intent-Strom → gleicher
+   Hash über 60 Ticks). **Offen:** Audit aller `Math.sin/cos/atan2/pow/exp/log` in der Sim
+   (v.a. Spawn-Trig in `growSpawn`) → durch deterministische Eigen-Funktion ersetzen (Cross-
+   Engine-Bit-Genauigkeit).
 3. **Replay-Harness.** Intent-Aufzeichnung speichern/laden und deterministisch abspielen
    (validiert Lockstep-Tauglichkeit offline, ohne Server). Nützlich auch für Bug-Repros.
 4. **Relay-Server.** Node + `ws`: Räume, Slot-Vergabe, Intent-Sammlung pro Tick, Commit-Broad-
@@ -180,12 +181,16 @@ sicherer, aber teurer — bewusst nicht im ersten Wurf.
    (Raum-Code, Ready, Start mit geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match.
 6. **Input-Delay, Lag-Handling, Reconnect-Snapshot, Checksum-Desync-UI, Politur.**
    `serializeState`/`deserializeState`, adaptiver Input-Delay, Warte-Overlay, Desync-Meldung.
+   **Hinweis (aus Implementierung):** `serializeState` braucht den PRNG-Zustand. `createPRNG`
+   nutzt aktuell `seedrandom.alea(seed)` OHNE `{ state: true }` — also erst das `PRNG`-Interface
+   um `state()` erweitern und `createPRNG` auf `{ state: true }` umstellen, dann ist der RNG
+   round-trip-fähig. (Wäre zugleich die Basis für ein Save/Load-Feature.)
 
 ## Betroffene / neue Dateien
 
 - `src/net/transport.ts` (neu) — `IntentTransport`, `LocalTransport`, `NetworkTransport`.
 - `src/net/protocol.ts` (neu) — Nachrichten-Typen (Discriminated Union wie `intent.ts`).
-- `src/net/hash.ts` (neu) — `hashState`.
+- `src/core/hash.ts` (neu, ✅ umgesetzt) — `hashState` (Sim-nah, daher in `core/` statt `net/`).
 - `src/core/serialize.ts` (neu) — `serializeState`/`deserializeState` (Maps + TypedArrays).
 - `src/main.ts` — Sim-Schleife auf Transport umstellen; KI nur im LocalTransport lokal.
 - `src/core/game.ts` — Determinismus-Härtung (Spawn-Trig), evtl. `hashState`-Hilfen.
