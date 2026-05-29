@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed (Plan — noch nicht umgesetzt)
+Accepted — umgesetzt als Toggle (Default an): min-Zoom auf eine Welt-Periode begrenzt
+(`minZoom = max(canvasW/mapW, canvasH/mapH)` in `input.ts`), `drawTiled` kachelt bei
+≤1 Periode ohnehin nur den Seam. Umschaltbar per Start-Menü-Checkbox „Kamera-Box"
+(persistiert) + Taste **K** (live). Schritt 4 (sichtbarer Box-Rahmen) bewusst weggelassen.
 
 ## Datum
 
