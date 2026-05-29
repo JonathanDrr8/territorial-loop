@@ -38,12 +38,16 @@ export function isBuildingComplete(b: Building, tick: number): boolean {
   return tick >= b.completesAtTick
 }
 
-/** Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude der Gruppe. */
+/**
+ * Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude der Gruppe.
+ * Hafen und Fabrik haben bewusst dieselbe Basis und teilen sich die Eskalation ([[COST_GROUP]])
+ * → im frühen Spiel ein „entweder-oder" (Schiffe/Handel ODER Gold-Netz), nicht beides billig.
+ */
 const BASE_BUILD_COST: Record<BuildingType, number> = {
   city: 25_000,
   defense: 25_000,
-  port: 20_000,
-  factory: 50_000,
+  port: 25_000,
+  factory: 25_000,
 }
 
 /** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer. */
