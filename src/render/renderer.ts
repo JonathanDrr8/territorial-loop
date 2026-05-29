@@ -1796,6 +1796,51 @@ export function createRenderer(
   }
 
   /**
+   * Dauerhafte Verteidigungs-Zonen: um jeden fertigen Verteidigungsposten ein dezent „verstärkter
+   * Boden" (weiche getönte Scheibe) + Reichweiten-Ring. Eigene/verbündete Posten gefüllt (man
+   * sieht die eigene Abdeckung), fremde nur als feiner Ring (sieht man beim Angreifen). Erst ab
+   * mittlerem Zoom (Anti-Clutter bei hunderten Posten).
+   */
+  function drawDefenseZones(): void {
+    if (camera.zoom < 1.2 || state.buildings.size === 0) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    screenCtx.save()
+    screenCtx.lineWidth = 1
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'defense' || !isBuildingComplete(b, state.tick)) continue
+      const own = b.ownerId === lutHumanId
+      const allied = lutHumanId >= 0 && !own && areAllied(state.alliances, lutHumanId, b.ownerId)
+      const friendly = own || allied
+      const rgb = own ? '70,217,230' : allied ? '90,220,120' : '232,150,90'
+      const r = defenseRange(b.level) * z
+      const tx = (b.tile % mapW) + 0.5
+      const ty = Math.floor(b.tile / mapW) + 0.5
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = worldToScreenX(tx + dx * mapW)
+          const sy = worldToScreenY(ty + dy * mapH)
+          if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          if (friendly) {
+            screenCtx.fillStyle = `rgba(${rgb},0.07)`
+            screenCtx.fill()
+          }
+          screenCtx.setLineDash([4, 4])
+          screenCtx.strokeStyle = `rgba(${rgb},${friendly ? '0.3' : '0.22'})`
+          screenCtx.stroke()
+          screenCtx.setLineDash([])
+        }
+      }
+    }
+    screenCtx.restore()
+  }
+
+  /**
    * Reichweiten-Ring beim Hover über einen bestehenden, fertigen Verteidigungsposten
    * (gestrichelt, gelb) — macht Level-Unterschiede sichtbar. Im Bau-Modus unterdrückt.
    */
@@ -1904,6 +1949,7 @@ export function createRenderer(
     drawTiled()
     drawCaptureFlashes()
     drawFlashes()
+    drawDefenseZones()
     drawHoverOutline()
     drawAttackFronts()
     drawAttackTargets()
