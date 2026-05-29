@@ -18,6 +18,8 @@ const ID_STRIDE = 4096
 
 export interface AlliancePromptApi {
   update(): void
+  /** Aktuelle Pixel-Höhe des Panels (0 wenn leer) — damit der Log darunter rücken kann. */
+  heightPx(): number
   destroy(): void
 }
 
@@ -54,6 +56,9 @@ export function createAlliancePrompt(
 
   // Lokal ignorierte Anfragesteller (nur Anzeige; State bleibt unberührt).
   const ignored = new Set<number>()
+  // Signatur der zuletzt gerenderten Anfragen — verhindert ein DOM-Neubauen pro Frame
+  // (sonst wird ein Button zwischen mousedown und mouseup zerstört → Klick feuert nie).
+  let lastSig = ''
 
   box.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement | null)?.closest('[data-act]')
@@ -70,16 +75,21 @@ export function createAlliancePrompt(
 
   function update(): void {
     if (humanId < 0) {
-      if (box.childElementCount > 0) box.textContent = ''
+      if (box.childElementCount > 0) {
+        box.textContent = ''
+        lastSig = ''
+      }
       return
     }
     const rows: string[] = []
+    const sigParts: string[] = []
     for (const key of state.allianceRequests) {
       if (key % ID_STRIDE !== humanId) continue // nur Angebote an uns
       const from = Math.floor(key / ID_STRIDE)
       if (ignored.has(from)) continue
       const requester = state.players.get(from)
       if (requester === undefined || !requester.isAlive) continue
+      sigParts.push(`${from}:${requester.name}`)
       const color = rgbaToCss(requester.color)
       const btn = (act: string, label: string, bg: string): string =>
         `<button data-act="${act}" data-req="${String(from)}" style="pointer-events:auto;cursor:pointer;font:inherit;border:none;border-radius:4px;padding:3px 8px;color:#fff;background:${bg}">${label}</button>`
@@ -97,11 +107,19 @@ export function createAlliancePrompt(
     for (const id of ignored) {
       if (!state.allianceRequests.has(id * ID_STRIDE + humanId)) ignored.delete(id)
     }
+    // Nur neu rendern, wenn sich die sichtbaren Anfragen geändert haben — sonst bliebe ein
+    // gerade angeklickter Button nicht lange genug bestehen, um den Klick auszulösen.
+    const sig = sigParts.join('|')
+    if (sig === lastSig) return
+    lastSig = sig
     box.innerHTML = rows.join('')
   }
 
   return {
     update,
+    heightPx(): number {
+      return box.offsetHeight
+    },
     destroy(): void {
       box.remove()
     },

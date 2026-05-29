@@ -346,8 +346,11 @@ function startMatch(
     renderer.render()
     minimap.update()
     hud.update()
-    eventLog.update()
+    // Bündnis-Panel zuerst, dann den Log darunter schieben (sonst überdeckt es ihn).
     alliancePrompt.update()
+    const promptH = alliancePrompt.heightPx()
+    eventLog.setTopOffset(promptH > 0 ? promptH + 8 : 0)
+    eventLog.update()
     renderRafId = requestAnimationFrame(renderLoop)
   }
   renderRafId = requestAnimationFrame(renderLoop)

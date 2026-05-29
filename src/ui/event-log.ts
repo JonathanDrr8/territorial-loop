@@ -11,8 +11,13 @@ import { rgbaToCss } from './colors'
 
 export interface EventLogApi {
   update(): void
+  /** Verschiebt den Log nach unten (px zusätzlich zum Basis-Top), z. B. unter das Bündnis-Panel. */
+  setTopOffset(extraPx: number): void
   destroy(): void
 }
+
+/** Basis-Abstand von oben (unter der Rangliste). */
+const BASE_TOP = 232
 
 const MAX_VISIBLE = 6
 const FADE_START_TICKS = 60
@@ -29,7 +34,7 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
   box.style.cssText = [
     'position: absolute',
     // Unter der Rangliste oben rechts (die belegt den oberen Bereich).
-    'top: 232px',
+    `top: ${BASE_TOP}px`,
     'right: 12px',
     'max-width: 260px',
     'display: flex',
@@ -71,6 +76,9 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
 
   return {
     update,
+    setTopOffset(extraPx: number): void {
+      box.style.top = `${BASE_TOP + Math.max(0, Math.round(extraPx))}px`
+    },
     destroy(): void {
       box.remove()
     },
