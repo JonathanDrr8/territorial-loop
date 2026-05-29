@@ -311,6 +311,11 @@ export function createHoverTooltip(
           relation = `<br><span style="color:#5adcb0">🤝 Gunst ${fmtCompact(gw)}${gr >= 5 ? ` <span style="opacity:0.7">· Groll ${fmtCompact(gr)}</span>` : ''}</span>`
         }
       }
+      // Verräter (geächtet): für alle sichtbar markiert, solange die Ächtung läuft.
+      const traitor =
+        player.traitorUntil > state.tick
+          ? `<br><span style="color:#e8736b">⚠ Verräter — geächtet (verteidigt geschwächt)</span>`
+          : ''
       // Gold-Beute-Indikator: beim Erobern wird das Gold des Gegners anteilig miterbeutet —
       // eine volle Eroberung bringt ~sein ganzes Lager. Nur bei nicht-Verbündeten mit Gold.
       let loot = ''
@@ -320,7 +325,7 @@ export function createHoverTooltip(
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
-        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${relation}${loot}${alliance}${attackNote('line')}`
+        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
     }
 
     tooltip.style.display = 'block'

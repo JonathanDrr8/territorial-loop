@@ -860,21 +860,27 @@ export function createHUD(
           ? `<b style="color:#e8c14a">${goldTxt}</b> · ${troopsTxt}T`
           : `<b>${troopsTxt}</b>T · <span style="color:#e8c14a">${goldTxt}</span>`
       const bg = isMe ? 'background:rgba(255,255,255,0.12);border-radius:4px;' : ''
-      // Verbündete: Name grün + Hover-Tooltip mit Allianz-Restzeit.
+      // Verräter (geächtet): für ALLE als Verräter markiert, solange die Ächtung läuft.
+      const traitor = p.traitorUntil > state.tick
+      // Verbündete: Name grün + Hover-Tooltip mit Allianz-Restzeit. Verrat hat Vorrang (rot).
       const allied = human !== undefined && !p.isHuman && areAllied(state.alliances, human.id, p.id)
-      const nameColor = allied ? 'color:#5adc78;' : ''
+      const nameColor = traitor ? 'color:#e8736b;' : allied ? 'color:#5adc78;' : ''
       let title = ''
-      if (allied) {
+      if (traitor) {
+        const remain = Math.max(0, (p.traitorUntil - state.tick) / SIM_TICKS_PER_SECOND)
+        title = ` title="Verräter — geächtet, verteidigt geschwächt (noch ${fmtDuration(remain)})"`
+      } else if (allied) {
         const expiry = state.allianceExpiry.get(pairKey(human.id, p.id))
         const remain =
           expiry !== undefined ? Math.max(0, (expiry - state.tick) / SIM_TICKS_PER_SECOND) : 0
         title = ` title="Verbündet · läuft in ${fmtDuration(remain)} aus"`
       }
+      const tag = traitor ? '⚠ ' : allied ? '🤝 ' : ''
       rows.push(
         `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}"${title}>` +
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
           `<span style="color:${rgbaToCss(p.color)}">■</span>` +
-          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${allied ? '🤝 ' : ''}${escapeHtml(p.name)}${dead}</span>` +
+          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${tag}${escapeHtml(p.name)}${dead}</span>` +
           `<span style="opacity:0.55;font-size:10px">${pctTiles}</span>` +
           `<span style="min-width:88px;text-align:right;font-size:10px">${primary}</span>` +
           `</div>`,
