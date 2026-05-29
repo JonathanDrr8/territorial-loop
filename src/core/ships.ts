@@ -31,11 +31,16 @@ export const TRADE_GOLD_PER_TILE = 6
 export const MAX_WARSHIPS_PER_PLAYER = 3
 export const WARSHIP_SPEED = 1.5
 export const WARSHIP_COST = 30_000
-export const WARSHIP_HP = 100
-/** HP-Schaden pro Tick zwischen zwei feindlichen Kriegsschiffen in Reichweite. */
-export const WARSHIP_DAMAGE_PER_TICK = 12
+/** Kriegsschiff-HP — klein gehalten (5 Treffer = versenkt), HP-Leiste gut ablesbar. */
+export const WARSHIP_HP = 5
+/** HP-Schaden pro Tick zwischen zwei feindlichen Kriegsschiffen in Reichweite (1 = 1 Treffer). */
+export const WARSHIP_DAMAGE_PER_TICK = 1
+/** HP-Regeneration pro Tick, wenn ein Kriegsschiff nahe einem eigenen Hafen liegt. */
+export const WARSHIP_HEAL_PER_TICK = 1
 /** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift. */
 export const NAVAL_RANGE = 3
+/** Distanz (Tiles) zu einem eigenen Hafen, innerhalb derer ein Kriegsschiff heilt. */
+export const WARSHIP_HEAL_RANGE = 4
 
 /** Ein Transport-Boot unterwegs zu einem Lande-Ziel. */
 export interface Boat {

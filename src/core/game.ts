@@ -89,6 +89,8 @@ import {
   type Warship,
   WARSHIP_COST,
   WARSHIP_DAMAGE_PER_TICK,
+  WARSHIP_HEAL_PER_TICK,
+  WARSHIP_HEAL_RANGE,
   WARSHIP_HP,
   WARSHIP_SPEED,
   planBoatLaunch,
@@ -1515,6 +1517,7 @@ function applyRecallWarshipIntent(state: GameState, intent: RecallWarshipIntent)
 /** Bewegt Kriegsschiffe: Ping-Pong-Patrouille entlang der Route; zurückgerufene fahren heim. */
 function advanceWarships(state: GameState): void {
   if (state.warships.length === 0) return
+  const { width, height } = state.map
   const survivors: Warship[] = []
   for (const w of state.warships) {
     if (w.returning) {
@@ -1531,9 +1534,26 @@ function advanceWarships(state: GameState): void {
       w.progress = 0
       w.dir = 1
     }
+    // Heilung: liegt das Schiff nahe einem eigenen fertigen Hafen, regeneriert es HP.
+    if (w.hp < WARSHIP_HP && nearOwnPort(state, w, width, height)) {
+      w.hp = Math.min(WARSHIP_HP, w.hp + WARSHIP_HEAL_PER_TICK)
+    }
     survivors.push(w)
   }
   state.warships = survivors
+}
+
+/** Liegt das Kriegsschiff in `WARSHIP_HEAL_RANGE` eines eigenen fertigen Hafens? */
+function nearOwnPort(state: GameState, ws: Warship, width: number, height: number): boolean {
+  const { wx, wy } = shipWorldPos(ws, width, height)
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'port' || b.ownerId !== ws.ownerId || !isBuildingComplete(b, state.tick))
+      continue
+    const bx = b.tile % width
+    const by = Math.floor(b.tile / width)
+    if (torusDistance(wx, wy, bx, by, width, height) <= WARSHIP_HEAL_RANGE) return true
+  }
+  return false
 }
 
 /**

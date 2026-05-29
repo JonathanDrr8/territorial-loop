@@ -1207,16 +1207,14 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         screenCtx.drawImage(warSprite, sx - ss / 2, sy - ss / 2, ss, ss)
         screenCtx.imageSmoothingEnabled = prev
       }
-      // HP-Leiste über dem Schiff.
+      // HP-Leiste UNTER dem Schiff (immer sichtbar — bei nur 5 HP gut ablesbar).
       const hpFrac = Math.max(0, Math.min(1, ws.hp / WARSHIP_HP))
-      if (hpFrac < 1) {
-        const bw = warR * 2
-        const byl = sy - warR - 5
-        screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
-        screenCtx.fillRect(sx - warR, byl, bw, 3)
-        screenCtx.fillStyle = hpFrac > 0.4 ? '#5dd75d' : '#e84545'
-        screenCtx.fillRect(sx - warR, byl, bw * hpFrac, 3)
-      }
+      const bw = warR * 2
+      const byl = sy + warR + 3
+      screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
+      screenCtx.fillRect(sx - warR, byl, bw, 3)
+      screenCtx.fillStyle = hpFrac > 0.4 ? '#5dd75d' : '#e84545'
+      screenCtx.fillRect(sx - warR, byl, bw * hpFrac, 3)
     }
     screenCtx.restore()
   }

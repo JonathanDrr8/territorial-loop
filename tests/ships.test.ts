@@ -352,8 +352,9 @@ describe('warships via tick', () => {
     own(state, 1, 1, 1)
     own(state, 5, 1, 2)
     const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
-    state.warships.push({ ownerId: 1, path: water, progress: 0, dir: 1, hp: 100, returning: false })
-    state.warships.push({ ownerId: 2, path: water, progress: 0, dir: 1, hp: 50, returning: false })
+    // hp 5 vs 3 bei 1 Schaden/Tick → das schwächere (3) sinkt nach 3 Ticks, das stärkere überlebt.
+    state.warships.push({ ownerId: 1, path: water, progress: 0, dir: 1, hp: 5, returning: false })
+    state.warships.push({ ownerId: 2, path: water, progress: 0, dir: 1, hp: 3, returning: false })
     for (let i = 0; i < 12 && state.warships.length > 1; i++) tick(state, [])
     expect(state.warships.length).toBe(1)
     expect(state.warships[0]?.ownerId).toBe(1)
@@ -374,5 +375,25 @@ describe('warships via tick', () => {
     })
     tick(state, [{ type: 'recall-warship', playerId: 1, warshipIndex: 0 }])
     expect(state.warships.length).toBe(0)
+  })
+
+  it('heilt nahe einem eigenen Hafen über die Zeit', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    // Eigener fertiger Hafen bei (1,1); beschädigtes Kriegsschiff auf dem Wasser daneben.
+    const portTile = tileRef(1, 1, W, H)
+    state.buildings.set(portTile, {
+      type: 'port',
+      ownerId: 1,
+      tile: portTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+    state.warships.push({ ownerId: 1, path: water, progress: 1, dir: 1, hp: 1, returning: false })
+    for (let i = 0; i < 5; i++) tick(state, [])
+    expect(state.warships[0]?.hp).toBeGreaterThan(1)
+    expect(state.warships[0]?.hp).toBeLessThanOrEqual(WARSHIP_HP)
   })
 })
