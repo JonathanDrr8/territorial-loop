@@ -222,8 +222,12 @@ function startMatch(
     }),
   })
 
-  const tooltip = createHoverTooltip(container, state, HUMAN_ID, () =>
-    Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+  const tooltip = createHoverTooltip(
+    container,
+    state,
+    HUMAN_ID,
+    () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+    (h) => renderer.setHoverHighlight(h),
   )
   const eventLog = createEventLog(container, state)
   const alliancePrompt = createAlliancePrompt(
@@ -268,7 +272,7 @@ function startMatch(
       sound.click()
     },
     onHover: (worldX, worldY, screenX, screenY) => {
-      tooltip.show(worldX, worldY, screenX, screenY)
+      tooltip.show(worldX, worldY, screenX, screenY, renderer.camera.zoom)
       renderer.setHoverTile(worldX, worldY)
     },
     onHoverEnd: () => {

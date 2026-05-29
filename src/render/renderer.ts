@@ -171,6 +171,8 @@ export interface Renderer {
   setHoverTile(worldX: number, worldY: number): void
   /** Entfernt den Hover-Tile-Outline (Cursor verließ Canvas). */
   clearHoverTile(): void
+  /** Markiert das gehoverte (gesnappte) Objekt mit einem Ring; null = keine Markierung. */
+  setHoverHighlight(h: { wx: number; wy: number; kind: 'ship' | 'building' } | null): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
@@ -708,6 +710,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   const markers: ClickMarker[] = []
   let hoverTile: { x: number; y: number } | null = null
+  // Gehovertes (gesnapptes) Objekt — Ring-Markierung, damit bei mehreren klar ist, was gemeint ist.
+  let hoverHighlight: { wx: number; wy: number; kind: 'ship' | 'building' } | null = null
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
@@ -1634,6 +1638,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawProjectiles()
     drawBuildingLinks()
     drawBuildings()
+    drawHoverHighlight()
     drawHoveredDefenseRange()
     drawBuildPreview()
     drawMarkers()
@@ -1655,6 +1660,32 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
 
   function clearHoverTile(): void {
     hoverTile = null
+    hoverHighlight = null
+  }
+
+  function setHoverHighlight(
+    h: { wx: number; wy: number; kind: 'ship' | 'building' } | null,
+  ): void {
+    hoverHighlight = h
+  }
+
+  /** Markiert das gehoverte Objekt mit einem pulsierenden Ring (Schiff größer als Gebäude-Tile). */
+  function drawHoverHighlight(): void {
+    if (hoverHighlight === null) return
+    const { sx, sy } = nearestWrappedScreenPos(hoverHighlight.wx, hoverHighlight.wy)
+    const z = camera.zoom
+    const r = hoverHighlight.kind === 'ship' ? Math.max(9, z * 2.6) + 3 : Math.max(10, z * 0.75)
+    const time = performance.now() * 0.001
+    const pulse = 0.55 + Math.abs(Math.sin(time * Math.PI * 1.8)) * 0.45
+    screenCtx.save()
+    screenCtx.beginPath()
+    screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+    screenCtx.strokeStyle = `rgba(255,255,255,${pulse.toFixed(2)})`
+    screenCtx.lineWidth = 2
+    screenCtx.setLineDash([4, 3])
+    screenCtx.stroke()
+    screenCtx.setLineDash([])
+    screenCtx.restore()
   }
 
   function screenToWorld(
@@ -1687,6 +1718,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     addClickMarker,
     setHoverTile,
     clearHoverTile,
+    setHoverHighlight,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
     },

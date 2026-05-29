@@ -26,9 +26,16 @@ import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
 import { rgbaToCss } from './colors'
 
+/** Das aktuell gehoverte (gesnappte) Objekt — für die Renderer-Markierung. */
+export interface HoverHighlight {
+  readonly wx: number
+  readonly wy: number
+  readonly kind: 'ship' | 'building'
+}
+
 export interface HoverTooltipApi {
-  /** Zeigt den Tooltip an Welt-Position (in Welt-Pixeln); positioniert via Maus-Screen-Koords. */
-  show(worldX: number, worldY: number, screenX: number, screenY: number): void
+  /** Zeigt den Tooltip; `zoom` steuert den (zoom-abhängigen) Snap-Radius beim Picken. */
+  show(worldX: number, worldY: number, screenX: number, screenY: number, zoom: number): void
   hide(): void
   destroy(): void
 }
@@ -102,6 +109,8 @@ export function createHoverTooltip(
   humanId: number,
   /** Truppenzahl, die ein Linksklick gerade losschicken würde (Slider-% der freien Truppen). */
   getAttackTroops: () => number,
+  /** Meldet das gehoverte (gesnappte) Objekt zum Markieren — `null` = nichts/Land. */
+  onHoverObject: (h: HoverHighlight | null) => void,
 ): HoverTooltipApi {
   const tooltip = document.createElement('div')
   tooltip.style.cssText = [
@@ -129,57 +138,98 @@ export function createHoverTooltip(
       : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.name)}</b>`
   }
 
-  function show(worldX: number, worldY: number, screenX: number, screenY: number): void {
+  function show(
+    worldX: number,
+    worldY: number,
+    screenX: number,
+    screenY: number,
+    zoom: number,
+  ): void {
     const { width: w, height: h } = state.map
 
-    // Zuerst Schiffe prüfen (sie liegen über dem Tile) — Hover zeigt den Besitzer.
     const place = (html: string): void => {
       tooltip.innerHTML = html
       tooltip.style.display = 'block'
       tooltip.style.left = String(screenX + 14) + 'px'
       tooltip.style.top = String(screenY + 14) + 'px'
     }
-    const near = (wx: number, wy: number): boolean => {
+    // Quadrierte Torus-Distanz vom Cursor zu (wx,wy).
+    const dist2 = (wx: number, wy: number): number => {
       let dx = Math.abs(wx - worldX)
       let dy = Math.abs(wy - worldY)
       if (dx > w / 2) dx = w - dx
       if (dy > h / 2) dy = h - dy
-      return dx * dx + dy * dy <= 3.2 * 3.2
+      return dx * dx + dy * dy
+    }
+
+    // Schiffe (liegen über dem Tile): NÄCHSTES innerhalb eines zoom-abhängigen Snap-Radius
+    // (rausgezoomt großzügiger, damit man die kleinen Punkte trifft).
+    const shipR = Math.min(8, Math.max(2.5, 14 / zoom))
+    let bestShipD2 = shipR * shipR
+    let bestShipHtml: string | null = null
+    let bestShipX = 0
+    let bestShipY = 0
+    const tryShip = (wx: number, wy: number, html: string): void => {
+      const d2 = dist2(wx, wy)
+      if (d2 <= bestShipD2) {
+        bestShipD2 = d2
+        bestShipHtml = html
+        bestShipX = wx
+        bestShipY = wy
+      }
     }
     for (const boat of state.boats) {
       const { wx, wy } = shipWorldPos(boat, w, h)
-      if (near(wx, wy)) {
-        place(
-          `Transportboot · ${playerLabel(boat.ownerId)}<br><span style="opacity:0.75">${boat.troops.toLocaleString('de-DE')} Truppen</span>`,
-        )
-        return
-      }
+      tryShip(
+        wx,
+        wy,
+        `Transportboot · ${playerLabel(boat.ownerId)}<br><span style="opacity:0.75">${boat.troops.toLocaleString('de-DE')} Truppen</span>`,
+      )
     }
     for (const ship of state.tradeShips) {
       const { wx, wy } = shipWorldPos(ship, w, h)
-      if (near(wx, wy)) {
-        place(`Handelsschiff · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`)
-        return
-      }
+      tryShip(
+        wx,
+        wy,
+        `Handelsschiff · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`,
+      )
     }
     for (const ws of state.warships) {
       const { wx, wy } = shipWorldPos(ws, w, h)
-      if (near(wx, wy)) {
-        const hp = Math.max(0, Math.round(ws.hp))
-        const status = ws.returning ? ' · kehrt um' : ''
-        place(
-          `⚓ Kriegsschiff · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
-        )
-        return
-      }
+      const hp = Math.max(0, Math.round(ws.hp))
+      const status = ws.returning ? ' · kehrt um' : ''
+      tryShip(
+        wx,
+        wy,
+        `⚓ Kriegsschiff · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
+      )
+    }
+    if (bestShipHtml !== null) {
+      onHoverObject({ wx: bestShipX, wy: bestShipY, kind: 'ship' })
+      place(bestShipHtml)
+      return
     }
 
     const ref = tileRef(Math.floor(worldX), Math.floor(worldY), w, h)
     const owner = getOwner(state.map, ref)
 
-    // Gebäude auf dem Tile → Typ/Level/Effekt zeigen (auch über eigenem Gebiet).
-    const building = state.buildings.get(ref)
+    // Gebäude: NÄCHSTES im (kleineren) Snap-Radius — kein exaktes Tile-Treffen nötig.
+    const buildR = Math.min(6, Math.max(1.5, 10 / zoom))
+    let bestBuildD2 = buildR * buildR
+    let building: Building | undefined
+    for (const b of state.buildings.values()) {
+      const d2 = dist2((b.tile % w) + 0.5, Math.floor(b.tile / w) + 0.5)
+      if (d2 <= bestBuildD2) {
+        bestBuildD2 = d2
+        building = b
+      }
+    }
     if (building !== undefined) {
+      onHoverObject({
+        wx: (building.tile % w) + 0.5,
+        wy: Math.floor(building.tile / w) + 0.5,
+        kind: 'building',
+      })
       const isOwn = building.ownerId === humanId
       const ownerName = isOwn ? 'Du' : (state.players.get(building.ownerId)?.name ?? '?')
       const complete = isBuildingComplete(building, state.tick)
@@ -187,7 +237,7 @@ export function createHoverTooltip(
       // Aktueller Effekt — für eigene fertige Fabriken der Live-Netz-Beitrag.
       let effect = buildingEffect(building)
       if (building.type === 'factory' && isOwn && complete) {
-        effect = factoryYieldLine(state, ref, building.level) ?? effect
+        effect = factoryYieldLine(state, building.tile, building.level) ?? effect
       }
       // Upgrade-Vorschau: was die nächste Stufe brächte (+ Kosten), nur für eigene fertige
       // Gebäude mit wirksamem Level.
@@ -206,6 +256,9 @@ export function createHoverTooltip(
       )
       return
     }
+
+    // Ab hier zeigt der Tooltip nur Land/Nation — kein Objekt zum Markieren.
+    onHoverObject(null)
 
     if (owner === humanId) {
       hide()
@@ -272,6 +325,7 @@ export function createHoverTooltip(
 
   function hide(): void {
     tooltip.style.display = 'none'
+    onHoverObject(null)
   }
 
   return {
