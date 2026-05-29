@@ -12,6 +12,7 @@ import {
   type Warship,
 } from '../src/core/ships'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
+import { directedKey } from '../src/core/diplomacy'
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT } from '../src/world/terrain'
 import { tileRef } from '../src/world/torus'
@@ -456,6 +457,39 @@ describe('warships via tick', () => {
     for (let i = 0; i < 60 && state.warships.length > 1; i++) tick(state, [])
     expect(state.warships.length).toBe(1)
     expect(state.warships[0]?.ownerId).toBe(1)
+  })
+
+  it('Beschuss erzeugt Groll beim Beschossenen (beide Richtungen)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    own(state, 5, 1, 2)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
+    // Beide unsterblich (hp 99) → beide feuern wiederholt aufeinander, Groll wächst beidseitig.
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 99,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    state.warships.push({
+      ownerId: 2,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 99,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    for (let i = 0; i < 30; i++) tick(state, [])
+    // grudge[directedKey(angreifer, opfer)] = wie sehr das Opfer dem Angreifer grollt.
+    expect(state.grudge.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
+    expect(state.grudge.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
   it('a recalled warship sails home and disbands', () => {

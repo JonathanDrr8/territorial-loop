@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { createAI } from '../src/ai/ai'
 import { createGame, tick, type GameConfig } from '../src/core/game'
 import { getOwner } from '../src/world/map'
-import { neighbors4 } from '../src/world/torus'
+import { neighbors4, tileRef } from '../src/world/torus'
+import { IS_LAND_BIT } from '../src/world/terrain'
+import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
 
 function aiConfig(seed = 'ai-test-seed'): GameConfig {
   return {
@@ -176,6 +178,63 @@ describe('createAI', () => {
       tick(state, [...a2, ...a3])
     }
     expect(stream2).not.toEqual(stream3)
+  })
+
+  it('lenkt eigene Kriegsschiffe auf feindliche Handels-Routen (Abfangen)', () => {
+    const W = 16
+    const H = 16
+    const config: GameConfig = {
+      mapWidth: W,
+      mapHeight: H,
+      seed: 'ai-intercept',
+      victoryPct: 90,
+      terrain: 'flat',
+      players: [
+        { id: 1, name: 'Op1', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'Jäger', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'Op3', color: 0x0000ffff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    // Eine senkrechte Wasser-Spalte bei x=8, sonst Land.
+    const t = state.map.terrain
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) t[y * W + x] = x === 8 ? 0 : IS_LAND_BIT
+    }
+    state.waterComponents.set(labelWaterComponents(state.map))
+    state.landComponents.set(labelLandComponents(state.map))
+
+    // Eigenes Kriegsschiff (Spieler 2) oben in der Wasser-Spalte.
+    state.warships.push({
+      ownerId: 2,
+      path: [tileRef(8, 0, W, H)],
+      progress: 0,
+      dir: 1,
+      hp: 99,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    // Feindliches Handelsschiff (Spieler 1→1, beide ≠ 2) weiter unten in derselben Spalte,
+    // außerhalb der Reichweite — langlebig (lange Standroute), damit es bis zur KI-Entscheidung lebt.
+    state.tradeShips.push({
+      fromOwnerId: 1,
+      toOwnerId: 1,
+      path: new Array<number>(400).fill(tileRef(8, 12, W, H)),
+      progress: 0,
+      gold: 200,
+      originPort: tileRef(7, 12, W, H),
+      destPort: tileRef(9, 12, W, H),
+    })
+
+    const ai = createAI(2, state.seed, 'normal')
+    let sawMove = false
+    for (let tt = 0; tt < 300 && !sawMove; tt++) {
+      const intents = ai.decide(state)
+      if (intents.some((i) => i.type === 'move-warship' && i.playerId === 2)) sawMove = true
+      tick(state, intents)
+    }
+    expect(sawMove).toBe(true)
   })
 
   it('wilde KI expandiert (greift an), baut aber nie und macht keine Diplomatie', () => {

@@ -26,7 +26,7 @@ import {
 } from '../core/game'
 import { defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, hasAllianceRequest } from '../core/diplomacy'
-import { MAX_WARSHIPS_PER_PLAYER, WARSHIP_COST } from '../core/ships'
+import { MAX_WARSHIPS_PER_PLAYER, NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -430,6 +430,61 @@ export function createAI(
     return null
   }
 
+  /**
+   * Lenkt eigene (patrouillierende) Kriegsschiffe aktiv auf feindliche Handelsschiff-Routen:
+   * schickt jedes Schiff ein Stück VOR das nächste erreichbare feindliche Handelsschiff auf
+   * dessen Restroute, um es abzufangen — statt nur zwischen Häfen zu pendeln. Verbündete
+   * Handelsschiffe werden nie gejagt; schon engagierte Schiffe (Ziel in Reichweite) bleiben.
+   */
+  function planWarshipHunts(state: GameState, player: Player): Intent[] {
+    if (state.warships.length === 0 || state.tradeShips.length === 0) return []
+    const { width, height } = state.map
+    const comp = state.waterComponents
+    const hostile = (a: number, b: number): boolean => a !== b && !areAllied(state.alliances, a, b)
+    const moves: Intent[] = []
+    for (let i = 0; i < state.warships.length; i++) {
+      const ws = state.warships[i]
+      if (ws === undefined || ws.ownerId !== player.id || ws.returning || ws.mode !== 'patrol')
+        continue
+      const wTile = shipTile(ws)
+      const wComp = comp[wTile]
+      if (wComp === undefined || wComp < 0) continue
+      const wx = wTile % width
+      const wy = Math.floor(wTile / width)
+      let aimTile = -1
+      let bestDist = Infinity
+      let engaging = false
+      for (const ts of state.tradeShips) {
+        // Nur feindliche Fracht (zu BEIDEN Hafen-Besitzern feindlich) — nie die von Freunden.
+        if (!hostile(player.id, ts.fromOwnerId) || !hostile(player.id, ts.toOwnerId)) continue
+        // Abfang-Punkt: ein Stück voraus auf der Restroute, damit das Schiff es trifft.
+        const idx = Math.min(Math.floor(ts.progress) + 6, ts.path.length - 1)
+        const aim = ts.path[idx]
+        if (aim === undefined || comp[aim] !== wComp) continue // nicht über Wasser erreichbar
+        const ax = aim % width
+        const ay = Math.floor(aim / width)
+        const d = torusDistance(wx, wy, ax, ay, width, height)
+        if (d <= NAVAL_RANGE) {
+          engaging = true // schon nah dran → nicht umlenken, draufhalten
+          break
+        }
+        if (d < bestDist) {
+          bestDist = d
+          aimTile = aim
+        }
+      }
+      if (!engaging && aimTile >= 0) {
+        moves.push({
+          type: 'move-warship',
+          playerId: player.id,
+          warshipIndices: [i],
+          targetTile: aimTile,
+        })
+      }
+    }
+    return moves
+  }
+
   return {
     decide(state: GameState): readonly Intent[] {
       const player = state.players.get(playerId)
@@ -448,6 +503,9 @@ export function createAI(
         const warship = planWarship(state, player)
         if (warship !== null) intents.push(warship)
       }
+
+      // Vorhandene Kriegsschiffe aktiv auf feindliche Handels-Routen lenken (Abfangen).
+      for (const m of planWarshipHunts(state, player)) intents.push(m)
 
       // Wirtschaft/Bau.
       if (rng.next() < profile.buildChance) {

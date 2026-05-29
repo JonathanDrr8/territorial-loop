@@ -663,6 +663,19 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
 const GRUDGE_DECAY = 0.99
 /** Unter diesem Wert wird ein Groll-Eintrag gelöscht (gilt als vergessen). */
 const GRUDGE_MIN = 1
+/** Groll pro Kriegsschiff-Treffer (akkumuliert über die Treffer bis zur Versenkung). */
+const GRUDGE_PER_WARSHIP_HIT = 10
+/** Groll, wenn ein eigenes Transportboot versenkt wird. */
+const GRUDGE_PER_BOAT_SUNK = 60
+/** Groll, wenn ein eigenes Handelsschiff blockiert/versenkt wird (an beide Hafen-Besitzer). */
+const GRUDGE_PER_TRADE_SUNK = 45
+
+/** Erhöht den (abklingenden) Groll des Opfers gegen den Angreifer. Ignoriert Selbst/Besitzlos. */
+function addGrudge(state: GameState, attackerId: number, victimId: number, amount: number): void {
+  if (attackerId === victimId || victimId <= 0 || attackerId <= 0) return
+  const key = directedKey(attackerId, victimId)
+  state.grudge.set(key, (state.grudge.get(key) ?? 0) + amount)
+}
 /** Wie lange (Ticks) ein frisch erobertes Tile aufleuchtet, bevor es vergessen wird. */
 export const CAPTURE_FADE_TICKS = 6
 
@@ -1663,12 +1676,26 @@ function resolveNavalCombat(state: GameState): void {
         continue
       }
       if (!arrHas(state.warships, pr.shooter)) continue // Schütze tot → verpufft
+      const shooterId = pr.shooter.ownerId
       if (pr.targetKind === 'warship') {
-        if (arrHas(state.warships, pr.target)) (pr.target as Warship).hp -= WARSHIP_DAMAGE_PER_TICK
+        if (arrHas(state.warships, pr.target)) {
+          const tgt = pr.target as Warship
+          tgt.hp -= WARSHIP_DAMAGE_PER_TICK
+          // Beschuss → Groll (auch jeder Treffer zählt, nicht erst die Versenkung).
+          addGrudge(state, shooterId, tgt.ownerId, GRUDGE_PER_WARSHIP_HIT)
+        }
       } else if (pr.targetKind === 'boat') {
-        if (arrHas(state.boats, pr.target)) sunkBoats.add(pr.target as Boat)
+        if (arrHas(state.boats, pr.target)) {
+          const tgt = pr.target as Boat
+          sunkBoats.add(tgt)
+          addGrudge(state, shooterId, tgt.ownerId, GRUDGE_PER_BOAT_SUNK)
+        }
       } else if (arrHas(state.tradeShips, pr.target)) {
-        sunkTrades.add(pr.target as TradeShip)
+        const tgt = pr.target as TradeShip
+        sunkTrades.add(tgt)
+        // Beide Hafen-Besitzer verlieren das Handelseinkommen → beide grollen.
+        addGrudge(state, shooterId, tgt.fromOwnerId, GRUDGE_PER_TRADE_SUNK)
+        addGrudge(state, shooterId, tgt.toOwnerId, GRUDGE_PER_TRADE_SUNK)
       }
     }
     state.projectiles = flying
