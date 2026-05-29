@@ -925,6 +925,12 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
 
 /** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
 const FACTORY_FOREIGN_MULT = 3
+/**
+ * Deckel: so viele Auslands-Ziele zählen je Fabrik (an OpenFronts diminishing-returns angelehnt —
+ * dort sinkt der Zug-Wert nach 10 Stops). Verhindert, dass eine Fabrik an einer ruhigen Grenze
+ * mit vielen fremden Gebäuden ins Unendliche skaliert.
+ */
+const FACTORY_FOREIGN_CAP = 4
 
 /**
  * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht
@@ -940,9 +946,9 @@ function factoryForeignContribution(
   const { width, height } = state.map
   const fx = factoryTile % width
   const fy = Math.floor(factoryTile / width)
-  let gold = 0
   let dests = 0
   for (const b of state.buildings.values()) {
+    if (dests >= FACTORY_FOREIGN_CAP) break // Deckel: nur die ersten N Auslands-Ziele zählen
     if (b.ownerId === ownerId || b.ownerId <= 0) continue
     if (b.type !== 'city' && b.type !== 'port') continue
     if (!isBuildingComplete(b, state.tick)) continue
@@ -950,10 +956,9 @@ function factoryForeignContribution(
     const bx = b.tile % width
     const by = Math.floor(b.tile / width)
     if (torusDistance(fx, fy, bx, by, width, height) > FACTORY_LINK_RANGE) continue
-    gold += FACTORY_GOLD_PER_DEST * FACTORY_FOREIGN_MULT * factoryLevel
     dests++
   }
-  return { gold, dests }
+  return { gold: FACTORY_GOLD_PER_DEST * FACTORY_FOREIGN_MULT * factoryLevel * dests, dests }
 }
 
 /** Summe der Auslands-Verbindungen über alle Fabrik-Knoten eines Spielers. */

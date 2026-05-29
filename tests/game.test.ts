@@ -506,6 +506,27 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
+  it('Auslands-Verbindungen je Fabrik sind gedeckelt (kein unendliches Stapeln)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const factoryTile = tileRef(20, 20, W, H)
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // 8 fremde Städte in Reichweite — mehr als der Deckel.
+    for (let k = 0; k < 8; k++) {
+      const t = tileRef(20 + 1, 20 + k, W, H)
+      state.buildings.set(t, { type: 'city', ownerId: 2, tile: t, level: 1, completesAtTick: 0 })
+    }
+    const y = factoryYield(state, factoryTile)
+    expect(y?.dests).toBe(4) // FACTORY_FOREIGN_CAP — nicht 8
+  })
+
   it('Bündnis-Bildung bricht laufende Angriffe zwischen den Partnern ab', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const p1 = state.players.get(1)
