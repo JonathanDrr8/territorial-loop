@@ -2,10 +2,11 @@
 
 ## Status
 
-Teilweise umgesetzt. **Phasen 1–4 fertig** (Transport-Naht, Determinismus-Fundament inkl.
-Snapshot/PRNG-State/Freeze/det-math, Replay-Harness, simulierender ws-Server). **Phasen 5–6
-(Client-Transport + Lobby, Politur) Proposed.** Der „Transzendenten-Audit" ist entschieden
-(voll gehärtet via `det-math`).
+Spielbar im Mehrspieler. **Phasen 1–5 fertig** (Transport-Naht, Determinismus-Fundament inkl.
+Snapshot/PRNG-State/Freeze/det-math, Replay-Harness, simulierender ws-Server, Client-Transport +
+Lobby — zwei Browser-Tabs in Lockstep verifiziert). **Phase 6 (Politur) Proposed:** adaptiver
+Input-Delay, Live-Resync/Reconnect-UI (Snapshot in laufende Session einspielen), periodische
+Snapshots, Desync-Hinweis im HUD, Lasttests, gehostetes Deployment.
 
 ## Datum
 
@@ -154,12 +155,14 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
    Commit-Broadcast, Disconnect→Freeze, Reconnect/Desync→Snapshot, `/health`). `npm run server`
    / `dev:server`. Verifiziert: 6 Unit-Tests + 2 echte End-to-End-Tests (zwei ws-Clients in
    Lockstep auf identischem Hash).
-5. **NetworkTransport + Lobby.** Client-Transport ✅ (`NetworkTransport` in `src/net/transport.ts`
-   — zweite `IntentTransport`-Implementierung, `submit`→Server / `onCommitted`←Broadcast, Match-
-   Lebenszyklus über Callbacks, browser-/Node-kompatibler WebSocket; getestet: zwei Transports in
-   Lockstep gegen den echten Server). **Offen:** Mehrspieler-Menü/Lobby (Raum-Code, Ready,
-   Server-URL) + `main.ts`-Verdrahtung gegen `NetworkTransport`. **UI-lastig → mit Jonathan
-   abstimmen.**
+5. **NetworkTransport + Lobby.** ✅ `NetworkTransport` (zweite `IntentTransport`-Implementierung,
+   `submit`→Server / `onCommitted`←Broadcast, frühe Commits gepuffert, Match-Lebenszyklus über
+   Callbacks). Host-konfigurierbare `MatchSettings` (Karte/Gegner/Seed/Terrain/Schwierigkeit) per
+   `configure`-Nachricht. Lobby-UI `src/ui/multiplayer-menu.ts` (Raum-Code, Teilnehmer+Ready, Host-
+   Settings) + „Mehrspieler"-Button im Start-Menü. `main.ts`: `HUMAN_ID` → Session-`humanId`,
+   `startMatch` nimmt optional eine `NetSession` (Server-Config + Transport, keine lokale KI/Uhr,
+   meldet Hash je Tick). **Verifiziert:** zwei echte Browser-Tabs (Host konfiguriert + beide ready)
+   laufen über 1000+ Ticks in identischem Hash.
 6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** Adaptiver
    Input-Delay, Freeze-/Resync-Handling über die schon vorhandenen Snapshots, Last-Tests mit
    vielen Slots.
