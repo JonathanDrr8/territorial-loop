@@ -200,7 +200,14 @@ export interface Renderer {
 }
 
 // Inland-Tönung: Anteil Eigenfarbe über der Terrain-Basis (Rest = Landschaft sichtbar).
-const INTERIOR_TINT = 0.32
+// Dezenter (0.32 → 0.20), damit das Terrain-Relief stärker durchscheint.
+const INTERIOR_TINT = 0.2
+// Relief-Schattierung (NW-Licht aus Nachbar-Höhen) — als Multiply auf die finale Tile-Farbe,
+// damit Berge/Hänge DURCH die Nationsfarbe sichtbar werden. Zentral justierbar.
+const RELIEF_LIGHT = 0.03 // Hang-Stärke pro Höhen-Differenz der Nachbarn
+const RELIEF_HEIGHT = 0.006 // Höhen-Aufhellung (Gipfel heller, Ebene dunkler)
+const RELIEF_MIN = 0.6
+const RELIEF_MAX = 1.4
 /**
  * Ab diesem Zoom werden auch „Neben"-Nationen beschriftet (wilde, oder — bei vielen
  * Nationen auf der Karte — auch KI). Rausgezoomt bleiben nur Mensch + Verbündete + (bei
@@ -535,30 +542,42 @@ export function createRenderer(
         }
       }
     }
-    // Berg-Rand: ein Berg-Tile (Höhe ≥ 20), das an niedrigeres Gelände oder Wasser grenzt,
-    // wird dunkel umrandet → Gebirge heben sich klar ab. Nur statisches Terrain → bleibt im
-    // Bake; bei Owner-Wechsel auf einem Berg-Tile wird es eh neu gefärbt.
-    if (height >= 20) {
-      const x = i % w
-      const y = (i - x) / w
-      const lower = (idx: number): boolean => {
-        const tt = terrain[idx] ?? 0
-        return (tt & IS_LAND_BIT) === 0 || (tt & HEIGHT_MASK) < 20
-      }
-      const edge =
-        lower(y * w + (x === 0 ? w - 1 : x - 1)) ||
-        lower(y * w + (x === w - 1 ? 0 : x + 1)) ||
-        lower((y === 0 ? h - 1 : y - 1) * w + x) ||
-        lower((y === h - 1 ? 0 : y + 1) * w + x)
-      if (edge) {
-        r = Math.round(r * 0.3)
-        g = Math.round(g * 0.3)
-        b = Math.round(b * 0.3)
+    // Relief + Höhen-Konturen aus den Nachbar-Höhen (torus-gewrappt). Macht Berge/Täler/Küsten
+    // sichtbar, auch unter der Nationsfarbe.
+    const x = i % w
+    const y = (i - x) / w
+    const landH = (idx: number): number => {
+      const tt = terrain[idx] ?? 0
+      return (tt & IS_LAND_BIT) === 0 ? 0 : tt & HEIGHT_MASK
+    }
+    const hL = landH(y * w + (x === 0 ? w - 1 : x - 1))
+    const hR = landH(y * w + (x === w - 1 ? 0 : x + 1))
+    const hU = landH((y === 0 ? h - 1 : y - 1) * w + x)
+    const hD = landH((y === h - 1 ? 0 : y + 1) * w + x)
+    // Höhen-Konturkante: grenzt das Tile an eine NIEDRIGERE Höhenstufe (oder Wasser), dunkle
+    // Kante — Berge stark, Hügel milder → topografische Abgrenzung.
+    const tierOf = (hh: number): number => (hh >= 20 ? 2 : hh >= 10 ? 1 : 0)
+    const myTier = tierOf(height)
+    if (myTier > 0) {
+      const drop =
+        tierOf(hL) < myTier || tierOf(hR) < myTier || tierOf(hU) < myTier || tierOf(hD) < myTier
+      if (drop) {
+        const k = myTier === 2 ? 0.4 : 0.72
+        r = Math.round(r * k)
+        g = Math.round(g * k)
+        b = Math.round(b * k)
       }
     }
-    data[o] = r
-    data[o + 1] = g
-    data[o + 2] = b
+    // Relief-Schattierung (NW-Licht): Hänge, die zum Licht zeigen, werden heller, abgewandte
+    // dunkler; höheres Gelände insgesamt etwas heller. Multiply → kommt durch die Farbe durch.
+    const slope = hL + hU - hR - hD
+    const relief = Math.max(
+      RELIEF_MIN,
+      Math.min(RELIEF_MAX, 1 + slope * RELIEF_LIGHT + (height - 12) * RELIEF_HEIGHT),
+    )
+    data[o] = Math.min(255, Math.round(r * relief))
+    data[o + 1] = Math.min(255, Math.round(g * relief))
+    data[o + 2] = Math.min(255, Math.round(b * relief))
   }
 
   /**
