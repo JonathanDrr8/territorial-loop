@@ -282,7 +282,7 @@ export function createStartMenu(
 
   // AI count
   section('Gegner')
-  const aiCount = makeSliderRow('Anzahl KI', 1, 32, 1, initial.aiCount)
+  const aiCount = makeSliderRow('Anzahl KI', 1, 200, 1, initial.aiCount)
   panel.appendChild(aiCount.element)
   const wildCount = makeSliderRow('Wilde Nationen', 0, 400, 1, initial.wildCount)
   panel.appendChild(wildCount.element)

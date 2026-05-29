@@ -72,7 +72,7 @@ describe('preferences', () => {
   it('ignores out-of-range aiCount', () => {
     window.localStorage.setItem(
       'territorial-loop:menu-prefs:v1',
-      JSON.stringify({ ...DEFAULTS, aiCount: 99 }),
+      JSON.stringify({ ...DEFAULTS, aiCount: 999 }),
     )
     expect(loadMenuPrefs(DEFAULTS).aiCount).toBe(DEFAULTS.aiCount)
   })
