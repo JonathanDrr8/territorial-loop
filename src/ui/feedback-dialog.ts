@@ -21,7 +21,7 @@ export function createFeedbackUi(
   opts: { endpoint: string; version: string },
 ): FeedbackUiApi {
   const trigger = document.createElement('button')
-  trigger.textContent = '🐞 Feedback'
+  trigger.textContent = 'Feedback'
   trigger.title = 'Feedback geben oder einen Bug melden'
   trigger.style.cssText = [
     'position: absolute',
@@ -110,8 +110,8 @@ export function createFeedbackUi(
     }
     const kindButtons: (() => void)[] = []
     const refreshAll = (): void => kindButtons.forEach((f) => f())
-    kindRow.appendChild(mkKind('feedback', '💬 Feedback'))
-    kindRow.appendChild(mkKind('bug', '🐞 Bug'))
+    kindRow.appendChild(mkKind('feedback', 'Feedback'))
+    kindRow.appendChild(mkKind('bug', 'Bug'))
     panel.appendChild(kindRow)
     refreshAll()
 
@@ -183,7 +183,7 @@ export function createFeedbackUi(
         .then((r) => {
           if (!r.ok && r.status !== 204) throw new Error(String(r.status))
           status.style.color = '#7cffa0'
-          status.textContent = 'Danke! 🙏'
+          status.textContent = 'Danke!'
           setTimeout(close, 900)
         })
         .catch(() => {

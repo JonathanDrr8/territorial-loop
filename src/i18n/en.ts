@@ -65,6 +65,22 @@ export const en: Record<string, string> = {
   'lobby.spectate': 'Watch',
   'lobby.unreachable': 'Server unreachable.',
   'lobby.loading': 'Loading …',
+  'lobby.players': 'players',
+  'lobby.spectators': 'watching',
+
+  // Tips / info area (landing page, right column)
+  'info.title': 'Tips & tricks',
+  'info.feedback': 'Feedback / report a bug',
+  'info.tip.1':
+    'Troops grow fastest at around 42 % of your cap — spend them on attacks instead of hoarding.',
+  'info.tip.2':
+    'Factories produce gold per linked city/port — and triple for links to foreign nations.',
+  'info.tip.3':
+    'Shift+left-click attacks along the whole border; Shift+wheel fine-tunes the attack size.',
+  'info.tip.4':
+    'The world is a torus: leaving on the left brings you back on the right — use the edges to flank.',
+  'info.tip.5': 'Warships blockade enemy trade routes and seize the cargo.',
+  'info.tip.6': 'Found a bug or have an idea? Tell us via "Feedback / report a bug".',
 
   'changelog.openFull': 'Open full changelog',
 

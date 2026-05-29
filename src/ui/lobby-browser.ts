@@ -131,7 +131,7 @@ export function createLobbyBrowser(
       const text = document.createElement('div')
       text.innerHTML =
         `<span style="color:${ACCENT};font-weight:700;letter-spacing:1px">${lo.code}</span>` +
-        ` <span style="opacity:0.6">· ${String(lo.players)} 👤</span><br>` +
+        ` <span style="opacity:0.6">· ${String(lo.players)} ${t('lobby.players')}</span><br>` +
         `<span style="opacity:0.75">${escapeHtml(lo.host)} · ${String(lo.mapWidth)}² · ` +
         `${String(lo.aiCount)} KI · ${terrain}</span>`
       row.appendChild(text)
@@ -180,7 +180,8 @@ export function createLobbyBrowser(
       text.style.flex = '1'
       text.innerHTML =
         `<span style="color:${ACCENT};font-weight:700;letter-spacing:1px">${g.code}</span>` +
-        ` <span style="opacity:0.6">· ${String(g.players)} 👤 · ${String(g.spectators)} 👁</span><br>` +
+        ` <span style="opacity:0.6">· ${String(g.players)} ${t('lobby.players')} · ` +
+        `${String(g.spectators)} ${t('lobby.spectators')}</span><br>` +
         `<span style="opacity:0.75">${escapeHtml(g.host)} · ${String(g.mapWidth)}² · ${terrain}</span>`
       row.appendChild(text)
       const watch = document.createElement('span')

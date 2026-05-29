@@ -100,10 +100,15 @@ export function createMenuShell(
   let overlay: HTMLDivElement | null = null
   let lobbyBrowser: LobbyBrowserApi | null = null
   let bannerSlot: HTMLDivElement | null = null
+  let tipTimer: ReturnType<typeof setInterval> | null = null
 
   const teardown = (): void => {
     lobbyBrowser?.destroy()
     lobbyBrowser = null
+    if (tipTimer !== null) {
+      clearInterval(tipTimer)
+      tipTimer = null
+    }
     overlay?.remove()
     overlay = null
     bannerSlot = null
@@ -299,7 +304,7 @@ export function createMenuShell(
     left.appendChild(gh)
     if (callbacks.onFeedback !== undefined) {
       const fb = document.createElement('button')
-      fb.textContent = `🐞 ${t('footer.feedback')}`
+      fb.textContent = t('footer.feedback')
       fb.style.cssText = [
         'background: transparent',
         `color: ${ACCENT}`,
@@ -466,20 +471,84 @@ export function createMenuShell(
     watchBtn.addEventListener('click', () => callbacks.onStart(collect(), true))
     p.appendChild(watchBtn)
 
-    // Lobby-Browser als linke Spalte → belebter. 3-Spalten-Raster (1fr auto 1fr) mit leerem
-    // Spacer rechts hält das Setup-Panel echt mittig (sonst säße es rechts der Mitte).
+    // Drei zentrierte Spalten: Lobby-Browser links (230) · Setup-Panel mittig (auto) · Tipps
+    // rechts (230), je 20 px Abstand. `justify-content: center` zentriert den ganzen Block →
+    // das Setup-Panel steht symmetrisch in der Mitte, ohne Überlappen.
     const browser = mountLobbyBrowser()
-    if (browser === null) return p
+    const tips = buildTipsPanel()
     const row = document.createElement('div')
     row.style.cssText =
-      'display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: start; width: 100%'
-    const leftCol = document.createElement('div')
-    leftCol.style.cssText = 'justify-self: end; width: 230px; max-width: 100%'
-    leftCol.appendChild(browser)
-    row.appendChild(leftCol)
+      'display: grid; grid-template-columns: 230px auto 230px; gap: 20px; align-items: start; justify-content: center; width: 100%'
+    row.appendChild(browser ?? document.createElement('div'))
     row.appendChild(p)
-    row.appendChild(document.createElement('div')) // Spacer rechts (Symmetrie)
+    row.appendChild(tips)
     return row
+  }
+
+  /** Kleiner Info-/Tipps-Bereich (rechte Spalte der Startseite): rotierende Tipps + Feedback-Knopf. */
+  function buildTipsPanel(): HTMLElement {
+    const p = document.createElement('div')
+    p.style.cssText = [
+      'background: #14141c',
+      'color: white',
+      'border: 1px solid rgba(255,255,255,0.12)',
+      'border-radius: 12px',
+      'padding: 18px',
+      'width: 230px',
+      'max-width: 100%',
+      'box-sizing: border-box',
+      'display: flex',
+      'flex-direction: column',
+      'gap: 12px',
+    ].join(';')
+
+    const head = document.createElement('div')
+    head.textContent = t('info.title')
+    head.style.cssText = 'font-size: 14px; font-weight: 700'
+    p.appendChild(head)
+
+    const tipEl = document.createElement('div')
+    tipEl.style.cssText = 'font-size: 12px; line-height: 1.5; opacity: 0.8; min-height: 80px'
+    p.appendChild(tipEl)
+
+    const tipKeys = [
+      'info.tip.1',
+      'info.tip.2',
+      'info.tip.3',
+      'info.tip.4',
+      'info.tip.5',
+      'info.tip.6',
+    ]
+    // Start-Tipp variieren (reine Deko, kein Sim-Determinismus) → nicht immer derselbe.
+    let idx = Date.now() % tipKeys.length
+    const showTip = (): void => {
+      tipEl.textContent = t(tipKeys[idx] ?? 'info.tip.1')
+    }
+    showTip()
+    tipTimer = setInterval(() => {
+      idx = (idx + 1) % tipKeys.length
+      showTip()
+    }, 8000)
+
+    if (callbacks.onFeedback !== undefined) {
+      const fb = document.createElement('button')
+      fb.textContent = t('info.feedback')
+      fb.style.cssText = [
+        'margin-top: auto',
+        'padding: 9px 10px',
+        'background: rgba(70,217,230,0.12)',
+        `color: ${ACCENT}`,
+        `border: 1px solid ${ACCENT}`,
+        'border-radius: 8px',
+        'font-family: inherit',
+        'font-size: 12px',
+        'font-weight: 700',
+        'cursor: pointer',
+      ].join(';')
+      fb.addEventListener('click', () => callbacks.onFeedback?.())
+      p.appendChild(fb)
+    }
+    return p
   }
 
   function buildSettingsTab(): HTMLElement {

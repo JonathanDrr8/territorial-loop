@@ -65,6 +65,22 @@ export const de: Record<string, string> = {
   'lobby.spectate': 'Zuschauen',
   'lobby.unreachable': 'Server nicht erreichbar.',
   'lobby.loading': 'Lade …',
+  'lobby.players': 'Spieler',
+  'lobby.spectators': 'Zuschauer',
+
+  // Tipps-/Info-Bereich (Startseite, rechte Spalte)
+  'info.title': 'Tipps & Tricks',
+  'info.feedback': 'Feedback / Bug melden',
+  'info.tip.1':
+    'Truppen wachsen am schnellsten bei rund 42 % deines Limits — gib sie für Angriffe aus, statt zu horten.',
+  'info.tip.2':
+    'Fabriken bringen Gold pro verbundener Stadt/Hafen — und das Dreifache für Verbindungen zu fremden Nationen.',
+  'info.tip.3':
+    'Shift+Linksklick greift entlang der ganzen Grenze an, Shift+Mausrad justiert die Angriffsgröße fein.',
+  'info.tip.4':
+    'Die Welt ist ein Torus: links raus heißt rechts wieder rein — nutze die Ränder zum Flankieren.',
+  'info.tip.5': 'Kriegsschiffe blockieren feindliche Handelsrouten und erbeuten die Fracht.',
+  'info.tip.6': 'Bug gefunden oder eine Idee? Sag es uns über „Feedback / Bug melden".',
 
   'changelog.openFull': 'Vollständigen Changelog öffnen',
 
