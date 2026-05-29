@@ -177,6 +177,8 @@ export interface Attack {
    * den Spieler-Pool. Ein zweiter Abbruch-Befehl beendet sofort (Rest zurück).
    */
   cancelStartTick?: number
+  /** Über die Laufzeit dieses Angriffs erbeutetes Gold (Summe der Pro-Tile-Beute). */
+  lootGained?: number
 }
 
 export interface Player {
@@ -2203,6 +2205,14 @@ export function effectiveMaxTroops(state: GameState, playerId: number): number {
 }
 
 /** Hängt ein Ereignis ans Log (chronologisch). */
+/** Kompaktes Gold-Format fürs Ereignislog (deterministisch, kein locale): 12345 → "12.3k". */
+function fmtCompactGold(value: number): string {
+  const n = Math.round(value)
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
+  return String(n)
+}
+
 function emitEvent(state: GameState, text: string, color?: number): void {
   state.events.push(
     color === undefined ? { tick: state.tick, text } : { tick: state.tick, text, color },
@@ -2265,12 +2275,13 @@ function landBoat(state: GameState, boat: Boat): void {
   if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
 
   // Verlorenes Land nimmt seine Bevölkerung mit (siehe advanceAttack); Verräter: 1,5× Verluste.
+  let bridgeLoot = 0
   if (!vsNull && defender !== undefined) {
     const dLoss =
       defenderLossPerTile(defender.troops, defender.tilesOwned, false) *
       traitorDamageMul(state, owner, boat.ownerId)
     defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
-    lootGoldOnCapture(attacker, defender) // Gold-Anteil des Brückenkopf-Tiles erbeuten
+    bridgeLoot = lootGoldOnCapture(attacker, defender) // Gold-Anteil des Brückenkopf-Tiles erbeuten
   }
   const remaining = Math.floor(boat.troops - aLoss)
   captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
@@ -2280,6 +2291,7 @@ function landBoat(state: GameState, boat: Boat): void {
     focusTile: target,
     frontTile: target,
     startTick: state.tick,
+    ...(bridgeLoot > 0 && { lootGained: bridgeLoot }),
   })
   emitEvent(state, `${attacker.name} landet Truppen an`, attacker.color)
 }
@@ -2480,6 +2492,20 @@ function resolveAttacks(state: GameState): void {
           ? advanceAttack(state, player, attack)
           : windDownCancellingAttack(state, player, attack)
       if (!stillActive) {
+        // Beute-Feedback: beim Angriffs-Ende einmal melden, wie viel Gold von wem erbeutet
+        // wurde (nur für menschliche Angreifer → kein Log-Spam bei hunderten KI/Wilden).
+        const loot = attack.lootGained ?? 0
+        if (player.isHuman && loot > 0) {
+          const fromName =
+            attack.targetPlayerId > 0
+              ? (state.players.get(attack.targetPlayerId)?.name ?? 'Wildnis')
+              : 'Wildnis'
+          emitEvent(
+            state,
+            `${player.name} erbeutet ${fmtCompactGold(loot)} Gold von ${fromName}`,
+            0xe8c14aff,
+          )
+        }
         player.attacks.splice(i, 1)
       }
     }
@@ -2514,13 +2540,14 @@ function windDownCancellingAttack(state: GameState, player: Player, attack: Atta
  * man jemandes gesamtes Gebiet, bekommt man so praktisch sein ganzes Gold — auch von
  * wilden Nationen. Analog zu [[defenderLossPerTile]] (Bevölkerung), nur für Gold.
  */
-function lootGoldOnCapture(attacker: Player, defender: Player): void {
-  if (defender.tilesOwned <= 0 || defender.gold <= 0) return
+function lootGoldOnCapture(attacker: Player, defender: Player): number {
+  if (defender.tilesOwned <= 0 || defender.gold <= 0) return 0
   const loot = Math.floor(defender.gold / defender.tilesOwned)
-  if (loot <= 0) return
+  if (loot <= 0) return 0
   defender.gold -= loot
   attacker.gold += loot
   attacker.goldEarned += loot
+  return loot
 }
 
 /** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */
@@ -2643,7 +2670,8 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
         defenderLossPerTile(defender.troops, defender.tilesOwned, false) *
         traitorDamageMul(state, currentOwner, attacker.id)
       defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
-      lootGoldOnCapture(attacker, defender) // Gold-Anteil dieses Tiles erbeuten
+      // Gold-Anteil dieses Tiles erbeuten + auf dem Angriff summieren (für das Beute-Event).
+      attack.lootGained = (attack.lootGained ?? 0) + lootGoldOnCapture(attacker, defender)
     }
 
     captureTile(state, ref, attacker.id)
