@@ -2,9 +2,10 @@
 
 ## Status
 
-Teilweise umgesetzt. **Phasen 1–3 fertig** (Transport-Naht, Determinismus-Fundament inkl.
-Snapshot/PRNG-State/Freeze, Replay-Harness — alles modell-egal). **Phasen 4–6 (Server/Netz/Lobby)
-Proposed.** Eine offene Entscheidung vor Phase 4: der „Transzendenten-Audit" (siehe unten).
+Teilweise umgesetzt. **Phasen 1–4 fertig** (Transport-Naht, Determinismus-Fundament inkl.
+Snapshot/PRNG-State/Freeze/det-math, Replay-Harness, simulierender ws-Server). **Phasen 5–6
+(Client-Transport + Lobby, Politur) Proposed.** Der „Transzendenten-Audit" ist entschieden
+(voll gehärtet via `det-math`).
 
 ## Datum
 
@@ -146,18 +147,23 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
 3. **Replay-Harness.** ✅ `src/core/replay.ts` (`RecordedTurn`/`Replay`, `createRecorder`,
    `replayGame`). `main.ts` schneidet jeden Turn mit (`__TL__.recorder`). Browser verifiziert:
    107 Live-Ticks → Replay aus `config+turns` ergibt identischen Hash. **Modell-egal.**
-4. **Server (Node + `ws`), simulierend & autoritativ.** Importiert `core/` und **simuliert die Sim
-   mit**: Räume, Slot-Vergabe, Turn-Uhr (feste Rate), Intent-Sammlung + KI-Ausführung (`ai.decide`
-   auf dem Server) + Commit-Broadcast, Hash-Vergleich, Snapshots. Health-Check-Endpoint.
-5. **NetworkTransport + Lobby.** Client-Transport gegen den Server; Mehrspieler-Menü (Raum-Code,
-   Ready, Start mit geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match.
-6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot, Desync-UI, Politur.** Adaptiver
+4. **Server (Node + `ws`), simulierend & autoritativ.** ✅ `src/net/protocol.ts` (Wire-Typen),
+   `server/match.ts` (`ServerMatch` — autoritative Sim ohne I/O: buffert Client-Intents pro Turn
+   inkl. Anti-Spoofing, führt die KI aus, ticked, liefert Commit+Hash; Freeze, Hash-Verify,
+   Snapshot), `server/server.ts` (`startServer` — ws+http: Räume, Slot-Vergabe, Turn-Uhr,
+   Commit-Broadcast, Disconnect→Freeze, Reconnect/Desync→Snapshot, `/health`). `npm run server`
+   / `dev:server`. Verifiziert: 6 Unit-Tests + 2 echte End-to-End-Tests (zwei ws-Clients in
+   Lockstep auf identischem Hash).
+5. **NetworkTransport + Lobby.** ⏳ Client-Transport gegen den Server (zweite `IntentTransport`-
+   Implementierung — `main.ts` ändert sich nicht); Mehrspieler-Menü (Raum-Code, Ready, Start mit
+   geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match. **UI-lastig → mit Jonathan abstimmen.**
+6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** Adaptiver
    Input-Delay, Freeze-/Resync-Handling über die schon vorhandenen Snapshots, Last-Tests mit
    vielen Slots.
 
-Phasen 1–3 sind **umgesetzt** (Stand 2026-05-29) — sie bringen schon allein Wert (Testbarkeit,
-Save/Load-Fundament, Bug-Repros) und sind risikoarm. Phase 4 (simulierender Server) ist der
-nächste, modell-abhängige Schritt.
+Phasen 1–4 sind **umgesetzt** (Stand 2026-05-29) — Sim-Naht, Determinismus-Fundament (Snapshot/
+PRNG/Freeze/det-math), Replay und der simulierende Server stehen und sind getestet. Phase 5
+(Client-Transport + Lobby) ist der nächste, UI-lastige Schritt.
 
 ## Transzendenten-Audit (Cross-Engine-Determinismus) — offene Entscheidung
 
