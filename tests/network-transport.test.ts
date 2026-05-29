@@ -68,6 +68,29 @@ describe('NetworkTransport — Client-Lockstep gegen den Server (ADR-0009 Phase 
     expect(ha).toBe(hb)
   }, 15000)
 
+  it('adaptiver Input-Delay sinkt lokal (winzige RTT) auf das Minimum', async () => {
+    const delay = await new Promise<number>((resolve, reject) => {
+      const t = new NetworkTransport({
+        url: `ws://localhost:${String(server.port)}`,
+        room: 'PING',
+        name: 'Pinger',
+        socketFactory,
+        onStart: () => {
+          /* egal */
+        },
+      })
+      // Nach dem ersten Pong (wenige ms) ist der Delay aus der lokalen RTT berechnet.
+      setTimeout(() => {
+        const d = t.inputDelay
+        t.destroy()
+        resolve(d)
+      }, 400)
+      setTimeout(() => reject(new Error('ping timeout')), 5000)
+    })
+    expect(delay).toBeLessThanOrEqual(2) // lokal praktisch immer 1
+    expect(delay).toBeGreaterThanOrEqual(1)
+  }, 8000)
+
   it('Host-Settings greifen: KI=0/Wilde=0 → Match nur mit den Menschen', async () => {
     const startConfig = new Promise<number>((resolve, reject) => {
       let myId = 0

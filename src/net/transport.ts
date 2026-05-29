@@ -172,8 +172,14 @@ export interface WebSocketLike {
 
 export type WebSocketFactory = (url: string) => WebSocketLike
 
-/** Standard-Eingabeverzögerung (Turns) — lokale Intents gelten erst `+INPUT_DELAY` später. */
+/** Start-Eingabeverzögerung (Turns), bis die erste Ping-Messung den adaptiven Wert setzt. */
 export const DEFAULT_INPUT_DELAY = 3
+/** Angenommene Server-Turn-Dauer (ms) für die Delay-Berechnung (= SIM_BASE_INTERVAL_MS). */
+const TURN_MS = 100
+/** Wie oft die RTT gemessen wird (ms). */
+const PING_INTERVAL_MS = 2000
+const MIN_INPUT_DELAY = 1
+const MAX_INPUT_DELAY = 10
 
 export interface NetworkTransportOptions {
   url: string
@@ -194,7 +200,10 @@ export interface NetworkTransportOptions {
   ) => void
   /** Eine Nation wurde eingefroren (Disconnect) bzw. ist zurück. */
   onPeerFrozen?: (playerId: number, frozen: boolean) => void
-  /** Eingabeverzögerung in Turns (Default {@link DEFAULT_INPUT_DELAY}). */
+  /**
+   * Fester Override der Eingabeverzögerung (Turns). Ohne Angabe wird der Delay **adaptiv** aus
+   * der gemessenen Latenz (ping/pong) bestimmt — lokal ~1 Turn, bei Internet automatisch mehr.
+   */
   inputDelay?: number
   /** WebSocket-Konstruktor (Default: globaler `WebSocket`; Tests injizieren `ws`). */
   socketFactory?: WebSocketFactory
@@ -208,7 +217,13 @@ export interface NetworkTransportOptions {
 export class NetworkTransport implements IntentTransport {
   private readonly ws: WebSocketLike
   private readonly opts: NetworkTransportOptions
-  private readonly inputDelay: number
+  /** Fester Override (falls gesetzt) — sonst wird `adaptiveDelay` benutzt. */
+  private readonly fixedDelay: number | undefined
+  /** Adaptiv aus der Latenz gesetzter Delay (Turns); Start = Default, bis der erste Pong kommt. */
+  private adaptiveDelay = DEFAULT_INPUT_DELAY
+  /** Geglättete RTT (ms) für die Delay-Berechnung. */
+  private rttMs = -1
+  private pingTimer: ReturnType<typeof setInterval> | null = null
   private handler: CommitHandler | null = null
   /** Commits, die vor dem Registrieren von `onCommitted` eintrafen (Start-Rennen abfangen). */
   private pending: { turn: number; intents: readonly Intent[] }[] = []
@@ -217,12 +232,17 @@ export class NetworkTransport implements IntentTransport {
 
   constructor(opts: NetworkTransportOptions) {
     this.opts = opts
-    this.inputDelay = opts.inputDelay ?? DEFAULT_INPUT_DELAY
+    this.fixedDelay = opts.inputDelay
     const factory: WebSocketFactory =
       opts.socketFactory ?? ((url) => new WebSocket(url) as unknown as WebSocketLike)
     this.ws = factory(opts.url)
     this.ws.onopen = (): void => {
       this.sendMsg({ kind: 'join', room: opts.room, name: opts.name })
+      // Latenz-Messung starten (nur sinnvoll ohne festen Override).
+      if (this.fixedDelay === undefined) {
+        this.sendPing()
+        this.pingTimer = setInterval(() => this.sendPing(), PING_INTERVAL_MS)
+      }
     }
     this.ws.onmessage = (ev): void => {
       this.handleMessage(String(ev.data))
@@ -231,10 +251,28 @@ export class NetworkTransport implements IntentTransport {
     this.ws.onerror = null
   }
 
+  /** Aktuelle Eingabeverzögerung (Turns): fester Override oder der adaptive Wert. */
+  get inputDelay(): number {
+    return this.fixedDelay ?? this.adaptiveDelay
+  }
+
   submit(intents: readonly Intent[]): void {
     if (intents.length === 0) return
     const targetTurn = this.lastCommittedTurn + 1 + this.inputDelay
     this.sendMsg({ kind: 'submit-intents', turn: targetTurn, intents: [...intents] })
+  }
+
+  private sendPing(): void {
+    // I/O-Zeitstempel (kein Sim-Determinismus) — performance.now() ist in Browser + Node verfügbar.
+    this.sendMsg({ kind: 'ping', t: globalThis.performance.now() })
+  }
+
+  /** Verarbeitet eine RTT-Messung und leitet daraus den adaptiven Input-Delay ab. */
+  private updateLatency(rtt: number): void {
+    this.rttMs = this.rttMs < 0 ? rtt : this.rttMs * 0.7 + rtt * 0.3
+    // Delay muss die einfache Strecke (~RTT/2) bis zur Server-Deadline abdecken → + 1 Turn Puffer.
+    const turns = Math.ceil(this.rttMs / 2 / TURN_MS) + 1
+    this.adaptiveDelay = Math.max(MIN_INPUT_DELAY, Math.min(MAX_INPUT_DELAY, turns))
   }
 
   onCommitted(cb: CommitHandler): void {
@@ -275,6 +313,10 @@ export class NetworkTransport implements IntentTransport {
 
   destroy(): void {
     this.handler = null
+    if (this.pingTimer !== null) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
+    }
     this.ws.onmessage = null
     this.ws.onopen = null
     try {
@@ -317,6 +359,9 @@ export class NetworkTransport implements IntentTransport {
         break
       case 'peer-frozen':
         this.opts.onPeerFrozen?.(msg.playerId, msg.frozen)
+        break
+      case 'pong':
+        this.updateLatency(globalThis.performance.now() - msg.t)
         break
     }
   }

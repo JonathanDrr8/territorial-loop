@@ -78,6 +78,12 @@ export interface ConfigureMsg {
   readonly settings: MatchSettings
 }
 
+/** Latenz-Messung: `t` ist ein opaker Client-Zeitstempel, den der Server unverändert zurückwirft. */
+export interface PingMsg {
+  readonly kind: 'ping'
+  readonly t: number
+}
+
 export type ClientMessage =
   | JoinMsg
   | SubmitIntentsMsg
@@ -85,6 +91,7 @@ export type ClientMessage =
   | ReadyMsg
   | ResyncRequestMsg
   | ConfigureMsg
+  | PingMsg
 
 /* ── Server → Client ──────────────────────────────────────────────────────── */
 
@@ -130,6 +137,12 @@ export interface PeerFrozenMsg {
   readonly frozen: boolean
 }
 
+/** Antwort auf {@link PingMsg} — `t` unverändert zurück, der Client berechnet daraus die RTT. */
+export interface PongMsg {
+  readonly kind: 'pong'
+  readonly t: number
+}
+
 export type ServerMessage =
   | JoinedMsg
   | LobbyMsg
@@ -137,6 +150,7 @@ export type ServerMessage =
   | CommitMsg
   | SnapshotMsg
   | PeerFrozenMsg
+  | PongMsg
 
 /** Serialisiert eine Nachricht für den Wire (JSON). */
 export function encode(msg: ClientMessage | ServerMessage): string {

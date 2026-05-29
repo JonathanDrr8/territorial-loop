@@ -253,6 +253,12 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         return // ungültiges JSON ignorieren
       }
 
+      // Latenz-Messung jederzeit beantworten (auch vor dem Join) — Client misst die RTT daraus.
+      if (msg.kind === 'ping') {
+        send(socket, { kind: 'pong', t: msg.t })
+        return
+      }
+
       // Erste Nachricht MUSS 'join' sein (legt Raum + Slot an).
       if (room === null || member === null) {
         if (msg.kind !== 'join') return
