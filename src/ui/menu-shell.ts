@@ -13,6 +13,7 @@
 
 import { getLocale, onLocaleChange, setLocale, t, type Locale } from '../i18n'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
+import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
 import {
   ACCENT,
@@ -58,6 +59,17 @@ const TABS: ReadonlyArray<readonly [TabId, string]> = [
   ['help', 'nav.help'],
 ]
 
+/**
+ * Dämpfung des Karten-Backdrops (Feel-Entscheidung „sehr dezent", ADR-0014). Hier zentral
+ * justierbar: niedrigere Opazität / dunklere Helligkeit / dichteres Veil = schemenhafter.
+ */
+const BG_BLUR_PX = 2
+const BG_BRIGHTNESS = 0.5
+const BG_SATURATE = 0.65
+const BG_OPACITY = 0.4
+const BG_VEIL =
+  'radial-gradient(115% 95% at 50% 38%, rgba(12,12,18,0.32) 0%, rgba(8,8,13,0.84) 100%)'
+
 /** Übersetzt eine Options-Liste `[wert, _]` per Key-Schema `prefix.wert` über `t()`. */
 function translatedOptions<T extends string>(
   values: ReadonlyArray<readonly [T, string]>,
@@ -77,6 +89,9 @@ export function createMenuShell(
   let values: StartMenuValues = { ...initial }
   let activeTab: TabId = 'play'
   let reconnect: { room: string; onReconnect: () => void } | null = null
+
+  // Karten-Backdrop einmal pro Menü-Öffnung generieren (gleich über alle Tab-Wechsel hinweg).
+  const bgDataUrl = generateMenuBackground()
 
   let overlay: HTMLDivElement | null = null
   let lobbyBrowser: LobbyBrowserApi | null = null
@@ -111,6 +126,31 @@ export function createMenuShell(
     const style = document.createElement('style')
     style.textContent = MENU_CSS
     overlay.appendChild(style)
+
+    // Karten-Backdrop (gedämpft) + dunkles Veil/Vignette darüber — beide klick-transparent,
+    // liegen hinter Header/Inhalt/Footer (die folgen im DOM und werden darüber gemalt).
+    if (bgDataUrl !== null) {
+      const bg = document.createElement('div')
+      bg.style.cssText = [
+        'position: absolute',
+        'inset: 0',
+        'pointer-events: none',
+        `background-image: url(${bgDataUrl})`,
+        'background-size: cover',
+        'background-position: center',
+        `filter: blur(${BG_BLUR_PX}px) brightness(${BG_BRIGHTNESS}) saturate(${BG_SATURATE})`,
+        `opacity: ${BG_OPACITY}`,
+      ].join(';')
+      overlay.appendChild(bg)
+      const veil = document.createElement('div')
+      veil.style.cssText = [
+        'position: absolute',
+        'inset: 0',
+        'pointer-events: none',
+        `background: ${BG_VEIL}`,
+      ].join(';')
+      overlay.appendChild(veil)
+    }
 
     overlay.appendChild(buildHeader())
 

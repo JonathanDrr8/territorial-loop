@@ -109,7 +109,10 @@ im Footer. **Default-Tab:** „Spielen".
 
 ### Noch offen (Phase 3 / unkritisch)
 
-3. **Hintergrund:** dezente statische Textur zuerst; live gerendertes Karten-Bild evtl. später.
+3. ✅ **Hintergrund umgesetzt:** beim Menü-Öffnen frisch generierte Terrain-Karte (`menu-background.ts`,
+   nur Land/Wasser/Höhen, keine Nationen/Labels), stark gedämpft (Blur + Abdunklung + Entsättigung +
+   Vignette-Veil, Konstanten in `menu-shell.ts` justierbar). Feel „sehr dezent" gewählt — schemenhaft,
+   nicht ablenkend. Jede Öffnung zeigt eine andere Karte (Seed aus der Uhr, reine Deko).
 4. **Karten-Vorschau-Kacheln** (Phase 3) — entscheiden wir, wenn Phase 1 steht.
 5. **Phase 1 = nur umräumen** (gleiche Inhalte, neue Hülle) — vorgeschlagener erster Schritt.
 
