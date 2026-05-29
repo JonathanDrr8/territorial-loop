@@ -16,6 +16,7 @@ import {
   type PlayerDef,
 } from './core/game'
 import type { Intent } from './core/intent'
+import { LocalTransport } from './net/transport'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
@@ -145,11 +146,9 @@ function startMatch(
   let lastPhase: 'running' | 'ended' = state.phase
   let endChimePlayed = false
 
-  const pendingIntents: Intent[] = []
   let sliderPct = DEFAULT_SLIDER_PCT
   let paused = false
   let speed: 1 | 2 | 5 = 1
-  let simIntervalId: number | null = null
   let renderRafId: number | null = null
   let destroyed = false
 
@@ -161,25 +160,25 @@ function startMatch(
     ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild))
   }
 
-  function runSimTick(): void {
-    if (paused) return
-    for (const ai of ais) {
-      for (const intent of ai.decide(state)) {
-        pendingIntents.push(intent)
+  // Sim-Naht (ADR-0009): UI/Eingabe reichen Intents per `submit` ein, die KI liefert die
+  // „server-seitigen" Intents je Turn. Der Transport bündelt beides ([UI…, KI…]) und treibt
+  // `tick()` aus `onCommitted` — identisches Interface für späteres Network-Lockstep.
+  const transport = new LocalTransport({
+    produceServerIntents: () => {
+      const aiIntents: Intent[] = []
+      for (const ai of ais) {
+        for (const intent of ai.decide(state)) aiIntents.push(intent)
       }
-    }
-    tick(state, pendingIntents)
-    pendingIntents.length = 0
-  }
-
-  function restartSimInterval(): void {
-    if (simIntervalId !== null) {
-      window.clearInterval(simIntervalId)
-      simIntervalId = null
-    }
-    if (paused || destroyed) return
-    const ms = SIM_BASE_INTERVAL_MS / speed
-    simIntervalId = window.setInterval(runSimTick, ms)
+      return aiIntents
+    },
+    intervalMs: SIM_BASE_INTERVAL_MS,
+    running: true,
+  })
+  transport.onCommitted((_turn, intents) => {
+    tick(state, intents)
+  })
+  const submit = (intent: Intent): void => {
+    transport.submit([intent])
   }
 
   let inputHandler: InputHandler | null = null
@@ -193,13 +192,11 @@ function startMatch(
     onRequestNewMatch,
     (type) => inputHandler?.toggleBuildMode(type),
     () => inputHandler?.toggleBoatMode(),
-    (attackIndex) =>
-      pendingIntents.push({ type: 'cancel-attack', playerId: HUMAN_ID, attackIndex }),
-    (boatIndex) => pendingIntents.push({ type: 'boat-recall', playerId: HUMAN_ID, boatIndex }),
-    (warshipIndex) =>
-      pendingIntents.push({ type: 'recall-warship', playerId: HUMAN_ID, warshipIndex }),
+    (attackIndex) => submit({ type: 'cancel-attack', playerId: HUMAN_ID, attackIndex }),
+    (boatIndex) => submit({ type: 'boat-recall', playerId: HUMAN_ID, boatIndex }),
+    (warshipIndex) => submit({ type: 'recall-warship', playerId: HUMAN_ID, warshipIndex }),
     (attackerId) =>
-      pendingIntents.push({
+      submit({
         type: 'defend',
         playerId: HUMAN_ID,
         attackerId,
@@ -237,19 +234,18 @@ function startMatch(
     state,
     HUMAN_ID,
     (requesterId) =>
-      pendingIntents.push({
+      submit({
         type: 'accept-alliance',
         playerId: HUMAN_ID,
         targetPlayerId: requesterId,
       }),
-    (requesterId) =>
-      pendingIntents.push({ type: 'decline-alliance', playerId: HUMAN_ID, requesterId }),
+    (requesterId) => submit({ type: 'decline-alliance', playerId: HUMAN_ID, requesterId }),
   )
   const buildMenu = createBuildMenu(
     container,
     state,
     HUMAN_ID,
-    (intent) => pendingIntents.push(intent),
+    (intent) => submit(intent),
     () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
   )
 
@@ -263,7 +259,7 @@ function startMatch(
     playerId: HUMAN_ID,
     interactive: !spectator,
     cameraMode: menu.cameraMode,
-    emit: (intent) => pendingIntents.push(intent),
+    emit: (intent) => submit(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
     setSliderPct: (pct) => {
@@ -296,7 +292,7 @@ function startMatch(
     onMoveWarships: (tile) => {
       const indices = renderer.selectedWarshipIndices()
       if (indices.length > 0)
-        pendingIntents.push({
+        submit({
           type: 'move-warship',
           playerId: HUMAN_ID,
           warshipIndices: indices,
@@ -312,7 +308,7 @@ function startMatch(
     events: {
       pause(): void {
         paused = !paused
-        restartSimInterval()
+        transport.setRunning(!paused)
         hud.setSpeed(paused ? 0 : speed)
       },
       cycleSpeed(dir): void {
@@ -321,7 +317,7 @@ function startMatch(
         const next = levels[Math.max(0, Math.min(levels.length - 1, idx + dir))]
         if (next === undefined || next === speed) return
         speed = next
-        restartSimInterval()
+        transport.setIntervalMs(SIM_BASE_INTERVAL_MS / speed)
         if (!paused) hud.setSpeed(speed)
       },
       escape(): void {
@@ -343,8 +339,6 @@ function startMatch(
   inputHandler = input
 
   hud.setSpeed(speed)
-
-  restartSimInterval()
 
   function renderLoop(): void {
     if (destroyed) return
@@ -381,10 +375,7 @@ function startMatch(
   return {
     destroy(): void {
       destroyed = true
-      if (simIntervalId !== null) {
-        window.clearInterval(simIntervalId)
-        simIntervalId = null
-      }
+      transport.destroy()
       if (renderRafId !== null) {
         cancelAnimationFrame(renderRafId)
         renderRafId = null
