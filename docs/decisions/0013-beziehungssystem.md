@@ -47,10 +47,11 @@ in `decayGrudge` → in `decayRelations` umbenennen/erweitern). Quellen:
 
 - **Abgeschlossene Handelsfahrt** zwischen zwei _verschiedenen_ Spielern: beide bekommen Gunst
   zueinander (`advanceTradeShips`, wo das Handels-Gold ausgeschüttet wird). Wert ∝ Fahrt-Gold.
-- **Fabrik-Reichweite über Grenzen:** _optional/Phase 2_ — heute verbinden sich Fabriken nur mit
-  **eigenen** Gebäuden (`buildings.ts`). Eine spielerübergreifende „Nachbarschafts-Gunst" (Fabrik
-  in Reichweite fremder Städte/Häfen → beide etwas Gunst + ggf. kleiner Gold-Bonus) wäre ein
-  **neuer Mechanik-Baustein** — separat absegnen.
+- **Fabrik-Auslandsverbindung (umgesetzt):** jede FREMDE (nicht embargoierte) fertige Stadt/Hafen
+  in `FACTORY_LINK_RANGE` einer eigenen Fabrik zählt im Fabrik-Einkommen als Ziel mit **3× Gold**
+  (`FACTORY_FOREIGN_MULT`, in `goldBreakdown`/`factoryYield`) — Kooperation über Grenzen lohnt
+  stärker als das Eigen-Netz. Zusätzlich beidseitige **Gunst** (`applyFactoryDiplomacy`). Embargo
+  schneidet beides ab.
 
 **Netto-Beziehung** `relation(a→b) = goodwill − grudge`. Helfer `relationLevel(state, a, b)`.
 
