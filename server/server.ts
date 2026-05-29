@@ -10,8 +10,8 @@
  * dem Vite-Dev-Server (Plugin in `vite.config.ts`). Health-Check: `GET /health`.
  *
  * Lobby-Modell: erster Beitritt wird Host und setzt die Match-Settings (`configure`); das Match
- * startet, sobald alle Verbundenen „ready" sind. Disconnect friert die Nation ein (angreifbar,
- * Verbündete straffrei), Reconnect/Desync bekommt einen Snapshot.
+ * startet, sobald alle Verbundenen „ready" sind. Bei Disconnect läuft die Nation idle weiter
+ * (kein Einfrieren) und der Slot bleibt für einen Reconnect (gleicher Name → Snapshot).
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
@@ -116,7 +116,7 @@ interface Member {
   readonly playerId: number
   name: string
   ready: boolean
-  socket: WebSocket | null // null = getrennt (eingefroren)
+  socket: WebSocket | null // null = getrennt (Slot bleibt für Reconnect)
 }
 
 interface Room {
