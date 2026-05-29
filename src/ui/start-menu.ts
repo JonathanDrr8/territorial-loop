@@ -13,10 +13,12 @@ export type TerrainChoice = 'flat' | 'continents' | 'islands'
 /**
  * Kamera-Darstellung der Torus-Welt:
  *  - `tiles`   → wie vorher: endloses Kacheln beim Rauszoomen (die Welt wiederholt sich).
- *  - `box`     → feste Box: immer genau eine Welt-Periode, nahtloser Wrap, kein Weiter-Rauszoomen.
- *  - `dynamic` → „Dynamische Box": reingezoomt nahtlos, weit rausgezoomt ganze Welt + schwarze Ränder.
+ *  - `period`  → Box (nahtlos): genau eine Welt-Periode, nahtloser Wrap, kein Weiter-Rauszoomen.
+ *  - `fixed`   → Box (fest): immer eine Welt-Kopie mit harten schwarzen Rändern (bleibt auch
+ *                reingezoomt; kein Wrap), frei zoombar.
+ *  - `dynamic` → Dynamische Box: reingezoomt nahtlos, weit rausgezoomt ganze Welt + schwarze Ränder.
  */
-export type CameraMode = 'tiles' | 'box' | 'dynamic'
+export type CameraMode = 'tiles' | 'period' | 'fixed' | 'dynamic'
 
 /**
  * Opt-in „Experimentell"-Toggles. Vorerst leer — das Gerüst steht, künftige
@@ -374,7 +376,8 @@ export function createStartMenu(
   camSelect.style.cssText = SELECT_STYLE
   const CAMERA_OPTIONS: ReadonlyArray<readonly [CameraMode, string]> = [
     ['tiles', 'Kacheln (wie vorher)'],
-    ['box', 'Box (fest)'],
+    ['period', 'Box (nahtlos)'],
+    ['fixed', 'Box (fest)'],
     ['dynamic', 'Dynamische Box'],
   ]
   for (const [value, label] of CAMERA_OPTIONS) {

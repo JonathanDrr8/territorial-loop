@@ -173,8 +173,8 @@ export interface Renderer {
   clearHoverTile(): void
   /** Markiert das gehoverte (gesnappte) Objekt mit einem Ring; null = keine Markierung. */
   setHoverHighlight(h: { wx: number; wy: number; kind: 'ship' | 'building' } | null): void
-  /** „Dynamische Box" an/aus (steuert Einzel-Kopie-Rendering + schwarze Ränder beim Rauszoomen). */
-  setDynamicBox(on: boolean): void
+  /** Kamera-Darstellung (steuert Einzel-Kopie-Rendering / schwarze Ränder). */
+  setCameraMode(mode: 'tiles' | 'period' | 'fixed' | 'dynamic'): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
@@ -704,8 +704,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     // Kamera-Box: überspannt der Viewport eine ganze Periode, nur EINE Kopie (an der kanonischen
     // Welt-Position 0) zeichnen → Rest bleibt Hintergrund (schwarze Ränder) statt Tapete.
     // Reingezoomt (Viewport < Periode) bleibt das Kacheln für den nahtlosen Seam erhalten.
-    const singleX = dynamicBox && worldRight - worldLeft >= mapW
-    const singleY = dynamicBox && worldBottom - worldTop >= mapH
+    const singleX =
+      cameraMode === 'fixed' || (cameraMode === 'dynamic' && worldRight - worldLeft >= mapW)
+    const singleY =
+      cameraMode === 'fixed' || (cameraMode === 'dynamic' && worldBottom - worldTop >= mapH)
 
     for (let wx = singleX ? 0 : xStart; wx < worldRight; wx += mapW) {
       for (let wy = singleY ? 0 : yStart; wy < worldBottom; wy += mapH) {
@@ -722,10 +724,12 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let hoverTile: { x: number; y: number } | null = null
   // Gehovertes (gesnapptes) Objekt — Ring-Markierung, damit bei mehreren klar ist, was gemeint ist.
   let hoverHighlight: { wx: number; wy: number; kind: 'ship' | 'building' } | null = null
-  // „Dynamische Box": überspannt der Viewport eine ganze Welt-Periode, nur EINE Kopie zeichnen
-  // (Rest = Hintergrund / „schwarze Ränder") statt zu kacheln. Nur im Dynamik-Modus aktiv;
-  // „Box (fest)" hält den Zoom ohnehin auf einer Periode (Seam-Wrap), „Kacheln" tilet normal.
-  let dynamicBox = true
+  // Kamera-Darstellung steuert das Welt-Blit:
+  //  - 'tiles'   → endloses Kacheln (Wrap/Tapete).
+  //  - 'period'  → eine Welt, nahtloser Seam-Wrap (Zoom auf eine Periode begrenzt; kein Blit-Sonderfall).
+  //  - 'fixed'   → IMMER nur eine Welt-Kopie mit harten Rändern (schwarze Box bleibt, auch reingezoomt).
+  //  - 'dynamic' → nur wenn der Viewport eine Periode überspannt eine Kopie + Ränder; sonst Seam-Wrap.
+  let cameraMode: 'tiles' | 'period' | 'fixed' | 'dynamic' = 'dynamic'
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
@@ -1686,8 +1690,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const z = camera.zoom
     const mapW = state.map.width
     const mapH = state.map.height
-    const singleX = dynamicBox && cssW / z >= mapW
-    const singleY = dynamicBox && cssH / z >= mapH
+    const singleX = cameraMode === 'fixed' || (cameraMode === 'dynamic' && cssW / z >= mapW)
+    const singleY = cameraMode === 'fixed' || (cameraMode === 'dynamic' && cssH / z >= mapH)
     const clipped = singleX || singleY
     if (clipped) {
       const worldLeft = camera.x - cssW / 2 / z
@@ -1748,8 +1752,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     hoverHighlight = h
   }
 
-  function setDynamicBox(on: boolean): void {
-    dynamicBox = on
+  function setCameraMode(mode: 'tiles' | 'period' | 'fixed' | 'dynamic'): void {
+    cameraMode = mode
   }
 
   /** Markiert das gehoverte Objekt mit einem pulsierenden Ring (Schiff größer als Gebäude-Tile). */
@@ -1802,7 +1806,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     setHoverTile,
     clearHoverTile,
     setHoverHighlight,
-    setDynamicBox,
+    setCameraMode,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
     },

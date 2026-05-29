@@ -28,7 +28,12 @@ const TERRAINS: ReadonlySet<TerrainChoice> = new Set<TerrainChoice>([
   'islands',
 ])
 const MAP_DIMS: ReadonlySet<number> = new Set<number>([256, 512, 768, 1024, 1536, 2048])
-const CAMERA_MODES: ReadonlySet<CameraMode> = new Set<CameraMode>(['tiles', 'box', 'dynamic'])
+const CAMERA_MODES: ReadonlySet<CameraMode> = new Set<CameraMode>([
+  'tiles',
+  'period',
+  'fixed',
+  'dynamic',
+])
 
 function isCameraMode(v: unknown): v is CameraMode {
   return typeof v === 'string' && CAMERA_MODES.has(v as CameraMode)

@@ -132,7 +132,7 @@ function startMatch(
   const config = buildConfig(menu, spectator)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
-  renderer.setDynamicBox(menu.cameraMode === 'dynamic')
+  renderer.setCameraMode(menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
   // das Canvas hier noch nicht final dimensioniert ist.)

@@ -131,18 +131,18 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   /**
    * Dynamisches Zoom-Minimum je Kamera-Modus.
-   *  - `dynamic`: bis 0.6 × „Welt passt komplett" — der Renderer zeigt dann eine Welt-Kopie
-   *    mit schwarzen Rändern (ganze Welt auf einen Blick, kein Kacheln).
-   *  - `box`: genau eine Welt-Periode (`max(canvasW/mapW, canvasH/mapH)`) — nahtloser Wrap,
+   *  - `fixed`/`dynamic`: bis 0.6 × „Welt passt komplett" — man darf die ganze Welt + Rand sehen
+   *    (Renderer zeichnet dann eine Kopie mit schwarzen Rändern, kein Kacheln).
+   *  - `period`: genau eine Welt-Periode (`max(canvasW/mapW, canvasH/mapH)`) — nahtloser Wrap,
    *    kein Weiter-Rauszoomen, keine „Tapete".
    *  - `tiles`: bis ~87% Füllung (das Kacheln übernimmt den Rest); nie unter ZOOM_MIN_ABS.
    */
   function minZoom(): number {
-    if (cameraMode === 'dynamic') {
+    if (cameraMode === 'dynamic' || cameraMode === 'fixed') {
       const fit = Math.min(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
       return Math.max(ZOOM_MIN_ABS, fit * 0.6)
     }
-    if (cameraMode === 'box') {
+    if (cameraMode === 'period') {
       return Math.max(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
     }
     const fitW = canvas.clientWidth / (mapWidth * 1.15)
