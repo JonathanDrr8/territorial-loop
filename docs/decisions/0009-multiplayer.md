@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed (Plan — noch nicht umgesetzt). Determinismus-Fundament + `hashState()` stehen bereits.
+Teilweise umgesetzt. **Phasen 1–3 fertig** (Transport-Naht, Determinismus-Fundament inkl.
+Snapshot/PRNG-State/Freeze, Replay-Harness — alles modell-egal). **Phasen 4–6 (Server/Netz/Lobby)
+Proposed.** Eine offene Entscheidung vor Phase 4: der „Transzendenten-Audit" (siehe unten).
 
 ## Datum
 
@@ -130,22 +132,64 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
 
 ## Implementierungs-Phasen
 
-1. **Transport-Naht (lokal, kein Netz).** `IntentTransport` + `LocalTransport`, `main.ts` auf
-   `submit`/`onCommitted` umstellen. Verhalten identisch zu heute. **Modell-egal.**
-2. **Determinismus-Härtung.** ✅ `hashState()` (`src/core/hash.ts`) + Test. **Offen:** Trig-Audit
-   in `growSpawn` → deterministische Eigen-Funktion. **Modell-egal.**
-3. **Replay-Harness.** Intents aufzeichnen/laden/deterministisch abspielen (Lockstep-Validierung
-   offline + Bug-Repros). **Modell-egal.**
+1. **Transport-Naht (lokal, kein Netz).** ✅ `IntentTransport` + `LocalTransport`
+   (`src/net/transport.ts`), `main.ts` auf `submit`/`onCommitted` umgestellt. Verhalten identisch
+   zu heute (Browser verifiziert: Takt/Pause/Resume/KI). **Modell-egal.**
+2. **Determinismus-Härtung.** ✅ `hashState()` + `frozen`-Flag + Snapshot-Fundament:
+   - ✅ `serializeState`/`deserializeState` (`src/core/serialize.ts`) — voller GameState-Snapshot,
+     **inkl. PRNG-Zustand** (`createPRNG` auf `seedrandom.alea(…, {state:true})`, `PRNG.state()`).
+     Garantie getestet: `deserialize(serialize(s))` läuft bit-genau weiter.
+   - ✅ `frozen`-Flag (`setFrozen`/`isFrozen`) + Freeze-Semantik (keine Intents, Verrats-Ausnahme).
+   - ✅ `Math.pow(2,n)` in `buildCost` → Integer-Verdopplung (cross-engine-exakt).
+   - ⏳ **Offen (Jonathan-Entscheidung, siehe „Transzendenten-Audit"):** Trig in `growSpawn` und
+     `terrain` + fraktionale `Math.pow` in `config.ts` (`maxTroops`, `troopIncreaseRate`). **Modell-egal.**
+3. **Replay-Harness.** ✅ `src/core/replay.ts` (`RecordedTurn`/`Replay`, `createRecorder`,
+   `replayGame`). `main.ts` schneidet jeden Turn mit (`__TL__.recorder`). Browser verifiziert:
+   107 Live-Ticks → Replay aus `config+turns` ergibt identischen Hash. **Modell-egal.**
 4. **Server (Node + `ws`), simulierend & autoritativ.** Importiert `core/` und **simuliert die Sim
    mit**: Räume, Slot-Vergabe, Turn-Uhr (feste Rate), Intent-Sammlung + KI-Ausführung (`ai.decide`
    auf dem Server) + Commit-Broadcast, Hash-Vergleich, Snapshots. Health-Check-Endpoint.
 5. **NetworkTransport + Lobby.** Client-Transport gegen den Server; Mehrspieler-Menü (Raum-Code,
    Ready, Start mit geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match.
-6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot, Desync-UI, Politur.** `serializeState`/
-   `deserializeState` (+ PRNG-State), adaptiver Input-Delay, Freeze-/Resync-Handling, Last-Tests
-   mit vielen Slots.
+6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot, Desync-UI, Politur.** Adaptiver
+   Input-Delay, Freeze-/Resync-Handling über die schon vorhandenen Snapshots, Last-Tests mit
+   vielen Slots.
 
-Phasen 1–3 bringen schon allein Wert (Testbarkeit, Repros) und sind risikoarm — erst danach Server/Netz.
+Phasen 1–3 sind **umgesetzt** (Stand 2026-05-29) — sie bringen schon allein Wert (Testbarkeit,
+Save/Load-Fundament, Bug-Repros) und sind risikoarm. Phase 4 (simulierender Server) ist der
+nächste, modell-abhängige Schritt.
+
+## Transzendenten-Audit (Cross-Engine-Determinismus) — offene Entscheidung
+
+Audit aller `Math.*`-Transzendenten, deren Ergebnis in den **State** fließt (relevant erst, wenn
+Client und Server in **verschiedenen JS-Engines** laufen — `+ − × ÷` und `sqrt` sind IEEE-754-exakt,
+aber `sin/cos/atan2/pow` sind es **nicht** bit-genau):
+
+| Stelle                          | Funktion            | Läuft          | In State?                 | Risiko             |
+| ------------------------------- | ------------------- | -------------- | ------------------------- | ------------------ |
+| `config.ts` `maxTroops`         | `pow(tiles, 0.6)`   | **jeden Tick** | Truppen-Cap (→ floor int) | **hoch** (laufend) |
+| `config.ts` `troopIncreaseRate` | `pow(troops, 0.73)` | **jeden Tick** | Wachstum (→ floor int)    | **hoch** (laufend) |
+| `game.ts` `growSpawn`           | `sin`, `atan2`      | einmal (Setup) | Spawn-Form/Owner-Karte    | mittel (einmalig)  |
+| `terrain.ts`                    | `cos`, `sin`        | einmal (Setup) | Karten-Höhen              | mittel (einmalig)  |
+| `buildings.ts` `buildCost`      | ~~`pow(2,n)`~~      | —              | ✅ ersetzt (Integer)      | erledigt           |
+
+**Warum nicht jetzt blind ersetzt:** Eine deterministische Eigen-Implementierung (Polynom-`exp`/`ln`
+für `pow`, Minimax-`sin/cos` — alles nur mit `+−×÷`, damit **alle Engines dieselben Bits** liefern)
+ist machbar, **verändert aber Jonathans gerade gebalancte Werte** (Cap/Wachstum um ≤1 Truppe) und
+**die aus einem Seed erzeugten Karten/Spawns** sichtbar. Da der Server abweichende Clients ohnehin
+per Snapshot korrigiert, ist Cross-Engine-Drift **kein K.O., sondern „häufigere Resyncs"** — daher
+**vor Phase 4 mit Jonathan abstimmen**, nicht autonom durchziehen.
+
+Optionen (zur Entscheidung):
+
+1. **Deterministische `det-math` einziehen** (`pow`/`sin`/`cos`/`atan2` aus reiner Arithmetik) und
+   die fünf Stellen umstellen. Cross-Engine-sauber; Preis: minimale Balance-/Karten-Verschiebung
+   (einmalig, danach stabil).
+2. **Nur die laufenden `pow` (config.ts) härten**, Setup-Trig (Spawn/Terrain) so lassen — der
+   Server schickt die Start-Karte/-Spawns im `start`/Snapshot mit, statt sie clientseitig zu
+   regenerieren. Spart die Karten-Verschiebung, kostet etwas Bandbreite beim Start.
+3. **Gar nicht härten** — Server korrigiert per Snapshot. Einfachster Weg, aber spürbar mehr
+   Resyncs für Clients auf fremder Engine (z.B. Firefox-Client ↔ Node-Server).
 
 ## Betroffene / neue Dateien
 
