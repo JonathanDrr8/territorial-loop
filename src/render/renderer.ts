@@ -24,7 +24,7 @@ import {
   type GameState,
   type Player,
 } from '../core/game'
-import { areAllied, directedKey } from '../core/diplomacy'
+import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import {
   type Boat,
   type TradeShip,
@@ -995,7 +995,21 @@ export function createRenderer(
       const allied = lutHumanId >= 0 && !isHuman && areAllied(state.alliances, lutHumanId, p.id)
       // Verräter (geächtet) immer beschriftet — man soll sie auf der Karte nicht übersehen.
       const traitor = p.traitorUntil > state.tick
-      if (!isHuman && !allied && !traitor && (p.wild || crowded) && z < MINOR_LABEL_MIN_ZOOM)
+      // Diplo-Marker: hat dir diese Nation ein Bündnis angeboten / dich embargoiert? Dann
+      // immer beschriften (mit Symbol über dem Namen), damit man sie auf einen Blick findet.
+      const offersAlliance =
+        lutHumanId >= 0 && !isHuman && hasAllianceRequest(state.allianceRequests, p.id, lutHumanId)
+      const embargoesYou =
+        lutHumanId >= 0 && !isHuman && state.embargoes.has(directedKey(p.id, lutHumanId))
+      const flagged = offersAlliance || embargoesYou
+      if (
+        !isHuman &&
+        !allied &&
+        !traitor &&
+        !flagged &&
+        (p.wild || crowded) &&
+        z < MINOR_LABEL_MIN_ZOOM
+      )
         continue
       // Nächste Wrap-Kopie des Fetzen-Schwerpunkts.
       const { sx, sy } = nearestWrappedScreenPos(anchor.x + 0.5, anchor.y + 0.5)
@@ -1022,6 +1036,15 @@ export function createRenderer(
       screenCtx.fillText(name, lx, ly - gap)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
       screenCtx.fillText(troopsLabel, lx, ly + gap)
+      // Diplo-Marker über dem Namen: 🤝 = bietet dir ein Bündnis, ⛔ = hat dich embargoiert.
+      if (flagged) {
+        const marker = (offersAlliance ? '🤝' : '') + (embargoesYou ? '⛔' : '')
+        const my = ly - gap - Math.round(fontSize * 1.05)
+        screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+        screenCtx.strokeText(marker, lx, my)
+        screenCtx.fillStyle = '#ffffff'
+        screenCtx.fillText(marker, lx, my)
+      }
     }
     screenCtx.globalAlpha = 1
     screenCtx.restore()

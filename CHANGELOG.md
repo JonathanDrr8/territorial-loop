@@ -4,6 +4,11 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+### Neu
+
+- **Diplo-Marker auf der Karte:** über dem Namen einer Nation zeigt 🤝, dass sie dir ein Bündnis
+  anbietet, und ⛔, dass sie dich embargoiert hat — auf einen Blick erkennbar.
+
 ## [0.2.2] – 2026-05-30
 
 ### Neu
