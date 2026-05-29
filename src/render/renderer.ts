@@ -923,6 +923,19 @@ export function createRenderer(
       if (p.isAlive && p.tilesOwned > 0 && p.id !== lutHumanId) liveOthers++
     }
     const crowded = liveOthers > LABEL_CROWD_THRESHOLD
+    // Nationen, die GERADE den Menschen angreifen → ihr Label bleibt auch off-screen sichtbar
+    // (Bedrohung soll man am Rand erkennen). Alle anderen off-screen-Labels werden ausgeblendet.
+    const attackingHuman = new Set<number>()
+    if (lutHumanId >= 0) {
+      for (const p of state.players.values()) {
+        for (const atk of p.attacks) {
+          if (atk.targetPlayerId === lutHumanId) {
+            attackingHuman.add(p.id)
+            break
+          }
+        }
+      }
+    }
     // Ein Label je Gebiets-Fetzen (labelAnchors): geteilte Nationen werden mehrfach
     // beschriftet, keine Farbfläche bleibt namenlos.
     for (const anchor of labelAnchors) {
@@ -943,6 +956,10 @@ export function createRenderer(
       // angrenzt (auch wenn der Schwerpunkt selbst außerhalb des Bildes liegt).
       if (sx < -cssW || sx > 2 * cssW || sy < -cssH || sy > 2 * cssH) continue
       const offscreen = sx < 0 || sx > cssW || sy < 0 || sy > cssH
+      // Off-screen-Labels ausblenden — sonst kleben bei hunderten Nationen ihre Namen als
+      // unleserliche Masse an den Bildschirmrändern. Ausnahme: relevante Nationen (du selbst,
+      // Verbündete, Verräter, und wer dich gerade angreift) bleiben am Rand sichtbar.
+      if (offscreen && !isHuman && !allied && !traitor && !attackingHuman.has(p.id)) continue
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
