@@ -454,21 +454,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       return
     }
     const height = t & HEIGHT_MASK
-    // Extrem-Berg: unpassierbar, Fels-Ton (wird nie erobert)
-    if (height === IMPASSABLE_HEIGHT) {
-      data[o] = ROCK_R
-      data[o + 1] = ROCK_G
-      data[o + 2] = ROCK_B
-      return
-    }
-    // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30).
+    // Höhen-Stufe: 0 Ebene (<10), 1 Hügel (10-19), 2 Berg (20-30), Extrem-Berg = Fels.
     const tier = height >= 20 ? 2 : height >= 10 ? 1 : 0
     // Terrain-Basisfarbe nach Höhe — DIE sichtbare Landschaft. Eigenes/fremdes Inland
     // wird darüber nur leicht getönt, sodass die Landschaft durchscheint.
     let tr: number
     let tg: number
     let tb: number
-    if (tier === 0) {
+    if (height === IMPASSABLE_HEIGHT) {
+      tr = ROCK_R
+      tg = ROCK_G
+      tb = ROCK_B
+    } else if (tier === 0) {
       tr = 26
       tg = 32
       tb = 28
@@ -525,6 +522,27 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
           g = Math.round(tg * (1 - a) + c.ig * a)
           b = Math.round(tb * (1 - a) + c.ib * a)
         }
+      }
+    }
+    // Berg-Rand: ein Berg-Tile (Höhe ≥ 20), das an niedrigeres Gelände oder Wasser grenzt,
+    // wird dunkel umrandet → Gebirge heben sich klar ab. Nur statisches Terrain → bleibt im
+    // Bake; bei Owner-Wechsel auf einem Berg-Tile wird es eh neu gefärbt.
+    if (height >= 20) {
+      const x = i % w
+      const y = (i - x) / w
+      const lower = (idx: number): boolean => {
+        const tt = terrain[idx] ?? 0
+        return (tt & IS_LAND_BIT) === 0 || (tt & HEIGHT_MASK) < 20
+      }
+      const edge =
+        lower(y * w + (x === 0 ? w - 1 : x - 1)) ||
+        lower(y * w + (x === w - 1 ? 0 : x + 1)) ||
+        lower((y === 0 ? h - 1 : y - 1) * w + x) ||
+        lower((y === h - 1 ? 0 : y + 1) * w + x)
+      if (edge) {
+        r = Math.round(r * 0.3)
+        g = Math.round(g * 0.3)
+        b = Math.round(b * 0.3)
       }
     }
     data[o] = r
