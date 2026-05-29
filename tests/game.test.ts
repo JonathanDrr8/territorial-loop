@@ -459,6 +459,64 @@ describe('wilde Nationen', () => {
     expect(wild.tilesOwned).toBeLessThanOrEqual(14)
     expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
   })
+
+  it('produzieren nur halbes Gold pro Tick', () => {
+    const state = createGame(
+      baseConfig({
+        terrain: 'flat',
+        players: [
+          { id: 1, name: 'KI', color: 0xff0000ff, isHuman: false },
+          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
+        ],
+      }),
+    )
+    const ai = state.players.get(1)
+    const wild = state.players.get(2)
+    if (ai === undefined || wild === undefined) throw new Error('players missing')
+    ai.gold = 0
+    wild.gold = 0
+    tick(state, [])
+    // Beide nur Grund-Gold (keine Fabriken); Wilde bekommen die Hälfte.
+    expect(ai.gold).toBe(BASE_GOLD_PER_TICK)
+    expect(wild.gold).toBe(Math.floor(BASE_GOLD_PER_TICK * 0.5))
+  })
+})
+
+describe('Gold-Beute bei Eroberung', () => {
+  it('erbeutet beim Erobern den Pro-Tile-Gold-Anteil des Verteidigers', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1) // Angreifer
+    const p2 = state.players.get(2) // Verteidiger
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+      p.gold = 0
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    // p1 (Angreifer) neben p2 (Verteidiger, 2 Tiles, 1000 Gold → 500/Tile).
+    setOwner(state.map, T(5, 5), 1)
+    p1.tilesOwned = 1
+    p1.frontier.add(T(5, 5))
+    setOwner(state.map, T(6, 5), 2)
+    setOwner(state.map, T(7, 5), 2)
+    p2.tilesOwned = 2
+    p2.frontier.add(T(6, 5))
+    p2.frontier.add(T(7, 5))
+    p1.troops = 50_000 // klare Übermacht → erobert
+    p2.troops = 100
+    p2.gold = 1000
+    for (let i = 0; i < 30 && p2.tilesOwned > 0; i++)
+      tick(state, [{ type: 'attack', playerId: 1, targetTile: T(6, 5), troops: 40_000 }])
+    // p2 wurde überrannt; sein Gold ist (großteils) zu p1 gewandert.
+    expect(p1.gold).toBeGreaterThan(0)
+    expect(p2.gold).toBeLessThan(1000)
+  })
 })
 
 describe('Bündnis ablehnen', () => {

@@ -685,13 +685,18 @@ function decayGrudge(state: GameState): void {
   }
 }
 
+/** Gold-Produktionsfaktor wilder Nationen — halbe Produktion einer normalen Nation. */
+const WILD_GOLD_FACTOR = 0.5
+
 function generateGold(state: GameState): void {
   // Flacher Start-Trickle (NICHT größen-abhängig) + Fabrik-Netzwerk-Einkommen
-  // (+ Handelsschiff-Gold beim Eintreffen, separat).
+  // (+ Handelsschiff-Gold beim Eintreffen, separat). Wilde Nationen produzieren nur die
+  // Hälfte — so haben sie einen kleinen Gold-Vorrat, den man beim Erobern erbeutet.
   for (const player of state.players.values()) {
     if (!player.isAlive) continue
     const gb = goldBreakdown(state, player.id)
-    player.gold += gb.base + gb.factory
+    const raw = gb.base + gb.factory
+    player.gold += player.wild ? Math.floor(raw * WILD_GOLD_FACTOR) : raw
   }
 }
 
@@ -1687,6 +1692,7 @@ function landBoat(state: GameState, boat: Boat): void {
   if (!vsNull && defender !== undefined) {
     const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
     defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+    lootGoldOnCapture(attacker, defender) // Gold-Anteil des Brückenkopf-Tiles erbeuten
   }
   const remaining = Math.floor(boat.troops - aLoss)
   captureTile(state, target, boat.ownerId) // setzt Frontier auf der neuen Landmasse
@@ -1882,6 +1888,20 @@ function windDownCancellingAttack(state: GameState, player: Player, attack: Atta
   return attack.reserveTroops > 0
 }
 
+/**
+ * Gold-Beute pro erobertem Tile: der Angreifer erbeutet den Pro-Tile-Anteil des Gold-
+ * Vorrats des Verteidigers (`gold / tilesOwned`, vor der Eroberung dieses Tiles). Erobert
+ * man jemandes gesamtes Gebiet, bekommt man so praktisch sein ganzes Gold — auch von
+ * wilden Nationen. Analog zu [[defenderLossPerTile]] (Bevölkerung), nur für Gold.
+ */
+function lootGoldOnCapture(attacker: Player, defender: Player): void {
+  if (defender.tilesOwned <= 0 || defender.gold <= 0) return
+  const loot = Math.floor(defender.gold / defender.tilesOwned)
+  if (loot <= 0) return
+  defender.gold -= loot
+  attacker.gold += loot
+}
+
 /** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */
 function advanceAttack(state: GameState, attacker: Player, attack: Attack): boolean {
   if (attack.reserveTroops <= 0) return false
@@ -2000,6 +2020,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     if (!isCurrentlyTerraNullius && defender !== undefined) {
       const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
       defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
+      lootGoldOnCapture(attacker, defender) // Gold-Anteil dieses Tiles erbeuten
     }
 
     captureTile(state, ref, attacker.id)
