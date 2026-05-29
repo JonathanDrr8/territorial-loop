@@ -74,12 +74,13 @@ Zwei-Spalten-Layout: links die Einstellungen, rechts ein eigenes, stehendes
 
 Aus späteren Playtests hervorgegangen, im Geist dieses ADRs:
 
-- **Wilde Nationen breiten sich passiv aus** (`spreadWildNations`): erobern mit kleiner
-  Wahrscheinlichkeit pro Tick ein angrenzendes **neutrales** Tile (nie gegen Spieler). Da ihr
-  Gebiet wächst, steigt ihr Cap → sie sammeln spürbar Truppen (statt am Spawn-Cap zu kleben).
-  **Kein hartes Größen-Limit** — sie starten klein, wachsen langsam (halber Cap, niedrige Rate)
-  und stoßen ohnehin bald auf andere Gebiete; selbstregulierend (keine neutralen Nachbarn →
-  kein Wachstum) → bleiben lohnende Ziele.
+- **Wilde Nationen sind jetzt eine passive KI** (`WILD_PROFILE`) statt einer Sonder-
+  Ausbreitungslogik: Sie breiten sich **wie normale Nationen** in neutrales Land aus (normale
+  Eroberungs-Geschwindigkeit) und greifen Nachbarn **zurückhaltend** an (hohe
+  `popThresholdForPvp` → erst wenn fast voll). **Bauen/diplomatisieren/keine Schiffe** (alle
+  entsprechenden Chancen 0) → dauerhaft schwächer. Die einzigen Unterschiede zu echten
+  Nationen sind **Startwerte** (kleiner Spawn `WILD_SPAWN_TILES`) und **Wachstum** (halber
+  Cap `WILD_CAP_FACTOR`). In `main.ts` bekommen Wilde jetzt `createAI(..., wild=true)`.
 - **Wilde mit halber Gold-Produktion** (`WILD_GOLD_FACTOR = 0.5`) → kleiner Vorrat als Beute.
 - **Gold-Beute beim Erobern** (`lootGoldOnCapture`): pro erobertem Tile wandert der Pro-Tile-
   Anteil des Gold-Vorrats des Verteidigers zum Angreifer (auch von Wilden) — analog zur

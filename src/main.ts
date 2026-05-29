@@ -146,10 +146,10 @@ function startMatch(
 
   const ais: AI[] = []
   for (const p of state.players.values()) {
-    // Wilde Nationen sind passiv → keine KI (emittieren nie Intents).
-    if (!p.isHuman && !p.wild) {
-      ais.push(createAI(p.id, state.seed, menu.difficulty))
-    }
+    if (p.isHuman) continue
+    // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
+    // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
+    ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild))
   }
 
   function runSimTick(): void {

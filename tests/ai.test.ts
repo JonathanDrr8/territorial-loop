@@ -177,4 +177,37 @@ describe('createAI', () => {
     }
     expect(stream2).not.toEqual(stream3)
   })
+
+  it('wilde KI expandiert (greift an), baut aber nie und macht keine Diplomatie', () => {
+    const config: GameConfig = {
+      ...aiConfig('wild-ai'),
+      players: [
+        { id: 1, name: 'Human', color: 0xff0000ff, isHuman: true },
+        { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
+      ],
+    }
+    const state = createGame(config)
+    const wildAi = createAI(2, state.seed, 'normal', true)
+    let sawAttack = false
+    let sawBuildOrDiplo = false
+    for (let t = 0; t < 300; t++) {
+      const intents = wildAi.decide(state)
+      for (const i of intents) {
+        if (i.type === 'attack') sawAttack = true
+        if (
+          i.type === 'build' ||
+          i.type === 'request-alliance' ||
+          i.type === 'accept-alliance' ||
+          i.type === 'break-alliance' ||
+          i.type === 'set-embargo' ||
+          i.type === 'launch-warship'
+        ) {
+          sawBuildOrDiplo = true
+        }
+      }
+      tick(state, intents)
+    }
+    expect(sawAttack).toBe(true) // expandiert in neutrales Land
+    expect(sawBuildOrDiplo).toBe(false) // baut/diplomatisiert/keine Schiffe
+  })
 })

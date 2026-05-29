@@ -460,44 +460,6 @@ describe('wilde Nationen', () => {
     expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
   })
 
-  it('breiten sich passiv in angrenzende Wildnis aus (Gebiet wächst über die Zeit)', () => {
-    const state = createGame(
-      baseConfig({
-        terrain: 'flat',
-        players: [
-          { id: 1, name: 'KI', color: 0xff0000ff, isHuman: false },
-          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
-        ],
-      }),
-    )
-    const wild = state.players.get(2)
-    if (wild === undefined) throw new Error('player missing')
-    const before = wild.tilesOwned
-    // Über viele Ticks sollte die wilde Nation in die umgebende Wildnis wachsen.
-    for (let i = 0; i < 400; i++) tick(state, [])
-    expect(wild.tilesOwned).toBeGreaterThan(before)
-  })
-
-  it('wachsen ohne hartes Größen-Limit (über den alten Start-Cap hinaus)', () => {
-    const state = createGame(
-      baseConfig({
-        terrain: 'flat',
-        mapWidth: 96,
-        mapHeight: 96,
-        players: [
-          { id: 1, name: 'KI', color: 0xff0000ff, isHuman: false },
-          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
-        ],
-      }),
-    )
-    const wild = state.players.get(2)
-    if (wild === undefined) throw new Error('player missing')
-    for (let i = 0; i < 4000; i++) tick(state, [])
-    // Kein hartes Limit mehr → die wilde Nation wächst deutlich über die ~60 hinaus
-    // (selbstregulierend nur durch angrenzende Gebiete/Kartengröße).
-    expect(wild.tilesOwned).toBeGreaterThan(80)
-  })
-
   it('produzieren nur halbes Gold pro Tick', () => {
     const state = createGame(
       baseConfig({

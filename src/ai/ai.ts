@@ -88,6 +88,24 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
   },
 }
 
+/**
+ * Profil für wilde Nationen: passiv und simpel. Sie expandieren vor allem in neutrales Land
+ * (hohe `popThresholdForPvp` → greifen Spieler erst an, wenn fast voll), greifen also eher
+ * zurückhaltend an, sind seltener aktiv (hoher Cooldown) und **bauen/diplomatisieren nie**
+ * (alle bau-/diplomatie-/schiff-Chancen 0) — dadurch dauerhaft schwächer.
+ */
+const WILD_PROFILE: DifficultyProfile = {
+  attackPct: 25,
+  cooldownMin: 40,
+  cooldownMax: 140,
+  popThresholdForPvp: 0.85,
+  buildChance: 0,
+  diploChance: 0,
+  boatChance: 0,
+  warshipChance: 0,
+  betrayLeadRatio: Infinity,
+}
+
 export interface AI {
   /** Aufgerufen pro Sim-Tick. Returnt 0..n Intents für diesen Tick. */
   decide(state: GameState): readonly Intent[]
@@ -97,8 +115,9 @@ export function createAI(
   playerId: number,
   gameSeed: string,
   difficulty: Difficulty = 'normal',
+  wild = false,
 ): AI {
-  const profile = PROFILES[difficulty]
+  const profile = wild ? WILD_PROFILE : PROFILES[difficulty]
   const rng = createPRNG(`ai-${playerId.toString()}-${gameSeed}`)
   let nextDecisionTick = rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 

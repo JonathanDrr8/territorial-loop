@@ -630,7 +630,6 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   generateGold(state)
   resolveAttackCollisions(state)
   resolveAttacks(state)
-  spreadWildNations(state)
   advanceBoats(state)
   advanceWarships(state)
   resolveNavalCombat(state)
@@ -1645,41 +1644,6 @@ export function totalTroops(player: Player): number {
 
 /** Truppen-Cap-Faktor für wilde Nationen — niedrige Dichte → eroberbarer Puffer. */
 const WILD_CAP_FACTOR = 0.5
-
-/**
- * Passive Ausbreitung wilder Nationen: Wahrscheinlichkeit pro wilder Nation und Tick, ein
- * angrenzendes neutrales Tile zu erobern (bei 0.3 ≈ 3 Tiles/s pro Nation). Wilde greifen nie
- * Spieler an — sie wachsen nur in freie Wildnis. Bewusst KEIN Größen-Limit: sie starten klein
- * und wachsen langsam (halber Cap, niedrige Rate), stoßen ohnehin bald auf andere Gebiete und
- * bleiben so lohnende Ziele. Startwert per Playtest tunbar.
- */
-const WILD_SPREAD_CHANCE = 0.3
-
-/**
- * Lässt jede wilde Nation langsam in angrenzendes neutrales (begehbares) Land wachsen.
- * Deterministisch (feste Spieler-Reihenfolge + seeded PRNG); der billige RNG-Wurf steht vor
- * dem Frontier-Scan, damit hunderte Wilde günstig bleiben. Selbstregulierend: ohne neutrale
- * Nachbarn (Karte voll) passiert nichts.
- */
-function spreadWildNations(state: GameState): void {
-  const { map } = state
-  const { width, height } = map
-  for (const player of orderedPlayers(state)) {
-    if (!player.isAlive || !player.wild) continue
-    if (state.rng.next() >= WILD_SPREAD_CHANCE) continue
-    // Neutrale, begehbare Nachbarn der eigenen Frontier sammeln (Duplikate ok → Tiles mit
-    // mehr eigenen Nachbarn werden leicht bevorzugt = organischeres Wachstum).
-    const candidates: TileRef[] = []
-    for (const f of player.frontier) {
-      for (const n of neighbors4(f, width, height)) {
-        if (getOwner(map, n) === 0 && isPassable(map.terrain, n)) candidates.push(n)
-      }
-    }
-    if (candidates.length === 0) continue
-    const pick = candidates[Math.floor(state.rng.next() * candidates.length)]
-    if (pick !== undefined) captureTile(state, pick, player.id)
-  }
-}
 
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
