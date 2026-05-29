@@ -2,10 +2,19 @@
 
 ## Status
 
-Accepted — umgesetzt als Toggle (Default an): min-Zoom auf eine Welt-Periode begrenzt
-(`minZoom = max(canvasW/mapW, canvasH/mapH)` in `input.ts`), `drawTiled` kachelt bei
-≤1 Periode ohnehin nur den Seam. Umschaltbar per Start-Menü-Checkbox „Kamera-Box"
-(persistiert) + Taste **K** (live). Schritt 4 (sichtbarer Box-Rahmen) bewusst weggelassen.
+Accepted — umgesetzt als **3-Stufen-Setting** im Start-Menü (Dropdown „Kamera", persistiert,
+Default „Dynamische Box"):
+
+- **Kacheln (wie vorher):** endloses Kacheln, ~87%-Füllung-min-Zoom.
+- **Box (fest):** `minZoom = max(canvasW/mapW, canvasH/mapH)` → genau eine Periode, nahtloser
+  Seam-Wrap, kein Weiter-Rauszoomen.
+- **Dynamische Box:** min-Zoom bis `0.6 × „Welt passt komplett"`; überspannt der Viewport eine
+  Periode, zeichnet `render()` nur EINE Welt-Kopie + clippt auf den Block → schwarze Ränder
+  statt Geister/Tapete; reingezoomt nahtloser Seam.
+
+`CameraMode` in `start-menu.ts`; `input.minZoom` verzweigt 3-fach; Renderer `setDynamicBox`
+schaltet das Single-Copy-Rendering. Kein In-Game-Hotkey (Menü reicht). Schritt 4 (sichtbarer
+Box-Rahmen) bewusst weggelassen.
 
 ## Datum
 
