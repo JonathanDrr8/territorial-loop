@@ -509,8 +509,11 @@ function main(): void {
     showMenu()
   }
 
-  /** Öffnet die Mehrspieler-Lobby; bei Match-Start läuft die Session über den Server-Transport. */
-  function showLobby(initial: StartMenuValues): void {
+  /**
+   * Öffnet die Mehrspieler-Lobby; bei Match-Start läuft die Session über den Server-Transport.
+   * `autoJoinRoom` (aus dem Lobby-Browser) tritt einem Raum direkt bei.
+   */
+  function showLobby(initial: StartMenuValues, autoJoinRoom?: string): void {
     const settings: MatchSettings = {
       mapWidth: 256,
       mapHeight: 256,
@@ -526,6 +529,7 @@ function main(): void {
       defaultName: initial.playerName,
       defaultSettings: settings,
       saveServerUrl,
+      ...(autoJoinRoom !== undefined ? { autoJoinRoom } : {}),
       onBack: () => {
         lobby?.destroy()
         lobby = null
@@ -569,6 +573,12 @@ function main(): void {
         menu.destroy()
         showLobby(initial)
       },
+      // Lobby-Browser (linke Spalte): Klick auf eine offene Lobby tritt direkt bei.
+      (code) => {
+        menu.destroy()
+        showLobby(initial, code)
+      },
+      loadServerUrl('ws://localhost:8787'),
     )
   }
 

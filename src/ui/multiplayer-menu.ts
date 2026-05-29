@@ -25,6 +25,8 @@ export interface MultiplayerMenuOptions {
   onBack: () => void
   /** Persistiert die zuletzt genutzte Server-URL. */
   saveServerUrl?: (url: string) => void
+  /** Direkt einem Raum beitreten (aus dem Lobby-Browser) — überspringt das Formular. */
+  autoJoinRoom?: string
 }
 
 export interface MultiplayerMenuApi {
@@ -367,7 +369,12 @@ export function createMultiplayerMenu(
     transport = null
   }
 
-  showForm()
+  // Aus dem Lobby-Browser: direkt verbinden (Formular überspringen); sonst Formular zeigen.
+  if (opts.autoJoinRoom !== undefined && opts.autoJoinRoom.length > 0) {
+    connect(opts.defaultServerUrl, opts.autoJoinRoom.toUpperCase(), opts.defaultName)
+  } else {
+    showForm()
+  }
 
   return {
     destroy(): void {

@@ -7,6 +7,8 @@
  * auf — der Aufrufer ist für `destroy()` zuständig.
  */
 
+import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
+
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
 export type TerrainChoice = 'flat' | 'continents' | 'islands'
@@ -181,6 +183,10 @@ export function createStartMenu(
   initial: StartMenuValues,
   onStart: (values: StartMenuValues, spectator: boolean) => void,
   onMultiplayer?: () => void,
+  /** Server-Browser links: Klick auf eine offene Lobby tritt direkt bei (Raum-Code). */
+  onJoinLobby?: (code: string) => void,
+  /** Server-URL (ws://…) für den Lobby-Browser; ohne sie wird er nicht gezeigt. */
+  serverUrl?: string,
 ): StartMenuApi {
   const overlay = document.createElement('div')
   overlay.style.cssText = [
@@ -506,16 +512,24 @@ export function createStartMenu(
     panel.appendChild(mpBtn)
   }
 
-  // Zwei-Spalten-Shell: links das Einstellungs-Panel, rechts das Experimentell-Panel.
+  // Drei-Spalten-Shell: ganz links der Lobby-Browser (optional), Mitte Einstellungen,
+  // rechts Experimentell.
   const shell = document.createElement('div')
   shell.style.cssText = [
     'display: flex',
     'align-items: stretch',
     'gap: 16px',
-    'max-width: 92vw',
+    'max-width: 96vw',
     'flex-wrap: wrap',
     'justify-content: center',
   ].join(';')
+
+  // Lobby-Browser als linke Spalte (nur wenn Wiring + Server-URL vorhanden).
+  let lobbyBrowser: LobbyBrowserApi | null = null
+  if (onJoinLobby !== undefined && serverUrl !== undefined) {
+    lobbyBrowser = createLobbyBrowser(serverUrl, onJoinLobby)
+    shell.appendChild(lobbyBrowser.element)
+  }
   shell.appendChild(panel)
   shell.appendChild(rightPanel)
   overlay.appendChild(shell)
@@ -526,6 +540,7 @@ export function createStartMenu(
 
   return {
     destroy(): void {
+      lobbyBrowser?.destroy()
       overlay.remove()
     },
   }

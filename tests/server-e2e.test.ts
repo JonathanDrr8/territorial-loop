@@ -63,4 +63,30 @@ describe('Lockstep-Server end-to-end (ADR-0009 Phase 4)', () => {
     const [ha, hb] = await Promise.all([a, b])
     expect(ha).toBe(hb)
   }, 15000)
+
+  it('GET /lobbies listet offene Räume für den Server-Browser', async () => {
+    // Anfangs leer.
+    const empty = await (await fetch(`http://localhost:${String(server.port)}/lobbies`)).json()
+    expect(Array.isArray(empty)).toBe(true)
+    expect(empty.length).toBe(0)
+
+    // Ein Client erstellt einen Raum (leerer Code → neuer Raum) und bleibt in der Lobby.
+    const ws = new WebSocket(`ws://localhost:${String(server.port)}`)
+    const code = await new Promise<string>((resolve, reject) => {
+      ws.on('open', () => ws.send(encode({ kind: 'join', room: '', name: 'Host' })))
+      ws.on('message', (d: Buffer) => {
+        const m = decodeServer(d.toString())
+        if (m.kind === 'joined') resolve(m.room)
+      })
+      ws.on('error', reject)
+      setTimeout(() => reject(new Error('join timeout')), 5000)
+    })
+
+    const lobbies = await (await fetch(`http://localhost:${String(server.port)}/lobbies`)).json()
+    expect(lobbies.length).toBe(1)
+    expect(lobbies[0].code).toBe(code)
+    expect(lobbies[0].host).toBe('Host')
+    expect(lobbies[0].players).toBe(1)
+    ws.close()
+  }, 10000)
 })

@@ -29,6 +29,7 @@ import {
   type ServerMessage,
   type PeerInfo,
   type MatchSettings,
+  type LobbyListing,
 } from '../src/net/protocol'
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -233,6 +234,30 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     if (req.url === '/health') {
       res.writeHead(200, { 'content-type': 'text/plain' })
       res.end('ok')
+      return
+    }
+    // Server-Browser: offene (noch nicht gestartete) Lobbys als JSON. CORS offen, da die
+    // Dev-Seite (5173) den Server (8787) cross-origin abfragt.
+    if (req.url === '/lobbies') {
+      const open: LobbyListing[] = []
+      for (const r of rooms.values()) {
+        if (r.match !== null) continue // läuft schon → nicht beitretbar
+        const host = [...r.members.values()].find((m) => m.playerId === r.hostId)
+        open.push({
+          code: r.code,
+          host: host?.name ?? '?',
+          players: [...r.members.values()].filter((m) => m.socket !== null).length,
+          mapWidth: r.settings.mapWidth,
+          aiCount: r.settings.aiCount,
+          wildCount: r.settings.wildCount,
+          terrain: r.settings.terrain,
+        })
+      }
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*',
+      })
+      res.end(JSON.stringify(open))
       return
     }
     res.writeHead(404)

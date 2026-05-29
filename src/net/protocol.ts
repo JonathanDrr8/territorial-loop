@@ -15,6 +15,17 @@ import type { Intent } from '../core/intent'
 import type { SerializedGameState } from '../core/serialize'
 import type { TerrainType } from '../world/terrain'
 
+/** Eine offene Lobby im Server-Browser (`GET /lobbies`) — für die Übersicht im Hauptmenü. */
+export interface LobbyListing {
+  readonly code: string
+  readonly host: string
+  readonly players: number
+  readonly mapWidth: number
+  readonly aiCount: number
+  readonly wildCount: number
+  readonly terrain: TerrainType
+}
+
 /** Eine Lobby-/Match-Teilnehmerzeile (für Anzeige + Slot-Zuordnung). */
 export interface PeerInfo {
   readonly playerId: number
