@@ -399,6 +399,21 @@ export function createBuildMenu(
               close()
             },
           })
+          // Kriegsschiffe: neutrale Fracht schonen ↔ alle angreifen.
+          const spare = player.warshipSpareNeutral
+          actions.push({
+            glyph: spare ? '🛡' : '⚔',
+            label: spare ? 'Schiffe: neutrale schonen' : 'Schiffe: alle angreifen',
+            detail: 'Umschalten — neutrale Handelsschiffe verschonen?',
+            costText: '',
+            affordable: true,
+            enabled: true,
+            accent: '#9fb2c4',
+            run: () => {
+              emit({ type: 'toggle-warship-neutral', playerId: humanPlayerId })
+              close()
+            },
+          })
         }
       } else {
         title = `Gold: ${fmtCompact(player.gold)}`

@@ -30,6 +30,7 @@ export type Intent =
   | BreakAllianceIntent
   | SetEmbargoIntent
   | SetTradeModeIntent
+  | ToggleWarshipNeutralIntent
 
 /**
  * Handels-Zielwahl eines Spielers: wohin seine Häfen ihre Handelsschiffe schicken.
@@ -125,6 +126,12 @@ export interface SetTradeModeIntent {
   readonly type: 'set-trade-mode'
   readonly playerId: number
   readonly mode: TradeMode
+}
+
+/** Schaltet um, ob die eigenen Kriegsschiffe neutrale Handelsschiffe verschonen oder alle angreifen. */
+export interface ToggleWarshipNeutralIntent {
+  readonly type: 'toggle-warship-neutral'
+  readonly playerId: number
 }
 
 /**

@@ -67,6 +67,7 @@ import type {
   RequestAllianceIntent,
   SetEmbargoIntent,
   SetTradeModeIntent,
+  ToggleWarshipNeutralIntent,
   TradeMode,
   UpgradeIntent,
 } from './intent'
@@ -216,6 +217,11 @@ export interface Player {
   warshipHold: boolean
   /** Handels-Zielwahl: wohin die eigenen Häfen ihre Handelsschiffe schicken (Default `random`). */
   tradeMode: TradeMode
+  /**
+   * Wenn `true`, verschonen die eigenen Kriegsschiffe NEUTRALE Handelsschiffe (greifen nur
+   * Fracht von embargoierten / stark begrollten Nationen an). Default `false` = alle angreifen.
+   */
+  warshipSpareNeutral: boolean
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -372,6 +378,7 @@ export function createGame(config: GameConfig): GameState {
       traitorUntil: 0,
       warshipHold: false,
       tradeMode: 'random',
+      warshipSpareNeutral: false,
     })
   }
 
@@ -693,6 +700,8 @@ const GRUDGE_PER_BOAT_SUNK = 60
 const GRUDGE_PER_TRADE_SUNK = 45
 /** Einmaliger Groll-Stoß des Embargoierten gegen den, der das Embargo verhängt. */
 const GRUDGE_PER_EMBARGO = 80
+/** Ab diesem Groll gilt ein Handelspartner im „Neutrale schonen"-Modus als verfeindet (→ angreifbar). */
+const NEUTRAL_BLOCKADE_GRUDGE = 60
 
 /** Erhöht den (abklingenden) Groll des Opfers gegen den Angreifer. Ignoriert Selbst/Besitzlos. */
 function addGrudge(state: GameState, attackerId: number, victimId: number, amount: number): void {
@@ -1092,6 +1101,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'set-trade-mode':
         applySetTradeModeIntent(state, intent)
         break
+      case 'toggle-warship-neutral':
+        applyToggleWarshipNeutralIntent(state, intent)
+        break
     }
   }
 }
@@ -1392,6 +1404,22 @@ function applySetTradeModeIntent(state: GameState, intent: SetTradeModeIntent): 
   player.tradeMode = intent.mode
   if (player.isHuman) {
     emitEvent(state, `Handelsziele: ${TRADE_MODE_LABEL[intent.mode]}`, player.color)
+  }
+}
+
+function applyToggleWarshipNeutralIntent(
+  state: GameState,
+  intent: ToggleWarshipNeutralIntent,
+): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined) return
+  player.warshipSpareNeutral = !player.warshipSpareNeutral
+  if (player.isHuman) {
+    emitEvent(
+      state,
+      `Kriegsschiffe: ${player.warshipSpareNeutral ? 'neutrale schonen' : 'alle angreifen'}`,
+      player.color,
+    )
   }
 }
 
@@ -1951,6 +1979,18 @@ function resolveNavalCombat(state: GameState): void {
     const p = shipWorldPos(ship, w, h)
     return torusDistance(pos.wx, pos.wy, p.wx, p.wy, w, h) <= NAVAL_RANGE
   }
+  // „Neutrale schonen"-Modus: ein Kriegsschiff dieses Besitzers greift Handelsschiffe nur an,
+  // wenn ER mit einem Hafen-Besitzer wirklich verfeindet ist (Embargo oder deutlicher Groll) —
+  // sonst lässt es neutrale Fracht in Ruhe. Boote/Kriegsschiffe bleiben immer Ziel.
+  const sparesNeutralTrade = (shooterId: number, ts: TradeShip): boolean => {
+    if (state.players.get(shooterId)?.warshipSpareNeutral !== true) return false
+    for (const endpoint of [ts.fromOwnerId, ts.toOwnerId]) {
+      if (isTradeEmbargoed(state, shooterId, endpoint)) return false
+      if ((state.grudge.get(directedKey(endpoint, shooterId)) ?? 0) > NEUTRAL_BLOCKADE_GRUDGE)
+        return false
+    }
+    return true // neutral → verschonen
+  }
   for (let i = 0; i < state.warships.length; i++) {
     const ws = state.warships[i]
     const pos = wpos[i]
@@ -1983,7 +2023,8 @@ function resolveNavalCombat(state: GameState): void {
         if (
           hostile(ws.ownerId, ts.fromOwnerId) &&
           hostile(ws.ownerId, ts.toOwnerId) &&
-          inRange(pos, ts)
+          inRange(pos, ts) &&
+          !sparesNeutralTrade(ws.ownerId, ts)
         ) {
           target = ts
           kind = 'trade'

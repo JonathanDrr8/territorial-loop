@@ -466,6 +466,49 @@ describe('warships via tick', () => {
     expect(state.warships.length).toBe(1) // Kriegsschiff bleibt
   })
 
+  it('Neutrale-Toggle: schont neutrale Fracht, greift aber embargoierte an', () => {
+    const setup = () => {
+      const state = createGame(cfg())
+      splitMap(state)
+      own(state, 1, 1, 1)
+      own(state, 5, 1, 2)
+      const w0 = tileRef(0, 0, W, H)
+      state.warships.push({
+        ownerId: 1,
+        path: [w0, tileRef(0, 1, W, H)] as const,
+        progress: 0,
+        dir: 1,
+        hp: WARSHIP_HP,
+        cooldown: 0,
+        mode: 'patrol',
+        returning: false,
+      })
+      // Lange „Stand"-Route → das Handelsschiff bleibt in Reichweite, kommt nicht von selbst an.
+      state.tradeShips.push({
+        fromOwnerId: 2,
+        toOwnerId: 2,
+        path: new Array<number>(200).fill(w0),
+        progress: 0,
+        gold: 200,
+        originPort: w0,
+        destPort: w0,
+      })
+      const human = state.players.get(1)
+      if (human === undefined) throw new Error('no human')
+      human.warshipSpareNeutral = true
+      return { state, human }
+    }
+    // A) neutral → verschont
+    const a = setup()
+    for (let i = 0; i < 12; i++) tick(a.state, [])
+    expect(a.state.tradeShips.length).toBe(1)
+    // B) gegen Spieler 2 embargoiert → trotz Schon-Modus angegriffen
+    const b = setup()
+    b.state.embargoes.add(directedKey(1, 2))
+    for (let i = 0; i < 12 && b.state.tradeShips.length > 0; i++) tick(b.state, [])
+    expect(b.state.tradeShips.length).toBe(0)
+  })
+
   it('Projektil eines versenkten Schiffs verpufft (nicht beide sterben)', () => {
     const state = createGame(cfg())
     splitMap(state)
