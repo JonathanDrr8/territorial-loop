@@ -82,8 +82,15 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
  */
 export function buildCost(type: BuildingType, existingCountInGroup: number): number {
   if (type === 'defense') return BASE_BUILD_COST.defense
-  const raw = Math.round(BASE_BUILD_COST[type] * Math.pow(2, existingCountInGroup))
-  return Math.min(raw, BUILD_COST_CAP)
+  // Eskalation: Basiskosten × 2^n. Deterministisch per Integer-Verdopplung statt `Math.pow`
+  // — exakt über JS-Engines hinweg (Cross-Engine-Determinismus, ADR-0009). Ergebnis ist
+  // identisch zur alten `round(base × 2^n)`-Formel (base/2^n sind exakte Integer).
+  let cost = BASE_BUILD_COST[type]
+  for (let i = 0; i < existingCountInGroup; i++) {
+    cost *= 2
+    if (cost >= BUILD_COST_CAP) return BUILD_COST_CAP
+  }
+  return Math.min(cost, BUILD_COST_CAP)
 }
 
 /** Upgrade-Kosten von `currentLevel` auf das nächste (linear in der Stufe). */

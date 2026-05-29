@@ -222,6 +222,14 @@ export interface Player {
    * Fracht von embargoierten / stark begrollten Nationen an). Default `false` = alle angreifen.
    */
   warshipSpareNeutral: boolean
+  /**
+   * Eingefroren (Multiplayer-Disconnect, ADR-0009): der Mensch ist weg/laggt raus. Die Nation
+   * **emittiert keine Intents** (steht wie eine wilde Nation), bleibt aber **voll angreifbar** —
+   * und ein Angriff auf sie zählt **nicht als Verrat** (Verbündete dürfen sie straffrei angreifen,
+   * das Bündnis bleibt bestehen, bis der Mensch zurückkommt). Default `false`. Single-Player:
+   * nie gesetzt → kein Verhaltensunterschied. Gesetzt über [[setFrozen]] (vom Netcode).
+   */
+  frozen: boolean
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -379,6 +387,7 @@ export function createGame(config: GameConfig): GameState {
       warshipHold: false,
       tradeMode: 'random',
       warshipSpareNeutral: false,
+      frozen: false,
     })
   }
 
@@ -628,7 +637,7 @@ function findSpawnCenter(
   return [rng.nextInt(0, width), rng.nextInt(0, height)]
 }
 
-function initializeAllFrontiers(state: GameState): void {
+export function initializeAllFrontiers(state: GameState): void {
   const { map, players } = state
   const { width, height } = map
   for (let ref = 0; ref < map.state.length; ref++) {
@@ -1106,6 +1115,9 @@ function updatePeakStats(state: GameState): void {
 function applyIntents(state: GameState, intents: readonly Intent[]): void {
   const sorted = [...intents].sort((a, b) => a.playerId - b.playerId)
   for (const intent of sorted) {
+    // Eingefrorene Nationen (Disconnect, ADR-0009) emittieren keine Intents — verwirft
+    // verspätet eintreffende Befehle einer gerade weggebrochenen Nation deterministisch.
+    if (isFrozen(state, intent.playerId)) continue
     switch (intent.type) {
       case 'attack':
         applyAttackIntent(state, intent)
@@ -1353,6 +1365,20 @@ function formAlliance(state: GameState, a: number, b: number): void {
  * Normalerweise Verrat → der Brecher wird geächtet. AUSNAHME: ist der Partner bereits ein
  * geächteter Verräter, ist das Aufkündigen gerechtfertigt → KEINE eigene Ächtung.
  */
+/** Ist die Nation eingefroren (Disconnect, ADR-0009)? Eingefrorene emittieren keine Intents. */
+export function isFrozen(state: GameState, playerId: number): boolean {
+  return state.players.get(playerId)?.frozen === true
+}
+
+/**
+ * Setzt den Einfrier-Status einer Nation (Netcode: Disconnect → true, Reconnect → false).
+ * Eingefrorene Nationen geben keine Intents ab und sind als Angriffsziel verrats-immun.
+ */
+export function setFrozen(state: GameState, playerId: number, frozen: boolean): void {
+  const p = state.players.get(playerId)
+  if (p !== undefined) p.frozen = frozen
+}
+
 function betrayAlliance(state: GameState, breakerId: number, partnerId: number): void {
   const key = pairKey(breakerId, partnerId)
   if (!state.alliances.has(key)) return
@@ -1361,13 +1387,15 @@ function betrayAlliance(state: GameState, breakerId: number, partnerId: number):
   const breaker = state.players.get(breakerId)
   const partner = state.players.get(partnerId)
   if (breaker === undefined || partner === undefined) return
-  // Den Partner trifft schon eine Ächtung? Dann darf man das Bündnis straflos kündigen.
-  if (partner.traitorUntil > state.tick) {
+  // Den Partner trifft schon eine Ächtung, oder er ist eingefroren (Disconnect)? Dann darf
+  // man das Bündnis straflos kündigen (keine eigene Ächtung).
+  if (partner.traitorUntil > state.tick || partner.frozen) {
+    const reason = partner.frozen ? 'eingefrorenem' : 'Verräter'
     emitDiploEvent(
       state,
       breaker,
       partner,
-      `${breaker.name} kündigt das Bündnis mit Verräter ${partner.name}`,
+      `${breaker.name} kündigt das Bündnis mit ${reason} ${partner.name}`,
       breaker.color,
     )
     return
@@ -1535,7 +1563,11 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
       const owner = getOwner(state.map, intent.targetTile)
       if (owner > 0 && owner !== player.id && reachableByLand(state, player, intent.targetTile)) {
         // Angriff auf einen Verbündeten = Verrat (Bündnis bricht, Ächtung), dann greift man an.
-        if (areAllied(state.alliances, player.id, owner)) betrayAlliance(state, player.id, owner)
+        // Ausnahme: ist das Ziel eingefroren (Disconnect), ist der Angriff straffrei — das
+        // Bündnis bleibt für die Rückkehr bestehen (ADR-0009).
+        if (areAllied(state.alliances, player.id, owner) && !isFrozen(state, owner)) {
+          betrayAlliance(state, player.id, owner)
+        }
         omniTarget = owner
       }
     }
@@ -1566,7 +1598,12 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Selbst-Angriff
   // Angriff auf einen Verbündeten = Verrat: Bündnis bricht + Ächtung, dann läuft der Angriff.
-  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) {
+  // Ausnahme: eingefrorenes Ziel (Disconnect) → straffrei, Bündnis bleibt (ADR-0009).
+  if (
+    targetOwner > 0 &&
+    areAllied(state.alliances, player.id, targetOwner) &&
+    !isFrozen(state, targetOwner)
+  ) {
     betrayAlliance(state, player.id, targetOwner)
   }
 
@@ -1613,7 +1650,12 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Boot ins eigene Gebiet
   // Boot-Angriff auf einen Verbündeten = Verrat (Bündnis bricht), dann fährt das Boot.
-  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) {
+  // Ausnahme: eingefrorenes Ziel (Disconnect) → straffrei, Bündnis bleibt (ADR-0009).
+  if (
+    targetOwner > 0 &&
+    areAllied(state.alliances, player.id, targetOwner) &&
+    !isFrozen(state, targetOwner)
+  ) {
     betrayAlliance(state, player.id, targetOwner)
   }
   // Bewusst KEINE „über Land erreichbar"-Sperre mehr: ein Boot darf zu jedem Küsten-Ziel
@@ -2407,7 +2449,7 @@ function checkEliminations(state: GameState): void {
 }
 
 /** Zählt die begehbaren (eroberbaren) Tiles einer Karte — Wasser/Extrem-Berge raus. */
-function countPassableLand(map: GameMap): number {
+export function countPassableLand(map: GameMap): number {
   let n = 0
   for (let i = 0; i < map.terrain.length; i++) {
     if (isPassable(map.terrain, i)) n++

@@ -11,6 +11,9 @@
 
 import seedrandom from 'seedrandom'
 
+/** Serialisierbarer interner Zustand des Alea-PRNG (für Snapshots/Reconnect, ADR-0009). */
+export type PRNGState = seedrandom.State.Alea
+
 export interface PRNG {
   /** Float in `[0, 1)` */
   next(): number
@@ -24,13 +27,24 @@ export interface PRNG {
   chance(p: number): boolean
   /** Fisher-Yates Shuffle, mutiert das Array in-place und gibt es zurück. */
   shuffleArray<T>(arr: T[]): T[]
+  /**
+   * Momentaufnahme des internen Zustands — zwei PRNGs mit gleichem `state()` erzeugen
+   * danach denselben Verlauf. Für GameState-Snapshots (Lockstep-Resync/Reconnect).
+   */
+  state(): PRNGState
 }
 
 /**
  * Erzeugt einen PRNG aus einem String-Seed. Gleicher Seed → gleicher Verlauf.
+ *
+ * `restoreState` (optional): stellt den exakten internen Zustand eines früheren PRNG wieder
+ * her (aus `prng.state()`) — der Seed wird dann ignoriert. Für Snapshot-Reconnect.
  */
-export function createPRNG(seed: string): PRNG {
-  const raw = seedrandom.alea(seed)
+export function createPRNG(seed: string, restoreState?: PRNGState): PRNG {
+  const raw =
+    restoreState === undefined
+      ? seedrandom.alea(seed, { state: true })
+      : seedrandom.alea('', { state: restoreState })
 
   return {
     next() {
@@ -89,6 +103,10 @@ export function createPRNG(seed: string): PRNG {
         arr[j] = a
       }
       return arr
+    },
+
+    state() {
+      return raw.state()
     },
   }
 }
