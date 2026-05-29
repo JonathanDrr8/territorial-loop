@@ -20,7 +20,7 @@ import {
   type Building,
 } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
-import { areAllied, pairKey } from '../core/diplomacy'
+import { areAllied, directedKey, pairKey } from '../core/diplomacy'
 import { shipWorldPos, WARSHIP_HP } from '../core/ships'
 import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
@@ -246,10 +246,22 @@ export function createHoverTooltip(
         const ss = remain % 60
         alliance = `<br><span style="color:#5adc78">🤝 Verbündet · noch ${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}</span>`
       }
+      // Beziehungs-Indikator (Gunst/Groll aus Sicht des Menschen) — die dominante Stimmung
+      // mit Wert; spiegelt den Grenz-Tint wider.
+      let relation = ''
+      if (humanId >= 0) {
+        const gw = state.goodwill.get(directedKey(owner, humanId)) ?? 0
+        const gr = state.grudge.get(directedKey(owner, humanId)) ?? 0
+        if (gr >= 5 && gr >= gw) {
+          relation = `<br><span style="color:#e8736b">😠 Groll ${fmtCompact(gr)}${gw >= 5 ? ` <span style="opacity:0.7">· Gunst ${fmtCompact(gw)}</span>` : ''}</span>`
+        } else if (gw >= 5) {
+          relation = `<br><span style="color:#5adcb0">🤝 Gunst ${fmtCompact(gw)}${gr >= 5 ? ` <span style="opacity:0.7">· Groll ${fmtCompact(gr)}</span>` : ''}</span>`
+        }
+      }
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
-        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${alliance}${attackNote('line')}`
+        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${relation}${alliance}${attackNote('line')}`
     }
 
     tooltip.style.display = 'block'
