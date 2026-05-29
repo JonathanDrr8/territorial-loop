@@ -97,7 +97,7 @@ import {
   WARSHIP_HP,
   WARSHIP_SHOT_COOLDOWN,
   WARSHIP_SPEED,
-  PROJECTILE_TRAVEL_TICKS,
+  PROJECTILE_SPEED,
   planBoatLaunch,
   planWaterRoute,
   shipArrived,
@@ -1626,8 +1626,8 @@ function arrHas<T>(arr: readonly T[], x: unknown): boolean {
 /**
  * Seekrieg (deterministisch, feste Reihenfolge): Kriegsschiffe feuern alle
  * `WARSHIP_SHOT_COOLDOWN` Ticks ein **Projektil** auf ein feindliches Ziel (Kriegsschiff/
- * Boot/Handelsschiff) in `NAVAL_RANGE`. Schaden fällt erst beim Einschlag (nach
- * `PROJECTILE_TRAVEL_TICKS`) — stirbt der Schütze vorher, verpufft sein Projektil (nicht
+ * Boot/Handelsschiff) in `NAVAL_RANGE`. Schaden fällt erst beim Einschlag (nach der von der
+ * Distanz abhängigen Flugzeit `impactAt`) — stirbt der Schütze vorher, verpufft sein Projektil (nicht
  * „beide sterben"). „Feindlich" = anderer Besitzer und nicht verbündet.
  *
  * Reihenfolge: Cooldowns runter → Projektile fliegen + Einschläge → Tote entfernen → neue
@@ -1646,7 +1646,7 @@ function resolveNavalCombat(state: GameState): void {
     const flying: Projectile[] = []
     for (const pr of state.projectiles) {
       pr.travel++
-      if (pr.travel < PROJECTILE_TRAVEL_TICKS) {
+      if (pr.travel < pr.impactAt) {
         flying.push(pr)
         continue
       }
@@ -1740,6 +1740,8 @@ function resolveNavalCombat(state: GameState): void {
       }
     }
     if (target !== null) {
+      const tp = shipWorldPos(target, w, h)
+      const dist = torusDistance(pos.wx, pos.wy, tp.wx, tp.wy, w, h)
       state.projectiles.push({
         shooter: ws,
         target,
@@ -1747,6 +1749,7 @@ function resolveNavalCombat(state: GameState): void {
         fromX: pos.wx,
         fromY: pos.wy,
         travel: 0,
+        impactAt: Math.max(1, Math.round(dist / PROJECTILE_SPEED)),
       })
       ws.cooldown = WARSHIP_SHOT_COOLDOWN
     }

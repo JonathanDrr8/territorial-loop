@@ -37,8 +37,13 @@ export const WARSHIP_HP = 5
 export const WARSHIP_DAMAGE_PER_TICK = 1
 /** Schuss-Cooldown eines Kriegsschiffs (Ticks) — bei 15 ≈ 1,5 s zwischen Schüssen. */
 export const WARSHIP_SHOT_COOLDOWN = 15
-/** Flugzeit eines Projektils (Ticks) bis zum Einschlag. Stirbt der Schütze vorher, verpufft es. */
-export const PROJECTILE_TRAVEL_TICKS = 4
+/**
+ * Flug-Geschwindigkeit eines Projektils in Tiles/Tick. Bewusst langsam (deutlich unter
+ * Schiffs-Tempo), damit man den Schuss tatsächlich fliegen *sieht* statt eines Aufblitzens —
+ * die Flugzeit skaliert mit der Distanz (`impactAt = round(distanz / PROJECTILE_SPEED)`).
+ * Stirbt der Schütze vor dem Einschlag, verpufft das Projektil.
+ */
+export const PROJECTILE_SPEED = 0.4
 /** HP-Regeneration pro Tick, wenn ein Kriegsschiff nahe einem eigenen Hafen liegt. */
 export const WARSHIP_HEAL_PER_TICK = 1
 /** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift. */
@@ -95,8 +100,8 @@ export interface Warship {
 }
 
 /**
- * Ein fliegendes Projektil eines Kriegsschiffs. Schaden wird erst beim Einschlag (nach
- * `PROJECTILE_TRAVEL_TICKS`) angewendet — stirbt der Schütze vorher, verpufft das Projektil
+ * Ein fliegendes Projektil eines Kriegsschiffs. Schaden wird erst beim Einschlag (sobald
+ * `travel >= impactAt`) angewendet — stirbt der Schütze vorher, verpufft das Projektil
  * (kein Schaden „aus dem Grab", damit nicht beide Schiffe gleichzeitig sterben). Hält direkte
  * Referenzen auf Schütze + Ziel (kurzlebig, nicht im State-Hash).
  */
@@ -107,8 +112,10 @@ export interface Projectile {
   /** Abfeuer-Position (Welt-Koordinaten, fest) — Startpunkt der Flugbahn. */
   readonly fromX: number
   readonly fromY: number
-  /** Verstrichene Flug-Ticks (Einschlag bei >= PROJECTILE_TRAVEL_TICKS). */
+  /** Verstrichene Flug-Ticks. */
   travel: number
+  /** Flug-Ticks bis zum Einschlag (= round(Distanz / PROJECTILE_SPEED), bei Abschuss berechnet). */
+  readonly impactAt: number
 }
 
 /** Struktureller Typ für die Bewegungs-/Positions-Helfer (Boot/Handel/Kriegsschiff). */

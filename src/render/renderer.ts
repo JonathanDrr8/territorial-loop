@@ -23,7 +23,6 @@ import {
   type TradeShip,
   type Warship,
   WARSHIP_HP,
-  PROJECTILE_TRAVEL_TICKS,
   NAVAL_RANGE,
   shipWorldPos as shipWorldPosOf,
 } from '../core/ships'
@@ -1266,7 +1265,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.lineCap = 'round'
     for (const pr of state.projectiles) {
       const tp = shipWorldPos(pr.target)
-      const frac = Math.min(1, pr.travel / PROJECTILE_TRAVEL_TICKS)
+      const frac = Math.min(1, pr.travel / pr.impactAt)
       // Interpolation entlang der kürzeren Torus-Richtung von Abfeuer- zu Zielposition.
       const dx = tp.wx - pr.fromX - mapW * Math.round((tp.wx - pr.fromX) / mapW)
       const dy = tp.wy - pr.fromY - mapH * Math.round((tp.wy - pr.fromY) / mapH)
@@ -1280,22 +1279,33 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         sy > container.clientHeight + 20
       )
         continue
-      // Kurze Spur entgegen der Flugrichtung.
-      const len = Math.max(4, z * 0.5)
+      const owner = state.players.get(pr.shooter.ownerId)
+      const col = owner === undefined ? '#ffe08a' : rgbaToCssLocal(owner.color)
+      // Spur entgegen der Flugrichtung (länger als das Projektil-Tempo „verschmiert" wirken lässt).
+      const len = Math.max(7, z * 0.9)
       const m = Math.hypot(dx, dy) || 1
       const ux = (dx / m) * len
       const uy = (dy / m) * len
-      const owner = state.players.get(pr.shooter.ownerId)
-      screenCtx.strokeStyle = owner === undefined ? '#ffe08a' : rgbaToCssLocal(owner.color)
-      screenCtx.lineWidth = Math.max(1.5, z * 0.18)
+      screenCtx.globalAlpha = 0.7
+      screenCtx.strokeStyle = col
+      screenCtx.lineWidth = Math.max(2, z * 0.26)
       screenCtx.beginPath()
       screenCtx.moveTo(sx - ux, sy - uy)
       screenCtx.lineTo(sx, sy)
       screenCtx.stroke()
-      // Heller Kopf.
+      screenCtx.globalAlpha = 1
+      // Glühender Kopf: farbiger Halo + weißer Kern.
+      const r = Math.max(3, z * 0.34)
+      screenCtx.shadowColor = col
+      screenCtx.shadowBlur = Math.max(4, z * 0.6)
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, Math.max(1.5, z * 0.22), 0, Math.PI * 2)
-      screenCtx.fillStyle = '#fff4c2'
+      screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+      screenCtx.fillStyle = col
+      screenCtx.fill()
+      screenCtx.shadowBlur = 0
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, r * 0.5, 0, Math.PI * 2)
+      screenCtx.fillStyle = '#fffef2'
       screenCtx.fill()
     }
     screenCtx.restore()

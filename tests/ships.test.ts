@@ -387,6 +387,7 @@ describe('warships via tick', () => {
       fromX: 0,
       fromY: 0,
       travel: 3,
+      impactAt: 4,
     })
     state.projectiles.push({
       shooter: b,
@@ -395,6 +396,7 @@ describe('warships via tick', () => {
       fromX: 0,
       fromY: 0,
       travel: 2,
+      impactAt: 4,
     })
     for (let i = 0; i < 5 && state.warships.length > 1; i++) tick(state, [])
     expect(state.warships.length).toBe(1)
