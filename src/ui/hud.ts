@@ -124,6 +124,8 @@ export function createHUD(
   onDefend: (attackerId: number) => void,
   /** Zentriert die Kamera auf ein Tile (Sprung zum Kampf-/Schiff-Ort). */
   onLocate: (tile: number) => void,
+  /** Spieler-ID des lokalen Menschen („du") — MP-sicher statt isHuman zu raten. */
+  localHumanId: number,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -167,6 +169,28 @@ export function createHUD(
   helpDetails.appendChild(helpBody)
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
+
+  /* ---- Verräter-Warnung: oben mittig, nur wenn DU selbst geächtet bist ---------- */
+  const traitorBanner = document.createElement('div')
+  traitorBanner.style.cssText = [
+    'position: absolute',
+    'top: 12px',
+    'left: 50%',
+    'transform: translateX(-50%)',
+    'background: rgba(120,20,20,0.92)',
+    'color: #ffd9d4',
+    'padding: 7px 14px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 13px',
+    'font-weight: bold',
+    'border: 1px solid #e8736b',
+    'border-radius: 6px',
+    'z-index: 11',
+    'display: none',
+    'pointer-events: none',
+    'text-align: center',
+  ].join(';')
+  container.appendChild(traitorBanner)
 
   /* ---- Gefahren-Vignette: pulst rot am Bildschirmrand wenn man angegriffen wird --- */
   const dangerStyle = document.createElement('style')
@@ -644,10 +668,9 @@ export function createHUD(
 
   /** Findet den menschlichen Spieler (falls vorhanden und lebend). */
   function findHuman(): Player | undefined {
-    for (const p of state.players.values()) {
-      if (p.isHuman) return p
-    }
-    return undefined
+    // Explizit über die lokale ID (MP-sicher) — `isHuman` würde im Mehrspieler den ersten
+    // Menschen liefern und damit auf fremden Clients die falschen Werte anzeigen.
+    return state.players.get(localHumanId)
   }
 
   /** Aktualisiert die Truppen-Leiste + Bau-Buttons des eigenen Spielers. */
@@ -907,6 +930,16 @@ export function createHUD(
     updateActionBar()
     updateAttackPanel()
 
+    // Eigener Ächtungs-Status: deutliche Warnung, solange DU geächtet bist.
+    const me = findHuman()
+    if (me !== undefined && me.traitorUntil > state.tick) {
+      const remain = Math.max(0, (me.traitorUntil - state.tick) / SIM_TICKS_PER_SECOND)
+      traitorBanner.textContent = `⚠ Du bist geächtet — alle fügen dir 1,5× Schaden zu (noch ${fmtDuration(remain)})`
+      traitorBanner.style.display = 'block'
+    } else {
+      traitorBanner.style.display = 'none'
+    }
+
     if (state.phase === 'ended' && state.winner !== null) {
       const winner = state.players.get(state.winner)
       if (winner !== undefined) {
@@ -972,6 +1005,7 @@ export function createHUD(
     },
     destroy(): void {
       infoBox.remove()
+      traitorBanner.remove()
       attackPanel.remove()
       rankPanel.remove()
       actionBar.remove()

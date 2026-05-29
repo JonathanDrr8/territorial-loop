@@ -151,9 +151,11 @@ function startMatch(
 ): MatchSession {
   const config = net?.config ?? buildConfig(menu, spectator)
   const humanId = net?.humanId ?? SOLO_PLAYER_ID
+  // „Du" für Renderer/HUD: Zuschauen → kein lokaler Spieler (-1); sonst die eigene ID
+  // (Single: 1, MP: server-vergeben). Die interaktive Verdrahtung nutzt weiter `humanId`.
+  const localHumanId = spectator ? -1 : humanId
   const state = createGame(config)
-  // Zuschauen → kein lokaler Spieler (-1); sonst die eigene ID (Single: 1, MP: server-vergeben).
-  const renderer = createRenderer(container, state, spectator ? -1 : humanId)
+  const renderer = createRenderer(container, state, localHumanId)
   renderer.setCameraMode(menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
@@ -277,6 +279,7 @@ function startMatch(
       renderer.camera.x = (tile % w) + 0.5
       renderer.camera.y = Math.floor(tile / w) + 0.5
     },
+    localHumanId,
   )
 
   const minimap = createMinimap({

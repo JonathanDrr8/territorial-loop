@@ -931,7 +931,10 @@ export function createRenderer(
       // (rausgezoomt sauber, Hover zeigt sie weiterhin). So skaliert es auf hunderte Nationen.
       const isHuman = p.id === lutHumanId
       const allied = lutHumanId >= 0 && !isHuman && areAllied(state.alliances, lutHumanId, p.id)
-      if (!isHuman && !allied && (p.wild || crowded) && z < MINOR_LABEL_MIN_ZOOM) continue
+      // Verräter (geächtet) immer beschriftet — man soll sie auf der Karte nicht übersehen.
+      const traitor = p.traitorUntil > state.tick
+      if (!isHuman && !allied && !traitor && (p.wild || crowded) && z < MINOR_LABEL_MIN_ZOOM)
+        continue
       // Nächste Wrap-Kopie des Fetzen-Schwerpunkts.
       const { sx, sy } = nearestWrappedScreenPos(anchor.x + 0.5, anchor.y + 0.5)
       // Liegt der Schwerpunkt weit außerhalb (> 1 Viewport), ist die Nation nicht in
@@ -941,14 +944,15 @@ export function createRenderer(
       const offscreen = sx < 0 || sx > cssW || sy < 0 || sy > cssH
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
-      const name = p.name
+      // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
+      const name = (traitor ? '⚠ ' : '') + p.name
       const troopsLabel = fmtCompactRender(p.troops)
-      // Verbündete Nationen: Name grün (oben berechnet), damit man Bündnisse sofort erkennt.
+      // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - gap)
       screenCtx.strokeText(troopsLabel, lx, ly + gap)
-      screenCtx.fillStyle = allied ? '#5adc78' : '#ffffff'
+      screenCtx.fillStyle = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
       screenCtx.fillText(name, lx, ly - gap)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
       screenCtx.fillText(troopsLabel, lx, ly + gap)
