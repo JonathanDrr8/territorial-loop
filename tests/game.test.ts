@@ -455,6 +455,23 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     // Nicht-Fabrik-Tile → null.
     expect(factoryYield(state, cityTile)).toBeNull()
   })
+
+  it('goldEarned zählt nur Einnahmen — ein Kauf drückt es nicht', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('player missing')
+    tick(state, []) // ein Tick Einkommen
+    expect(p.goldEarned).toBeGreaterThan(0)
+    expect(p.gold).toBe(p.goldEarned) // ohne Ausgaben identisch
+
+    // Kauf: eine Stadt bauen (kostet Gold). goldEarned darf dabei NICHT fallen.
+    p.gold = 30_000
+    const earnedBefore = p.goldEarned
+    const tile = findOwnedTile(state, 1)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    expect(p.gold).toBeLessThan(30_000) // Gold wurde ausgegeben
+    expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
+  })
 })
 
 describe('wilde Nationen', () => {

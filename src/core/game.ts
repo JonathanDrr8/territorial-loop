@@ -197,6 +197,12 @@ export interface Player {
   isAlive: boolean
   /** Gold-Vorrat — Währung für Gebäude und Schiffe. */
   gold: number
+  /**
+   * Kumuliertes Gesamt-Einkommen (Produktion + Handel + Beute) — zählt nur Einnahmen, NIE
+   * Ausgaben. Für die Einkommens-Anzeige im HUD: ein Kauf darf die „+x/s"-Rate nicht auf 0
+   * drücken (sonst sähe es so aus, als verdiene man nichts).
+   */
+  goldEarned: number
   /** Höchster jemals erreichter `tilesOwned`-Stand. */
   peakTilesOwned: number
   /** Höchster jemals erreichter `troops`-Stand. */
@@ -353,6 +359,7 @@ export function createGame(config: GameConfig): GameState {
       attacks: [],
       isAlive: true,
       gold: 0,
+      goldEarned: 0,
       peakTilesOwned: 0,
       peakTroops: startTroops,
       traitorUntil: 0,
@@ -730,7 +737,9 @@ function generateGold(state: GameState): void {
     if (!player.isAlive) continue
     const gb = goldBreakdown(state, player.id)
     const raw = gb.base + gb.factory
-    player.gold += player.wild ? Math.floor(raw * WILD_GOLD_FACTOR) : raw
+    const income = player.wild ? Math.floor(raw * WILD_GOLD_FACTOR) : raw
+    player.gold += income
+    player.goldEarned += income
   }
 }
 
@@ -2100,8 +2109,14 @@ function advanceTradeShips(state: GameState): void {
       // Gold an beide noch lebenden Hafen-Besitzer
       const from = state.players.get(ship.fromOwnerId)
       const to = state.players.get(ship.toOwnerId)
-      if (from !== undefined && from.isAlive) from.gold += ship.gold
-      if (to !== undefined && to.isAlive) to.gold += ship.gold
+      if (from !== undefined && from.isAlive) {
+        from.gold += ship.gold
+        from.goldEarned += ship.gold
+      }
+      if (to !== undefined && to.isAlive) {
+        to.gold += ship.gold
+        to.goldEarned += ship.gold
+      }
     } else {
       survivors.push(ship)
     }
@@ -2230,6 +2245,7 @@ function lootGoldOnCapture(attacker: Player, defender: Player): void {
   if (loot <= 0) return
   defender.gold -= loot
   attacker.gold += loot
+  attacker.goldEarned += loot
 }
 
 /** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */

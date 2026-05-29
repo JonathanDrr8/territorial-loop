@@ -697,16 +697,18 @@ export function createHUD(
     troopRateEl.style.color = rateColor
     troopRateEl.innerHTML = `${rateSign}${fmtCompact(Math.abs(ratePerSec))}<span style="font-size:9px;opacity:0.7">/s</span>`
 
-    // Gold-Vorrat + geglättete Einkommensrate (EMA über GOLD_SAMPLE_TICKS).
+    // Gold-Vorrat + geglättete EINKOMMENS-Rate (EMA über GOLD_SAMPLE_TICKS). Wir sampeln
+    // `goldEarned` (nur Einnahmen), NICHT `gold` — sonst würde ein Kauf die Rate kurzzeitig
+    // negativ/auf 0 drücken, obwohl die Produktion unverändert läuft.
     if (lastGoldSampleTick < 0) {
       lastGoldSampleTick = state.tick
-      lastGoldSampleValue = human.gold
+      lastGoldSampleValue = human.goldEarned
     } else if (state.tick - lastGoldSampleTick >= GOLD_SAMPLE_TICKS) {
       const dTicks = state.tick - lastGoldSampleTick
-      const sampleRate = ((human.gold - lastGoldSampleValue) / dTicks) * SIM_TICKS_PER_SECOND
+      const sampleRate = ((human.goldEarned - lastGoldSampleValue) / dTicks) * SIM_TICKS_PER_SECOND
       goldRatePerSec = goldRatePerSec * 0.7 + sampleRate * 0.3
       lastGoldSampleTick = state.tick
-      lastGoldSampleValue = human.gold
+      lastGoldSampleValue = human.goldEarned
     }
     const caret = economyOpen ? '▾' : '▸'
     goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> Gold <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span> <span style="opacity:0.55">${caret}</span>`
