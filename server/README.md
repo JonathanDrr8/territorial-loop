@@ -6,13 +6,19 @@ führt die KI aus und broadcastet pro Turn nur das committete Intent-Set.
 
 ## Starten
 
+Im Dev läuft der Server **automatisch mit** `npm run dev` (Vite-Plugin in `vite.config.ts` ruft
+`startServer(8787)`). Kein zweites Terminal nötig — die Lobby ist sofort erreichbar.
+
+Eigenständig (z.B. fürs Deployment) zusätzlich:
+
 ```bash
 npm run dev:server   # tsx watch (Reload bei Änderungen)
 npm run server       # einmalig
 # PORT=9000 npm run server   # anderer Port (Default 8787)
 ```
 
-Health-Check: `GET http://localhost:8787/health` → `ok`.
+Health-Check: `GET http://localhost:8787/health` → `ok`. Ist der Port schon belegt, toleriert das
+Vite-Plugin das (nutzt den laufenden Server) statt zu crashen.
 
 ## Dateien
 

@@ -204,7 +204,9 @@ export function createMultiplayerMenu(
     window.setTimeout(() => {
       if (!joined && !started) {
         teardownTransport()
-        showForm('Keine Verbindung zum Server (Timeout). Läuft `npm run server`?')
+        showForm(
+          'Keine Verbindung (Timeout). Läuft der Dev-Server (npm run dev) bzw. npm run server?',
+        )
       }
     }, 6000)
   }

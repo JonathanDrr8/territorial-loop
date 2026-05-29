@@ -6,10 +6,12 @@
  * `ServerMatch` die KI ausführen + committen, und **broadcastet nur das committete Intent-Set**
  * (keine States im Normalbetrieb). Desync/Reconnect über `state-hash`/`snapshot`.
  *
- * Start: `npm run dev:server` (tsx). Health-Check: `GET /health`.
+ * Start: eigenständig per `npm run server` / `dev:server` (tsx) ODER automatisch zusammen mit
+ * dem Vite-Dev-Server (Plugin in `vite.config.ts`). Health-Check: `GET /health`.
  *
- * MVP-Vereinfachungen (Lobby-Politur = Phase 5): Raum-Defaults statt Host-Konfiguration,
- * Start, sobald alle Verbundenen „ready" sind, feste kleine Karte.
+ * Lobby-Modell: erster Beitritt wird Host und setzt die Match-Settings (`configure`); das Match
+ * startet, sobald alle Verbundenen „ready" sind. Disconnect friert die Nation ein (angreifbar,
+ * Verbündete straffrei), Reconnect/Desync bekommt einen Snapshot.
  */
 
 import { createServer } from 'node:http'
@@ -320,8 +322,19 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     })
   })
 
-  return new Promise<RunningServer>((resolve) => {
+  return new Promise<RunningServer>((resolve, reject) => {
+    // Listen-Fehler (z.B. Port belegt, weil schon ein Server läuft) als Rejection durchreichen,
+    // statt den Prozess (z.B. den Vite-Dev-Server) abzuschießen. Sowohl der HTTP-Server als auch
+    // der daran hängende WebSocketServer emittieren bei EADDRINUSE ein `error` — beide brauchen
+    // einen Listener, sonst wirft Node trotz Promise-Rejection.
+    const onError = (err: Error): void => {
+      reject(err)
+    }
+    httpServer.once('error', onError)
+    wss.once('error', onError)
     httpServer.listen(port, () => {
+      httpServer.removeListener('error', onError)
+      wss.removeListener('error', onError)
       const addr = httpServer.address()
       const actualPort = typeof addr === 'object' && addr !== null ? addr.port : port
       console.info(`[server] Lockstep-Server lauscht auf :${String(actualPort)} (Health: /health)`)
