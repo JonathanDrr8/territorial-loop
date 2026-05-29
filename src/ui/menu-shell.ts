@@ -135,6 +135,9 @@ export function createMenuShell(
         'position: absolute',
         'inset: 0',
         'pointer-events: none',
+        // z-index < 0 → hinter den (nicht-positionierten) Inhalt; sonst malen positionierte
+        // Geschwister ÜBER Leisten/Inhalt und das Veil würde alles wieder zudecken.
+        'z-index: -1',
         `background-image: url(${bgDataUrl})`,
         'background-size: cover',
         'background-position: center',
@@ -147,6 +150,7 @@ export function createMenuShell(
         'position: absolute',
         'inset: 0',
         'pointer-events: none',
+        'z-index: -1',
         `background: ${BG_VEIL}`,
       ].join(';')
       overlay.appendChild(veil)
