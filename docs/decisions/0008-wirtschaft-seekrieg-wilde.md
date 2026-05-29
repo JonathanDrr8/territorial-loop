@@ -93,6 +93,21 @@ Aus späteren Playtests hervorgegangen, im Geist dieses ADRs:
   Planung → 150 Bots @ 61 fps verifiziert); Karten-Labels dünnen bei >14 Nicht-Mensch-Nationen
   aus (`MINOR_LABEL_MIN_ZOOM`); Bot-zu-Bot-Diplomatie wird bei >20 Spielern nicht geloggt.
 
+## Nachtrag: Wirtschafts-Balance (Fabrik/Hafen/Piraterie)
+
+Nach Analyse + Simulation (an OpenFront angelehnt) neu austariert:
+
+- **Fabrik:** Gold/Ziel 14 → **6**. **Deckel je Fabrik: max 4 eigene + 4 ausländische Ziele**
+  (`FACTORY_OWN_CAP`/`FOREIGN_CAP`). Das macht Fabriken **linear** statt quadratisch (kein
+  Cluster-Schneeball übers Eigen-Netz) und gibt dem **Level** Sinn: Level multipliziert das Gold
+  im festen Deckel → eine L2-Fabrik = zwei L1 (gleich Gold/Kosten), L2 spart Platz, Duplizieren
+  deckt mehr Fläche ab — echter Trade-off statt Dominanz. **Ausland bleibt 3×** → Partner/Grenzen
+  sind der Skalier-Weg (gegen Turtling).
+- **Hafen/Handel:** `tradeGold = 300 + 12×Distanz` (vorher 200+6) → Häfen schließen wirtschaftlich
+  auf (sim: Turtle-Fabriken ≈ Hafen-Netz statt Faktor 3–20).
+- **Piraterie:** ein Kriegsschiff, das ein Handelsschiff versenkt, **erbeutet die Fracht** (2× =
+  beide Hafen-Anteile) → Handel lukrativ-aber-riskant, Kriegsschiffe lohnen sich.
+
 ## Offen / später (eigene Pläne, mit Jonathan)
 
 Kamera-Box statt endlosem Tiling (Render-/UX-Umbau, ADR-0011), Multiplayer (Lockstep-Netcode
