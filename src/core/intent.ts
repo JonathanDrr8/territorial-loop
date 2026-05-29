@@ -19,6 +19,7 @@ export type Intent =
   | LaunchWarshipIntent
   | RecallWarshipIntent
   | ToggleWarshipModeIntent
+  | MoveWarshipIntent
   | CancelAttackIntent
   | DefendIntent
   | BuildIntent
@@ -107,6 +108,18 @@ export interface RecallWarshipIntent {
 export interface ToggleWarshipModeIntent {
   readonly type: 'toggle-warship-mode'
   readonly playerId: number
+}
+
+/**
+ * Schickt die ausgewählten eigenen Kriegsschiffe (`warshipIndices` in `state.warships`) zu
+ * einem Wasser-`targetTile`. Jedes Schiff bekommt eine neue Wasserroute von seiner aktuellen
+ * Position dorthin (und patrouilliert sie dann); ohne Wasserweg bleibt es unverändert.
+ */
+export interface MoveWarshipIntent {
+  readonly type: 'move-warship'
+  readonly playerId: number
+  readonly warshipIndices: readonly number[]
+  readonly targetTile: TileRef
 }
 
 /**

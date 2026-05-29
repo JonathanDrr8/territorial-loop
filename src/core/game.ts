@@ -58,6 +58,7 @@ import type {
   LaunchWarshipIntent,
   RecallWarshipIntent,
   ToggleWarshipModeIntent,
+  MoveWarshipIntent,
   BuildIntent,
   CancelAttackIntent,
   DeclineAllianceIntent,
@@ -100,6 +101,7 @@ import {
   planBoatLaunch,
   planWaterRoute,
   shipArrived,
+  shipTile,
   shipWorldPos,
   tradeGold,
 } from './ships'
@@ -882,6 +884,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'toggle-warship-mode':
         applyToggleWarshipModeIntent(state, intent)
         break
+      case 'move-warship':
+        applyMoveWarshipIntent(state, intent)
+        break
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
         break
@@ -1541,6 +1546,26 @@ function applyToggleWarshipModeIntent(state: GameState, intent: ToggleWarshipMod
     `${player.name}: Kriegsschiffe ${player.warshipHold ? 'halten & heilen' : 'patrouillieren'}`,
     player.color,
   )
+}
+
+/**
+ * Schickt die ausgewählten eigenen Kriegsschiffe zu einem Wasser-Tile: jedes bekommt eine
+ * neue Wasserroute von seiner aktuellen Position dorthin (und patrouilliert sie dann). Ohne
+ * Wasserweg (andere Wasser-Komponente) bleibt das jeweilige Schiff unverändert.
+ */
+function applyMoveWarshipIntent(state: GameState, intent: MoveWarshipIntent): void {
+  if (intent.targetTile < 0 || intent.targetTile >= state.map.state.length) return
+  if (isPassable(state.map.terrain, intent.targetTile)) return // Ziel muss Wasser sein
+  for (const idx of intent.warshipIndices) {
+    const ws = state.warships[idx]
+    if (ws === undefined || ws.ownerId !== intent.playerId || ws.returning) continue
+    const from = shipTile(ws)
+    const route = findWaterPath(state.map, from, intent.targetTile, state.waterComponents)
+    if (route === null || route.length < 2) continue
+    ws.path = route
+    ws.progress = 0
+    ws.dir = 1
+  }
 }
 
 /** Bewegt Kriegsschiffe: Ping-Pong-Patrouille entlang der Route; zurückgerufene fahren heim. */

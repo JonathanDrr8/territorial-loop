@@ -506,6 +506,29 @@ describe('warships via tick', () => {
     expect(state.warships[0]?.mode).toBe('patrol')
   })
 
+  it('move-warship setzt eine neue Wasserroute zum Ziel-Tile', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: WARSHIP_HP,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    const target = tileRef(0, 3, W, H) // Wasser, gleiche x=0-Komponente
+    tick(state, [{ type: 'move-warship', playerId: 1, warshipIndices: [0], targetTile: target }])
+    const ws = state.warships[0]
+    expect(ws).toBeDefined()
+    // Neue Route endet am Ziel-Tile.
+    expect(ws?.path[ws.path.length - 1]).toBe(target)
+  })
+
   it('Halten & Heilen: beschädigtes Schiff fährt zum Hafen (Routen-Start) zurück', () => {
     const state = createGame(cfg())
     splitMap(state)

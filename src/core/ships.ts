@@ -75,8 +75,8 @@ export interface TradeShip {
 /** Ein Kriegsschiff, das seine Route ping-pong patrouilliert (dir kehrt am Ende um). */
 export interface Warship {
   readonly ownerId: number
-  /** Wasser-Tiles der Patrouillen-Route. */
-  readonly path: readonly TileRef[]
+  /** Wasser-Tiles der Patrouillen-Route (per Bewegungsbefehl neu setzbar). */
+  path: readonly TileRef[]
   progress: number
   /** Fahrtrichtung entlang `path`: +1 vorwärts, -1 rückwärts (Ping-Pong-Patrouille). */
   dir: 1 | -1
