@@ -196,6 +196,12 @@ function startMatch(
         attackerId,
         troops: Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
       }),
+    (tile) => {
+      // ⌖ „Zum Kampf springen": Kamera auf das (Front-)Tile zentrieren.
+      const w = state.map.width
+      renderer.camera.x = (tile % w) + 0.5
+      renderer.camera.y = Math.floor(tile / w) + 0.5
+    },
   )
 
   const minimap = createMinimap({
