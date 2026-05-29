@@ -82,7 +82,7 @@ const DEFAULT_MENU: StartMenuValues = {
   tempo: 'normal',
   terrain: 'continents',
   soundEnabled: true,
-  cameraMode: 'dynamic',
+  cameraMode: 'period',
   experimental: {},
 }
 
