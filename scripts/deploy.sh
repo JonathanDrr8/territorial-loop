@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Schneller Deploy auf loop.jarhost.de: lokalen Stand nach GitHub pushen + Container neu bauen.
-# Lokal entwickeln (npm run dev) bleibt unberührt — das hier ist der bewusste "Publish"-Schritt.
+# Sofort-Deploy auf loop.jarhost.de: lokalen Stand nach GitHub pushen + Container SOFORT neu bauen.
+# HINWEIS: Seit 2026-05 läuft auf dem Container ein Auto-Deploy (systemd-Timer pollt GitHub main
+# alle 2 Min) — ein normaler `git push origin main` geht also von allein live. Dieses Skript ist
+# nur noch für „jetzt sofort + patch-Versions-Bump" gedacht.
+# Lokal entwickeln (npm run dev) bleibt unberührt.
 set -euo pipefail
 
 PVE="${PVE_HOST:-192.168.188.64}"
