@@ -739,14 +739,12 @@ const GOODWILL_PER_TRADE_DIVISOR = 8
 const FACTORY_DIPLO_INTERVAL = 30
 /** Gunst je Intervall, wenn eine Fabrik in Reichweite einer fremden Stadt/eines Hafens liegt. */
 const GOODWILL_PER_FACTORY_NEIGHBOR = 6
-/** Gold-Bonus je Intervall an BEIDE Seiten einer Fabrik-Nachbarschaft (gemeinsam profitieren). */
-const FACTORY_NEIGHBOR_GOLD = 120
 
 /**
  * Fabrik-Diplomatie: liegt eine eigene fertige Fabrik in `FACTORY_LINK_RANGE` einer Stadt/eines
- * Hafens eines ANDEREN (nicht embargoierten) Spielers, profitieren beide — etwas Gunst + ein
- * kleiner Gold-Bonus auf beiden Seiten. So lohnt es sich, Fabriken nah an Nachbarn zu bauen
- * (Kooperation statt nur Eigen-Netz). Embargo schneidet das ab. Läuft alle FACTORY_DIPLO_INTERVAL.
+ * Hafens eines ANDEREN (nicht embargoierten) Spielers, entsteht beidseitig **Gunst**. Der
+ * Gold-Vorteil der Verbindung (3×) steckt im Fabrik-Einkommen (`goldBreakdown`), nicht hier.
+ * Embargo schneidet beides ab. Läuft alle FACTORY_DIPLO_INTERVAL.
  */
 function applyFactoryDiplomacy(state: GameState): void {
   if (state.tick % FACTORY_DIPLO_INTERVAL !== 0) return
@@ -761,7 +759,7 @@ function applyFactoryDiplomacy(state: GameState): void {
     if (b.type === 'city' || b.type === 'port') dests.push({ x, y, owner: b.ownerId })
   }
   if (factories.length === 0 || dests.length === 0) return
-  // Pro (Fabrik, fremdes Ziel)-Nachbarschaft höchstens EINMAL pro Paar gutschreiben.
+  // Pro (Fabrik, fremdes Ziel)-Nachbarschaft höchstens EINMAL pro Paar Gunst gutschreiben.
   const credited = new Set<number>()
   for (const f of factories) {
     for (const d of dests) {
@@ -772,16 +770,6 @@ function applyFactoryDiplomacy(state: GameState): void {
       if (credited.has(pairId)) continue
       credited.add(pairId)
       addGoodwill(state, f.owner, d.owner, GOODWILL_PER_FACTORY_NEIGHBOR)
-      const pf = state.players.get(f.owner)
-      const pd = state.players.get(d.owner)
-      if (pf?.isAlive === true) {
-        pf.gold += FACTORY_NEIGHBOR_GOLD
-        pf.goldEarned += FACTORY_NEIGHBOR_GOLD
-      }
-      if (pd?.isAlive === true) {
-        pd.gold += FACTORY_NEIGHBOR_GOLD
-        pd.goldEarned += FACTORY_NEIGHBOR_GOLD
-      }
     }
   }
 }
@@ -927,7 +915,62 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
   for (const [root, count] of destPerCluster) {
     if (factoryClusters.has(root)) dests += count
   }
+  // Auslands-Verbindungen: jede FREMDE (nicht embargoierte) Stadt/Hafen in Fabrik-Reichweite
+  // bringt 3× Gold (Kooperation über Grenzen lohnt sich; Gunst separat via applyFactoryDiplomacy).
+  const foreign = foreignFactoryGold(state, playerId, nodes)
+  gold += foreign.gold
+  dests += foreign.dests
   return { base: BASE_GOLD_PER_TICK, factory: Math.floor(gold), factories, dests }
+}
+
+/** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
+const FACTORY_FOREIGN_MULT = 3
+
+/**
+ * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht
+ * embargoierte) fertige Stadt/Hafen in `FACTORY_LINK_RANGE` zählt als Ziel mit `FACTORY_FOREIGN_MULT`×
+ * Gold. So lohnt es sich, Fabriken nah an andere Nationen zu bauen (Kooperation).
+ */
+function factoryForeignContribution(
+  state: GameState,
+  ownerId: number,
+  factoryTile: TileRef,
+  factoryLevel: number,
+): { gold: number; dests: number } {
+  const { width, height } = state.map
+  const fx = factoryTile % width
+  const fy = Math.floor(factoryTile / width)
+  let gold = 0
+  let dests = 0
+  for (const b of state.buildings.values()) {
+    if (b.ownerId === ownerId || b.ownerId <= 0) continue
+    if (b.type !== 'city' && b.type !== 'port') continue
+    if (!isBuildingComplete(b, state.tick)) continue
+    if (isTradeEmbargoed(state, ownerId, b.ownerId)) continue
+    const bx = b.tile % width
+    const by = Math.floor(b.tile / width)
+    if (torusDistance(fx, fy, bx, by, width, height) > FACTORY_LINK_RANGE) continue
+    gold += FACTORY_GOLD_PER_DEST * FACTORY_FOREIGN_MULT * factoryLevel
+    dests++
+  }
+  return { gold, dests }
+}
+
+/** Summe der Auslands-Verbindungen über alle Fabrik-Knoten eines Spielers. */
+function foreignFactoryGold(
+  state: GameState,
+  playerId: number,
+  nodes: readonly { tile: TileRef; isFactory: boolean; level: number }[],
+): { gold: number; dests: number } {
+  let gold = 0
+  let dests = 0
+  for (const node of nodes) {
+    if (!node.isFactory) continue
+    const c = factoryForeignContribution(state, playerId, node.tile, node.level)
+    gold += c.gold
+    dests += c.dests
+  }
+  return { gold, dests }
 }
 
 /**
@@ -987,7 +1030,12 @@ export function factoryYield(
   for (let i = 0; i < n; i++) {
     if (nodes[i]?.isDest === true && find(i) === root) dests++
   }
-  return { goldPerTick: FACTORY_GOLD_PER_DEST * dests * self.level, dests }
+  // Auslands-Verbindungen dieser Fabrik (3× Gold) mitzählen.
+  const foreign = factoryForeignContribution(state, ownerId, tile, self.level)
+  return {
+    goldPerTick: FACTORY_GOLD_PER_DEST * dests * self.level + foreign.gold,
+    dests: dests + foreign.dests,
+  }
 }
 
 /** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */

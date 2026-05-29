@@ -474,7 +474,7 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
   })
 
-  it('Fabrik in Reichweite einer fremden Stadt erzeugt Gunst + Gold-Bonus (beide profitieren)', () => {
+  it('Fabrik mit Auslands-Verbindung: 3× Gold + Gunst mit der Nachbar-Nation', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
     const H = state.map.height
@@ -494,13 +494,16 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    const p2 = state.players.get(2)
-    if (p2 === undefined) throw new Error('player missing')
-    const goldBefore = p2.gold
-    // Bis zum nächsten Fabrik-Diplomatie-Intervall ticken (alle 30 Ticks).
+    // Fabrik-Einkommen des Besitzers (Spieler 1): die fremde Stadt zählt als Ziel mit 3× Gold.
+    const gb = goldBreakdown(state, 1)
+    expect(gb.dests).toBe(1) // die fremde Stadt
+    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 3) // 3× pro Auslands-Ziel (Level 1)
+    // factoryYield (Tooltip) zeigt denselben Beitrag.
+    expect(factoryYield(state, factoryTile)?.goldPerTick).toBe(FACTORY_GOLD_PER_DEST * 3)
+    // Gunst entsteht (beim nächsten Fabrik-Diplomatie-Intervall).
     for (let i = 0; i < 31; i++) tick(state, [])
-    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0) // Gunst entstand
-    expect(p2.gold).toBeGreaterThan(goldBefore) // Nachbar bekam (auch) den Gold-Bonus
+    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
+    expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
   it('Bündnis-Bildung bricht laufende Angriffe zwischen den Partnern ab', () => {
