@@ -5,6 +5,22 @@ Alle nennenswerten Änderungen an `territorial-loop`. Format angelehnt an
 
 ## [Unreleased]
 
+## [0.1.1] – 2026-05-29
+
+### Hinzugefügt
+
+- **Privat/Öffentlich pro Lobby:** Host-Toggle „Sichtbar" — öffentliche Lobbys erscheinen im
+  Server-Browser, private nur per Code/Link.
+- **Einladungslinks:** `https://loop.jarhost.de/?room=CODE` öffnet das Spiel direkt in der Lobby;
+  in der Lobby gibt es einen „🔗 Kopieren"-Knopf.
+- **Zufalls-Default-Name** pro Browser (statt „Du" für alle; wichtig fürs namensbasierte Reconnect).
+
+### Behoben
+
+- **„Leiche":** der „Wieder verbinden"-Knopf erscheint nur noch, wenn der Server bestätigt, dass
+  Raum/Slot wirklich rejoinable sind (`/rejoinable`) — sonst wird die alte Sitzung verworfen.
+- Feedback-Lese-Skript griff den Container- statt Host-Volume-Pfad.
+
 ## [0.1.0] – 2026-05-29
 
 Erste versionierte, **online spielbare** Fassung (gehostet auf `loop.jarhost.de`).

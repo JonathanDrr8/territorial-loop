@@ -5,7 +5,8 @@ set -euo pipefail
 PVE="${PVE_HOST:-192.168.188.64}"
 CTID="${CT_ID:-307}"
 
-raw="$(ssh root@"$PVE" "pct exec $CTID -- cat /app/feedback/feedback.jsonl 2>/dev/null" || true)"
+# Host-Pfad des gemounteten Volumes im CT (pct exec läuft im LXC, nicht im Docker-Container).
+raw="$(ssh root@"$PVE" "pct exec $CTID -- cat /opt/territorial/feedback/feedback.jsonl 2>/dev/null" || true)"
 if [ -z "$raw" ]; then
   echo "(noch kein Feedback)"
   exit 0

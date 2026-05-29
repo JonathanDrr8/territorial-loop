@@ -129,6 +129,7 @@ const DEFAULT_SETTINGS: MatchSettings = {
   wildCount: 2,
   victoryPct: 90,
   difficulty: 'normal',
+  public: true,
 }
 
 /** Begrenzt vom Host gesetzte Settings auf sinnvolle Bereiche (Schutz vor Unfug/Riesenkarten). */
@@ -152,6 +153,7 @@ function clampSettings(s: MatchSettings): MatchSettings {
     wildCount: clamp(s.wildCount, 0, 400),
     victoryPct: clamp(s.victoryPct, 1, 100),
     difficulty,
+    public: s.public !== false,
   }
 }
 
@@ -325,6 +327,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
       const open: LobbyListing[] = []
       for (const r of rooms.values()) {
         if (r.match !== null) continue // läuft schon → nicht beitretbar
+        if (!r.settings.public) continue // privat → nicht im Server-Browser listen
         const host = [...r.members.values()].find((m) => m.playerId === r.hostId)
         open.push({
           code: r.code,
@@ -346,6 +349,21 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     if (req.url === '/version') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
       res.end(JSON.stringify({ version: APP_VERSION }))
+      return
+    }
+    // Kann (room, name) wieder beitreten? = Raum existiert, Match läuft, ein getrennter Slot
+    // dieses Namens wartet. Damit zeigt das Hauptmenü den „Wieder verbinden"-Knopf nur, wenn er
+    // wirklich funktioniert (keine „Leiche" für längst beendete/verlassene Räume).
+    if (req.url?.startsWith('/rejoinable')) {
+      const q = new URL(req.url, 'http://x').searchParams
+      const room = rooms.get((q.get('room') ?? '').toUpperCase())
+      const name = q.get('name') ?? ''
+      const ok =
+        room !== undefined &&
+        room.match !== null &&
+        [...room.members.values()].some((m) => m.socket === null && m.name === name)
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ rejoinable: ok }))
       return
     }
     // Spieler-Feedback/Bug-Report: POST mit text/plain-Body (kein CORS-Preflight) → JSONL.

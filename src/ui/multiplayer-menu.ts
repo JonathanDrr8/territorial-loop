@@ -236,8 +236,45 @@ export function createMultiplayerMenu(
 
     const code = document.createElement('div')
     code.innerHTML = `Raum-Code: <b style="color:${ACCENT};letter-spacing:2px">${room}</b>`
-    code.style.cssText = 'font-size:14px;margin-bottom:12px'
+    code.style.cssText = 'font-size:14px;margin-bottom:8px'
     panel.appendChild(code)
+
+    // Einladungslink: öffnet das Spiel direkt in diesem Raum (auch für private Lobbys teilbar).
+    const inviteUrl = `${window.location.origin}/?room=${room}`
+    const inviteRow = document.createElement('div')
+    inviteRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:12px'
+    const inviteField = document.createElement('input')
+    inviteField.type = 'text'
+    inviteField.readOnly = true
+    inviteField.value = inviteUrl
+    inviteField.style.cssText = INPUT_STYLE + ';font-size:11px;opacity:0.85'
+    const copyBtn = document.createElement('button')
+    copyBtn.textContent = '🔗 Kopieren'
+    copyBtn.style.cssText = [
+      'flex:none',
+      'padding:7px 9px',
+      'background:transparent',
+      'color:white',
+      'border:1px solid rgba(255,255,255,0.25)',
+      'border-radius:6px',
+      'font-family:inherit',
+      'font-size:11px',
+      'cursor:pointer',
+    ].join(';')
+    copyBtn.addEventListener('click', () => {
+      void navigator.clipboard?.writeText(inviteUrl).then(
+        () => {
+          copyBtn.textContent = '✓ Kopiert'
+          setTimeout(() => (copyBtn.textContent = '🔗 Kopieren'), 1500)
+        },
+        () => {
+          inviteField.select() // Fallback: markieren zum manuellen Kopieren
+        },
+      )
+    })
+    inviteRow.appendChild(inviteField)
+    inviteRow.appendChild(copyBtn)
+    panel.appendChild(inviteRow)
 
     // Teilnehmerliste
     const list = document.createElement('div')
@@ -338,6 +375,38 @@ export function createMultiplayerMenu(
       box.appendChild(row)
     }
 
+    const checkboxRow = (
+      label: string,
+      value: boolean,
+      apply: (v: boolean) => MatchSettings,
+    ): void => {
+      const row = document.createElement('div')
+      row.style.cssText = ROW_STYLE
+      const l = document.createElement('label')
+      l.textContent = label
+      l.style.cssText = LABEL_STYLE
+      const wrap = document.createElement('label')
+      wrap.style.cssText = 'flex:1;display:flex;align-items:center;gap:8px;font-size:12px'
+      if (editable) wrap.style.cursor = 'pointer'
+      const cb = document.createElement('input')
+      cb.type = 'checkbox'
+      cb.checked = value
+      cb.disabled = !editable
+      const txt = document.createElement('span')
+      const label2 = (on: boolean): string =>
+        on ? 'im Server-Browser gelistet' : 'privat (nur per Code/Link)'
+      txt.textContent = label2(value)
+      cb.addEventListener('change', () => {
+        txt.textContent = label2(cb.checked)
+        push(apply(cb.checked))
+      })
+      wrap.appendChild(cb)
+      wrap.appendChild(txt)
+      row.appendChild(l)
+      row.appendChild(wrap)
+      box.appendChild(row)
+    }
+
     selectRow(
       'Karte',
       String(s.mapWidth),
@@ -373,6 +442,7 @@ export function createMultiplayerMenu(
       ],
       (v) => ({ ...settings, difficulty: v as MatchSettings['difficulty'] }),
     )
+    checkboxRow('Sichtbar', s.public, (v) => ({ ...settings, public: v }))
 
     return box
   }

@@ -71,8 +71,25 @@ function feedbackEndpoint(): string {
   return defaultServerUrl().replace(/^ws/, 'http')
 }
 
+/**
+ * Default-Spielername: ein pro Browser **persistierter Zufallsname** (statt „Du", sonst heißen
+ * alle gleich — im Mehrspieler bricht das sogar das namensbasierte Reconnect). Stabil über Reloads.
+ */
+function defaultPlayerName(): string {
+  const KEY = 'territorial-loop:player-name:v1'
+  try {
+    const saved = window.localStorage.getItem(KEY)
+    if (saved !== null && saved.length > 0) return saved
+    const name = pickRandomNames(1)[0] ?? 'Spieler'
+    window.localStorage.setItem(KEY, name)
+    return name
+  } catch {
+    return pickRandomNames(1)[0] ?? 'Spieler'
+  }
+}
+
 const DEFAULT_MENU: StartMenuValues = {
-  playerName: 'Du',
+  playerName: defaultPlayerName(),
   mapWidth: 1024,
   mapHeight: 1024,
   aiCount: 3,
@@ -627,6 +644,7 @@ function main(): void {
       wildCount: 2,
       victoryPct: initial.victoryPct,
       difficulty: initial.difficulty,
+      public: true,
     }
     lobby = createMultiplayerMenu(container, {
       defaultServerUrl: loadServerUrl(defaultServerUrl()),
@@ -686,19 +704,40 @@ function main(): void {
         showLobby(initial, code)
       },
       loadServerUrl(defaultServerUrl()),
-      // „Wieder verbinden": nur wenn eine unterbrochene Sitzung existiert.
-      activeSession === null
-        ? undefined
-        : () => {
-            menu.destroy()
-            reconnect(activeSession)
-          },
-      activeSession?.room,
     )
+
+    // „Wieder verbinden": nur zeigen, wenn der Server bestätigt, dass der Raum/Slot wirklich noch
+    // rejoinable ist (sonst hängt ein toter Knopf für längst beendete Räume — „Leiche").
+    if (activeSession !== null) {
+      const q = new URLSearchParams({ room: activeSession.room, name: activeSession.name })
+      fetch(`${feedbackEndpoint()}/rejoinable?${q.toString()}`)
+        .then((r) => r.json() as Promise<{ rejoinable?: boolean }>)
+        .then((j) => {
+          if (j.rejoinable === true) {
+            menu.showReconnect(activeSession.room, () => {
+              menu.destroy()
+              reconnect(activeSession)
+            })
+          } else {
+            clearActiveSession() // Raum weg/Match vorbei → Sitzung verwerfen
+          }
+        })
+        .catch(() => {
+          /* Server nicht erreichbar → keinen Knopf zeigen */
+        })
+    }
   }
 
-  showMenu()
-  console.info('[territorial-loop] Boot complete (start menu shown)')
+  // Einladungslink (?room=CODE) → direkt in die Lobby dieses Raums (auch für private Lobbys).
+  const roomParam = new URLSearchParams(window.location.search).get('room')
+  if (roomParam !== null && roomParam.length > 0) {
+    history.replaceState(null, '', window.location.pathname) // ?room= entfernen (kein Re-Trigger)
+    showLobby(loadMenuPrefs(DEFAULT_MENU), roomParam.toUpperCase())
+    console.info('[territorial-loop] Boot complete (Einladung → Lobby)')
+  } else {
+    showMenu()
+    console.info('[territorial-loop] Boot complete (start menu shown)')
+  }
 }
 
 try {

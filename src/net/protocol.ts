@@ -47,6 +47,8 @@ export interface MatchSettings {
   readonly wildCount: number
   readonly victoryPct: number
   readonly difficulty: Difficulty
+  /** Öffentlich = im Server-Browser (`/lobbies`) gelistet. Privat = nur per Code/Link beitretbar. */
+  readonly public: boolean
 }
 
 /* ── Client → Server ──────────────────────────────────────────────────────── */

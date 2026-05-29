@@ -61,6 +61,8 @@ export const TEMPO_TO_SPEED: Record<MatchTempo, number> = {
 
 export interface StartMenuApi {
   destroy(): void
+  /** Zeigt nachträglich den „Wieder verbinden"-Banner (nach der Rejoinable-Prüfung). */
+  showReconnect(room: string, onReconnect: () => void): void
 }
 
 /** Wählbare Kantenlängen für Breite/Höhe (frei kombinierbar → auch 6:1 etc.). */
@@ -187,10 +189,6 @@ export function createStartMenu(
   onJoinLobby?: (code: string) => void,
   /** Server-URL (ws://…) für den Lobby-Browser; ohne sie wird er nicht gezeigt. */
   serverUrl?: string,
-  /** „Wieder verbinden" nach Verbindungsabbruch — nur gesetzt, wenn eine Sitzung offen ist. */
-  onReconnect?: () => void,
-  /** Raum-Code der unterbrochenen Sitzung (für die Button-Beschriftung). */
-  reconnectRoom?: string,
 ): StartMenuApi {
   const overlay = document.createElement('div')
   overlay.style.cssText = [
@@ -540,11 +538,17 @@ export function createStartMenu(
   // Spalten in einer Spalte stapeln, damit der Reconnect-Banner oben drüber passt.
   const content = document.createElement('div')
   content.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px'
+  content.appendChild(shell)
+  overlay.appendChild(content)
+  container.appendChild(overlay)
 
-  // „Wieder verbinden"-Banner — nur bei unterbrochener Sitzung.
-  if (onReconnect !== undefined) {
+  // „Wieder verbinden"-Banner — wird nachträglich gesetzt (nach Rejoinable-Prüfung in main.ts),
+  // damit kein Knopf für längst beendete Räume hängen bleibt.
+  let reconnectBanner: HTMLButtonElement | null = null
+  const showReconnect = (room: string, onReconnect: () => void): void => {
+    if (reconnectBanner !== null) return
     const rc = document.createElement('button')
-    rc.textContent = `⟳ Wieder verbinden${reconnectRoom !== undefined ? ` — Raum ${reconnectRoom}` : ''}`
+    rc.textContent = `⟳ Wieder verbinden — Raum ${room}`
     rc.style.cssText = [
       'padding: 11px 20px',
       'background: #2e8b57',
@@ -557,12 +561,9 @@ export function createStartMenu(
       'cursor: pointer',
     ].join(';')
     rc.addEventListener('click', () => onReconnect())
-    content.appendChild(rc)
+    content.insertBefore(rc, content.firstChild)
+    reconnectBanner = rc
   }
-
-  content.appendChild(shell)
-  overlay.appendChild(content)
-  container.appendChild(overlay)
 
   // Auto-focus name input
   setTimeout(() => nameInput.focus(), 0)
@@ -572,5 +573,6 @@ export function createStartMenu(
       lobbyBrowser?.destroy()
       overlay.remove()
     },
+    showReconnect,
   }
 }
