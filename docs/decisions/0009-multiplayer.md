@@ -1,210 +1,175 @@
-# ADR 0009: Multiplayer (Lockstep über die deterministische Sim) — Implementierungsplan
+# ADR 0009: Multiplayer (server-autoritatives Lockstep) — Implementierungsplan
 
 ## Status
 
-Proposed (Plan — noch nicht umgesetzt)
+Proposed (Plan — noch nicht umgesetzt). Determinismus-Fundament + `hashState()` stehen bereits.
 
 ## Datum
 
-2026-05-29
+2026-05-29 (Architektur 2026-05-30 auf server-autoritatives Lockstep umgestellt — skaliert auf
+viele Menschen, statt Peer-Lockstep mit ~8er-Grenze).
 
-## Kontext
+## Kontext & Ziel
 
-`territorial-loop` soll Multiplayer bekommen. Die Simulation ist von Anfang an **streng
-deterministisch** gebaut (ADR-0003): seeded PRNG (`core/random`), Zeit nur aus dem
-Tick-Counter (kein `Date.now` in der Logik), Integer-lastiger State, feste
-Iterationsreihenfolge (`orderedPlayers`), und **Intents sind die einzige Mutationsquelle**
-(`tick(state, intents)`). Das ist exakt die Voraussetzung für **Lockstep-Netcode**: Clients
-tauschen nur die Intents (+ Tick-Nummer) aus und simulieren lokal identisch — es wird **kein
-Spielzustand übertragen** (nur bei Reconnect ein Snapshot).
+`territorial-loop` soll Multiplayer bekommen — **und zwar bis zu Matches mit ähnlich vielen
+Menschen wie Bots** (Richtung der Bot-Skalierung, nicht nur 2–4). Die Simulation ist von Anfang
+an **streng deterministisch** (ADR-0003): seeded PRNG (`core/random`), Zeit nur aus dem
+Tick-Counter (kein `Date.now` in der Logik), Integer-lastiger State, feste Iterationsreihenfolge
+(`orderedPlayers`), **Intents als einzige Mutationsquelle** (`tick(state, intents)`), und `core/`
+hat **keine Browser-Abhängigkeiten** → die Sim läuft unverändert auch in Node.
 
-Dieser ADR schreibt den kompletten Weg vor, sodass die spätere Umsetzung „nur noch
-Abarbeiten" ist. Er ist bewusst detailliert (auf Jonathans Wunsch).
+## Entscheidung (Architektur): server-autoritatives Lockstep
 
-## Entscheidung (Architektur)
+**Server UND Clients führen dieselbe deterministische Sim** (`tick`). Der **Server ist die
+autoritative Turn-Uhr**: er taktet die Ticks in festem Rhythmus, sammelt die Intents, bündelt sie
+pro Turn, **führt die KI aus** und broadcastet das committete Intent-Set. Clients simulieren lokal
+mit — übers Netz gehen **nur Intents** (geringe Bandbreite), kein State pro Tick. (So macht es
+auch OpenFront: gleiche Sim auf Client+Server, Server = autoritativer Koordinator für
+Turn-Verteilung und Desync-Erkennung.)
 
-**Lockstep mit dünnem, autoritativem Relay-Server.** Begründung der Wahl:
+| Ansatz                                                        | Skaliert auf viele?                                               | Bandbreite           | Cheating                  | Gewählt?                                   |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------- | ------------------------- | ------------------------------------------ |
+| Peer-Lockstep (Server wartet auf ALLE)                        | **Nein** — langsamster Client bremst alle (~8er-Grenze)           | sehr gering          | mittel                    | Nein                                       |
+| **Server-autoritatives Lockstep** (Server taktet + simuliert) | **Ja** — Server ist die Uhr, Nachzügler resyncen statt zu bremsen | gering (nur Intents) | gut (Server-Truth + Hash) | **Ja**                                     |
+| Voll State-Sync (Server schickt State/Deltas)                 | Ja                                                                | hoch                 | sehr gut                  | Nein — wirft den Determinismus-Vorteil weg |
 
-| Ansatz                                       | Bandbreite                     | Cheating                       | Komplexität                     | Passt?                                     |
-| -------------------------------------------- | ------------------------------ | ------------------------------ | ------------------------------- | ------------------------------------------ |
-| **Lockstep (Intents)**                       | sehr gering (nur Intents/Tick) | mittel (mit Checksums gut)     | mittel                          | **Ja** — Sim ist schon deterministisch     |
-| State-Sync (Server simuliert, schickt State) | hoch (großer State je Tick)    | sehr gut                       | hoch (Server-Authoritative-Sim) | Nein — wirft den Determinismus-Vorteil weg |
-| P2P-Lockstep ohne Server                     | gering                         | schlecht (kein Schiedsrichter) | mittel                          | Nur als Fallback                           |
+**Konsequenz aus der Wahl:**
 
-Empfehlung: **Lockstep**, koordiniert von einem **leichten Relay-/Tick-Server** (Node +
-`ws`). Der Server simuliert NICHT — er sammelt pro Tick die Intents aller Clients, ordnet sie
-deterministisch und broadcastet das **gebündelte Intent-Set für Tick N**. Alle Clients führen
-`tick(state, committedIntents)` damit aus → identischer State. Der Server gibt außerdem
-Spieler-Slots aus, hält den Seed/Config, und erkennt Desyncs per Checksum.
+- Der **Server taktet die Turns mit fester Rate und wartet NICHT auf Nachzügler.** Ein laggiger
+  Client hinkt hinterher und **resynct per Snapshot** — bremst aber niemanden. → skaliert.
+- **Die KI läuft auf dem Server** (er simuliert ohnehin) und ihre Intents werden wie Spieler-
+  Intents committet. Keine KI-Desync-Quelle, kein Host-Sonderfall.
+- Der Server ist die **Quelle der Wahrheit**: ein Client, der (z.B. durch Engine-Unterschiede)
+  abweicht, wird per Snapshot korrigiert — **Desync ist nicht mehr fatal** (im Peer-Modell wäre es
+  das). Härten lohnt trotzdem (seltene Resyncs), ist aber kein K.O.-Kriterium.
 
-## Determinismus — Garantien & Fallstricke (KRITISCH)
+## Determinismus — Garantien & Fallstricke
 
-Lockstep desynct sofort, wenn zwei Clients bei gleichem Input auch nur 1 Bit abweichen.
 Bereits erfüllt: seeded PRNG, kein `Date.now`/`Math.random` in der Sim, feste Reihenfolgen,
-Intents als einzige Mutation. **Vor MP zu härten:**
+Intents als einzige Mutation, `hashState()` ✅. **Weiter härten (jetzt „wünschenswert" statt
+„fatal", weil der Server korrigiert):**
 
-1. **Trigonometrie im Spawn.** `growSpawn` nutzt `Math.sin/atan2/sqrt` (`game.ts`,
-   Spawn-Lappen). `sqrt` ist IEEE-754 (bit-identisch), aber **`sin/cos/atan2` sind über
-   JS-Engines NICHT bit-genau standardisiert** → Risiko bei gemischten Browsern (Chrome vs
-   Firefox). Mitigation: entweder (a) MP nur „same-engine" garantieren (unrealistisch), oder
-   (b) **die Spawn-Trig durch eine deterministische Eigen-Implementierung ersetzen**
-   (Polynom-Approximation/Lookup mit Integer-Eingang) — bevorzugt. Audit: alle `Math.sin/cos/
-tan/atan2/exp/log/pow`-Aufrufe finden, die in den **State** fließen, und ersetzen oder als
-   „nur Anzeige" bestätigen (`Math.pow` in `config.ts` für Caps/Wachstum fließt in State →
-   ebenfalls auditieren; `pow` mit ganzzahligen/halben Exponenten ist meist stabil, aber
-   absichern).
-2. **Map-Iteration.** `state.players` ist eine `Map` (Insertions-Reihenfolge, deterministisch),
-   die heiße Iteration läuft über `orderedPlayers` (sortiert) — beibehalten. Keine
-   `Object`-Key-Iteration über Zahlen-Keys in der Sim.
-3. **Floats.** JS-`number` (IEEE-754 double) ist für +−×÷ und `sqrt` plattform-deterministisch.
-   `NaN`/`-0` vermeiden. Keine `toFixed`-Rundungen in der Logik.
-4. **KI-Determinismus.** Bots müssen auf allen Clients identische Intents erzeugen ODER nur an
-   EINER Stelle laufen. **Entscheidung:** Die KI läuft **autoritativ auf dem Server (oder dem
-   designierten Host)** und ihre Intents werden wie Spieler-Intents gebroadcastet. So muss kein
-   Client die KI deterministisch nachbauen, und es gibt keine KI-Desync-Quelle.
-5. **Float in Intents.** Intents tragen nur Integer (`troops`, `tile`, IDs) — beibehalten.
+1. **Trigonometrie im Spawn** (`growSpawn`: `Math.sin/atan2`). Über JS-Engines nicht bit-genau →
+   Client-Server-Abweichung. Mitigation: deterministische Eigen-Implementierung (Polynom/Lookup
+   mit Integer-Eingang). Audit aller `Math.sin/cos/tan/atan2/exp/log/pow`, die in den **State**
+   fließen (`Math.pow` in `config.ts` für Caps/Wachstum mit auditieren).
+2. **Map-Iteration** über `orderedPlayers` (sortiert) — beibehalten.
+3. **Floats**: +−×÷ und `sqrt` sind IEEE-754-deterministisch; `NaN`/`-0` meiden, keine `toFixed`
+   in der Logik.
+4. **Intents** tragen nur Integer — beibehalten.
 
-Absicherung: **State-Hash** (`hashState(state) → uint32`, FNV/xxhash über Owner-Array +
-Truppen + Gold + Tick) alle N Ticks an den Server; der Server vergleicht die Hashes aller
-Clients und meldet Desync (Logging + Pause), statt dass das Spiel still auseinanderläuft.
+Absicherung: Clients schicken alle N Ticks `hashState(state)` an den Server; weicht ein Hash vom
+Server-Hash ab → der Client bekommt einen **Snapshot** und spielt ab dort weiter (Desync-Log +
+ggf. Hinweis). Der Server läuft dabei als Truth.
 
-## Code-Naht (so wird die Sim-Schleife umgebaut)
+## Code-Naht (Sim-Schleife)
 
-Heute (`main.ts`, vereinfacht):
-
-```ts
-function runSimTick() {
-  if (paused) return
-  for (const ai of ais) for (const intent of ai.decide(state)) pendingIntents.push(intent)
-  tick(state, pendingIntents) // sofort lokal
-  pendingIntents.length = 0
-}
-setInterval(runSimTick, SIM_BASE_INTERVAL_MS / speed)
-```
-
-Neu — eine **Transport-Abstraktion** trennt „Intents einsammeln" von „Tick ausführen":
+Eine **Transport-Abstraktion** trennt „Intents einsammeln" von „Tick ausführen" — **identisch für
+Single- und Multiplayer**, deshalb Phase 1:
 
 ```ts
 interface IntentTransport {
-  /** Lokale Intents für einen künftigen Tick einreichen. */
-  submit(intents: Intent[]): void
-  /**
-   * Liefert die committeten Intent-Sets in Tick-Reihenfolge. Single-Player: sofort der
-   * eigene Input. Netzwerk: erst wenn der Server Tick N committet hat.
-   */
-  onCommitted(cb: (tick: number, intents: Intent[]) => void): void
+  submit(intents: Intent[]): void // lokale Intents einreichen
+  onCommitted(cb: (tick: number, intents: Intent[]) => void): void // committete Sets in Tick-Reihenfolge
   destroy(): void
 }
 ```
 
-- **LocalTransport** (Single-Player, Verhalten exakt wie heute): `submit` → sofort als
-  committed für den nächsten Tick zurückrufen. Kein Verhaltensunterschied, keine Latenz.
-- **NetworkTransport** (Lockstep): `submit` schickt die lokalen Intents an den Server mit
-  Ziel-Tick `N + INPUT_DELAY`. `onCommitted` feuert, sobald der Server das gebündelte Set für
-  einen Tick broadcastet. `runSimTick` ruft **nicht mehr direkt `tick()`**, sondern verarbeitet
-  die committeten Sets der Reihe nach.
+- **LocalTransport** (Single-Player, exakt heutiges Verhalten): `submit` → sofort committed für den
+  nächsten Tick. KI lokal.
+- **NetworkTransport** (server-autoritatives Lockstep): `submit` schickt lokale Intents an den
+  Server mit Ziel-Tick `N + INPUT_DELAY`; `onCommitted` feuert, sobald der **Server** den Turn N
+  broadcastet (inkl. der vom Server erzeugten KI-Intents). `main.ts` treibt den Sim-Fortschritt aus
+  `onCommitted` — `tick()`/Sim bleiben unberührt (reine Umverdrahtung).
 
-`main.ts` wird so umgebaut, dass der Sim-Fortschritt von `onCommitted` getrieben wird (lokale
-KI-Intents nur im LocalTransport; im Netzwerk kommen sie vom Host). Das ist eine **reine
-Umverdrahtung** — `tick()`/Sim bleiben unberührt.
+## Tick-/Turn-Modell (server-getaktet)
 
-## Tick-/Turn-Modell (Latenz verstecken)
-
-- **Input-Delay-Buffer:** Lokale Intents gelten erst für `currentTick + INPUT_DELAY`
-  (z.B. 3 Ticks ≈ 300 ms bei `SIM_BASE_INTERVAL_MS=100`). So hat jeder Client Zeit, die Intents
-  aller anderen für diesen Ziel-Tick zu empfangen, bevor er ihn ausführt → kein Ruckeln bei
-  moderater Latenz. Der Wert ist an die Ping-Zeit anpassbar (adaptiv).
-- **Commit-Bedingung:** Der Server committet Tick N, sobald **alle verbundenen Clients** ihre
-  Intents für N eingereicht haben — oder ein **Deadline-Timeout** abläuft (dann gilt der
-  säumige Client für N als „keine Intents", und es gibt einen Lag-Hinweis). Leere Ticks sind
-  erlaubt (die meisten Ticks haben gar keine Intents).
-- **Gleichlauf:** Clients dürfen der Server-Commit-Spitze nicht vorauslaufen. Fehlt der
-  committete Tick noch, **wartet** der Client (kurzer Stall) statt zu spekulieren.
+- **Server ist die Uhr:** er rückt Turns mit fester Rate vor und committet Turn N mit allen bis zur
+  **Deadline** eingegangenen Intents (+ KI-Intents). Säumige Client-Intents → gelten für N als
+  „nicht da", kommen ggf. im nächsten Turn. **Kein Warten auf den Langsamsten.**
+- **Input-Delay:** lokale Intents gelten erst für `currentTick + INPUT_DELAY` (z.B. 3 Ticks ≈
+  300 ms) → die meisten Inputs sind rechtzeitig da, kein Ruckeln bei moderater Latenz; adaptiv.
+- **Nachzügler:** ein Client, der zu weit hinter dem Server-Commit liegt, **resynct per Snapshot**
+  statt zu blockieren.
+- **Reihenfolge-Determinismus:** der Server sortiert die Intents eines Turns **stabil nach
+  `playerId`** (dann Einreichungsindex) → alle bekommen exakt dieselbe Liste.
 
 ## Protokoll (WebSocket, JSON im MVP; später binär)
 
-Client→Server: `join {room, name}` · `submitIntents {tick, intents}` · `stateHash {tick, hash}`
-· `ready` · `leave` · `ping`.
-Server→Client: `joined {playerId, slot}` · `lobby {players[]}` · `start {seed, config, players}`
-· `commit {tick, intents}` (das gebündelte Set; KI-Intents inklusive) · `desync {tick}` ·
-`peerLeft {playerId}` · `pong`.
-
-Reihenfolge-Determinismus: der Server sortiert die Intents eines Ticks **stabil nach
-`playerId`** (und Einreichungsindex), bevor er sie broadcastet — alle Clients bekommen exakt
-dieselbe Liste.
+Client→Server: `join {room, name}` · `submitIntents {tick, intents}` · `stateHash {tick, hash}` ·
+`ready` · `leave` · `ping`.
+Server→Client: `joined {playerId, slot}` · `lobby {players[]}` · `start {seed, config, players}` ·
+`commit {tick, intents}` (gebündeltes Set inkl. KI) · `snapshot {tick, state}` (Resync/Reconnect) ·
+`peerFrozen {playerId}` / `peerResumed {playerId}` · `pong`.
 
 ## Lobby / UI
 
-Neuer Menü-Pfad neben „Match starten"/„Zuschauen": **„Mehrspieler"** → Räume erstellen/
-beitreten per **Raum-Code**, Server-URL (Default: gehosteter Relay), Spielerliste mit
-Ready-Status, Host wählt Karte/Seed/Gegnerzahl (wie Single-Player-Menü, aber geteilt). Start,
-sobald alle „ready". Wiederverwenden: `start-menu.ts`-Bausteine, `preferences.ts` für
-Server-URL/Name.
+Neuer Menü-Pfad „**Mehrspieler**": Raum erstellen/beitreten per **Raum-Code**, Server-URL (Default:
+gehosteter Relay; im Dev localhost), Spielerliste + Ready-Status, Host wählt Karte/Seed/Gegnerzahl.
+Start sobald alle „ready". Bausteine aus `start-menu.ts`, `preferences.ts` (Server-URL/Name).
 
-## Disconnect / Lag / Reconnect
+## Disconnect / Freeze / Reconnect (Design-Entscheidung)
 
-- **Lag:** Input-Delay puffert kleine Schwankungen; bei Deadline-Überschreitung kurze
-  „Warte auf Spieler X"-Anzeige (alle pausieren denselben Tick → bleibt deterministisch).
-- **Reconnect/Snapshot:** Da kein State übertragen wird, braucht ein Rejoin einen **vollen
-  GameState-Snapshot**. Dafür `serializeState(state)` / `deserializeState(data)` schreiben, das
-  `Map`s (players, buildings, recentCaptures, alliances …) und `TypedArray`s (map.state,
-  terrain, landComponents, waterComponents) korrekt rundreist. Server hält den letzten
-  bekannten committeten Tick + (vom Host periodisch geschickten) Snapshot; ein neuer/
-  zurückkehrender Client lädt Snapshot @ Tick K und spielt ab K weiter.
-- **Verlässt ein Mensch dauerhaft:** seine Nation wird ab dann von der autoritativen KI
-  übernommen (Host generiert ihre Intents) oder „eingefroren"/passiv (Design-Entscheidung).
+- **Verlässt ein Mensch / lagt raus:** seine Nation wird **eingefroren** — sie wird **nicht** von
+  der KI übernommen, gibt keine Intents ab (steht wie eine wilde Nation). **Aber:** sie bleibt
+  **voll angreifbar**, und **Verbündete dürfen sie straffrei angreifen** (kein Verrat/keine
+  Ächtung, solange sie eingefroren ist). Kommt der Mensch zurück, übernimmt er wieder.
+  → Core-Zusatz: ein `frozen`-Flag je Spieler; `frozen` ⇒ keine Intents akzeptiert, und in
+  `betrayAlliance`/Angriffs-Verrat zählt ein Angriff auf eine eingefrorene Nation nicht als Verrat.
+- **Reconnect/Resync:** kein State über die Leitung im Normalbetrieb → ein Rejoin/Resync lädt einen
+  **vollen GameState-Snapshot** (Server hält den letzten committeten Tick + periodischen Snapshot)
+  und spielt ab dort weiter. Dafür `serializeState`/`deserializeState` (Maps + TypedArrays) **inkl.
+  PRNG-Zustand** — `createPRNG` von `seedrandom.alea(seed)` auf `{ state: true }` umstellen und das
+  `PRNG`-Interface um `state()` erweitern (zugleich Basis für Save/Load).
 
 ## Anti-Cheat
 
-Lockstep ist von Natur aus „alle sehen alles" — kein Hidden-State-Vorteil. Restrisiko:
-manipulierte Intents/State. Gegenmittel: (1) Server validiert Intents grob (Spieler darf nur
-Intents mit eigener `playerId` schicken); (2) **State-Hash-Checksums** decken abweichende Sim
-(modifizierter Client) auf → Desync-Erkennung + Kick. Voll serverautoritativ (State-Sync) wäre
-sicherer, aber teurer — bewusst nicht im ersten Wurf.
+Server-autoritativ + Lockstep: der Server ist Truth, Clients senden nur eigene Intents (Server
+prüft die `playerId`), und **Hash-Checksums** decken abweichende Clients auf → Snapshot-Korrektur
+oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sicherer, aber teurer.
 
-## Implementierungs-Phasen (Schritt für Schritt)
+## Implementierungs-Phasen
 
-1. **Transport-Naht (lokal, kein Netz).** `IntentTransport` + `LocalTransport` einführen,
-   `main.ts`-Sim-Schleife auf `submit`/`onCommitted` umstellen. Verhalten identisch zu heute.
-   Tests: Single-Player läuft unverändert; ein „RecordingTransport" zeichnet Intents+Ticks auf.
-2. **Determinismus-Härtung.** ✅ **`hashState()` umgesetzt** (`src/core/hash.ts`, FNV-1a über
-   Tick + Owner-Array + Spieler-Kennzahlen) inkl. Test (identischer Seed+Intent-Strom → gleicher
-   Hash über 60 Ticks). **Offen:** Audit aller `Math.sin/cos/atan2/pow/exp/log` in der Sim
-   (v.a. Spawn-Trig in `growSpawn`) → durch deterministische Eigen-Funktion ersetzen (Cross-
-   Engine-Bit-Genauigkeit).
-3. **Replay-Harness.** Intent-Aufzeichnung speichern/laden und deterministisch abspielen
-   (validiert Lockstep-Tauglichkeit offline, ohne Server). Nützlich auch für Bug-Repros.
-4. **Relay-Server.** Node + `ws`: Räume, Slot-Vergabe, Intent-Sammlung pro Tick, Commit-Broad-
-   cast, KI-Autorität (Server oder Host führt `ai.decide` und reicht die Intents ein),
-   Hash-Vergleich. Einfacher Health-Check-Endpoint.
-5. **NetworkTransport + Lobby.** Client-Transport gegen den Server; Mehrspieler-Menü
-   (Raum-Code, Ready, Start mit geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match.
-6. **Input-Delay, Lag-Handling, Reconnect-Snapshot, Checksum-Desync-UI, Politur.**
-   `serializeState`/`deserializeState`, adaptiver Input-Delay, Warte-Overlay, Desync-Meldung.
-   **Hinweis (aus Implementierung):** `serializeState` braucht den PRNG-Zustand. `createPRNG`
-   nutzt aktuell `seedrandom.alea(seed)` OHNE `{ state: true }` — also erst das `PRNG`-Interface
-   um `state()` erweitern und `createPRNG` auf `{ state: true }` umstellen, dann ist der RNG
-   round-trip-fähig. (Wäre zugleich die Basis für ein Save/Load-Feature.)
+1. **Transport-Naht (lokal, kein Netz).** `IntentTransport` + `LocalTransport`, `main.ts` auf
+   `submit`/`onCommitted` umstellen. Verhalten identisch zu heute. **Modell-egal.**
+2. **Determinismus-Härtung.** ✅ `hashState()` (`src/core/hash.ts`) + Test. **Offen:** Trig-Audit
+   in `growSpawn` → deterministische Eigen-Funktion. **Modell-egal.**
+3. **Replay-Harness.** Intents aufzeichnen/laden/deterministisch abspielen (Lockstep-Validierung
+   offline + Bug-Repros). **Modell-egal.**
+4. **Server (Node + `ws`), simulierend & autoritativ.** Importiert `core/` und **simuliert die Sim
+   mit**: Räume, Slot-Vergabe, Turn-Uhr (feste Rate), Intent-Sammlung + KI-Ausführung (`ai.decide`
+   auf dem Server) + Commit-Broadcast, Hash-Vergleich, Snapshots. Health-Check-Endpoint.
+5. **NetworkTransport + Lobby.** Client-Transport gegen den Server; Mehrspieler-Menü (Raum-Code,
+   Ready, Start mit geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match.
+6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot, Desync-UI, Politur.** `serializeState`/
+   `deserializeState` (+ PRNG-State), adaptiver Input-Delay, Freeze-/Resync-Handling, Last-Tests
+   mit vielen Slots.
+
+Phasen 1–3 bringen schon allein Wert (Testbarkeit, Repros) und sind risikoarm — erst danach Server/Netz.
 
 ## Betroffene / neue Dateien
 
 - `src/net/transport.ts` (neu) — `IntentTransport`, `LocalTransport`, `NetworkTransport`.
 - `src/net/protocol.ts` (neu) — Nachrichten-Typen (Discriminated Union wie `intent.ts`).
-- `src/core/hash.ts` (neu, ✅ umgesetzt) — `hashState` (Sim-nah, daher in `core/` statt `net/`).
-- `src/core/serialize.ts` (neu) — `serializeState`/`deserializeState` (Maps + TypedArrays).
-- `src/main.ts` — Sim-Schleife auf Transport umstellen; KI nur im LocalTransport lokal.
-- `src/core/game.ts` — Determinismus-Härtung (Spawn-Trig), evtl. `hashState`-Hilfen.
-- `src/ui/start-menu.ts` / neues `src/ui/multiplayer-menu.ts` — Lobby.
-- `server/` (neu, Node + `ws`) — Relay-/Tick-Server, Räume, KI-Autorität, Hash-Vergleich.
+- `src/core/hash.ts` (✅) — `hashState`.
+- `src/core/serialize.ts` (neu) — `serializeState`/`deserializeState` (Maps + TypedArrays + PRNG).
+- `src/core/game.ts` — Determinismus-Härtung (Spawn-Trig) + `frozen`-Flag (Disconnect-Freeze,
+  Verrats-Ausnahme gegen Eingefrorene).
+- `src/core/random.ts` — `PRNG.state()`, `createPRNG` mit `{ state: true }`.
+- `src/main.ts` — Sim-Schleife auf Transport umstellen.
+- `src/ui/multiplayer-menu.ts` (neu) — Lobby.
+- `server/` (neu, Node + `ws`) — **simulierender** Relay-/Tick-Server: importiert `core/`, fährt die
+  Sim + KI, taktet Turns, broadcastet Commits, vergleicht Hashes, hält Snapshots.
 - Tests: Determinismus-Hash über N Ticks; Replay-Harness; Transport-Verträge.
 
 ## Konsequenzen
 
-- **Pro:** Minimale Bandbreite (nur Intents), nutzt den vorhandenen Determinismus maximal,
-  Single-Player bleibt über `LocalTransport` exakt gleich, gute Repro-/Replay-Tools als
+- **Pro:** Skaliert auf viele Menschen+Bots (Server ist die Uhr, Nachzügler resyncen), minimale
+  Bandbreite (nur Intents), nutzt den Determinismus maximal, Single-Player bleibt über
+  `LocalTransport` exakt gleich, Server-Truth = solide Anti-Cheat-/Desync-Basis, Replay-Tools als
   Nebenprodukt.
-- **Contra/Risiko:** Determinismus ist gnadenlos — Cross-Engine-Trig ist die Hauptgefahr und
-  muss vor allem anderen gehärtet werden. Lockstep koppelt das Tempo an den langsamsten Client
-  (Input-Delay + Deadline mildern das). Reconnect erfordert robuste State-Serialisierung.
-- **Reihenfolge wichtig:** Phasen 1–3 (Naht + Härtung + Replay) bringen schon allein Wert
-  (Testbarkeit, Repros) und sind risikoarm; erst danach Server/Netz.
+- **Contra/Risiko:** Der Server muss die Sim mitlaufen lassen (CPU pro Match — bei vielen Bots wie
+  im Single-Player, plus Turn-Verwaltung). Reconnect/Resync braucht robuste State-Serialisierung
+  (inkl. PRNG-Zustand). Cross-Engine-Trig verursacht sonst häufige Resyncs → vor Phase 4 härten.
+- **Reihenfolge:** Phasen 1–3 (Naht + Härtung + Replay) zuerst (Wert + risikoarm), dann der
+  simulierende Server.
