@@ -545,8 +545,12 @@ function main(): void {
   container.textContent = ''
   container.style.position = 'relative'
 
-  // Dauerhaftes Feedback-/Bug-Widget (Menü + im Match) — schreibt an den Server (JSONL).
-  createFeedbackUi(container, { endpoint: feedbackEndpoint(), version: __APP_VERSION__ })
+  // Dauerhaftes Feedback-/Bug-Widget (im Match: schwebender Knopf; im Menü: Footer-Eintrag, da der
+  // Knopf hinter dem Menü-Overlay liegt) — schreibt an den Server (JSONL).
+  const feedbackUi = createFeedbackUi(container, {
+    endpoint: feedbackEndpoint(),
+    version: __APP_VERSION__,
+  })
 
   let session: MatchSession | null = null
   let lobby: MultiplayerMenuApi | null = null
@@ -763,6 +767,7 @@ function main(): void {
           menu.destroy()
           spectate(code)
         },
+        onFeedback: () => feedbackUi.open(),
       },
       loadServerUrl(defaultServerUrl()),
     )

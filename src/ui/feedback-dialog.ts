@@ -11,6 +11,8 @@
 const ACCENT = '#7cc4ff'
 
 export interface FeedbackUiApi {
+  /** Öffnet den Feedback-/Bug-Dialog (z. B. aus dem Menü-Footer). */
+  open(): void
   destroy(): void
 }
 
@@ -206,6 +208,7 @@ export function createFeedbackUi(
   container.appendChild(trigger)
 
   return {
+    open,
     destroy(): void {
       close()
       trigger.remove()

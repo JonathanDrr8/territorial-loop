@@ -49,6 +49,8 @@ export interface MenuShellCallbacks {
   onJoinLobby(code: string, values: StartMenuValues): void
   /** Klick auf ein laufendes Spiel im Browser → als Zuschauer beitreten. */
   onSpectate(code: string): void
+  /** Footer-Eintrag „Feedback" → öffnet den Feedback-/Bug-Dialog. */
+  onFeedback?(): void
 }
 
 type TabId = 'play' | 'multiplayer' | 'settings' | 'changelog' | 'help'
@@ -295,6 +297,21 @@ export function createMenuShell(
     gh.rel = 'noopener'
     gh.style.cssText = `color: ${ACCENT}; text-decoration: none`
     left.appendChild(gh)
+    if (callbacks.onFeedback !== undefined) {
+      const fb = document.createElement('button')
+      fb.textContent = `🐞 ${t('footer.feedback')}`
+      fb.style.cssText = [
+        'background: transparent',
+        `color: ${ACCENT}`,
+        'border: none',
+        'padding: 0',
+        'font-family: inherit',
+        'font-size: 12px',
+        'cursor: pointer',
+      ].join(';')
+      fb.addEventListener('click', () => callbacks.onFeedback?.())
+      left.appendChild(fb)
+    }
     footer.appendChild(left)
 
     const right = document.createElement('div')
@@ -325,6 +342,16 @@ export function createMenuShell(
     h.className = 'tl-section'
     h.textContent = label
     parent.appendChild(h)
+  }
+
+  /** Erzeugt den Lobby-Browser (offene Lobbys + laufende Spiele) und merkt ihn für teardown. */
+  function mountLobbyBrowser(): HTMLElement | null {
+    if (serverUrl === undefined) return null
+    lobbyBrowser = createLobbyBrowser(serverUrl, {
+      onJoin: (code) => callbacks.onJoinLobby(code, collect()),
+      onSpectate: (code) => callbacks.onSpectate(code),
+    })
+    return lobbyBrowser.element
   }
 
   function buildTab(id: TabId): HTMLElement {
@@ -439,7 +466,15 @@ export function createMenuShell(
     watchBtn.addEventListener('click', () => callbacks.onStart(collect(), true))
     p.appendChild(watchBtn)
 
-    return p
+    // Lobby-Browser als linke Spalte → die Landeseite (Spielen) wirkt belebter.
+    const browser = mountLobbyBrowser()
+    if (browser === null) return p
+    const row = document.createElement('div')
+    row.style.cssText =
+      'display: flex; gap: 16px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%'
+    row.appendChild(browser)
+    row.appendChild(p)
+    return row
   }
 
   function buildSettingsTab(): HTMLElement {
@@ -513,14 +548,11 @@ export function createMenuShell(
     wrap.appendChild(p)
 
     // Lobby-Browser (offene Lobbys + laufende Spiele zum Zuschauen) — nur mit Server-URL.
-    if (serverUrl !== undefined) {
-      lobbyBrowser = createLobbyBrowser(serverUrl, {
-        onJoin: (code) => callbacks.onJoinLobby(code, collect()),
-        onSpectate: (code) => callbacks.onSpectate(code),
-      })
-      lobbyBrowser.element.style.maxWidth = '560px'
-      lobbyBrowser.element.style.width = '100%'
-      wrap.appendChild(lobbyBrowser.element)
+    const browser = mountLobbyBrowser()
+    if (browser !== null) {
+      browser.style.maxWidth = '560px'
+      browser.style.width = '100%'
+      wrap.appendChild(browser)
     }
 
     return wrap
