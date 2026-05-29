@@ -507,8 +507,8 @@ function startMatch(
     hud.update()
     // Bündnis-Panel zuerst, dann den Log darunter schieben (sonst überdeckt es ihn).
     alliancePrompt.update()
-    const promptH = alliancePrompt.heightPx()
-    eventLog.setTopOffset(promptH > 0 ? promptH + 8 : 0)
+    // Bündnis-Anfragen liegen jetzt links → der Log (rechts) braucht keinen Versatz mehr.
+    eventLog.setTopOffset(0)
     eventLog.update()
     renderRafId = requestAnimationFrame(renderLoop)
   }

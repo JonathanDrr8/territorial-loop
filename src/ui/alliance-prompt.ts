@@ -46,14 +46,15 @@ export function createAlliancePrompt(
   onNewRequest?: () => void,
 ): AlliancePromptApi {
   const box = document.createElement('div')
+  // Links (statt rechts) — sonst überlappt die aufgeklappte Rangliste oben rechts die Anfragen.
   box.style.cssText = [
     'position: absolute',
     'top: 232px',
-    'right: 12px',
+    'left: 12px',
     'display: flex',
     'flex-direction: column',
     'gap: 6px',
-    'align-items: flex-end',
+    'align-items: flex-start',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'z-index: 20',
@@ -102,7 +103,7 @@ export function createAlliancePrompt(
       return
     }
     el.style.opacity = '0'
-    el.style.transform = 'translateX(12px)'
+    el.style.transform = 'translateX(-12px)'
     window.setTimeout(() => {
       el.remove()
       rows.delete(id)
@@ -123,7 +124,7 @@ export function createAlliancePrompt(
       'gap:8px',
       'align-items:center',
       'opacity:0',
-      'transform:translateX(12px)',
+      'transform:translateX(-12px)',
       `transition:opacity ${String(FADE_MS)}ms ease, transform ${String(FADE_MS)}ms ease`,
     ].join(';')
     const btn = (act: string, label: string, bg: string): string =>
