@@ -14,7 +14,6 @@
  */
 
 import {
-  BUILDING_LABEL,
   BUILDING_TYPES,
   CITY_CAP_BONUS,
   DEFENSE_BASE_RANGE,
@@ -176,7 +175,7 @@ export function createHUD(
   const traitorBanner = document.createElement('div')
   traitorBanner.style.cssText = [
     'position: absolute',
-    'top: 12px',
+    'top: 68px',
     'left: 50%',
     'transform: translateX(-50%)',
     'background: rgba(120,20,20,0.92)',
@@ -354,25 +353,50 @@ export function createHUD(
 
   /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
   const actionBar = document.createElement('div')
+  // Direkt am unteren Bildrand (bündig) — spart Platz; nur oben abgerundet.
   actionBar.style.cssText = [
     'position: absolute',
-    'bottom: 14px',
+    'bottom: 0',
     'left: 50%',
     'transform: translateX(-50%)',
     'background: rgba(0,0,0,0.86)',
     'color: white',
-    'padding: 10px 16px',
+    'padding: 8px 16px 10px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
-    'border-radius: 10px',
-    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
-    'min-width: 440px',
+    'border-radius: 10px 10px 0 0',
+    'box-shadow: 0 -2px 18px rgba(0,0,0,0.45)',
+    'min-width: 420px',
     'pointer-events: auto',
     'z-index: 11',
   ].join(';')
 
   // Aktive-Aktionen-Liste als absolutes Kind LINKS außerhalb der Hauptbox (verschiebt sie nicht).
   actionBar.appendChild(attackPanel)
+
+  /* ---- Oben Mitte: Truppen-Badge (prominente Anzeige) ---------------------- */
+  // Die Truppen-Leiste (mit Wachstums-Zonen) + Rate wandert nach OBEN MITTE als auffälliges
+  // Badge, damit die untere Box klein bleibt. Liest dieselben Elemente wie zuvor (update()).
+  const troopBadge = document.createElement('div')
+  troopBadge.style.cssText = [
+    'position: absolute',
+    'top: 12px',
+    'left: 50%',
+    'transform: translateX(-50%)',
+    'background: rgba(0,0,0,0.86)',
+    'color: white',
+    'padding: 7px 14px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 13px',
+    'border-radius: 10px',
+    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
+    'min-width: 320px',
+    'pointer-events: auto',
+    'z-index: 11',
+    'display: flex',
+    'flex-direction: column',
+    'gap: 2px',
+  ].join(';')
 
   // Truppen-Beschriftung liegt jetzt direkt IM Balken (zentriert, mit Schatten für
   // Lesbarkeit über den farbigen Segmenten).
@@ -436,11 +460,13 @@ export function createHUD(
   barWrap.style.flex = '1'
   barRow.appendChild(troopRateEl)
   barRow.appendChild(barWrap)
-  actionBar.appendChild(barRow)
+  troopBadge.appendChild(barRow)
 
   const barLegend = document.createElement('div')
-  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-bottom: 8px; margin-top: 3px'
-  actionBar.appendChild(barLegend)
+  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-top: 2px; min-height: 12px'
+  troopBadge.appendChild(barLegend)
+  container.appendChild(troopBadge)
+  registerScalable(troopBadge)
 
   const sliderWrap = document.createElement('div')
   sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px'
@@ -531,15 +557,12 @@ export function createHUD(
       'cursor: pointer',
     ].join(';')
     const top = document.createElement('span')
-    top.style.cssText = 'font-weight: bold; font-size: 12px'
+    top.style.cssText = 'font-weight: bold; font-size: 13px'
     top.textContent = `${BUILDING_HOTKEY[type]} ${BUILDING_GLYPH[type]}`
-    const name = document.createElement('span')
-    name.textContent = BUILDING_LABEL[type]
-    name.style.cssText = 'opacity: 0.85'
+    // Name steht im Tooltip + Radialmenü → hier nur Hotkey+Glyph + Kosten (kompakter Chip).
     const cost = document.createElement('span')
-    cost.style.cssText = 'color: #5dd75d; font-size: 13px; font-weight: bold'
+    cost.style.cssText = 'color: #5dd75d; font-size: 12px; font-weight: bold'
     btn.appendChild(top)
-    btn.appendChild(name)
     btn.appendChild(cost)
     btn.addEventListener('click', () => {
       onBuildClick(type)
