@@ -10,11 +10,14 @@ import { createAI, type AI } from './ai/ai'
 import {
   canBuildAt,
   createGame,
+  isFrozen,
   snapBuildTile,
   tick,
   type GameConfig,
   type PlayerDef,
 } from './core/game'
+import { areAllied } from './core/diplomacy'
+import { getOwner } from './world/map'
 import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
@@ -214,8 +217,37 @@ function startMatch(
     // Im Mehrspieler dem Server den eigenen Hash melden → Desync-Erkennung (→ Snapshot).
     net?.transport.reportHash(turn, hashState(state))
   })
-  const submit = (intent: Intent): void => {
+  const rawSubmit = (intent: Intent): void => {
     transport.submit([intent])
+  }
+
+  /**
+   * Liefert den Namen des verbündeten Ziels, wenn der Intent ein Angriff/Boot auf eine
+   * (nicht eingefrorene) verbündete Nation ist — sonst `null`. Grundlage für die Verrats-Warnung.
+   */
+  const treasonAllyName = (intent: Intent): string | null => {
+    if (intent.type !== 'attack' && intent.type !== 'boat') return null
+    const tile = intent.targetTile
+    if (tile < 0 || tile >= state.map.state.length) return null
+    const owner = getOwner(state.map, tile)
+    if (owner <= 0 || owner === humanId) return null
+    if (!areAllied(state.alliances, humanId, owner)) return null
+    if (isFrozen(state, owner)) return null // eingefrorene Verbündete: Angriff ist straffrei
+    return state.players.get(owner)?.name ?? null
+  }
+
+  // Angriff/Boot auf einen Verbündeten erst nach Bestätigung absenden (= Verrat, Ächtung).
+  const submit = (intent: Intent): void => {
+    const allyName = treasonAllyName(intent)
+    if (allyName !== null) {
+      confirmDialog.open(
+        `${allyName} ist mit dir verbündet. Ein Angriff ist VERRAT: das Bündnis bricht, ` +
+          `du wirst geächtet und nimmst eine Zeit lang 1,5× Schaden von allen. Trotzdem angreifen?`,
+        () => rawSubmit(intent),
+      )
+      return
+    }
+    rawSubmit(intent)
   }
 
   let inputHandler: InputHandler | null = null
