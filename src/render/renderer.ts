@@ -126,6 +126,18 @@ const WARSHIP_SPRITE: SpriteDef = {
   palette: { H: '#5c6670', D: '#8a929c', m: '#3a3f47', f: '#d24a4a' },
 }
 
+/** Transportboot: Holzrumpf mit Truppen-Fracht (über der Besitzer-Scheibe, neutral lesbar). */
+const BOAT_SPRITE: SpriteDef = {
+  rows: ['........', '...cc...', '..cccc..', 'wwwwwwww', 'wwwwwwww', '.wwwwww.'],
+  palette: { w: '#7a5638', c: '#cdb478' },
+}
+
+/** Handelsschiff: Rumpf + Mast/Fracht in Handels-Amber. */
+const TRADE_SPRITE: SpriteDef = {
+  rows: ['...s....', '...s....', '..gggg..', '.gggggg.', 'wwwwwwww', '.wwwwww.'],
+  palette: { w: '#6b5230', g: '#e8c14a', s: '#a98a52' },
+}
+
 /** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
 function rgbaToCssLocal(rgba: number): string {
   const r = (rgba >>> 24) & 0xff
@@ -1170,6 +1182,16 @@ export function createRenderer(
     if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
     return warshipSpriteCache
   }
+  let boatSpriteCache: HTMLCanvasElement | null | undefined
+  function getBoatSprite(): HTMLCanvasElement | null {
+    if (boatSpriteCache === undefined) boatSpriteCache = renderSpriteCanvas(BOAT_SPRITE)
+    return boatSpriteCache
+  }
+  let tradeSpriteCache: HTMLCanvasElement | null | undefined
+  function getTradeSprite(): HTMLCanvasElement | null {
+    if (tradeSpriteCache === undefined) tradeSpriteCache = renderSpriteCanvas(TRADE_SPRITE)
+    return tradeSpriteCache
+  }
 
   /**
    * Zeichnet die Fabrik-Netzwerk-Verbindungen: von jeder Fabrik eine dezente Linie zu
@@ -1360,17 +1382,37 @@ export function createRenderer(
       }
     }
 
-    // Handelsschiffe: kleiner, schlichter Punkt in Absender-Farbe (Gold-Default).
+    // Sprite über die Besitzer-Scheibe legen (crisp, nur ab mittlerem Zoom — sonst zu winzig).
+    const showShipSprites = r >= 4
+    const drawShipSprite = (
+      sprite: HTMLCanvasElement | null,
+      wx: number,
+      wy: number,
+      size: number,
+    ): void => {
+      if (sprite === null || !showShipSprites) return
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      if (sx < -size || sx > cssW + size || sy < -size || sy > cssH + size) return
+      const prev = screenCtx.imageSmoothingEnabled
+      screenCtx.imageSmoothingEnabled = false
+      screenCtx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size)
+      screenCtx.imageSmoothingEnabled = prev
+    }
+
+    // Handelsschiffe: Punkt in Absender-Farbe + kleines Handels-Sprite.
     const tradeR = Math.max(2.5, r * 0.85)
+    const tradeSprite = getTradeSprite()
     for (const ship of state.tradeShips) {
       const { wx, wy } = shipWorldPos(ship)
       const owner = state.players.get(ship.fromOwnerId)
       const fill = owner === undefined ? '#e8c14a' : rgbaToCssLocal(owner.color)
       drawDot(wx, wy, tradeR, fill, shipRelationRing(ship.fromOwnerId))
+      drawShipSprite(tradeSprite, wx, wy, tradeR * 2.4)
     }
     // Transport-Boote: größerer Punkt + weißer Doppel-Rand + Truppenzahl darüber —
     // klar von den Handelsschiffen abgehoben.
     const boatR = r * 1.45
+    const boatSprite = getBoatSprite()
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'bottom'
     screenCtx.font = `bold ${String(Math.max(10, Math.round(9 + camera.zoom * 0.5)))}px system-ui, sans-serif`
@@ -1379,6 +1421,7 @@ export function createRenderer(
       const player = state.players.get(boat.ownerId)
       const fill = player === undefined ? '#fff' : rgbaToCssLocal(player.color)
       drawDot(wx, wy, boatR, fill, shipRelationRing(boat.ownerId))
+      drawShipSprite(boatSprite, wx, wy, boatR * 1.9)
       // Truppenzahl als Label über dem Boot (nur die kameranächste Wrap-Kopie).
       const { sx, sy } = nearestWrappedScreenPos(wx, wy)
       if (sx > -60 && sx < cssW + 60 && sy > -20 && sy < cssH + 20) {
