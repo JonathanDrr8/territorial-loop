@@ -333,6 +333,25 @@ const TERRAIN_WAVE_PENALTY = 0.15
 const FRONT_SMOOTHING = 8
 
 /**
+ * Pro-Tile-Rauschen (Amplitude) im Eroberungs-Schlüssel: bricht die sonst schnurgerade/glatte
+ * Front leicht auf → organisch-wellige Ränder, OHNE den Zusammenhalt (FRONT_SMOOTHING) zu
+ * zerstören (sonst zersplittert die Eroberung). Etwa eine halbe Smoothing-Stufe.
+ */
+const FRONT_NOISE = 9
+
+/**
+ * Deterministisches Pro-Tile-Rauschen in [0,1) — stabiler Hash der Tile-ID (kein PRNG-State,
+ * MP-sicher). Stabil pro Tile → die wellige Front bleibt über die Ticks formstabil.
+ */
+function tileNoise(t: number): number {
+  let x = (t * 2654435761) >>> 0
+  x ^= x >>> 15
+  x = (x * 2246822519) >>> 0
+  x ^= x >>> 13
+  return (x >>> 0) / 4294967296
+}
+
+/**
  * Fokus-Gewicht für Angriffe auf Nationen (0..1): stark gedämpft (vs. 1.0 für
  * Wildnis), damit sich der Druck über die ganze gemeinsame Grenze verteilt, statt
  * gezielt am Klick-Punkt zu konzentrieren — gesicherte Grenzen werden zäh.
@@ -2611,8 +2630,9 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   // Rundum-Ausbreitung (omni): kein Richtungs-Fokus UND keine Bucht-Bevorzugung → die
   // Eroberung verteilt sich (über den Vorab-Shuffle) gleichmäßig über die GANZE Grenze, statt
   // sich erst in konkave Buchten zu fressen. Terrain-Bremse bleibt. Sonst: Fokus + Glättung.
+  // omni hat keinen Richtungs-Fokus (focusPull 0), nutzt aber DENSELBEN Zusammenhalt
+  // (FRONT_SMOOTHING) wie gerichtete Angriffe — sonst zerstreut sich die Eroberung in Fragmente.
   const focusPull = attack.omni === true ? 0 : vsTerraNullius ? 1 : NATION_FOCUS_PULL
-  const smoothing = attack.omni === true ? 0 : FRONT_SMOOTHING
   const keyed = tiles.map((t) => {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
@@ -2620,7 +2640,10 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     const own = ownNeighborCount(state, t, attacker.id)
     const terrainPenalty =
       (terrainMagnitude(state.map.terrain, t) - PLAINS_MAG) * TERRAIN_WAVE_PENALTY
-    return { t, key: dist * focusPull - own * smoothing + terrainPenalty }
+    // Rauschen bricht die Front organisch auf (wellig statt schnurgerade), ohne den Zusammenhalt
+    // zu zerstören — verhindert sowohl gerade Linien als auch zersplitterte Eroberung.
+    const noise = (tileNoise(t) - 0.5) * FRONT_NOISE
+    return { t, key: dist * focusPull - own * FRONT_SMOOTHING + terrainPenalty + noise }
   })
   keyed.sort((a, b) => a.key - b.key)
 
