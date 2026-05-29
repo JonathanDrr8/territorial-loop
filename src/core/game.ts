@@ -944,7 +944,8 @@ const FACTORY_FOREIGN_MULT = 3
  * (beide gleich viel Gold/Kosten). An OpenFronts diminishing-returns (nach 10 Stops) angelehnt.
  */
 const FACTORY_OWN_CAP = 4
-const FACTORY_FOREIGN_CAP = 4
+/** Max. ausländische Ziele je Fabrik (exportiert, damit das Rendering die Viz exakt spiegelt). */
+export const FACTORY_FOREIGN_CAP = 4
 
 /**
  * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht

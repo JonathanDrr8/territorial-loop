@@ -19,6 +19,7 @@ import { FACTORY_LINK_RANGE } from '../core/config'
 import {
   canBuildAt,
   CAPTURE_FADE_TICKS,
+  FACTORY_FOREIGN_CAP,
   snapBuildTile,
   type GameState,
   type Player,
@@ -1127,6 +1128,35 @@ export function createRenderer(
         screenCtx.stroke()
       }
     }
+    // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
+    // embargoierten) Städten/Häfen in Reichweite — die den 3×-Gold-Bonus bringen (gespiegelt am
+    // FACTORY_FOREIGN_CAP). Macht sichtbar, dass Fabriken auch über Grenzen hinweg „verbinden".
+    const embargoed = (a: number, b: number): boolean =>
+      state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
+    screenCtx.setLineDash([5, 4])
+    screenCtx.strokeStyle = 'rgba(255,200,90,0.55)'
+    for (const f of eco) {
+      if (!f.factory) continue
+      const fpx = f.tile % mapW
+      const fpy = Math.floor(f.tile / mapW)
+      const fp = nearestWrappedScreenPos(fpx + 0.5, fpy + 0.5)
+      let drawn = 0
+      for (const e of eco) {
+        if (drawn >= FACTORY_FOREIGN_CAP) break
+        if (e.factory || e.ownerId === f.ownerId || e.ownerId <= 0) continue // nur fremde Stadt/Hafen
+        if (embargoed(f.ownerId, e.ownerId)) continue
+        const ex = e.tile % mapW
+        const ey = Math.floor(e.tile / mapW)
+        if (torusDistance(fpx, fpy, ex, ey, mapW, mapH) > FACTORY_LINK_RANGE) continue
+        const ep = nearestWrappedScreenPos(ex + 0.5, ey + 0.5)
+        screenCtx.beginPath()
+        screenCtx.moveTo(fp.sx, fp.sy)
+        screenCtx.lineTo(ep.sx, ep.sy)
+        screenCtx.stroke()
+        drawn++
+      }
+    }
+    screenCtx.setLineDash([])
     screenCtx.restore()
   }
 
