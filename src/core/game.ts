@@ -1268,10 +1268,50 @@ function livingPair(state: GameState, a: number, b: number): [Player, Player] | 
 }
 
 /** Schließt eine Allianz (a,b) und setzt ihren Ablauf-Tick. */
+/** Bricht laufende Angriffe zwischen `a` und `b` ab (beide Richtungen) und gibt die Reserve zurück. */
+function cancelAttacksBetween(state: GameState, a: number, b: number): void {
+  const stop = (attackerId: number, victimId: number): void => {
+    const p = state.players.get(attackerId)
+    if (p === undefined || p.attacks.length === 0) return
+    p.attacks = p.attacks.filter((atk) => {
+      if (atk.targetPlayerId !== victimId) return true
+      p.troops += atk.reserveTroops // Truppen aus dem abgebrochenen Angriff zurück in den Pool
+      return false
+    })
+  }
+  stop(a, b)
+  stop(b, a)
+}
+
 function formAlliance(state: GameState, a: number, b: number): void {
   const key = pairKey(a, b)
   state.alliances.add(key)
   state.allianceExpiry.set(key, state.tick + ALLIANCE_DURATION_TICKS)
+  // Mit dem Bündnis schweigen die Waffen: laufende Angriffe zwischen beiden sofort abbrechen.
+  cancelAttacksBetween(state, a, b)
+}
+
+/**
+ * Verrat: bricht ein bestehendes Bündnis zwischen `traitorId` und `betrayedId`, ächtet den
+ * Verräter (Verteidigungs-Malus auf Zeit) und meldet es. No-op, wenn kein Bündnis besteht.
+ */
+function betrayAlliance(state: GameState, traitorId: number, betrayedId: number): void {
+  const key = pairKey(traitorId, betrayedId)
+  if (!state.alliances.has(key)) return
+  state.alliances.delete(key)
+  state.allianceExpiry.delete(key)
+  const traitor = state.players.get(traitorId)
+  const betrayed = state.players.get(betrayedId)
+  if (traitor !== undefined) traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
+  if (traitor !== undefined && betrayed !== undefined) {
+    emitDiploEvent(
+      state,
+      traitor,
+      betrayed,
+      `${traitor.name} verrät ${betrayed.name}!`,
+      traitor.color,
+    )
+  }
 }
 
 /** Ab so vielen Spielern wird Bot-zu-Bot-Diplomatie nicht mehr geloggt (nur Mensch-bezogene). */
@@ -1347,18 +1387,7 @@ function applyDeclineAllianceIntent(state: GameState, intent: DeclineAllianceInt
 function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent): void {
   const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
   if (pair === null) return
-  const [traitor, betrayed] = pair
-  if (!areAllied(state.alliances, traitor.id, betrayed.id)) return
-  state.alliances.delete(pairKey(traitor.id, betrayed.id))
-  state.allianceExpiry.delete(pairKey(traitor.id, betrayed.id))
-  traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
-  emitDiploEvent(
-    state,
-    traitor,
-    betrayed,
-    `${traitor.name} verrät ${betrayed.name}!`,
-    traitor.color,
-  )
+  betrayAlliance(state, pair[0].id, pair[1].id)
 }
 
 function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void {
@@ -1442,12 +1471,9 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
       isPassable(state.map.terrain, intent.targetTile)
     ) {
       const owner = getOwner(state.map, intent.targetTile)
-      if (
-        owner > 0 &&
-        owner !== player.id &&
-        !areAllied(state.alliances, player.id, owner) &&
-        reachableByLand(state, player, intent.targetTile)
-      ) {
+      if (owner > 0 && owner !== player.id && reachableByLand(state, player, intent.targetTile)) {
+        // Angriff auf einen Verbündeten = Verrat (Bündnis bricht, Ächtung), dann greift man an.
+        if (areAllied(state.alliances, player.id, owner)) betrayAlliance(state, player.id, owner)
         omniTarget = owner
       }
     }
@@ -1477,8 +1503,10 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
 
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Selbst-Angriff
-  // Verbündete kann man nicht angreifen — erst das Bündnis brechen.
-  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) return
+  // Angriff auf einen Verbündeten = Verrat: Bündnis bricht + Ächtung, dann läuft der Angriff.
+  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) {
+    betrayAlliance(state, player.id, targetOwner)
+  }
 
   const troops = Math.min(intent.troops, player.troops)
   if (troops <= 0) return
@@ -1522,7 +1550,10 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
 
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Boot ins eigene Gebiet
-  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) return
+  // Boot-Angriff auf einen Verbündeten = Verrat (Bündnis bricht), dann fährt das Boot.
+  if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) {
+    betrayAlliance(state, player.id, targetOwner)
+  }
   // Bewusst KEINE „über Land erreichbar"-Sperre mehr: ein Boot darf zu jedem Küsten-Ziel
   // fahren, zu dem ein Wasserweg existiert — auch wenn das Ziel über Land erreichbar wäre
   // (z.B. eine kurze Überfahrt, um eine gegnerische Verteidigungslinie an der Landgrenze zu

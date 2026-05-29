@@ -22,7 +22,7 @@ import {
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
-import { directedKey } from '../src/core/diplomacy'
+import { areAllied, directedKey, pairKey } from '../src/core/diplomacy'
 
 /** Validate that every tile in each player's frontier is actually a border tile. */
 function assertFrontierConsistency(state: GameState): void {
@@ -501,6 +501,48 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     for (let i = 0; i < 31; i++) tick(state, [])
     expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0) // Gunst entstand
     expect(p2.gold).toBeGreaterThan(goldBefore) // Nachbar bekam (auch) den Gold-Bonus
+  })
+
+  it('Bündnis-Bildung bricht laufende Angriffe zwischen den Partnern ab', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    p1.troops = 1000
+    p1.attacks = [
+      { targetPlayerId: 2, reserveTroops: 500, focusTile: 0, frontTile: 0, startTick: 0 },
+    ]
+    state.allianceRequests.add(directedKey(2, 1)) // Spieler 2 hat 1 ein Bündnis angeboten
+    tick(state, [{ type: 'accept-alliance', playerId: 1, targetPlayerId: 2 }])
+    expect(areAllied(state.alliances, 1, 2)).toBe(true)
+    expect(p1.attacks.some((a) => a.targetPlayerId === 2)).toBe(false) // Angriff abgebrochen
+  })
+
+  it('Angriff auf einen Verbündeten gilt als Verrat (Bündnis bricht + Ächtung)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+    }
+    const t1 = tileRef(10, 10, W, H)
+    const t2 = tileRef(11, 10, W, H)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('player missing')
+    setOwner(state.map, t1, 1)
+    p1.tilesOwned = 1
+    p1.frontier.add(t1)
+    setOwner(state.map, t2, 2)
+    p2.tilesOwned = 1
+    p2.frontier.add(t2)
+    p1.troops = 1000
+    state.alliances.add(pairKey(1, 2))
+    state.allianceExpiry.set(pairKey(1, 2), 99999)
+    tick(state, [{ type: 'attack', playerId: 1, targetTile: t2, troops: 500 }])
+    expect(areAllied(state.alliances, 1, 2)).toBe(false) // Bündnis gebrochen
+    expect(p1.traitorUntil).toBeGreaterThan(state.tick) // Angreifer geächtet
   })
 
   it('snapBuildTile rastet auf ein nahes eigenes Gebäude gleichen Typs', () => {

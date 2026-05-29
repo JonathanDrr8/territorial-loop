@@ -8,7 +8,7 @@ import {
   AECHTUNG_DURATION_TICKS,
   ALLIANCE_DURATION_TICKS,
 } from '../src/core/diplomacy'
-import { getOwner, setOwner } from '../src/world/map'
+import { setOwner } from '../src/world/map'
 import { tileRef } from '../src/world/torus'
 
 const W = 12
@@ -99,7 +99,7 @@ describe('alliance lifecycle', () => {
     expect(state.allianceExpiry.size).toBe(0)
   })
 
-  it('blocks attacks between allies', () => {
+  it('Angriff auf einen Verbündeten gilt als Verrat (bricht Bündnis, dann greift man an)', () => {
     const state = createGame(cfg())
     reset(state)
     own(state, 1, 1, 1)
@@ -110,10 +110,12 @@ describe('alliance lifecycle', () => {
     // verbünden
     tick(state, [{ type: 'request-alliance', playerId: 1, targetPlayerId: 2 }])
     tick(state, [{ type: 'accept-alliance', playerId: 2, targetPlayerId: 1 }])
-    // Angriff auf Verbündeten wird abgelehnt
+    expect(areAllied(state.alliances, 1, 2)).toBe(true)
+    // Angriff auf den Verbündeten → Verrat: Bündnis bricht, Angriff läuft trotzdem an.
     tick(state, [{ type: 'attack', playerId: 1, targetTile: allyTile, troops: 1000 }])
-    expect(p1.attacks.length).toBe(0)
-    expect(getOwner(state.map, allyTile)).toBe(2)
+    expect(areAllied(state.alliances, 1, 2)).toBe(false)
+    expect(p1.traitorUntil).toBeGreaterThan(state.tick)
+    expect(p1.attacks.some((a) => a.targetPlayerId === 2)).toBe(true)
   })
 })
 
