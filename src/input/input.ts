@@ -133,12 +133,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   /**
    * Dynamisches Zoom-Minimum.
-   *  - Kamera-Box an: `max(canvasW/mapW, canvasH/mapH)` → keine Achse zeigt >1 Periode.
+   *  - Kamera-Box an: man darf bis ~halbe Welt-Füllung rauszoomen — der Renderer zeigt dann
+   *    nur EINE Welt-Kopie mit schwarzen Rändern (kein Kacheln). So sieht man die ganze Welt
+   *    auf einen Blick, ohne „Tapete".
    *  - Kamera-Box aus: bis ~87% Füllung (das Kacheln übernimmt den Rest); nie unter ZOOM_MIN_ABS.
    */
   function minZoom(): number {
     if (cameraBox) {
-      return Math.max(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
+      // ganze Welt sichtbar + etwas Rand: 0.6 × „Welt passt komplett"-Zoom.
+      const fit = Math.min(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
+      return Math.max(ZOOM_MIN_ABS, fit * 0.6)
     }
     const fitW = canvas.clientWidth / (mapWidth * 1.15)
     const fitH = canvas.clientHeight / (mapHeight * 1.15)

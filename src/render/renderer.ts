@@ -173,6 +173,8 @@ export interface Renderer {
   clearHoverTile(): void
   /** Markiert das gehoverte (gesnappte) Objekt mit einem Ring; null = keine Markierung. */
   setHoverHighlight(h: { wx: number; wy: number; kind: 'ship' | 'building' } | null): void
+  /** Kamera-Box an/aus (steuert Einzel-Kopie-Rendering + schwarze Ränder beim Rauszoomen). */
+  setCameraBox(on: boolean): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
@@ -699,12 +701,20 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const tileDrawW = Math.ceil(mapW * z) + 1
     const tileDrawH = Math.ceil(mapH * z) + 1
 
-    for (let wx = xStart; wx < worldRight; wx += mapW) {
-      for (let wy = yStart; wy < worldBottom; wy += mapH) {
+    // Kamera-Box: überspannt der Viewport eine ganze Periode, nur EINE Kopie (an der kanonischen
+    // Welt-Position 0) zeichnen → Rest bleibt Hintergrund (schwarze Ränder) statt Tapete.
+    // Reingezoomt (Viewport < Periode) bleibt das Kacheln für den nahtlosen Seam erhalten.
+    const singleX = cameraBox && worldRight - worldLeft >= mapW
+    const singleY = cameraBox && worldBottom - worldTop >= mapH
+
+    for (let wx = singleX ? 0 : xStart; wx < worldRight; wx += mapW) {
+      for (let wy = singleY ? 0 : yStart; wy < worldBottom; wy += mapH) {
         const sx = Math.round((wx - worldLeft) * z)
         const sy = Math.round((wy - worldTop) * z)
         screenCtx.drawImage(offscreen, sx, sy, tileDrawW, tileDrawH)
+        if (singleY) break
       }
+      if (singleX) break
     }
   }
 
@@ -712,6 +722,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let hoverTile: { x: number; y: number } | null = null
   // Gehovertes (gesnapptes) Objekt — Ring-Markierung, damit bei mehreren klar ist, was gemeint ist.
   let hoverHighlight: { wx: number; wy: number; kind: 'ship' | 'building' } | null = null
+  // Kamera-Box: bei aktivem Modus nie endlos kacheln — überspannt der Viewport eine ganze
+  // Welt-Periode, wird nur EINE Kopie gezeichnet (Rest = Hintergrund / „schwarze Ränder").
+  let cameraBox = true
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
@@ -1627,6 +1640,31 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       paintBitmap()
       lastBitmapTick = state.tick
     }
+    // Kamera-Box & weit rausgezoomt: nur EINE Welt-Kopie sichtbar → Rest schwarz, und alles
+    // auf den Welt-Block clippen, damit keine gewrappten Objekt-Kopien in den Rändern geistern.
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const singleX = cameraBox && cssW / z >= mapW
+    const singleY = cameraBox && cssH / z >= mapH
+    const clipped = singleX || singleY
+    if (clipped) {
+      const worldLeft = camera.x - cssW / 2 / z
+      const worldTop = camera.y - cssH / 2 / z
+      screenCtx.fillStyle = BG_FILL
+      screenCtx.fillRect(0, 0, cssW, cssH)
+      screenCtx.save()
+      screenCtx.beginPath()
+      screenCtx.rect(
+        singleX ? (0 - worldLeft) * z : 0,
+        singleY ? (0 - worldTop) * z : 0,
+        singleX ? mapW * z : cssW,
+        singleY ? mapH * z : cssH,
+      )
+      screenCtx.clip()
+    }
     drawTiled()
     drawCaptureFlashes()
     drawFlashes()
@@ -1643,6 +1681,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawBuildPreview()
     drawMarkers()
     drawLabels()
+    if (clipped) screenCtx.restore()
     drawSelectionBox()
   }
 
@@ -1667,6 +1706,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     h: { wx: number; wy: number; kind: 'ship' | 'building' } | null,
   ): void {
     hoverHighlight = h
+  }
+
+  function setCameraBox(on: boolean): void {
+    cameraBox = on
   }
 
   /** Markiert das gehoverte Objekt mit einem pulsierenden Ring (Schiff größer als Gebäude-Tile). */
@@ -1719,6 +1762,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     setHoverTile,
     clearHoverTile,
     setHoverHighlight,
+    setCameraBox,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
     },

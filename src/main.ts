@@ -132,6 +132,7 @@ function startMatch(
   const config = buildConfig(menu, spectator)
   const state = createGame(config)
   const renderer = createRenderer(container, state)
+  renderer.setCameraBox(menu.cameraBox)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
   // das Canvas hier noch nicht final dimensioniert ist.)
@@ -262,6 +263,7 @@ function startMatch(
     playerId: HUMAN_ID,
     interactive: !spectator,
     cameraBox: menu.cameraBox,
+    onCameraBoxChange: (on) => renderer.setCameraBox(on),
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,
