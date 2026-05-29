@@ -48,7 +48,8 @@ import {
   type ActiveSession,
 } from './ui/preferences'
 import { createSoundEngine } from './ui/sound'
-import { createStartMenu, TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
+import { TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
+import { createMenuShell } from './ui/menu-shell'
 
 const SOLO_PLAYER_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
@@ -670,38 +671,42 @@ function main(): void {
   function showMenu(): void {
     const initial = loadMenuPrefs(DEFAULT_MENU)
     const activeSession = loadActiveSession()
-    const menu = createStartMenu(
+    const menu = createMenuShell(
       container,
       initial,
-      (values, spectator) => {
-        saveMenuPrefs(values)
-        clearActiveSession() // ein frisches (Single-)Match verwirft eine alte MP-Sitzung
-        menu.destroy()
-        if (session !== null) {
-          session.destroy()
-          session = null
-        }
-        // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
-        // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
-        const removeLoading = showLoadingOverlay(container)
-        requestAnimationFrame(() => {
+      {
+        onStart: (values, spectator) => {
+          saveMenuPrefs(values)
+          clearActiveSession() // ein frisches (Single-)Match verwirft eine alte MP-Sitzung
+          menu.destroy()
+          if (session !== null) {
+            session.destroy()
+            session = null
+          }
+          // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
+          // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
+          const removeLoading = showLoadingOverlay(container)
           requestAnimationFrame(() => {
-            try {
-              session = startMatch(container, values, backToMenu, spectator)
-            } finally {
-              removeLoading()
-            }
+            requestAnimationFrame(() => {
+              try {
+                session = startMatch(container, values, backToMenu, spectator)
+              } finally {
+                removeLoading()
+              }
+            })
           })
-        })
-      },
-      () => {
-        menu.destroy()
-        showLobby(initial)
-      },
-      // Lobby-Browser (linke Spalte): Klick auf eine offene Lobby tritt direkt bei.
-      (code) => {
-        menu.destroy()
-        showLobby(initial, code)
+        },
+        onMultiplayer: (values) => {
+          saveMenuPrefs(values)
+          menu.destroy()
+          showLobby(values)
+        },
+        // Lobby-Browser: Klick auf eine offene Lobby tritt direkt bei.
+        onJoinLobby: (code, values) => {
+          saveMenuPrefs(values)
+          menu.destroy()
+          showLobby(values, code)
+        },
       },
       loadServerUrl(defaultServerUrl()),
     )

@@ -26,22 +26,32 @@ HUD, Menüs, Modals — alles was nicht im Pixi-Canvas, sondern als DOM-Element 
 
 ## Öffentliche API
 
-### `start-menu.ts` — Match-Konfigurator vor dem Spielstart
+### `menu-shell.ts` — Hauptmenü-Shell (ADR-0014)
+
+Top-Nav-Shell mit Kategorie-Tabs (Spielen / Mehrspieler / Einstellungen / Changelog / Hilfe),
+Header (Logo + Version, Name-Feld, Sprach-Umschalter de/en) und Footer. Komponiert die
+Tab-Inhalte aus dem Toolkit von `start-menu.ts` und bestehenden Bausteinen (`lobby-browser.ts`,
+Mehrspieler-Dialog via Callback). Texte über `t()` (siehe `src/i18n/`).
 
 ```ts
-interface StartMenuValues {
-  playerName: string
-  mapSize: number // 128 | 256 | 512 | 1024
-  aiCount: number // 1-7
-  victoryPct: number // 50-100 in 5er Schritten
-}
-
-function createStartMenu(
+function createMenuShell(
   container: HTMLElement,
   initial: StartMenuValues,
-  onStart: (values: StartMenuValues) => void,
-): { destroy(): void }
+  callbacks: {
+    onStart(values: StartMenuValues, spectator: boolean): void
+    onMultiplayer(values: StartMenuValues): void
+    onJoinLobby(code: string, values: StartMenuValues): void
+  },
+  serverUrl?: string,
+): { destroy(): void; showReconnect(room: string, cb: () => void): void }
 ```
+
+### `start-menu.ts` — Menü-Typen + Formular-Toolkit
+
+Keine eigene UI mehr (das alte Overlay ist in `menu-shell.ts` aufgegangen). Liefert die geteilten
+Typen (`StartMenuValues`, `CameraMode`, …), Style-Konstanten und die Widget-Builder
+(`makeSliderRow`, `makeSelectRow`, `makeTextRow`, `makeCheckRow`, `makeMapRow`), aus denen die
+Tabs der Shell zusammengesetzt werden.
 
 ### `hud.ts` — Spieler-Stats, Truppen-Slider, Game-Over-Banner
 

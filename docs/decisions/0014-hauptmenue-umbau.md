@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed (Plan — Struktur-Entscheidungen mit Jonathan getroffen; Phase 1 wartet auf „los").
+Accepted — **Phase 1 umgesetzt** (Menü-Shell mit Header-Nav/Tabs/Footer, i18n-Fundament de/en,
+Hilfe = Spielmechaniken, Changelog gerendert). Phasen 2–4 weiterhin Proposed.
 
 ## Datum
 
@@ -79,9 +80,14 @@ im Footer. **Default-Tab:** „Spielen".
 
 ## Phasen (kleine Schritte, [[feedback-kleine-schritte-ui]])
 
-1. **Shell + Reorg (keine neue Funktion):** Header-Nav + Tab-Routing + Footer + Hintergrund; die
-   **vorhandenen** Inhalte in Tabs einsortiert (Spielen/Mehrspieler/Einstellungen/Changelog/Hilfe).
-   Großer optischer Schritt, aber risikoarm (Logik unverändert). **Hier zuerst Freigabe per Mockup.**
+1. ✅ **Shell + Reorg (umgesetzt):** Header-Nav + Tab-Routing + Footer + dezenter Verlaufs-Hintergrund;
+   Inhalte in fünf Tabs einsortiert. Zusätzlich gleich umgesetzt: **i18n-Fundament** (`src/i18n/`,
+   `t()` + de/en, Sprach-Umschalter im Header, navigator.language-Default, persistiert — das ganze
+   Menü ist zweisprachig), **Hilfe = Spielmechaniken** (12 Themenblöcke, ohne Emojis), **Changelog**
+   aus `CHANGELOG.md` gerendert (spielerorientiert gekürzt). `createStartMenu` → `createMenuShell`;
+   `start-menu.ts` ist jetzt Typen + Formular-Toolkit. Sprachwechsel baut die Shell mit erhaltenen
+   Feldständen/Tab neu. Verifiziert: typecheck/lint/312 Tests grün + Playwright durch alle Tabs.
+   _Noch deutsch (1b):_ die internen Texte von `lobby-browser.ts` / Mehrspieler-Dialog / Feedback.
 2. **Mehrspieler-Tab-Politik:** Lobby-Browser inkl. laufender Spiele (= Zuschauen-Einstieg, der
    ohnehin anstehende Schritt), Erstellen/Beitreten/Privat sauber im Tab statt im Extra-Dialog.
 3. **Politur:** Karten-Vorschau-Kacheln im „Spielen"-Tab (wie OpenFronts Karten-Karten, aber aus
@@ -94,6 +100,12 @@ im Footer. **Default-Tab:** „Spielen".
    **Leaderboard erst später** (mit Accounts/ELO, [[feature-idea-accounts-elo]]) — jetzt kein Platzhalter.
 2. ✅ **Getrennte Tabs:** „Spielen" (Solo-Setup + Match starten/Zuschauen) und „Mehrspieler"
    (Lobby-Browser + Erstellen/Beitreten) als eigene Tabs.
+3. ✅ **Hilfe = Spielmechaniken** erklären (Wirtschaft/Fabriken, Schiffe, Diplomatie/Verrat, Kampf,
+   wilde Nationen, Kamera/Torus …), nicht nur Steuerung.
+4. ✅ **i18n-Fundament jetzt:** leichtes `t(key)` + `de`/`en`-Wörterbücher + Sprach-Umschalter im
+   Header. **Neue Oberfläche (Menü-Shell + Hilfe) gleich zweisprachig**; bestehendes In-Game-HUD
+   bleibt vorerst Deutsch und wird **inkrementell** über `t()` migriert. Default-Sprache aus
+   `navigator.language` (de→de, sonst en), persistiert. Neues `src/i18n/`.
 
 ### Noch offen (Phase 3 / unkritisch)
 

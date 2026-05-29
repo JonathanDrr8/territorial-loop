@@ -1,48 +1,37 @@
 # Changelog
 
-Alle nennenswerten Änderungen an `territorial-loop`. Format angelehnt an
-[Keep a Changelog](https://keepachangelog.com/de/), Versionierung nach [SemVer](https://semver.org/lang/de/).
+Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+### Neu
+
+- **Neues Hauptmenü** mit Kategorien (Spielen, Mehrspieler, Einstellungen, Changelog, Hilfe),
+  Sprachwahl Deutsch/Englisch und einer Hilfe-Seite, die die Spielmechaniken erklärt.
+
 ## [0.1.1] – 2026-05-29
 
-### Hinzugefügt
+### Neu
 
-- **Privat/Öffentlich pro Lobby:** Host-Toggle „Sichtbar" — öffentliche Lobbys erscheinen im
-  Server-Browser, private nur per Code/Link.
-- **Einladungslinks:** `https://loop.jarhost.de/?room=CODE` öffnet das Spiel direkt in der Lobby;
-  in der Lobby gibt es einen „🔗 Kopieren"-Knopf.
-- **Zufalls-Default-Name** pro Browser (statt „Du" für alle; wichtig fürs namensbasierte Reconnect).
+- **Private und öffentliche Lobbys:** öffentliche erscheinen im Lobby-Browser, private nur per
+  Code oder Einladungslink.
+- **Einladungslinks** öffnen das Spiel direkt in der richtigen Lobby.
+- **Zufälliger Spielername** für jeden — statt überall „Du".
 
 ### Behoben
 
-- **„Leiche":** der „Wieder verbinden"-Knopf erscheint nur noch, wenn der Server bestätigt, dass
-  Raum/Slot wirklich rejoinable sind (`/rejoinable`) — sonst wird die alte Sitzung verworfen.
-- Feedback-Lese-Skript griff den Container- statt Host-Volume-Pfad.
+- „Wieder verbinden" erscheint nur noch, wenn das Spiel wirklich noch läuft.
 
 ## [0.1.0] – 2026-05-29
 
-Erste versionierte, **online spielbare** Fassung (gehostet auf `loop.jarhost.de`).
+Erste online spielbare Fassung.
 
-### Hinzugefügt
+### Neu
 
-- **Mehrspieler (server-autoritatives Lockstep, ADR-0009):** simulierender Node+ws-Server,
-  Client-`NetworkTransport`, Lobby (Raum-Code, Ready, host-konfigurierbare Match-Settings),
-  **Server-Browser** (offene Lobbys im Hauptmenü), **Reconnect** nach Verbindungsabbruch
-  (Snapshot), adaptiver Input-Delay (Latenz-gemessen).
-- **Deployment:** ein Node-Prozess liefert Client + Lockstep; Docker-Build aus GitHub;
-  Auto-Lockstep-Server im Vite-Dev; gehostet hinter Caddy (TLS).
-- **Determinismus-Fundament:** serialisierbarer PRNG-State, `serializeState`/`deserializeState`,
-  Replay-Harness, cross-engine-deterministische Mathematik (`det-math`).
-- **Spielmechanik (Auswahl):** Fabrik-Netzwerk-Wirtschaft inkl. Auslands-Bonus (auch fremde
-  Fabriken), Kriegsschiffe/Handel/Boote, Diplomatie mit Verrat (Bestätigungsdialog + Verräter
-  auf Karte/HUD sichtbar), Beziehungssystem (Groll/Gunst), wilde Nationen, Terrain-Höhen,
-  4-stufige Kamera-Darstellung.
-
-### Behoben
-
-- Multiplayer: eigene Angriffe/HUD korrekt dem lokalen Spieler zugeordnet (statt erstem Menschen).
-
-[Unreleased]: https://github.com/JonathanDrr8/territorial-loop/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/JonathanDrr8/territorial-loop/releases/tag/v0.1.0
+- **Mehrspieler:** Lobby mit Raum-Code, Lobby-Browser für offene Spiele, Wieder-verbinden nach
+  Verbindungsabbruch.
+- **Wirtschaft über Fabrik-Netzwerke** — Verbindungen zu anderen Nationen bringen mehr Gold.
+- **Schiffe:** Kriegsschiffe, Handelsschiffe und Transportboote.
+- **Diplomatie** mit Bündnissen und Verrat (Verräter werden sichtbar geächtet).
+- **Beziehungen** (Groll & Gunst), **wilde Nationen**, **Terrain mit Höhen** und mehrere
+  **Kamera-Darstellungen**.
