@@ -506,6 +506,34 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
+  it('Fabrik verbindet sich auch mit FREMDER Fabrik (3× Gold beidseitig + Gunst)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const myFactory = tileRef(20, 20, W, H) // Spieler 1
+    const theirFactory = tileRef(22, 20, W, H) // Spieler 2, in Reichweite
+    state.buildings.set(myFactory, {
+      type: 'factory',
+      ownerId: 1,
+      tile: myFactory,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(theirFactory, {
+      type: 'factory',
+      ownerId: 2,
+      tile: theirFactory,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // Beide Fabriken zählen sich gegenseitig als Auslands-Ziel (3× Gold).
+    expect(goldBreakdown(state, 1).factory).toBe(FACTORY_GOLD_PER_DEST * 3)
+    expect(goldBreakdown(state, 2).factory).toBe(FACTORY_GOLD_PER_DEST * 3)
+    // Gunst entsteht beidseitig.
+    for (let i = 0; i < 31; i++) tick(state, [])
+    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
+  })
+
   it('Eigene Ziele je Fabrik sind gedeckelt (kein Cluster-Quadrat)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width

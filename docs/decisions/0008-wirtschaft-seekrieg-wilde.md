@@ -102,7 +102,8 @@ Nach Analyse + Simulation (an OpenFront angelehnt) neu austariert:
   Cluster-Schneeball übers Eigen-Netz) und gibt dem **Level** Sinn: Level multipliziert das Gold
   im festen Deckel → eine L2-Fabrik = zwei L1 (gleich Gold/Kosten), L2 spart Platz, Duplizieren
   deckt mehr Fläche ab — echter Trade-off statt Dominanz. **Ausland bleibt 3×** → Partner/Grenzen
-  sind der Skalier-Weg (gegen Turtling).
+  sind der Skalier-Weg (gegen Turtling). **Auslands-Ziele = fremde Städte/Häfen UND Fabriken**
+  (symmetrisch zum Eigen-Netz; zwei Fabriken über die Grenze verbinden sich gegenseitig).
 - **Hafen/Handel:** `tradeGold = 300 + 12×Distanz` (vorher 200+6) → Häfen schließen wirtschaftlich
   auf (sim: Turtle-Fabriken ≈ Hafen-Netz statt Faktor 3–20).
 - **Piraterie:** ein Kriegsschiff, das ein Handelsschiff versenkt, **erbeutet die Fracht** (2× =

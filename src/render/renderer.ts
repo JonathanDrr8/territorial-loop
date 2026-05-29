@@ -1129,8 +1129,9 @@ export function createRenderer(
       }
     }
     // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
-    // embargoierten) Städten/Häfen in Reichweite — die den 3×-Gold-Bonus bringen (gespiegelt am
-    // FACTORY_FOREIGN_CAP). Macht sichtbar, dass Fabriken auch über Grenzen hinweg „verbinden".
+    // embargoierten) Wirtschaftsgebäuden (Stadt/Hafen/Fabrik) in Reichweite — die den 3×-Gold-
+    // Bonus bringen (gespiegelt am FACTORY_FOREIGN_CAP). Zeigt, dass Fabriken auch über Grenzen
+    // „verbinden".
     const embargoed = (a: number, b: number): boolean =>
       state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
     screenCtx.setLineDash([5, 4])
@@ -1143,7 +1144,8 @@ export function createRenderer(
       let drawn = 0
       for (const e of eco) {
         if (drawn >= FACTORY_FOREIGN_CAP) break
-        if (e.factory || e.ownerId === f.ownerId || e.ownerId <= 0) continue // nur fremde Stadt/Hafen
+        // Fremde (nicht eigene) Wirtschaftsgebäude: Stadt/Hafen/Fabrik — wie der Gold-Bonus.
+        if (e.ownerId === f.ownerId || e.ownerId <= 0) continue
         if (embargoed(f.ownerId, e.ownerId)) continue
         const ex = e.tile % mapW
         const ey = Math.floor(e.tile / mapW)

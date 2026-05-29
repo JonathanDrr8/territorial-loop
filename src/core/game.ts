@@ -766,7 +766,10 @@ function applyFactoryDiplomacy(state: GameState): void {
     const x = b.tile % width
     const y = Math.floor(b.tile / width)
     if (b.type === 'factory') factories.push({ x, y, owner: b.ownerId })
-    if (b.type === 'city' || b.type === 'port') dests.push({ x, y, owner: b.ownerId })
+    // Ziele für Gunst = fremde Städte/Häfen UND Fabriken (eine Fabrik verbindet sich auch mit
+    // fremden Fabriken, analog zum Gold-Bonus in factoryForeignContribution).
+    if (b.type === 'city' || b.type === 'port' || b.type === 'factory')
+      dests.push({ x, y, owner: b.ownerId })
   }
   if (factories.length === 0 || dests.length === 0) return
   // Pro (Fabrik, fremdes Ziel)-Nachbarschaft höchstens EINMAL pro Paar Gunst gutschreiben.
@@ -948,9 +951,11 @@ const FACTORY_OWN_CAP = 4
 export const FACTORY_FOREIGN_CAP = 4
 
 /**
- * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht
- * embargoierte) fertige Stadt/Hafen in `FACTORY_LINK_RANGE` zählt als Ziel mit `FACTORY_FOREIGN_MULT`×
- * Gold. So lohnt es sich, Fabriken nah an andere Nationen zu bauen (Kooperation).
+ * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jedes FREMDE (nicht
+ * embargoierte) fertige Wirtschaftsgebäude (Stadt/Hafen/**Fabrik**) in `FACTORY_LINK_RANGE`
+ * zählt als Ziel mit `FACTORY_FOREIGN_MULT`× Gold — genau wie eine Fabrik sich im eigenen Netz
+ * mit Städten/Häfen/Fabriken verbindet. So lohnt es sich, Fabriken nah an andere Nationen zu
+ * bauen (Kooperation über Grenzen).
  */
 function factoryForeignContribution(
   state: GameState,
@@ -965,7 +970,7 @@ function factoryForeignContribution(
   for (const b of state.buildings.values()) {
     if (dests >= FACTORY_FOREIGN_CAP) break // Deckel: nur die ersten N Auslands-Ziele zählen
     if (b.ownerId === ownerId || b.ownerId <= 0) continue
-    if (b.type !== 'city' && b.type !== 'port') continue
+    if (b.type !== 'city' && b.type !== 'port' && b.type !== 'factory') continue
     if (!isBuildingComplete(b, state.tick)) continue
     if (isTradeEmbargoed(state, ownerId, b.ownerId)) continue
     const bx = b.tile % width
