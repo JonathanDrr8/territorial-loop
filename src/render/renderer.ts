@@ -264,7 +264,16 @@ function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRendering
   return ctx
 }
 
-export function createRenderer(container: HTMLElement, state: GameState): Renderer {
+/**
+ * @param localHumanId Spieler-ID des lokalen Menschen („du") — bestimmt, wessen Gebiete/Angriffe
+ *   hervorgehoben werden (Pillen statt Fremd-Zahlen, eigene Farbe, Beziehungs-Tints). Im
+ *   Multiplayer ist das die server-vergebene ID; `-1` = kein lokaler Spieler (Zuschauen).
+ */
+export function createRenderer(
+  container: HTMLElement,
+  state: GameState,
+  localHumanId = -1,
+): Renderer {
   // On-screen canvas, full container size
   const screenCanvas = document.createElement('canvas')
   screenCanvas.style.display = 'block'
@@ -314,7 +323,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     readonly bb: number
   }
   let lut: Map<number, ColorEntry> | null = null
-  let lutHumanId = -1
+  // Lokaler Mensch: explizit übergeben (MP-sicher) — NICHT mehr über isHuman geraten, das im
+  // Multiplayer mit mehreren Menschen den falschen Spieler als „du" markieren würde.
+  const lutHumanId = localHumanId
   let bitmapBaked = false
   // Grenzfarbe je Spieler AUS SICHT des Menschen: eigenes leuchtet hell-cyan,
   // Verbündete grün, Nationen die einem kürzlich Land genommen haben rot (Intensität
@@ -416,7 +427,6 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         bg: Math.min(255, Math.round(g * 1.35 + 50)),
         bb: Math.min(255, Math.round(b * 1.35 + 50)),
       })
-      if (p.isHuman) lutHumanId = p.id
     }
     lut = m
   }

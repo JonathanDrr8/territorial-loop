@@ -149,7 +149,8 @@ function startMatch(
   const config = net?.config ?? buildConfig(menu, spectator)
   const humanId = net?.humanId ?? SOLO_PLAYER_ID
   const state = createGame(config)
-  const renderer = createRenderer(container, state)
+  // Zuschauen → kein lokaler Spieler (-1); sonst die eigene ID (Single: 1, MP: server-vergeben).
+  const renderer = createRenderer(container, state, spectator ? -1 : humanId)
   renderer.setCameraMode(menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
