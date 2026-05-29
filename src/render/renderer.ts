@@ -809,11 +809,14 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       const name = p.name
       const troopsLabel = fmtCompactRender(p.troops)
+      // Verbündete Nationen: Name grün, damit man Bündnisse auf der Karte sofort erkennt.
+      const allied =
+        lutHumanId >= 0 && p.id !== lutHumanId && areAllied(state.alliances, lutHumanId, p.id)
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - gap)
       screenCtx.strokeText(troopsLabel, lx, ly + gap)
-      screenCtx.fillStyle = '#ffffff'
+      screenCtx.fillStyle = allied ? '#5adc78' : '#ffffff'
       screenCtx.fillText(name, lx, ly - gap)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
       screenCtx.fillText(troopsLabel, lx, ly + gap)

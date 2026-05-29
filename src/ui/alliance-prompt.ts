@@ -35,15 +35,16 @@ export function createAlliancePrompt(
   onDecline: (requesterId: number) => void,
 ): AlliancePromptApi {
   const box = document.createElement('div')
+  // Rechtsbündig unter der Rangliste, in derselben Spalte wie der Ereignislog (statt
+  // mittig oben) — dort erwartet man eingehende Diplomatie-Meldungen.
   box.style.cssText = [
     'position: absolute',
-    'top: 12px',
-    'left: 50%',
-    'transform: translateX(-50%)',
+    'top: 232px',
+    'right: 12px',
     'display: flex',
     'flex-direction: column',
     'gap: 6px',
-    'align-items: center',
+    'align-items: flex-end',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'z-index: 20',
