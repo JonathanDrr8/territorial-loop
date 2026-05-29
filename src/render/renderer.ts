@@ -1230,11 +1230,19 @@ export function createRenderer(
         )
           continue
         const seg = nearestWrappedSegment(fx, fy, ex + 0.5, ey + 0.5)
-        screenCtx.strokeStyle = `rgba(${col},0.45)`
+        // „Straßen"-Optik: breite gedämpfte Trasse + gestrichelte hellere Mittellinie (Besitzerfarbe).
         screenCtx.beginPath()
         screenCtx.moveTo(seg.fromSx, seg.fromSy)
         screenCtx.lineTo(seg.toSx, seg.toSy)
+        screenCtx.lineWidth = 3
+        screenCtx.setLineDash([])
+        screenCtx.strokeStyle = `rgba(${col},0.26)`
         screenCtx.stroke()
+        screenCtx.lineWidth = 1
+        screenCtx.setLineDash([2, 5])
+        screenCtx.strokeStyle = `rgba(${col},0.6)`
+        screenCtx.stroke()
+        screenCtx.setLineDash([])
       }
     }
     // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
@@ -1243,6 +1251,7 @@ export function createRenderer(
     // „verbinden".
     const embargoed = (a: number, b: number): boolean =>
       state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
+    screenCtx.lineWidth = 1.5
     screenCtx.setLineDash([5, 4])
     screenCtx.strokeStyle = 'rgba(255,200,90,0.55)'
     for (const f of eco) {
