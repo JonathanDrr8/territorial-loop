@@ -2608,8 +2608,11 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   const { width: mapW, height: mapH } = state.map
   const focusX = attack.focusTile % mapW
   const focusY = Math.floor(attack.focusTile / mapW)
-  // Rundum-Ausbreitung (omni): kein Richtungs-Fokus → gleichmäßig über die ganze Front.
+  // Rundum-Ausbreitung (omni): kein Richtungs-Fokus UND keine Bucht-Bevorzugung → die
+  // Eroberung verteilt sich (über den Vorab-Shuffle) gleichmäßig über die GANZE Grenze, statt
+  // sich erst in konkave Buchten zu fressen. Terrain-Bremse bleibt. Sonst: Fokus + Glättung.
   const focusPull = attack.omni === true ? 0 : vsTerraNullius ? 1 : NATION_FOCUS_PULL
+  const smoothing = attack.omni === true ? 0 : FRONT_SMOOTHING
   const keyed = tiles.map((t) => {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
@@ -2617,7 +2620,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     const own = ownNeighborCount(state, t, attacker.id)
     const terrainPenalty =
       (terrainMagnitude(state.map.terrain, t) - PLAINS_MAG) * TERRAIN_WAVE_PENALTY
-    return { t, key: dist * focusPull - own * FRONT_SMOOTHING + terrainPenalty }
+    return { t, key: dist * focusPull - own * smoothing + terrainPenalty }
   })
   keyed.sort((a, b) => a.key - b.key)
 
