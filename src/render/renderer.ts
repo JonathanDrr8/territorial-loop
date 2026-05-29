@@ -1632,6 +1632,44 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /**
+   * Hält man das Verteidigungs-Gebäude in der Hand (Bau-Modus 'defense'), die Reichweite ALLER
+   * eigenen fertigen Verteidigungsposten zeigen — so sieht man die Abdeckung und Lücken.
+   */
+  function drawAllOwnDefenseRanges(): void {
+    if (buildPreviewType !== 'defense' || lutHumanId < 0) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    screenCtx.save()
+    screenCtx.strokeStyle = 'rgba(232,180,74,0.55)'
+    screenCtx.fillStyle = 'rgba(232,180,74,0.07)'
+    screenCtx.lineWidth = 1.5
+    screenCtx.setLineDash([5, 4])
+    for (const b of state.buildings.values()) {
+      if (b.ownerId !== lutHumanId || b.type !== 'defense' || !isBuildingComplete(b, state.tick))
+        continue
+      const r = defenseRange(b.level) * z
+      const tx = (b.tile % mapW) + 0.5
+      const ty = Math.floor(b.tile / mapW) + 0.5
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const sx = worldToScreenX(tx + dx * mapW)
+          const sy = worldToScreenY(ty + dy * mapH)
+          if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+          screenCtx.beginPath()
+          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          screenCtx.fill()
+          screenCtx.stroke()
+        }
+      }
+    }
+    screenCtx.setLineDash([])
+    screenCtx.restore()
+  }
+
   function render(): void {
     if (state.tick !== lastBitmapTick) {
       // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
@@ -1678,6 +1716,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawBuildings()
     drawHoverHighlight()
     drawHoveredDefenseRange()
+    drawAllOwnDefenseRanges()
     drawBuildPreview()
     drawMarkers()
     drawLabels()
