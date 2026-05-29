@@ -226,6 +226,11 @@ function startMatch(
 
   let lastPhase: 'running' | 'ended' = state.phase
   let endChimePlayed = false
+  // „Du wirst angegriffen"-Ton: Set der Nationen, die gerade DICH angreifen; ein neuer Angreifer
+  // löst den Alarm aus (mit Abklingzeit, damit es bei vielen Fronten nicht hämmert).
+  let prevIncomingAttackers = new Set<number>()
+  let lastAlarmTick = -Infinity
+  const ALARM_COOLDOWN_TICKS = 25
 
   let sliderPct = DEFAULT_SLIDER_PCT
   let paused = false
@@ -478,6 +483,24 @@ function startMatch(
       }
     }
     lastPhase = state.phase
+    // Neuer eingehender Angriff auf dich → kurzer Alarm-Ton (nicht im Zuschauer-Modus).
+    if (humanId >= 0 && state.phase === 'running') {
+      const cur = new Set<number>()
+      let newThreat = false
+      for (const p of state.players.values()) {
+        for (const atk of p.attacks) {
+          if (atk.targetPlayerId === humanId) {
+            cur.add(p.id)
+            if (!prevIncomingAttackers.has(p.id)) newThreat = true
+          }
+        }
+      }
+      prevIncomingAttackers = cur
+      if (newThreat && state.tick - lastAlarmTick >= ALARM_COOLDOWN_TICKS) {
+        lastAlarmTick = state.tick
+        sound.alarm()
+      }
+    }
     renderer.render()
     minimap.update()
     hud.update()

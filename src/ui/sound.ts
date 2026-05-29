@@ -12,6 +12,8 @@ export interface SoundEngine {
   click(): void
   victory(): void
   defeat(): void
+  /** Kurzer Warnton „du wirst angegriffen". */
+  alarm(): void
   setEnabled(enabled: boolean): void
   isEnabled(): boolean
   destroy(): void
@@ -91,6 +93,11 @@ export function createSoundEngine(): SoundEngine {
       // Absteigender Akkord mit dunklerer Welle
       playTone(440, 0.22, { type: 'sawtooth', volume: 0.08 })
       playTone(330, 0.32, { type: 'sawtooth', volume: 0.08, delay: 0.18 })
+    },
+    alarm(): void {
+      // Zwei kurze, dringliche Töne (Warnung) — dezent, aber auffällig.
+      playTone(620, 0.1, { type: 'square', volume: 0.07 })
+      playTone(620, 0.12, { type: 'square', volume: 0.07, delay: 0.14 })
     },
     setEnabled(value: boolean): void {
       enabled = value
