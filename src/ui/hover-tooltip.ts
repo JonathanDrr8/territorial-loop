@@ -138,6 +138,10 @@ export function createHoverTooltip(
       : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.name)}</b>`
   }
 
+  // Letzte Hover-Parameter — für die periodische Auffrischung (Countdown/Truppen/Gold ticken
+  // live weiter, auch wenn die Maus stillsteht und kein neues mousemove kommt).
+  let lastArgs: [number, number, number, number, number] | null = null
+
   function show(
     worldX: number,
     worldY: number,
@@ -145,6 +149,7 @@ export function createHoverTooltip(
     screenY: number,
     zoom: number,
   ): void {
+    lastArgs = [worldX, worldY, screenX, screenY, zoom]
     const { width: w, height: h } = state.map
 
     const place = (html: string): void => {
@@ -336,13 +341,21 @@ export function createHoverTooltip(
 
   function hide(): void {
     tooltip.style.display = 'none'
+    lastArgs = null
     onHoverObject(null)
   }
+
+  // Solange der Tooltip sichtbar ist, regelmäßig aus dem Live-State neu rendern (zeitabhängige
+  // Werte wie der Allianz-Countdown aktualisieren sich sonst erst beim nächsten Mausmove).
+  const refreshTimer = window.setInterval(() => {
+    if (lastArgs !== null && tooltip.style.display !== 'none') show(...lastArgs)
+  }, 500)
 
   return {
     show,
     hide,
     destroy(): void {
+      window.clearInterval(refreshTimer)
       tooltip.remove()
     },
   }
