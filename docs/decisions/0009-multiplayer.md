@@ -154,9 +154,12 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
    Commit-Broadcast, Disconnect→Freeze, Reconnect/Desync→Snapshot, `/health`). `npm run server`
    / `dev:server`. Verifiziert: 6 Unit-Tests + 2 echte End-to-End-Tests (zwei ws-Clients in
    Lockstep auf identischem Hash).
-5. **NetworkTransport + Lobby.** ⏳ Client-Transport gegen den Server (zweite `IntentTransport`-
-   Implementierung — `main.ts` ändert sich nicht); Mehrspieler-Menü (Raum-Code, Ready, Start mit
-   geteiltem Seed/Config). End-to-End: 2 Browser, 1 Match. **UI-lastig → mit Jonathan abstimmen.**
+5. **NetworkTransport + Lobby.** Client-Transport ✅ (`NetworkTransport` in `src/net/transport.ts`
+   — zweite `IntentTransport`-Implementierung, `submit`→Server / `onCommitted`←Broadcast, Match-
+   Lebenszyklus über Callbacks, browser-/Node-kompatibler WebSocket; getestet: zwei Transports in
+   Lockstep gegen den echten Server). **Offen:** Mehrspieler-Menü/Lobby (Raum-Code, Ready,
+   Server-URL) + `main.ts`-Verdrahtung gegen `NetworkTransport`. **UI-lastig → mit Jonathan
+   abstimmen.**
 6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** Adaptiver
    Input-Delay, Freeze-/Resync-Handling über die schon vorhandenen Snapshots, Last-Tests mit
    vielen Slots.
