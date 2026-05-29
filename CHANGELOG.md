@@ -4,6 +4,26 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.2.1] – 2026-05-30
+
+### Neu
+
+- **Terrain deutlich lesbarer:** Relief-Schattierung zeigt Berge, Täler und Küsten; die
+  Nationsfarbe liegt nur noch dezent darüber.
+- **Warnton,** wenn dich jemand neu angreift; dezenter **Hinweis-Ton** bei neuem Bündnis-Angebot.
+- **Beute-Meldung im Log:** wie viel Gold du von welcher Nation erbeutet hast.
+
+### Geändert
+
+- **Eroberung** wächst organischer und zusammenhängend — keine zersplitterten oder
+  schnurgeraden Fronten mehr.
+- **Bündnis-Angebote** blenden nach 15 s von selbst aus (kein Zukleistern bei vielen Nationen).
+- **Namen** off-screen liegender Nationen werden ausgeblendet (Übersicht bei vielen Bots).
+
+### Behoben
+
+- Fabrik-Verbindungslinien werden über den Karten-Rand kurz gezeichnet statt quer über die Karte.
+
 ## [0.2.0] – 2026-05-30
 
 ### Neu
