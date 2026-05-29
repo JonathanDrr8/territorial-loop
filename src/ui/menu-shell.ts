@@ -174,7 +174,7 @@ export function createMenuShell(
 
     const tabContent = document.createElement('div')
     tabContent.style.cssText =
-      'width: 100%; max-width: 980px; display: flex; justify-content: center'
+      'width: 100%; max-width: 1100px; display: flex; justify-content: center'
     tabContent.appendChild(buildTab(activeTab))
     contentScroll.appendChild(tabContent)
 
@@ -466,14 +466,19 @@ export function createMenuShell(
     watchBtn.addEventListener('click', () => callbacks.onStart(collect(), true))
     p.appendChild(watchBtn)
 
-    // Lobby-Browser als linke Spalte → die Landeseite (Spielen) wirkt belebter.
+    // Lobby-Browser als linke Spalte → belebter. 3-Spalten-Raster (1fr auto 1fr) mit leerem
+    // Spacer rechts hält das Setup-Panel echt mittig (sonst säße es rechts der Mitte).
     const browser = mountLobbyBrowser()
     if (browser === null) return p
     const row = document.createElement('div')
     row.style.cssText =
-      'display: flex; gap: 16px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%'
-    row.appendChild(browser)
+      'display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: start; width: 100%'
+    const leftCol = document.createElement('div')
+    leftCol.style.cssText = 'justify-self: end; width: 230px; max-width: 100%'
+    leftCol.appendChild(browser)
+    row.appendChild(leftCol)
     row.appendChild(p)
+    row.appendChild(document.createElement('div')) // Spacer rechts (Symmetrie)
     return row
   }
 
