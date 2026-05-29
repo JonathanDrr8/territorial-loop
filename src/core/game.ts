@@ -57,6 +57,7 @@ import type {
   BreakAllianceIntent,
   LaunchWarshipIntent,
   RecallWarshipIntent,
+  ToggleWarshipModeIntent,
   BuildIntent,
   CancelAttackIntent,
   DeclineAllianceIntent,
@@ -201,6 +202,8 @@ export interface Player {
    * Solange aktiv: −50% Verteidigung gegen Nationen die er nicht selbst angreift.
    */
   traitorUntil: number
+  /** Standard-Verhaltensmodus neuer Kriegsschiffe: true = „Halten & Heilen", false = Ping-Pong. */
+  warshipHold: boolean
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -347,6 +350,7 @@ export function createGame(config: GameConfig): GameState {
       peakTilesOwned: 0,
       peakTroops: startTroops,
       traitorUntil: 0,
+      warshipHold: false,
     })
   }
 
@@ -874,6 +878,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
         break
       case 'recall-warship':
         applyRecallWarshipIntent(state, intent)
+        break
+      case 'toggle-warship-mode':
+        applyToggleWarshipModeIntent(state, intent)
         break
       case 'cancel-attack':
         applyCancelAttackIntent(state, intent)
@@ -1503,6 +1510,7 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
     dir: 1,
     hp: WARSHIP_HP,
     cooldown: 0,
+    mode: player.warshipHold ? 'hold' : 'patrol',
     returning: false,
   })
   emitEvent(state, `${player.name} entsendet ein Kriegsschiff`, player.color)
@@ -1521,6 +1529,20 @@ function applyRecallWarshipIntent(state: GameState, intent: RecallWarshipIntent)
   }
 }
 
+/** Schaltet den Kriegsschiff-Modus des Spielers um (Standard + alle aktiven eigenen Schiffe). */
+function applyToggleWarshipModeIntent(state: GameState, intent: ToggleWarshipModeIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined) return
+  player.warshipHold = !player.warshipHold
+  const mode = player.warshipHold ? 'hold' : 'patrol'
+  for (const w of state.warships) if (w.ownerId === player.id) w.mode = mode
+  emitEvent(
+    state,
+    `${player.name}: Kriegsschiffe ${player.warshipHold ? 'halten & heilen' : 'patrouillieren'}`,
+    player.color,
+  )
+}
+
 /** Bewegt Kriegsschiffe: Ping-Pong-Patrouille entlang der Route; zurückgerufene fahren heim. */
 function advanceWarships(state: GameState): void {
   if (state.warships.length === 0) return
@@ -1533,13 +1555,21 @@ function advanceWarships(state: GameState): void {
       continue
     }
     const maxP = w.path.length - 1
-    w.progress += WARSHIP_SPEED * w.dir
-    if (w.progress >= maxP) {
-      w.progress = maxP
-      w.dir = -1
-    } else if (w.progress <= 0) {
-      w.progress = 0
+    if (w.mode === 'hold' && w.hp < WARSHIP_HP) {
+      // „Halten & Heilen": beschädigt → Richtung Hafen (Routen-Start) zurück, nicht weiter
+      // rauspatrouillieren. Dort greift unten die Heilung; ist es wieder voll, patrouilliert
+      // es normal weiter.
       w.dir = 1
+      w.progress = Math.max(0, w.progress - WARSHIP_SPEED)
+    } else {
+      w.progress += WARSHIP_SPEED * w.dir
+      if (w.progress >= maxP) {
+        w.progress = maxP
+        w.dir = -1
+      } else if (w.progress <= 0) {
+        w.progress = 0
+        w.dir = 1
+      }
     }
     // Heilung: liegt das Schiff nahe einem eigenen fertigen Hafen, regeneriert es HP.
     if (w.hp < WARSHIP_HP && nearOwnPort(state, w, width, height)) {

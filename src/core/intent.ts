@@ -18,6 +18,7 @@ export type Intent =
   | BoatRecallIntent
   | LaunchWarshipIntent
   | RecallWarshipIntent
+  | ToggleWarshipModeIntent
   | CancelAttackIntent
   | DefendIntent
   | BuildIntent
@@ -97,6 +98,15 @@ export interface RecallWarshipIntent {
   readonly type: 'recall-warship'
   readonly playerId: number
   readonly warshipIndex: number
+}
+
+/**
+ * Schaltet den Verhaltensmodus der Kriegsschiffe des Spielers um (Ping-Pong ↔ Halten & Heilen).
+ * Wirkt auf den Standard für neue Schiffe UND alle bereits aktiven eigenen Kriegsschiffe.
+ */
+export interface ToggleWarshipModeIntent {
+  readonly type: 'toggle-warship-mode'
+  readonly playerId: number
 }
 
 /**

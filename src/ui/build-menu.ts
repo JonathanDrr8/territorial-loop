@@ -359,6 +359,23 @@ export function createBuildMenu(
             },
           })
         }
+        // Eigener fertiger Hafen → Kriegsschiff-Modus umschalten (Ping-Pong ↔ Halten & Heilen).
+        if (existing.type === 'port' && isBuildingComplete(existing, state.tick)) {
+          const holding = player.warshipHold
+          actions.push({
+            glyph: holding ? '⚓' : '⇄',
+            label: holding ? 'Schiffe: Halten & Heilen' : 'Schiffe: Ping-Pong',
+            detail: 'Umschalten — gilt für alle eigenen Kriegsschiffe',
+            costText: '',
+            affordable: true,
+            enabled: true,
+            accent: '#9fb2c4',
+            run: () => {
+              emit({ type: 'toggle-warship-mode', playerId: humanPlayerId })
+              close()
+            },
+          })
+        }
       } else {
         title = `Gold: ${fmtCompact(player.gold)}`
         const portOk = nearWater(state, tile)

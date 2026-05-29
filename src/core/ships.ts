@@ -83,6 +83,13 @@ export interface Warship {
   hp: number
   /** Schuss-Cooldown in Ticks (0 = schussbereit); zählt pro Tick runter. */
   cooldown: number
+  /**
+   * Verhaltensmodus:
+   *  - 'patrol' → Ping-Pong über die ganze Route (Standard).
+   *  - 'hold'   → „Halten & Heilen": bei Beschädigung zum Hafen (Routen-Start) zurück,
+   *    dort heilen, dann wieder rauspatrouillieren.
+   */
+  mode: 'patrol' | 'hold'
   /** Zurückgerufen → fährt zur Start-Küste und wird dort aufgelöst. */
   returning: boolean
 }

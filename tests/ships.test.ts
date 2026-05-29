@@ -332,6 +332,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: WARSHIP_HP,
       cooldown: 0,
+      mode: 'patrol',
       returning: false,
     })
     state.tradeShips.push({
@@ -363,6 +364,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: 5,
       cooldown: 99,
+      mode: 'patrol',
       returning: false,
     }
     const b: Warship = {
@@ -372,6 +374,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: 1,
       cooldown: 99,
+      mode: 'patrol',
       returning: false,
     }
     state.warships.push(a, b)
@@ -414,6 +417,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: 5,
       cooldown: 0,
+      mode: 'patrol',
       returning: false,
     })
     state.warships.push({
@@ -423,6 +427,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: 3,
       cooldown: 0,
+      mode: 'patrol',
       returning: false,
     })
     for (let i = 0; i < 60 && state.warships.length > 1; i++) tick(state, [])
@@ -442,6 +447,7 @@ describe('warships via tick', () => {
       dir: 1,
       hp: WARSHIP_HP,
       cooldown: 0,
+      mode: 'patrol',
       returning: false,
     })
     tick(state, [{ type: 'recall-warship', playerId: 1, warshipIndex: 0 }])
@@ -469,10 +475,55 @@ describe('warships via tick', () => {
       dir: 1,
       hp: 1,
       cooldown: 0,
+      mode: 'patrol',
       returning: false,
     })
     for (let i = 0; i < 5; i++) tick(state, [])
     expect(state.warships[0]?.hp).toBeGreaterThan(1)
     expect(state.warships[0]?.hp).toBeLessThanOrEqual(WARSHIP_HP)
+  })
+
+  it('toggle-warship-mode schaltet Standard + aktive Schiffe um', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: WARSHIP_HP,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    tick(state, [{ type: 'toggle-warship-mode', playerId: 1 }])
+    expect(state.players.get(1)?.warshipHold).toBe(true)
+    expect(state.warships[0]?.mode).toBe('hold')
+    tick(state, [{ type: 'toggle-warship-mode', playerId: 1 }])
+    expect(state.players.get(1)?.warshipHold).toBe(false)
+    expect(state.warships[0]?.mode).toBe('patrol')
+  })
+
+  it('Halten & Heilen: beschädigtes Schiff fährt zum Hafen (Routen-Start) zurück', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
+    // Beschädigtes 'hold'-Schiff in der Mitte der Route → fährt Richtung Start (progress 0).
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 2,
+      dir: 1,
+      hp: 2,
+      cooldown: 99,
+      mode: 'hold',
+      returning: false,
+    })
+    const before = state.warships[0]?.progress ?? 0
+    tick(state, [])
+    expect(state.warships[0]?.progress ?? 99).toBeLessThan(before)
   })
 })
