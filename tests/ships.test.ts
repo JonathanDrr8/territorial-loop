@@ -12,7 +12,7 @@ import {
   type Warship,
 } from '../src/core/ships'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
-import { directedKey } from '../src/core/diplomacy'
+import { directedKey, pairKey } from '../src/core/diplomacy'
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT } from '../src/world/terrain'
 import { tileRef } from '../src/world/torus'
@@ -305,6 +305,92 @@ describe('trade ships via tick', () => {
     // both owners gained at least the ship's gold (plus base income over ticks)
     expect(human.gold - goldBeforeHuman).toBeGreaterThanOrEqual(ship.gold)
     expect(enemy.gold - goldBeforeEnemy).toBeGreaterThanOrEqual(ship.gold)
+  })
+})
+
+describe('Handels-Modi + Hafen-Level + Embargo-Groll', () => {
+  /** Drei Spieler, drei Häfen auf der x=0-Wasserspalte (alle gegenseitig erreichbar). */
+  function tradeScenario() {
+    const state = createGame(
+      cfg({
+        players: [
+          { id: 1, name: 'Du', color: 0xff0000ff, isHuman: true },
+          { id: 2, name: 'Nah', color: 0x00ff00ff, isHuman: false },
+          { id: 3, name: 'Fern', color: 0x0000ffff, isHuman: false },
+        ],
+      }),
+    )
+    splitMap(state)
+    const mkPort = (x: number, y: number, owner: number, level = 1): number => {
+      const t = own(state, x, y, owner)
+      state.buildings.set(t, { type: 'port', ownerId: owner, tile: t, level, completesAtTick: 0 })
+      return t
+    }
+    const home = mkPort(1, 1, 1) // x=0-Spalte
+    const near = mkPort(1, 2, 2) // Distanz 1
+    const far = mkPort(7, 3, 3) // weiter weg, via Wrap an x=0
+    const setHomeMode = (mode: 'random' | 'nearest' | 'farthest' | 'allies'): void => {
+      const p = state.players.get(1)
+      if (p !== undefined) p.tradeMode = mode
+    }
+    return { state, home, near, far, setHomeMode }
+  }
+
+  /**
+   * Tickt bis zum Sende-Fenster des Heimathafens, leert die Liste und sendet einen Tick.
+   * Liefert die (noch fahrenden) Schiffe dieses Hafens UND den Gold-Zufluss der Spieler 2/3 —
+   * Letzteres ist robust gegen Schiffe, die auf kurzer Route schon im selben Tick ankommen.
+   */
+  function sendWindow(state: GameState, home: number) {
+    while (state.tick % TRADE_INTERVAL_TICKS !== home % TRADE_INTERVAL_TICKS) tick(state, [])
+    const gold = (id: number): number => state.players.get(id)?.gold ?? 0
+    const b2 = gold(2)
+    const b3 = gold(3)
+    state.tradeShips.length = 0
+    tick(state, [])
+    return {
+      ships: state.tradeShips.filter((s) => s.originPort === home),
+      d2: gold(2) - b2,
+      d3: gold(3) - b3,
+    }
+  }
+
+  it('Modus „nearest" schickt zum nächsten Hafen (Handelsgold an Spieler 2)', () => {
+    const { state, home, setHomeMode } = tradeScenario()
+    setHomeMode('nearest') // nächster ist Spieler 2 (Distanz 1)
+    const { d2, d3 } = sendWindow(state, home)
+    expect(d2).toBeGreaterThan(d3) // Handelsgold floss zum nahen (2), nicht zum fernen (3)
+  })
+
+  it('Modus „farthest" schickt zum entferntesten Hafen', () => {
+    const { state, home, far, setHomeMode } = tradeScenario()
+    setHomeMode('farthest') // entferntester ist Spieler 3 (lange Route → Schiff noch unterwegs)
+    const { ships } = sendWindow(state, home)
+    expect(ships.some((s) => s.destPort === far)).toBe(true)
+  })
+
+  it('Modus „allies" handelt nur mit Verbündeten', () => {
+    const { state, home, setHomeMode } = tradeScenario()
+    setHomeMode('allies')
+    state.alliances.add(pairKey(1, 2)) // nur mit dem nahen (Spieler 2) verbündet
+    const { d2, d3 } = sendWindow(state, home)
+    expect(d2).toBeGreaterThan(d3) // Handel nur mit dem Verbündeten (2), nie mit dem fernen (3)
+  })
+
+  it('Hafen-Level bestimmt die Anzahl Handelsschiffe pro Fenster', () => {
+    const { state, home, setHomeMode } = tradeScenario()
+    setHomeMode('farthest') // beide Schiffe zur langen far-Route → bleiben sichtbar
+    const b = state.buildings.get(home)
+    if (b !== undefined) b.level = 2
+    const { ships } = sendWindow(state, home)
+    expect(ships.length).toBe(2) // Level 2 → 2 Schiffe
+  })
+
+  it('Embargo erzeugt Groll beim Embargoierten', () => {
+    const { state } = tradeScenario()
+    tick(state, [{ type: 'set-embargo', playerId: 1, targetPlayerId: 2, enabled: true }])
+    // grudge[directedKey(1,2)] = wie sehr der Embargoierte (2) dem Verhänger (1) grollt.
+    expect(state.grudge.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
   })
 })
 

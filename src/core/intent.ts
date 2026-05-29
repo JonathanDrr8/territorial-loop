@@ -29,6 +29,16 @@ export type Intent =
   | DeclineAllianceIntent
   | BreakAllianceIntent
   | SetEmbargoIntent
+  | SetTradeModeIntent
+
+/**
+ * Handels-Zielwahl eines Spielers: wohin seine Häfen ihre Handelsschiffe schicken.
+ *  - `random`   → zufälliger gültiger fremder Hafen (Default; verteilt Handel/Gunst breit).
+ *  - `nearest`  → nächstgelegener fremder Hafen (kurze, sichere Routen).
+ *  - `farthest` → entferntester fremder Hafen (mehr Gold, lange angreifbare Routen).
+ *  - `allies`   → nur Häfen aktueller Allianzpartner (finanziert sonst niemanden).
+ */
+export type TradeMode = 'random' | 'nearest' | 'farthest' | 'allies'
 
 /**
  * Spieler startet einen Angriff auf ein Ziel-Tile.
@@ -108,6 +118,13 @@ export interface RecallWarshipIntent {
 export interface ToggleWarshipModeIntent {
   readonly type: 'toggle-warship-mode'
   readonly playerId: number
+}
+
+/** Setzt die Handels-Zielwahl des Spielers (wohin seine Häfen Handelsschiffe schicken). */
+export interface SetTradeModeIntent {
+  readonly type: 'set-trade-mode'
+  readonly playerId: number
+  readonly mode: TradeMode
 }
 
 /**

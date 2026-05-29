@@ -66,6 +66,8 @@ import type {
   Intent,
   RequestAllianceIntent,
   SetEmbargoIntent,
+  SetTradeModeIntent,
+  TradeMode,
   UpgradeIntent,
 } from './intent'
 import { createPRNG, type PRNG } from './random'
@@ -206,6 +208,8 @@ export interface Player {
   traitorUntil: number
   /** Standard-Verhaltensmodus neuer Kriegsschiffe: true = „Halten & Heilen", false = Ping-Pong. */
   warshipHold: boolean
+  /** Handels-Zielwahl: wohin die eigenen Häfen ihre Handelsschiffe schicken (Default `random`). */
+  tradeMode: TradeMode
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -353,6 +357,7 @@ export function createGame(config: GameConfig): GameState {
       peakTroops: startTroops,
       traitorUntil: 0,
       warshipHold: false,
+      tradeMode: 'random',
     })
   }
 
@@ -669,6 +674,8 @@ const GRUDGE_PER_WARSHIP_HIT = 10
 const GRUDGE_PER_BOAT_SUNK = 60
 /** Groll, wenn ein eigenes Handelsschiff blockiert/versenkt wird (an beide Hafen-Besitzer). */
 const GRUDGE_PER_TRADE_SUNK = 45
+/** Einmaliger Groll-Stoß des Embargoierten gegen den, der das Embargo verhängt. */
+const GRUDGE_PER_EMBARGO = 80
 
 /** Erhöht den (abklingenden) Groll des Opfers gegen den Angreifer. Ignoriert Selbst/Besitzlos. */
 function addGrudge(state: GameState, attackerId: number, victimId: number, amount: number): void {
@@ -987,6 +994,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
       case 'set-embargo':
         applySetEmbargoIntent(state, intent)
         break
+      case 'set-trade-mode':
+        applySetTradeModeIntent(state, intent)
+        break
     }
   }
 }
@@ -1222,6 +1232,8 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
   if (intent.enabled) {
     if (state.embargoes.has(key)) return
     state.embargoes.add(key)
+    // Der Embargoierte grollt dem, der es verhängt (Wirtschafts-Affront).
+    addGrudge(state, from.id, to.id, GRUDGE_PER_EMBARGO)
     emitDiploEvent(
       state,
       from,
@@ -1239,6 +1251,22 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
       `${from.name} hebt das Embargo gegen ${to.name} auf`,
       from.color,
     )
+  }
+}
+
+const TRADE_MODE_LABEL: Record<TradeMode, string> = {
+  random: 'zufällig',
+  nearest: 'nächste',
+  farthest: 'weiteste',
+  allies: 'nur Verbündete',
+}
+
+function applySetTradeModeIntent(state: GameState, intent: SetTradeModeIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || player.tradeMode === intent.mode) return
+  player.tradeMode = intent.mode
+  if (player.isHuman) {
+    emitEvent(state, `Handelsziele: ${TRADE_MODE_LABEL[intent.mode]}`, player.color)
   }
 }
 
@@ -1983,51 +2011,78 @@ function landBoat(state: GameState, boat: Boat): void {
 
 /** Häfen senden gestaffelt Handelsschiffe zu erreichbaren, fremden Häfen. */
 function spawnTradeShips(state: GameState): void {
-  const ports: TileRef[] = []
+  const ports: { tile: TileRef; level: number }[] = []
   for (const b of state.buildings.values()) {
-    if (b.type === 'port' && isBuildingComplete(b, state.tick)) ports.push(b.tile)
+    if (b.type === 'port' && isBuildingComplete(b, state.tick))
+      ports.push({ tile: b.tile, level: b.level })
   }
   if (ports.length < 2) return
-  ports.sort((a, b) => a - b)
+  ports.sort((a, b) => a.tile - b.tile)
 
   const { width, height } = state.map
-  for (const origin of ports) {
+  for (const { tile: origin, level } of ports) {
     // Staffelung: jeder Hafen ist in einem festen Tick seines Intervall-Fensters dran.
     if (state.tick % TRADE_INTERVAL_TICKS !== origin % TRADE_INTERVAL_TICKS) continue
     const originOwner = getOwner(state.map, origin)
     if (originOwner === 0) continue
+    const owner = state.players.get(originOwner)
+    const mode: TradeMode = owner?.tradeMode ?? 'random'
 
-    // nächstgelegenen erreichbaren Hafen eines anderen Spielers wählen
+    // Gültige Ziele: Häfen anderer lebender Spieler, nicht embargoiert; bei 'allies' nur
+    // aktuelle Allianzpartner. Distanz vorberechnen (für nearest/farthest).
     const ox = origin % width
     const oy = Math.floor(origin / width)
-    let best = -1
-    let bestDist = Infinity
-    for (const dest of ports) {
+    const candidates: { tile: TileRef; dist: number }[] = []
+    for (const { tile: dest } of ports) {
       if (dest === origin) continue
       const destOwner = getOwner(state.map, dest)
       if (destOwner === 0 || destOwner === originOwner) continue
       if (isTradeEmbargoed(state, originOwner, destOwner)) continue
+      if (mode === 'allies' && !areAllied(state.alliances, originOwner, destOwner)) continue
       const dx = dest % width
       const dy = Math.floor(dest / width)
-      const d = torusDistance(ox, oy, dx, dy, width, height)
-      if (d < bestDist) {
-        bestDist = d
-        best = dest
+      candidates.push({ tile: dest, dist: torusDistance(ox, oy, dx, dy, width, height) })
+    }
+    if (candidates.length === 0) continue
+    candidates.sort((a, b) => a.dist - b.dist || a.tile - b.tile)
+
+    // Ziel je Modus wählen — Hafen-Level = Anzahl Schiffe pro Sende-Fenster.
+    const pickTarget = (): TileRef => {
+      switch (mode) {
+        case 'nearest':
+          return candidates[0]?.tile ?? origin
+        case 'farthest':
+          return candidates[candidates.length - 1]?.tile ?? origin
+        case 'allies':
+        case 'random':
+          return state.rng.randElement(candidates).tile
       }
     }
-    if (best === -1) continue
 
-    const path = planWaterRoute(state.map, state.waterComponents, origin, best)
-    if (path === null || path.length < 2) continue
-    state.tradeShips.push({
-      fromOwnerId: originOwner,
-      toOwnerId: getOwner(state.map, best),
-      path,
-      progress: 0,
-      gold: tradeGold(path.length),
-      originPort: origin,
-      destPort: best,
-    })
+    const routeCache = new Map<TileRef, TileRef[] | null>()
+    const routeTo = (dest: TileRef): TileRef[] | null => {
+      const cached = routeCache.get(dest)
+      if (cached !== undefined) return cached
+      const r = planWaterRoute(state.map, state.waterComponents, origin, dest)
+      const route = r !== null && r.length >= 2 ? r : null
+      routeCache.set(dest, route)
+      return route
+    }
+
+    for (let k = 0; k < level; k++) {
+      const dest = pickTarget()
+      const path = routeTo(dest)
+      if (path === null) continue // unerreichbar (andere Wasser-Komponente) → dieses Schiff entfällt
+      state.tradeShips.push({
+        fromOwnerId: originOwner,
+        toOwnerId: getOwner(state.map, dest),
+        path,
+        progress: 0,
+        gold: tradeGold(path.length),
+        originPort: origin,
+        destPort: dest,
+      })
+    }
   }
 }
 

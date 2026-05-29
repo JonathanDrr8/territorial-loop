@@ -375,6 +375,30 @@ export function createBuildMenu(
               close()
             },
           })
+          // Handels-Zielwahl zyklisch umschalten (gilt für alle eigenen Häfen).
+          const TRADE_MODES = ['random', 'nearest', 'farthest', 'allies'] as const
+          const TRADE_LABEL: Record<(typeof TRADE_MODES)[number], string> = {
+            random: 'Handel: Zufall',
+            nearest: 'Handel: Nächste',
+            farthest: 'Handel: Weiteste',
+            allies: 'Handel: nur Verbündete',
+          }
+          const curMode = player.tradeMode
+          const nextMode =
+            TRADE_MODES[(TRADE_MODES.indexOf(curMode) + 1) % TRADE_MODES.length] ?? 'random'
+          actions.push({
+            glyph: '⚖',
+            label: TRADE_LABEL[curMode],
+            detail: `Klick → ${TRADE_LABEL[nextMode]}`,
+            costText: '',
+            affordable: true,
+            enabled: true,
+            accent: '#e8c14a',
+            run: () => {
+              emit({ type: 'set-trade-mode', playerId: humanPlayerId, mode: nextMode })
+              close()
+            },
+          })
         }
       } else {
         title = `Gold: ${fmtCompact(player.gold)}`
