@@ -478,7 +478,7 @@ describe('wilde Nationen', () => {
     expect(wild.tilesOwned).toBeGreaterThan(before)
   })
 
-  it('breiten sich nicht über WILD_MAX_TILES hinaus aus', () => {
+  it('wachsen ohne hartes Größen-Limit (über den alten Start-Cap hinaus)', () => {
     const state = createGame(
       baseConfig({
         terrain: 'flat',
@@ -493,8 +493,9 @@ describe('wilde Nationen', () => {
     const wild = state.players.get(2)
     if (wild === undefined) throw new Error('player missing')
     for (let i = 0; i < 4000; i++) tick(state, [])
-    // Hartes weiches Limit (60) + 1 möglicher Übertritt im selben Tick → großzügige Grenze.
-    expect(wild.tilesOwned).toBeLessThanOrEqual(61)
+    // Kein hartes Limit mehr → die wilde Nation wächst deutlich über die ~60 hinaus
+    // (selbstregulierend nur durch angrenzende Gebiete/Kartengröße).
+    expect(wild.tilesOwned).toBeGreaterThan(80)
   })
 
   it('produzieren nur halbes Gold pro Tick', () => {

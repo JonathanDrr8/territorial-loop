@@ -1648,13 +1648,12 @@ const WILD_CAP_FACTOR = 0.5
 
 /**
  * Passive Ausbreitung wilder Nationen: Wahrscheinlichkeit pro wilder Nation und Tick, ein
- * angrenzendes neutrales Tile zu erobern (≈ alle 1.7 s eines bei 0.06), bis [[WILD_MAX_TILES]].
- * Wilde greifen nie Spieler an — sie wachsen nur in freie Wildnis. Da ihr Gebiet so wächst,
- * steigt ihr Truppen-Cap und sie sammeln spürbar Truppen an. Startwerte, per Playtest tunbar.
+ * angrenzendes neutrales Tile zu erobern (≈ alle 1.7 s eines bei 0.06). Wilde greifen nie
+ * Spieler an — sie wachsen nur in freie Wildnis. Bewusst KEIN Größen-Limit: sie starten klein
+ * und wachsen langsam (halber Cap, niedrige Rate), stoßen ohnehin bald auf andere Gebiete und
+ * bleiben so lohnende Ziele. Startwert per Playtest tunbar.
  */
 const WILD_SPREAD_CHANCE = 0.06
-/** Obergrenze der Tiles, bis zu der sich eine wilde Nation passiv ausbreitet. */
-const WILD_MAX_TILES = 60
 
 /**
  * Lässt jede wilde Nation langsam in angrenzendes neutrales (begehbares) Land wachsen.
@@ -1667,7 +1666,6 @@ function spreadWildNations(state: GameState): void {
   const { width, height } = map
   for (const player of orderedPlayers(state)) {
     if (!player.isAlive || !player.wild) continue
-    if (player.tilesOwned >= WILD_MAX_TILES) continue
     if (state.rng.next() >= WILD_SPREAD_CHANCE) continue
     // Neutrale, begehbare Nachbarn der eigenen Frontier sammeln (Duplikate ok → Tiles mit
     // mehr eigenen Nachbarn werden leicht bevorzugt = organischeres Wachstum).
