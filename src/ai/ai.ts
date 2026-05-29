@@ -37,6 +37,8 @@ export type Difficulty = 'easy' | 'normal' | 'hard'
 
 /** Übersteigt die Netto-Gunst (Gunst − Groll) diesen Wert, schont die KI den Partner (wie verbündet). */
 const FRIEND_SPARE_THRESHOLD = 200
+/** Ab diesem Netto-Groll (Groll − Gunst) lehnt die KI ein Bündnis mit dem Betreffenden ab. */
+const ALLY_REFUSE_GRUDGE = 120
 
 interface DifficultyProfile {
   readonly attackPct: number
@@ -373,6 +375,15 @@ export function createAI(
       (o) => o.id !== player.id && areAllied(state.alliances, player.id, o.id),
     )
 
+    // „Im Krieg mit": die KI lehnt Bündnisse mit jemandem ab, den sie GERADE angreift oder gegen
+    // den sie deutlichen Netto-Groll hat — kein Bündnis mit dem, den man überrennt.
+    const atWarWith = (otherId: number): boolean => {
+      for (const a of player.attacks) if (a.targetPlayerId === otherId) return true
+      const grudge = state.grudge.get(directedKey(otherId, player.id)) ?? 0
+      const goodwill = state.goodwill.get(directedKey(otherId, player.id)) ?? 0
+      return grudge - goodwill > ALLY_REFUSE_GRUDGE
+    }
+
     // 1. Verrat: führe ich klar und habe einen Verbündeten → schwächsten Verbündeten verraten
     if (amLeader && allies.length > 0) {
       const second = living[1]
@@ -393,6 +404,7 @@ export function createAI(
     if (!amLeader) {
       for (const o of living) {
         if (o.id === player.id) continue
+        if (atWarWith(o.id)) continue // den, den man angreift/grollt, verbündet man nicht
         if (hasAllianceRequest(state.allianceRequests, o.id, player.id)) {
           return { type: 'accept-alliance', playerId: player.id, targetPlayerId: o.id }
         }
@@ -405,6 +417,7 @@ export function createAI(
       for (const o of living) {
         if (o.id === player.id || o.id === leader.id) continue
         if (areAllied(state.alliances, player.id, o.id)) continue
+        if (atWarWith(o.id)) continue
         if (hasAllianceRequest(state.allianceRequests, player.id, o.id)) continue
         return { type: 'request-alliance', playerId: player.id, targetPlayerId: o.id }
       }

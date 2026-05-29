@@ -301,6 +301,57 @@ describe('createAI', () => {
     expect(attackedPartner).toBe(false) // verschont den Gunst-Partner (3)
   })
 
+  it('lehnt ein Bündnis mit jemandem ab, gegen den sie hohen Groll hat', () => {
+    const config: GameConfig = {
+      ...aiConfig('ally-grudge'),
+      players: [
+        { id: 1, name: 'Bittsteller', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'KI', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'Leader', color: 0x0000ffff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    const p3 = state.players.get(3)
+    if (p3 !== undefined) p3.tilesOwned = 100000 // dauerhaft Anführer → KI ist nie Leader
+    state.allianceRequests.add(directedKey(1, 2)) // Spieler 1 bietet der KI (2) ein Bündnis
+    const ai = createAI(2, state.seed, 'hard')
+    let accepted = false
+    for (let t = 0; t < 400; t++) {
+      state.grudge.set(directedKey(1, 2), 600) // KI grollt Spieler 1 dauerhaft stark
+      const intents = ai.decide(state)
+      if (intents.some((i) => i.type === 'accept-alliance' && i.targetPlayerId === 1)) {
+        accepted = true
+      }
+      tick(state, intents)
+    }
+    expect(accepted).toBe(false) // niemals mit dem Verhassten verbünden
+  })
+
+  it('nimmt ein Bündnis-Angebot an, wenn kein Krieg/Groll besteht (Kontrolle)', () => {
+    const config: GameConfig = {
+      ...aiConfig('ally-ok'),
+      players: [
+        { id: 1, name: 'Bittsteller', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'KI', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'Leader', color: 0x0000ffff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    const p3 = state.players.get(3)
+    if (p3 !== undefined) p3.tilesOwned = 100000
+    state.allianceRequests.add(directedKey(1, 2))
+    const ai = createAI(2, state.seed, 'hard')
+    let accepted = false
+    for (let t = 0; t < 400 && !accepted; t++) {
+      const intents = ai.decide(state)
+      if (intents.some((i) => i.type === 'accept-alliance' && i.targetPlayerId === 1)) {
+        accepted = true
+      }
+      tick(state, intents)
+    }
+    expect(accepted).toBe(true) // ohne Groll/Krieg wird angenommen
+  })
+
   it('wilde KI expandiert (greift an), baut aber nie und macht keine Diplomatie', () => {
     const config: GameConfig = {
       ...aiConfig('wild-ai'),
