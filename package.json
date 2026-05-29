@@ -1,6 +1,6 @@
 {
   "name": "territorial-loop",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Territorial-RTS Browserspiel mit loopender Spielwelt (Torus-Topologie)",
@@ -8,6 +8,8 @@
     "dev": "vite",
     "dev:server": "tsx watch server/server.ts",
     "server": "tsx server/server.ts",
+    "deploy": "bash scripts/deploy.sh",
+    "feedback": "bash scripts/feedback.sh",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

@@ -229,7 +229,7 @@ export function createStartMenu(
   panel.appendChild(title)
 
   const subtitle = document.createElement('div')
-  subtitle.textContent = 'Browser-RTS auf einer randlosen Welt'
+  subtitle.textContent = `Browser-RTS auf einer randlosen Welt · v${__APP_VERSION__}`
   subtitle.style.cssText = 'opacity: 0.6; font-size: 12px; margin-bottom: 18px'
   panel.appendChild(subtitle)
 

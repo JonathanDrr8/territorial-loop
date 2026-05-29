@@ -35,6 +35,7 @@ import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
+import { createFeedbackUi } from './ui/feedback-dialog'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -63,6 +64,11 @@ function defaultServerUrl(): string {
   if (host === 'localhost' || host === '127.0.0.1' || host === '') return 'ws://localhost:8787'
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${window.location.host}`
+}
+
+/** HTTP(S)-Basis für Feedback-POSTs (gleicher Server wie Lockstep): ws→http, wss→https. */
+function feedbackEndpoint(): string {
+  return defaultServerUrl().replace(/^ws/, 'http')
 }
 
 const DEFAULT_MENU: StartMenuValues = {
@@ -520,6 +526,9 @@ function main(): void {
   const container: HTMLElement = maybeContainer
   container.textContent = ''
   container.style.position = 'relative'
+
+  // Dauerhaftes Feedback-/Bug-Widget (Menü + im Match) — schreibt an den Server (JSONL).
+  createFeedbackUi(container, { endpoint: feedbackEndpoint(), version: __APP_VERSION__ })
 
   let session: MatchSession | null = null
   let lobby: MultiplayerMenuApi | null = null

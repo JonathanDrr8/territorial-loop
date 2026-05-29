@@ -1,5 +1,12 @@
 import { defineConfig, type Plugin } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+const pkgVersion: string = (
+  JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+    version: string
+  }
+).version
 
 /** Lockstep-Server-Port (Default des Mehrspieler-Dialogs: ws://localhost:8787). */
 const LOCKSTEP_PORT = 8787
@@ -36,6 +43,10 @@ function lockstepServerPlugin(): Plugin {
 }
 
 export default defineConfig({
+  define: {
+    // App-Version aus package.json in den Client-Build backen (Anzeige im Menü).
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
   plugins: [lockstepServerPlugin()],
   resolve: {
     alias: {

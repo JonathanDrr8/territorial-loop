@@ -15,7 +15,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { appendFileSync, createReadStream, existsSync, mkdirSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -40,6 +40,49 @@ const TURN_MS = 100
 
 /** Verzeichnis der gebauten Client-App (Production). Default `dist/` relativ zum CWD. */
 const STATIC_DIR = resolve(process.env.STATIC_DIR ?? 'dist')
+
+/** App-Version (von npm gesetzt, wenn via `npm run server` gestartet). */
+const APP_VERSION = process.env.npm_package_version ?? 'dev'
+
+/** Persistentes Verzeichnis für Spieler-Feedback/Bug-Reports (per Volume gemountet). */
+const FEEDBACK_DIR = resolve(process.env.FEEDBACK_DIR ?? 'feedback')
+const FEEDBACK_FILE = join(FEEDBACK_DIR, 'feedback.jsonl')
+
+/** Nimmt einen Feedback-/Bug-POST an und hängt ihn als JSONL-Zeile an (persistiert via Volume). */
+function handleFeedback(req: IncomingMessage, res: ServerResponse): void {
+  let body = ''
+  req.on('data', (c: Buffer) => {
+    body += c.toString()
+    if (body.length > 8000) req.destroy() // Schutz vor Riesen-Payloads
+  })
+  req.on('end', () => {
+    try {
+      const p = JSON.parse(body) as { text?: unknown; version?: unknown; kind?: unknown }
+      const text = String(p.text ?? '')
+        .slice(0, 2000)
+        .trim()
+      if (text.length === 0) {
+        res.writeHead(400, { 'access-control-allow-origin': '*' })
+        res.end()
+        return
+      }
+      const entry = {
+        ts: new Date().toISOString(),
+        kind: p.kind === 'bug' ? 'bug' : 'feedback',
+        version: String(p.version ?? '').slice(0, 32),
+        ip: (req.headers['x-forwarded-for'] ?? '').toString().split(',')[0]?.trim() ?? '',
+        text,
+      }
+      mkdirSync(FEEDBACK_DIR, { recursive: true })
+      appendFileSync(FEEDBACK_FILE, JSON.stringify(entry) + '\n')
+      res.writeHead(204, { 'access-control-allow-origin': '*' })
+      res.end()
+    } catch {
+      res.writeHead(400, { 'access-control-allow-origin': '*' })
+      res.end()
+    }
+  })
+}
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -298,6 +341,16 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         'access-control-allow-origin': '*',
       })
       res.end(JSON.stringify(open))
+      return
+    }
+    if (req.url === '/version') {
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ version: APP_VERSION }))
+      return
+    }
+    // Spieler-Feedback/Bug-Report: POST mit text/plain-Body (kein CORS-Preflight) → JSONL.
+    if (req.url === '/feedback' && req.method === 'POST') {
+      handleFeedback(req, res)
       return
     }
     // Statischer Client: die gebaute Spiel-App (dist/) auf derselben Domain ausliefern, damit ein
