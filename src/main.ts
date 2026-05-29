@@ -16,6 +16,7 @@ import {
   type PlayerDef,
 } from './core/game'
 import type { Intent } from './core/intent'
+import { createRecorder } from './core/replay'
 import { LocalTransport } from './net/transport'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -141,7 +142,16 @@ function startMatch(
   let recenterPending = true
   const sound = createSoundEngine()
   sound.setEnabled(menu.soundEnabled)
-  ;(window as unknown as { __TL__: unknown }).__TL__ = { state, renderer, sound }
+  ;(window as unknown as { __TL__: unknown }).__TL__ = {
+    state,
+    renderer,
+    sound,
+    config,
+    // Replay-Log des laufenden Matches: replayGame({config, turns: __TL__.recorder.turns()}).
+    get recorder() {
+      return recorder
+    },
+  }
 
   let lastPhase: 'running' | 'ended' = state.phase
   let endChimePlayed = false
@@ -174,7 +184,11 @@ function startMatch(
     intervalMs: SIM_BASE_INTERVAL_MS,
     running: true,
   })
-  transport.onCommitted((_turn, intents) => {
+  // Jeden committeten Turn mitschneiden → ein Replay-Log (config + turns) reproduziert das
+  // Match bit-genau (ADR-0009 Phase 3). Für Desync-Repro/Debugging über `__TL__` erreichbar.
+  const recorder = createRecorder()
+  transport.onCommitted((turn, intents) => {
+    recorder.record(turn, intents)
     tick(state, intents)
   })
   const submit = (intent: Intent): void => {
