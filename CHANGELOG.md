@@ -4,6 +4,13 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.3.0] – 2026-05-30
+
+### Neu
+
+- **Menü in 9 Sprachen:** Deutsch, Englisch, Spanisch, Französisch, Italienisch, Portugiesisch,
+  Russisch, Chinesisch und Japanisch — umschaltbar oben rechts. (Das In-Game-HUD folgt.)
+
 ## [0.2.4] – 2026-05-30
 
 ### Neu

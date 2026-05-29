@@ -1,0 +1,131 @@
+/** Japanische Strings (ADR-0014). Fehlende Keys fallen auf Deutsch zurück. */
+export const ja: Record<string, string> = {
+  'app.tagline': '境界のない世界のブラウザ RTS',
+
+  'nav.play': 'プレイ',
+  'nav.multiplayer': 'マルチ',
+  'nav.settings': '設定',
+  'nav.changelog': '更新情報',
+  'nav.help': 'ヘルプ',
+
+  'header.name': '名前',
+  'header.namePlaceholder': 'あなたの名前',
+  'footer.feedback': 'フィードバック',
+  'footer.sourcecode': 'ソースコード',
+  'lang.label': '言語',
+
+  'section.world': '世界',
+  'section.opponents': '対戦相手',
+  'section.match': '対戦',
+  'field.map': 'マップ（幅 × 高）',
+  'field.terrain': 'マップ種類',
+  'field.aiCount': 'AI の数',
+  'field.wildCount': '野生国家',
+  'field.difficulty': 'AI の難易度',
+  'field.victory': '勝利 %',
+  'field.seed': 'シード（任意）',
+  'field.seedPlaceholder': '空 = ランダム',
+  'terrain.flat': '開けた地形（水なし）',
+  'terrain.continents': '大陸',
+  'terrain.islands': '島々',
+  'difficulty.easy': '易しい',
+  'difficulty.normal': '普通',
+  'difficulty.hard': '難しい',
+  'play.start': '対戦を開始',
+  'play.spectate': '観戦',
+
+  'settings.intro': '表示と任意機能。次の対戦から反映されます。',
+  'settings.display': '表示',
+  'field.camera': 'カメラ',
+  'field.sound': 'サウンド',
+  'toggle.on': 'オン',
+  'toggle.off': 'オフ',
+  'camera.tiles': 'タイル（従来）',
+  'camera.period': 'ボックス（シームレス）',
+  'camera.fixed': 'ボックス（固定）',
+  'camera.dynamic': '動的ボックス',
+  'settings.experimental': '実験的',
+  'settings.experimental.body':
+    '試せる任意機能は個別のスイッチとしてここに並びます —— 森・川・魚・地球風ノイズなど。まだ何も有効ではありません。',
+
+  'mp.intro': '公開中の対戦に参加するか、自分の部屋を作成しましょう。',
+  'mp.openDialog': '部屋を作成 / コードで参加',
+  'mp.reconnect': '⟳ 再接続 —— 部屋 {room}',
+
+  'lobby.openTitle': '公開部屋',
+  'lobby.runningTitle': '進行中の対戦',
+  'lobby.refresh': '↻ 更新',
+  'lobby.emptyOpen': '公開部屋はありません。「マルチ」から作成できます。',
+  'lobby.emptyRunning': '進行中の対戦はありません。',
+  'lobby.spectate': '観戦',
+  'lobby.unreachable': 'サーバーに接続できません。',
+  'lobby.loading': '読み込み中 …',
+  'lobby.players': '人',
+  'lobby.spectators': '人観戦',
+
+  'info.title': 'ヒントとコツ',
+  'info.feedback': 'フィードバック / バグ報告',
+  'info.tip.1': '兵力は上限の約 42% で最も速く増えます —— ため込まず攻撃に使いましょう。',
+  'info.tip.2': '工場は接続した都市/港ごとに金を生み —— 外国との接続では 3 倍になります。',
+  'info.tip.3': 'Shift+左クリックは国境全体に沿って攻撃、Shift+ホイールで攻撃規模を微調整します。',
+  'info.tip.4': '世界はトーラスです：左に出ると右から戻ります —— 端を使って側面を突きましょう。',
+  'info.tip.5': '軍艦は敵の交易路を封鎖し、積荷を奪います。',
+  'info.tip.6': 'バグや案があれば「フィードバック / バグ報告」からお知らせください。',
+
+  'changelog.openFull': '更新履歴をすべて開く',
+  'changelog.title': '更新情報',
+  'changelog.loading': '更新を読み込み中 …',
+  'changelog.error': '更新履歴を読み込めませんでした。',
+
+  'help.title': 'ゲームの仕組み',
+  'help.intro':
+    'territorial-loop は境界のない世界のリアルタイム領土 RTS です：左に出ると右から戻ります（トーラス）。目標はマップの大部分を支配することです。',
+
+  'help.goal.title': '目標',
+  'help.goal.body':
+    '対戦で設定した割合（勝利 %）を占めるまで領土を征服します。全領土を失うと脱落です。',
+
+  'help.expansion.title': '拡張と攻撃',
+  'help.expansion.body':
+    'スライダーで攻撃に投入する兵力を決めます。中立地をクリックすると拡張し、国家をクリックすると国境に沿って攻撃します。2:1 の優勢で完全併合でき、互角の戦線は膠着します。兵力は領土とともに上がる上限まで増えます。',
+
+  'help.buildings.title': '建物',
+  'help.buildings.body':
+    '金で都市（兵力上限を増やす）、防衛拠点（攻撃へのボーナス + 範囲）、港（交易と船）、工場（経済）を建てます。強化可能で、征服時は新たな所有者が引き継ぎます —— 防衛拠点を除く。',
+
+  'help.economy.title': '経済（工場ネットワーク）',
+  'help.economy.body':
+    '金は領土の広さではなく工場から生まれます：工場は範囲内の自分の都市/港/工場と直線で結ばれ、接続先ごとに金を産出します。外国との接続は 3 倍の金（と好意）を生み —— 協力は得です。都市 + 港 + 工場を近くに建てて結びましょう。',
+
+  'help.ships.title': '船と交易',
+  'help.ships.body':
+    '輸送艇は兵力を水路で他の島/側面へ運びます（呼び戻し可）。商船は港を行き来し、双方の所有者に金をもたらします。軍艦は哨戒し、敵の商船を封鎖/略奪し、互いに戦います。',
+
+  'help.diplomacy.title': '外交',
+  'help.diplomacy.body':
+    '同盟を結べ（同盟国は攻撃し合わず好意を共有）、禁輸を課せます。同盟は自動で失効します。これらは右クリックの放射状メニューで操作します。',
+
+  'help.treason.title': '裏切り',
+  'help.treason.body':
+    '同盟国を攻撃すると裏切りです：同盟は壊れ、しばらく無法者となり —— 他の全員からあなたへのダメージが 1.5 倍になります。この攻撃の前にゲームが確認します。',
+
+  'help.relations.title': '関係（恨みと好意）',
+  'help.relations.body':
+    '海戦と禁輸は恨みを、交易と工場の隣接は好意を生みます。どちらも時間とともに薄れ、国境を色づけ（赤/緑）、AI が誰を攻撃し誰を見逃すかを左右します。',
+
+  'help.wild.title': '野生国家',
+  'help.wild.body':
+    '野生国家は受動的です：荒野へ広がり、控えめに攻撃し、建設せず、上限が低めです —— 征服できる緩衝地帯であり戦利品です。',
+
+  'help.camera.title': '世界とカメラ',
+  'help.camera.body':
+    'マップはトーラスです（端なし）。ホイールでズーム、ドラッグまたは WASD でカメラを動かします。表示（タイル / ボックス）は設定で変えられます。',
+
+  'help.controls.title': '操作',
+  'help.controls.body':
+    '左クリック：攻撃/拡張 · Shift+左クリック：国境全体に沿って · Shift+ホイール：攻撃規模を微調整 · 右クリック：放射状メニュー（建設/輸送艇/軍艦/外交）· 1–4：建物 · B：輸送艇モード · R：船の範囲 · スペース：一時停止 · Esc：メニュー。',
+
+  'help.growth.title': '兵力の増加',
+  'help.growth.body':
+    '各国家には占有マス数とともに上がる兵力上限があります（劣線形 —— 土地が倍 ≠ 上限が倍）。毎秒の増加は一定ではありません：0 付近では遅く、中程度の備蓄で最速、上限に近いほど鈍ります。最適は上限の約 42% です。兵力を攻撃に使うと高成長域に留まり、上限付近でため込むとほぼ停止します。',
+}

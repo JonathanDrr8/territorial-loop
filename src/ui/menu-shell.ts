@@ -11,7 +11,7 @@
  * baut die Shell mit den aktuellen Werten neu auf (Tab + Feldstände bleiben erhalten).
  */
 
-import { getLocale, onLocaleChange, setLocale, t, type Locale } from '../i18n'
+import { getLocale, LOCALES, onLocaleChange, setLocale, t, type Locale } from '../i18n'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
@@ -256,10 +256,7 @@ export function createMenuShell(
     const langSelect = document.createElement('select')
     langSelect.style.cssText = SELECT_STYLE + ';width: auto'
     langSelect.title = t('lang.label')
-    for (const [code, label] of [
-      ['de', 'DE'],
-      ['en', 'EN'],
-    ] as const) {
+    for (const { code, label } of LOCALES) {
       const opt = document.createElement('option')
       opt.value = code
       opt.textContent = label

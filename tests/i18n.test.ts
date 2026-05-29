@@ -1,7 +1,25 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { de } from '../src/i18n/de'
 import { en } from '../src/i18n/en'
-import { getLocale, setLocale, t } from '../src/i18n'
+import { es } from '../src/i18n/es'
+import { fr } from '../src/i18n/fr'
+import { it as itDict } from '../src/i18n/it'
+import { pt } from '../src/i18n/pt'
+import { ru } from '../src/i18n/ru'
+import { zh } from '../src/i18n/zh'
+import { ja } from '../src/i18n/ja'
+import { getLocale, LOCALES, setLocale, t } from '../src/i18n'
+
+const NON_DE: ReadonlyArray<readonly [string, Record<string, string>]> = [
+  ['en', en],
+  ['es', es],
+  ['fr', fr],
+  ['it', itDict],
+  ['pt', pt],
+  ['ru', ru],
+  ['zh', zh],
+  ['ja', ja],
+]
 
 afterEach(() => {
   setLocale('de')
@@ -37,9 +55,16 @@ describe('i18n', () => {
     expect(t('mp.reconnect', { room: 'XY42' })).toContain('XY42')
   })
 
-  it('jeder en-Key existiert auch in de (keine verwaisten Übersetzungen)', () => {
-    const orphans = Object.keys(en).filter((k) => !(k in de))
-    expect(orphans).toEqual([])
+  it('keine verwaisten Keys in irgendeiner Sprache (Tippfehler-Schutz)', () => {
+    for (const [name, dict] of NON_DE) {
+      const orphans = Object.keys(dict).filter((k) => !(k in de))
+      expect(orphans, `verwaiste Keys in ${name}`).toEqual([])
+    }
+  })
+
+  it('alle deklarierten LOCALES sind eindeutig', () => {
+    const codes = LOCALES.map((l) => l.code)
+    expect(new Set(codes).size).toBe(codes.length)
   })
 
   it('die Kern-Navigation ist in beiden Sprachen vorhanden', () => {

@@ -1,0 +1,130 @@
+/** Vereinfachtes Chinesisch (ADR-0014). Fehlende Keys fallen auf Deutsch zurück. */
+export const zh: Record<string, string> = {
+  'app.tagline': '无边世界的浏览器即时战略',
+
+  'nav.play': '游戏',
+  'nav.multiplayer': '多人',
+  'nav.settings': '设置',
+  'nav.changelog': '更新',
+  'nav.help': '帮助',
+
+  'header.name': '名字',
+  'header.namePlaceholder': '你的名字',
+  'footer.feedback': '反馈',
+  'footer.sourcecode': '源代码',
+  'lang.label': '语言',
+
+  'section.world': '世界',
+  'section.opponents': '对手',
+  'section.match': '对局',
+  'field.map': '地图（宽 × 高）',
+  'field.terrain': '地图类型',
+  'field.aiCount': 'AI 数量',
+  'field.wildCount': '野生国家',
+  'field.difficulty': 'AI 难度',
+  'field.victory': '胜利 %',
+  'field.seed': '种子（可选）',
+  'field.seedPlaceholder': '留空 = 随机',
+  'terrain.flat': '开阔（无水）',
+  'terrain.continents': '大陆',
+  'terrain.islands': '岛屿',
+  'difficulty.easy': '简单',
+  'difficulty.normal': '普通',
+  'difficulty.hard': '困难',
+  'play.start': '开始对局',
+  'play.spectate': '观战',
+
+  'settings.intro': '显示与可选功能。将在下一局生效。',
+  'settings.display': '显示',
+  'field.camera': '镜头',
+  'field.sound': '声音',
+  'toggle.on': '开',
+  'toggle.off': '关',
+  'camera.tiles': '平铺（同以前）',
+  'camera.period': '边框（无缝）',
+  'camera.fixed': '边框（固定）',
+  'camera.dynamic': '动态边框',
+  'settings.experimental': '实验性',
+  'settings.experimental.body':
+    '可试用的可选功能将作为独立开关出现在此处 —— 森林、河流、鱼群、类地噪声…… 目前尚未启用。',
+
+  'mp.intro': '加入一个开放对局，或创建你自己的房间。',
+  'mp.openDialog': '创建房间 / 用代码加入',
+  'mp.reconnect': '⟳ 重新连接 —— 房间 {room}',
+
+  'lobby.openTitle': '开放房间',
+  'lobby.runningTitle': '进行中的对局',
+  'lobby.refresh': '↻ 刷新',
+  'lobby.emptyOpen': '暂无开放房间。可通过“多人”自行创建。',
+  'lobby.emptyRunning': '当前没有进行中的对局。',
+  'lobby.spectate': '观战',
+  'lobby.unreachable': '无法连接服务器。',
+  'lobby.loading': '加载中 …',
+  'lobby.players': '名玩家',
+  'lobby.spectators': '名观众',
+
+  'info.title': '提示与技巧',
+  'info.feedback': '反馈 / 报告错误',
+  'info.tip.1': '兵力在约为上限 42% 时增长最快 —— 拿去进攻而不是囤积。',
+  'info.tip.2': '工厂按每个相连的城市/港口产出金币 —— 与外国相连则为三倍。',
+  'info.tip.3': 'Shift+左键沿整条边界进攻；Shift+滚轮可微调进攻规模。',
+  'info.tip.4': '世界是一个环面：从左边出去会从右边回来 —— 利用边缘进行包抄。',
+  'info.tip.5': '战舰会封锁敌方贸易路线并夺取货物。',
+  'info.tip.6': '发现错误或有想法？请通过“反馈 / 报告错误”告诉我们。',
+
+  'changelog.openFull': '打开完整更新日志',
+  'changelog.title': '更新内容',
+  'changelog.loading': '正在加载更新 …',
+  'changelog.error': '无法加载更新日志。',
+
+  'help.title': '游戏机制',
+  'help.intro':
+    'territorial-loop 是一款无边世界的实时领土战略游戏：从左边出去会从右边回来（一个环面）。目标是控制地图的大部分。',
+
+  'help.goal.title': '目标',
+  'help.goal.body': '不断攻占领土，直到你占据对局设定的地图比例（胜利 %）。失去全部领土则被淘汰。',
+
+  'help.expansion.title': '扩张与进攻',
+  'help.expansion.body':
+    '滑块决定一次进攻投入多少兵力。点击中立土地会让你扩张；点击某个国家会沿边界进攻。2:1 的优势足以完全吞并；势均力敌的战线会很胶着。兵力增长到一个随领土上升的上限。',
+
+  'help.buildings.title': '建筑',
+  'help.buildings.body':
+    '用金币可建造城市（更高兵力上限）、防御哨所（对进攻的加成 + 范围）、港口（贸易与船只）和工厂（经济）。建筑可升级；被攻占时新主人会接管 —— 防御哨所除外。',
+
+  'help.economy.title': '经济（工厂网络）',
+  'help.economy.body':
+    '金币并非来自领土大小，而是来自工厂：工厂会以直线与范围内你的城市/港口/工厂相连，并按每个相连目标产出金币。与外国的连接产出三倍金币（并增加好感）—— 合作是值得的。把城市 + 港口 + 工厂建在一起并相互连接。',
+
+  'help.ships.title': '船只与贸易',
+  'help.ships.body':
+    '运输艇通过水路把兵力送往其他岛屿/侧翼（可召回）。商船在港口之间往返，为双方主人带来金币。战舰巡逻、封锁/掠夺敌方商船，并相互交战。',
+
+  'help.diplomacy.title': '外交',
+  'help.diplomacy.body':
+    '你可以缔结同盟（盟友互不进攻并共享好感）并施加禁运。同盟会自动到期。这些都通过右键的环形菜单操作。',
+
+  'help.treason.title': '背叛',
+  'help.treason.body':
+    '进攻盟友即为背叛：同盟破裂，你会在一段时间内被通缉 —— 其他人此时对你造成 1.5 倍伤害。进行此类进攻前游戏会询问确认。',
+
+  'help.relations.title': '关系（怨恨与好感）',
+  'help.relations.body':
+    '海战与禁运产生怨恨；贸易与工厂相邻产生好感。两者都会随时间消退，给边界染色（红/绿），并左右 AI 进攻或放过谁。',
+
+  'help.wild.title': '野生国家',
+  'help.wild.body':
+    '野生国家是被动的：它们向荒野扩张，进攻克制，不建造，上限更低 —— 是可攻占的缓冲与战利品。',
+
+  'help.camera.title': '世界与镜头',
+  'help.camera.body':
+    '地图是一个环面（无边）。用滚轮缩放，拖拽或 WASD 移动镜头。显示样式（平铺 / 边框）在设置中调整。',
+
+  'help.controls.title': '操作',
+  'help.controls.body':
+    '左键：进攻/扩张 · Shift+左键：沿整条边界 · Shift+滚轮：微调进攻规模 · 右键：环形菜单（建造/运输艇/战舰/外交）· 1–4：建筑 · B：运输艇模式 · R：船只范围 · 空格：暂停 · Esc：菜单。',
+
+  'help.growth.title': '兵力增长',
+  'help.growth.body':
+    '每个国家都有随格子数上升的兵力上限（次线性 —— 土地翻倍 ≠ 上限翻倍）。每秒增长并不恒定：接近 0 时增长缓慢，中等储备时最快，越接近上限越受抑制。最佳点约在上限的 42%。把兵力用于进攻能让你保持在高增长区；在上限附近囤积几乎会让增长停滞。',
+}
