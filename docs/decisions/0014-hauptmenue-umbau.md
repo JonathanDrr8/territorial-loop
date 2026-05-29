@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (Plan — wartet auf Jonathans Freigabe + die offenen Entscheidungen unten).
+Proposed (Plan — Struktur-Entscheidungen mit Jonathan getroffen; Phase 1 wartet auf „los").
 
 ## Datum
 
@@ -88,16 +88,18 @@ im Footer. **Default-Tab:** „Spielen".
    unserem Seed generiert), Tab-Übergänge, Responsives Layout.
 4. _(später)_ Leaderboard-Tab, wenn Accounts/ELO kommen.
 
-## Offene Entscheidungen (für Jonathan)
+## Entscheidungen (mit Jonathan, 2026-05-30)
 
-1. **Kategorien:** Passt das Set (Spielen / Mehrspieler / Einstellungen / Changelog / Hilfe)?
-   Etwas weglassen/umbenennen? „Leaderboard" jetzt als „Bald"-Platzhalter zeigen oder ganz weg?
-2. **Spielen ↔ Mehrspieler getrennt** (zwei Tabs) oder **ein „Spielen"-Tab** mit Solo + MP
-   untereinander (näher an OpenFront: SOLO groß, darunter Create/Join Lobby)?
-3. **Hintergrund:** dezente statische Textur (einfach) — oder später ein live gerendertes
-   Karten-Bild (aufwändiger)?
-4. **Karten-Vorschau-Kacheln** (Phase 3) gewünscht oder unnötig (wir generieren zufällig)?
-5. **Umfang Phase 1:** nur umräumen (gleiche Inhalte, neue Hülle) — passt das als erster Schritt?
+1. ✅ **Kategorien-Set:** Spielen · Mehrspieler · Einstellungen · Changelog · Hilfe.
+   **Leaderboard erst später** (mit Accounts/ELO, [[feature-idea-accounts-elo]]) — jetzt kein Platzhalter.
+2. ✅ **Getrennte Tabs:** „Spielen" (Solo-Setup + Match starten/Zuschauen) und „Mehrspieler"
+   (Lobby-Browser + Erstellen/Beitreten) als eigene Tabs.
+
+### Noch offen (Phase 3 / unkritisch)
+
+3. **Hintergrund:** dezente statische Textur zuerst; live gerendertes Karten-Bild evtl. später.
+4. **Karten-Vorschau-Kacheln** (Phase 3) — entscheiden wir, wenn Phase 1 steht.
+5. **Phase 1 = nur umräumen** (gleiche Inhalte, neue Hülle) — vorgeschlagener erster Schritt.
 
 ## Verifikation
 
