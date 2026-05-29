@@ -472,6 +472,35 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p.gold).toBeLessThan(30_000) // Gold wurde ausgegeben
     expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
   })
+
+  it('Fabrik in Reichweite einer fremden Stadt erzeugt Gunst + Gold-Bonus (beide profitieren)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const factoryTile = tileRef(20, 20, W, H) // Spieler 1
+    const cityTile = tileRef(22, 20, W, H) // Spieler 2, in Reichweite (Distanz 2)
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 2,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    const p2 = state.players.get(2)
+    if (p2 === undefined) throw new Error('player missing')
+    const goldBefore = p2.gold
+    // Bis zum nächsten Fabrik-Diplomatie-Intervall ticken (alle 30 Ticks).
+    for (let i = 0; i < 31; i++) tick(state, [])
+    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0) // Gunst entstand
+    expect(p2.gold).toBeGreaterThan(goldBefore) // Nachbar bekam (auch) den Gold-Bonus
+  })
 })
 
 describe('wilde Nationen', () => {

@@ -324,6 +324,15 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     return 3
   }
 
+  /** Gunst-Stufe (0–3) zwischen `p` und dem Menschen — durch Handel/Fabrik-Nachbarschaft. */
+  function goodwillLevel(p: Player, humanId: number): number {
+    const g = state.goodwill.get(directedKey(p.id, humanId)) ?? 0
+    if (g < 30) return 0
+    if (g < 120) return 1
+    if (g < 320) return 2
+    return 3
+  }
+
   /**
    * Berechnet die Grenz-Tints relativ zum Menschen und gibt eine Signatur zurück,
    * die sich nur bei Beziehungs-/Groll-Stufen-Wechseln ändert (→ seltenes Rebake;
@@ -361,12 +370,19 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         cat = 'ally'
       } else {
         const lvl = grudgeLevel(p, humanId, humanTiles)
-        if (lvl === 0) {
-          tint = [235, 235, 235]
-          cat = 'w'
-        } else {
+        if (lvl > 0) {
           tint = lvl === 1 ? [180, 110, 110] : lvl === 2 ? [225, 75, 75] : [255, 45, 45]
           cat = 'g' + lvl.toString()
+        } else {
+          // Kein Groll → ggf. Gunst (grün-türkis, klar von Allianz-Grün unterscheidbar).
+          const gw = goodwillLevel(p, humanId)
+          if (gw > 0) {
+            tint = gw === 1 ? [120, 200, 175] : gw === 2 ? [70, 215, 165] : [40, 230, 150]
+            cat = 'gw' + gw.toString()
+          } else {
+            tint = [235, 235, 235]
+            cat = 'w'
+          }
         }
       }
       m.set(p.id, tint)

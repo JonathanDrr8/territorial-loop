@@ -25,7 +25,7 @@ import {
   type Player,
 } from '../core/game'
 import { defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
-import { areAllied, hasAllianceRequest } from '../core/diplomacy'
+import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import { MAX_WARSHIPS_PER_PLAYER, NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
@@ -34,6 +34,9 @@ import { isLand } from '../world/terrain'
 import { neighbors4, torusDistance } from '../world/torus'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
+
+/** Übersteigt die Netto-Gunst (Gunst − Groll) diesen Wert, schont die KI den Partner (wie verbündet). */
+const FRIEND_SPARE_THRESHOLD = 200
 
 interface DifficultyProfile {
   readonly attackPct: number
@@ -124,9 +127,20 @@ export function createAI(
   /** Ein Land-Nachbar-Ziel der Frontier (bevorzugt Gegner oder Neutrale). */
   function pickLandTarget(state: GameState, player: Player, preferEnemies: boolean): number {
     const { width, height } = state.map
-    const enemyTiles: number[] = []
+    // Gegner-Tiles mit Beziehungs-Gewicht: resentierte Nationen bevorzugen, gute Partner meiden.
+    const enemyTiles: { tile: number; weight: number }[] = []
     const neutralTiles: number[] = []
     const seen = new Set<number>()
+
+    /** Beziehungs-bewertet ein Gegner-Tile: `null` = nicht angreifen (Freund), sonst Gewicht. */
+    const enemyWeight = (owner: number): number | null => {
+      const grudge = state.grudge.get(directedKey(owner, player.id)) ?? 0
+      const goodwill = state.goodwill.get(directedKey(owner, player.id)) ?? 0
+      // Starker Partner (Gunst klar über Groll) → wie ein Verbündeter behandeln, nicht angreifen.
+      if (goodwill - grudge > FRIEND_SPARE_THRESHOLD) return null
+      // Sonst: Grundgewicht + Groll-Aufschlag (gezielte Vergeltung), abzgl. Gunst-Dämpfung.
+      return Math.max(0.15, 1 + Math.min(grudge / 40, 6) - Math.min(goodwill / 60, 2))
+    }
 
     for (const ref of player.frontier) {
       for (const n of neighbors4(ref, width, height)) {
@@ -134,18 +148,36 @@ export function createAI(
         seen.add(n)
         const owner = getOwner(state.map, n)
         if (owner === player.id) continue
+        if (owner === 0) {
+          neutralTiles.push(n)
+          continue
+        }
         // Verbündete nicht angreifen.
-        if (owner > 0 && areAllied(state.alliances, player.id, owner)) continue
-        if (owner === 0) neutralTiles.push(n)
-        else enemyTiles.push(n)
+        if (areAllied(state.alliances, player.id, owner)) continue
+        const w = enemyWeight(owner)
+        if (w !== null) enemyTiles.push({ tile: n, weight: w })
       }
     }
 
-    const primary = preferEnemies ? enemyTiles : neutralTiles
-    const fallback = preferEnemies ? neutralTiles : enemyTiles
-    const pool = primary.length > 0 ? primary : fallback
-    if (pool.length === 0) return -1
-    return rng.randElement(pool)
+    if (preferEnemies) {
+      if (enemyTiles.length > 0) return weightedPickTile(enemyTiles)
+      return neutralTiles.length > 0 ? rng.randElement(neutralTiles) : -1
+    }
+    if (neutralTiles.length > 0) return rng.randElement(neutralTiles)
+    return enemyTiles.length > 0 ? weightedPickTile(enemyTiles) : -1
+  }
+
+  /** Gewichtete (deterministische) Auswahl eines Tiles aus {tile, weight}-Kandidaten. */
+  function weightedPickTile(items: readonly { tile: number; weight: number }[]): number {
+    let total = 0
+    for (const it of items) total += it.weight
+    if (total <= 0) return items[0]?.tile ?? -1
+    let r = rng.next() * total
+    for (const it of items) {
+      r -= it.weight
+      if (r <= 0) return it.tile
+    }
+    return items[items.length - 1]?.tile ?? -1
   }
 
   /**

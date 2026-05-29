@@ -281,6 +281,13 @@ export interface GameState {
    */
   readonly grudge: Map<number, number>
   /**
+   * „Gunst" als gerichteter Schlüssel ([[directedKey]]) → abklingender Wert, der durch
+   * Zusammenarbeit steigt (abgeschlossener Handel, Fabriken in gegenseitiger Reichweite).
+   * Positives Gegenstück zum [[grudge]]; treibt den grünen Beziehungs-Tint und die KI-Zielwahl
+   * (gute Partner werden geschont). Klingt langsamer ab als Groll (Freundschaften halten länger).
+   */
+  readonly goodwill: Map<number, number>
+  /**
    * Kürzlich eroberte Tiles (TileRef → Eroberungs-Tick). Der Renderer lässt sie kurz
    * aufleuchten (Farbe nach Beziehung des neuen Besitzers zum Menschen) → man sieht
    * exakt, wo ein Angriff gerade Wirkung zeigt. Wird nach wenigen Ticks geprunt.
@@ -392,6 +399,7 @@ export function createGame(config: GameConfig): GameState {
     allianceRequests: new Set<number>(),
     embargoes: new Set<number>(),
     grudge: new Map<number, number>(),
+    goodwill: new Map<number, number>(),
     recentCaptures: new Map<TileRef, number>(),
   }
 
@@ -661,7 +669,9 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   resolveNavalCombat(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
+  applyFactoryDiplomacy(state)
   decayGrudge(state)
+  decayGoodwill(state)
   pruneRecentCaptures(state)
   expireAlliances(state)
   checkEliminations(state)
@@ -689,6 +699,82 @@ function addGrudge(state: GameState, attackerId: number, victimId: number, amoun
   if (attackerId === victimId || victimId <= 0 || attackerId <= 0) return
   const key = directedKey(attackerId, victimId)
   state.grudge.set(key, (state.grudge.get(key) ?? 0) + amount)
+}
+
+/** Abkling-Faktor pro Tick für „Gunst" — langsamer als Groll, damit Freundschaften halten. */
+const GOODWILL_DECAY = 0.997
+/** Unter diesem Wert wird ein Gunst-Eintrag gelöscht. */
+const GOODWILL_MIN = 1
+/** Erhöht die (beidseitige) Gunst zwischen a und b. Ignoriert Selbst/Besitzlos. */
+function addGoodwill(state: GameState, a: number, b: number, amount: number): void {
+  if (a === b || a <= 0 || b <= 0 || amount <= 0) return
+  const k1 = directedKey(a, b)
+  const k2 = directedKey(b, a)
+  state.goodwill.set(k1, (state.goodwill.get(k1) ?? 0) + amount)
+  state.goodwill.set(k2, (state.goodwill.get(k2) ?? 0) + amount)
+}
+
+/** Lässt aufgebaute Gunst pro Tick etwas abklingen; vergisst Kleinstwerte. */
+function decayGoodwill(state: GameState): void {
+  if (state.goodwill.size === 0) return
+  for (const [key, value] of state.goodwill) {
+    const next = value * GOODWILL_DECAY
+    if (next < GOODWILL_MIN) state.goodwill.delete(key)
+    else state.goodwill.set(key, next)
+  }
+}
+
+/** Gunst-Gewinn pro abgeschlossener Handelsfahrt (an beide Hafen-Besitzer, ∝ Fahrt-Gold). */
+const GOODWILL_PER_TRADE_DIVISOR = 8
+/** Intervall (Ticks), in dem Fabrik-Nachbarschafts-Gunst/-Boni gewährt werden. */
+const FACTORY_DIPLO_INTERVAL = 30
+/** Gunst je Intervall, wenn eine Fabrik in Reichweite einer fremden Stadt/eines Hafens liegt. */
+const GOODWILL_PER_FACTORY_NEIGHBOR = 6
+/** Gold-Bonus je Intervall an BEIDE Seiten einer Fabrik-Nachbarschaft (gemeinsam profitieren). */
+const FACTORY_NEIGHBOR_GOLD = 120
+
+/**
+ * Fabrik-Diplomatie: liegt eine eigene fertige Fabrik in `FACTORY_LINK_RANGE` einer Stadt/eines
+ * Hafens eines ANDEREN (nicht embargoierten) Spielers, profitieren beide — etwas Gunst + ein
+ * kleiner Gold-Bonus auf beiden Seiten. So lohnt es sich, Fabriken nah an Nachbarn zu bauen
+ * (Kooperation statt nur Eigen-Netz). Embargo schneidet das ab. Läuft alle FACTORY_DIPLO_INTERVAL.
+ */
+function applyFactoryDiplomacy(state: GameState): void {
+  if (state.tick % FACTORY_DIPLO_INTERVAL !== 0) return
+  const { width, height } = state.map
+  const factories: { x: number; y: number; owner: number }[] = []
+  const dests: { x: number; y: number; owner: number }[] = []
+  for (const b of state.buildings.values()) {
+    if (!isBuildingComplete(b, state.tick) || b.ownerId <= 0) continue
+    const x = b.tile % width
+    const y = Math.floor(b.tile / width)
+    if (b.type === 'factory') factories.push({ x, y, owner: b.ownerId })
+    if (b.type === 'city' || b.type === 'port') dests.push({ x, y, owner: b.ownerId })
+  }
+  if (factories.length === 0 || dests.length === 0) return
+  // Pro (Fabrik, fremdes Ziel)-Nachbarschaft höchstens EINMAL pro Paar gutschreiben.
+  const credited = new Set<number>()
+  for (const f of factories) {
+    for (const d of dests) {
+      if (d.owner === f.owner) continue
+      if (isTradeEmbargoed(state, f.owner, d.owner)) continue
+      if (torusDistance(f.x, f.y, d.x, d.y, width, height) > FACTORY_LINK_RANGE) continue
+      const pairId = directedKey(Math.min(f.owner, d.owner), Math.max(f.owner, d.owner))
+      if (credited.has(pairId)) continue
+      credited.add(pairId)
+      addGoodwill(state, f.owner, d.owner, GOODWILL_PER_FACTORY_NEIGHBOR)
+      const pf = state.players.get(f.owner)
+      const pd = state.players.get(d.owner)
+      if (pf?.isAlive === true) {
+        pf.gold += FACTORY_NEIGHBOR_GOLD
+        pf.goldEarned += FACTORY_NEIGHBOR_GOLD
+      }
+      if (pd?.isAlive === true) {
+        pd.gold += FACTORY_NEIGHBOR_GOLD
+        pd.goldEarned += FACTORY_NEIGHBOR_GOLD
+      }
+    }
+  }
 }
 /** Wie lange (Ticks) ein frisch erobertes Tile aufleuchtet, bevor es vergessen wird. */
 export const CAPTURE_FADE_TICKS = 6
@@ -2116,6 +2202,15 @@ function advanceTradeShips(state: GameState): void {
       if (to !== undefined && to.isAlive) {
         to.gold += ship.gold
         to.goldEarned += ship.gold
+      }
+      // Handel zwischen zwei Nationen schafft beidseitige Gunst (∝ Fahrt-Gold).
+      if (ship.fromOwnerId !== ship.toOwnerId) {
+        addGoodwill(
+          state,
+          ship.fromOwnerId,
+          ship.toOwnerId,
+          Math.round(ship.gold / GOODWILL_PER_TRADE_DIVISOR),
+        )
       }
     } else {
       survivors.push(ship)

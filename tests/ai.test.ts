@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { createAI } from '../src/ai/ai'
 import { createGame, tick, type GameConfig } from '../src/core/game'
-import { getOwner } from '../src/world/map'
+import { getOwner, setOwner } from '../src/world/map'
 import { neighbors4, tileRef } from '../src/world/torus'
 import { IS_LAND_BIT } from '../src/world/terrain'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
+import { directedKey } from '../src/core/diplomacy'
 
 function aiConfig(seed = 'ai-test-seed'): GameConfig {
   return {
@@ -235,6 +236,69 @@ describe('createAI', () => {
       tick(state, intents)
     }
     expect(sawMove).toBe(true)
+  })
+
+  it('verschont einen Nachbarn mit hoher Gunst und greift den anderen an', () => {
+    const W = 64
+    const H = 64
+    const config: GameConfig = {
+      mapWidth: W,
+      mapHeight: H,
+      seed: 'ai-friend',
+      victoryPct: 90,
+      terrain: 'flat',
+      players: [
+        { id: 1, name: 'Feind', color: 0xff0000ff, isHuman: false },
+        { id: 2, name: 'KI', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'Partner', color: 0x0000ffff, isHuman: false },
+      ],
+    }
+    const state = createGame(config)
+    // Karte neutralisieren und drei senkrechte Spalten setzen: 1 | 2(KI) | 3.
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+    }
+    const claim = (x: number, owner: number): void => {
+      for (let y = 0; y < H; y++) {
+        const t = tileRef(x, y, W, H)
+        setOwner(state.map, t, owner)
+        const p = state.players.get(owner)
+        if (p !== undefined) {
+          p.tilesOwned++
+          p.frontier.add(t) // jede Spalte grenzt an die Nachbarspalten → alles Frontier
+        }
+      }
+    }
+    claim(9, 1) // Feind links
+    claim(10, 2) // KI mitte
+    claim(11, 3) // Partner rechts
+    const ai2 = state.players.get(2)
+    if (ai2 === undefined) throw new Error('ai missing')
+    ai2.troops = 100_000
+    // Hohe Gunst zwischen KI (2) und Partner (3) → KI soll 3 verschonen.
+    state.goodwill.set(directedKey(3, 2), 9999)
+    state.goodwill.set(directedKey(2, 3), 9999)
+
+    const ai = createAI(2, state.seed, 'hard')
+    let attackedFeind = false
+    let attackedPartner = false
+    for (let tt = 0; tt < 300; tt++) {
+      ai2.troops = Math.max(ai2.troops, 50_000) // genug Truppen für Angriffe
+      const intents = ai.decide(state)
+      for (const i of intents) {
+        if (i.type === 'attack') {
+          const o = getOwner(state.map, i.targetTile)
+          if (o === 1) attackedFeind = true
+          if (o === 3) attackedPartner = true
+        }
+      }
+      tick(state, intents)
+    }
+    expect(attackedFeind).toBe(true) // greift den nicht-Partner an
+    expect(attackedPartner).toBe(false) // verschont den Gunst-Partner (3)
   })
 
   it('wilde KI expandiert (greift an), baut aber nie und macht keine Diplomatie', () => {

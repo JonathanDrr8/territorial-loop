@@ -392,6 +392,14 @@ describe('Handels-Modi + Hafen-Level + Embargo-Groll', () => {
     // grudge[directedKey(1,2)] = wie sehr der Embargoierte (2) dem Verhänger (1) grollt.
     expect(state.grudge.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
   })
+
+  it('abgeschlossener Handel erzeugt beidseitige Gunst', () => {
+    const { state, home, setHomeMode } = tradeScenario()
+    setHomeMode('nearest') // Handel mit Spieler 2 (kurze Route → kommt sofort an, zahlt + Gunst)
+    sendWindow(state, home)
+    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
+    expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0) // beidseitig
+  })
 })
 
 describe('warships via tick', () => {
