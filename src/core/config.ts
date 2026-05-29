@@ -47,7 +47,7 @@ export const BASE_GOLD_PER_TICK = 100
  * Startwerte, per Playtest tunbar.
  */
 export const FACTORY_LINK_RANGE = 40
-export const FACTORY_GOLD_PER_DEST = 14
+export const FACTORY_GOLD_PER_DEST = 6
 
 /**
  * Terrain-Magnitude — bestimmt Verlust- und Geschwindigkeits-Faktoren beim Kampf.

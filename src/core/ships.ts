@@ -22,9 +22,9 @@ export const TRADE_SHIP_SPEED = 1
 /** Wie oft (Ticks) ein Hafen versucht ein Handelsschiff auszusenden. */
 export const TRADE_INTERVAL_TICKS = 120
 /** Gold-Sockelbetrag pro abgeschlossener Handelsfahrt (an beide Hafen-Besitzer). */
-export const TRADE_GOLD_BASE = 200
+export const TRADE_GOLD_BASE = 300
 /** Zusätzliches Gold pro Tile Reisedistanz. */
-export const TRADE_GOLD_PER_TILE = 6
+export const TRADE_GOLD_PER_TILE = 12
 
 /** Kriegsschiffe: patrouillieren Wasser, fangen feindliche Handelsschiffe ab
  * (Blockade), versenken feindliche Boote und bekämpfen feindliche Kriegsschiffe. */

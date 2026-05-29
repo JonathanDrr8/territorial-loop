@@ -506,6 +506,27 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
+  it('Eigene Ziele je Fabrik sind gedeckelt (kein Cluster-Quadrat)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const factoryTile = tileRef(20, 20, W, H)
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // 6 EIGENE Städte im Cluster — mehr als der Deckel (4).
+    for (let k = 0; k < 6; k++) {
+      const t = tileRef(20 + 1, 20 + k, W, H)
+      state.buildings.set(t, { type: 'city', ownerId: 1, tile: t, level: 1, completesAtTick: 0 })
+    }
+    const gb = goldBreakdown(state, 1)
+    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 4) // gedeckelt bei 4, nicht 6
+  })
+
   it('Auslands-Verbindungen je Fabrik sind gedeckelt (kein unendliches Stapeln)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width

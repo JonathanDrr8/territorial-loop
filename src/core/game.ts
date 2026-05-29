@@ -908,7 +908,9 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
   for (let i = 0; i < n; i++) {
     const node = nodes[i]
     if (node?.isFactory !== true) continue
-    gold += FACTORY_GOLD_PER_DEST * (destPerCluster.get(find(i)) ?? 0) * node.level
+    // Eigene Ziele je Fabrik gedeckelt (FACTORY_OWN_CAP) → linear statt quadratisch.
+    const own = Math.min(destPerCluster.get(find(i)) ?? 0, FACTORY_OWN_CAP)
+    gold += FACTORY_GOLD_PER_DEST * own * node.level
   }
   // Verbundene Ziele = Städte/Häfen in einem Cluster mit mindestens einer Fabrik.
   let dests = 0
@@ -926,10 +928,12 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
 /** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
 const FACTORY_FOREIGN_MULT = 3
 /**
- * Deckel: so viele Auslands-Ziele zählen je Fabrik (an OpenFronts diminishing-returns angelehnt —
- * dort sinkt der Zug-Wert nach 10 Stops). Verhindert, dass eine Fabrik an einer ruhigen Grenze
- * mit vielen fremden Gebäuden ins Unendliche skaliert.
+ * Deckel an Zielen JE Fabrik (eigene bzw. ausländische, getrennt). Macht eine Fabrik linear
+ * statt quadratisch (kein Cluster-Schneeball) und gibt dem Level Sinn: Level multipliziert das
+ * Gold innerhalb des Deckels, also = „verdichten/Platz sparen" vs. Duplizieren = „Fläche abdecken"
+ * (beide gleich viel Gold/Kosten). An OpenFronts diminishing-returns (nach 10 Stops) angelehnt.
  */
+const FACTORY_OWN_CAP = 4
 const FACTORY_FOREIGN_CAP = 4
 
 /**
@@ -1031,15 +1035,16 @@ export function factoryYield(
     }
   }
   const root = find(selfIdx)
-  let dests = 0
+  let clusterDests = 0
   for (let i = 0; i < n; i++) {
-    if (nodes[i]?.isDest === true && find(i) === root) dests++
+    if (nodes[i]?.isDest === true && find(i) === root) clusterDests++
   }
+  const own = Math.min(clusterDests, FACTORY_OWN_CAP) // eigene Ziele gedeckelt
   // Auslands-Verbindungen dieser Fabrik (3× Gold) mitzählen.
   const foreign = factoryForeignContribution(state, ownerId, tile, self.level)
   return {
-    goldPerTick: FACTORY_GOLD_PER_DEST * dests * self.level + foreign.gold,
-    dests: dests + foreign.dests,
+    goldPerTick: FACTORY_GOLD_PER_DEST * own * self.level + foreign.gold,
+    dests: own + foreign.dests,
   }
 }
 
@@ -2021,10 +2026,19 @@ function resolveNavalCombat(state: GameState): void {
         }
       } else if (arrHas(state.tradeShips, pr.target)) {
         const tgt = pr.target as TradeShip
-        sunkTrades.add(tgt)
-        // Beide Hafen-Besitzer verlieren das Handelseinkommen → beide grollen.
-        addGrudge(state, shooterId, tgt.fromOwnerId, GRUDGE_PER_TRADE_SUNK)
-        addGrudge(state, shooterId, tgt.toOwnerId, GRUDGE_PER_TRADE_SUNK)
+        if (!sunkTrades.has(tgt)) {
+          sunkTrades.add(tgt)
+          // Beide Hafen-Besitzer verlieren das Handelseinkommen → beide grollen.
+          addGrudge(state, shooterId, tgt.fromOwnerId, GRUDGE_PER_TRADE_SUNK)
+          addGrudge(state, shooterId, tgt.toOwnerId, GRUDGE_PER_TRADE_SUNK)
+          // Piraterie: der Schütze ERBEUTET die Fracht — beide Anteile (2× das Fahrt-Gold).
+          const pirate = state.players.get(shooterId)
+          if (pirate !== undefined && pirate.isAlive) {
+            const loot = tgt.gold * 2
+            pirate.gold += loot
+            pirate.goldEarned += loot
+          }
+        }
       }
     }
     state.projectiles = flying

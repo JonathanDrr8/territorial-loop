@@ -73,8 +73,8 @@ function own(state: GameState, x: number, y: number, playerId: number): number {
 
 describe('trade gold + ship helpers', () => {
   it('tradeGold grows with distance', () => {
-    expect(tradeGold(0)).toBe(200)
-    expect(tradeGold(10)).toBe(260)
+    expect(tradeGold(0)).toBe(300)
+    expect(tradeGold(10)).toBe(420) // 300 + 12×10
   })
 
   it('shipTile/shipArrived track progress along the path', () => {
@@ -451,19 +451,25 @@ describe('warships via tick', () => {
       mode: 'patrol',
       returning: false,
     })
+    // Lange „Stand"-Route → das Handelsschiff bleibt in Reichweite und kommt nicht von selbst an.
     state.tradeShips.push({
       fromOwnerId: 2,
       toOwnerId: 2,
-      path: water,
+      path: new Array<number>(50).fill(water[1]),
       progress: 0,
       gold: 200,
       originPort: water[0],
       destPort: water[1],
     })
-    // Schuss (Tick 0) + 4 Ticks Projektil-Flug bis zum Einschlag.
+    const pirate = state.players.get(1)
+    if (pirate === undefined) throw new Error('no pirate')
+    const goldBefore = pirate.gold
+    // Schuss (Tick 0) + Projektil-Flug bis zum Einschlag.
     for (let i = 0; i < 8 && state.tradeShips.length > 0; i++) tick(state, [])
     expect(state.tradeShips.length).toBe(0) // blockiert/zerstört
     expect(state.warships.length).toBe(1) // Kriegsschiff bleibt
+    // Piraterie: der Schütze erbeutet die Fracht (2× = beide Anteile = 400 bei gold 200).
+    expect(pirate.gold - goldBefore).toBeGreaterThanOrEqual(400)
   })
 
   it('Neutrale-Toggle: schont neutrale Fracht, greift aber embargoierte an', () => {
