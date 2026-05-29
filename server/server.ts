@@ -14,7 +14,9 @@
  * Verbündete straffrei), Reconnect/Desync bekommt einen Snapshot.
  */
 
-import { createServer } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createReadStream, existsSync, statSync } from 'node:fs'
+import { extname, join, normalize, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
 
@@ -35,6 +37,44 @@ import {
 const PORT = Number(process.env.PORT ?? 8787)
 /** Turn-Takt in ms (entspricht SIM_BASE_INTERVAL_MS des Clients). */
 const TURN_MS = 100
+
+/** Verzeichnis der gebauten Client-App (Production). Default `dist/` relativ zum CWD. */
+const STATIC_DIR = resolve(process.env.STATIC_DIR ?? 'dist')
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
+}
+
+/** Liefert eine Datei aus {@link STATIC_DIR}; unbekannte Pfade → index.html (SPA-Fallback). */
+function serveStatic(req: IncomingMessage, res: ServerResponse): void {
+  const urlPath = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/')
+  // Pfad-Traversal abwehren: normalisieren, führende ../ entfernen, im Root verankern.
+  const rel = normalize(urlPath).replace(/^(\.\.[/\\])+/, '')
+  let filePath = join(STATIC_DIR, rel)
+  if (
+    !filePath.startsWith(STATIC_DIR) ||
+    !existsSync(filePath) ||
+    statSync(filePath).isDirectory()
+  ) {
+    filePath = join(STATIC_DIR, 'index.html')
+  }
+  if (!existsSync(filePath)) {
+    res.writeHead(404)
+    res.end()
+    return
+  }
+  res.writeHead(200, { 'content-type': MIME[extname(filePath)] ?? 'application/octet-stream' })
+  createReadStream(filePath).pipe(res)
+}
 
 /** Default-Match-Settings, bis der Host sie in der Lobby anpasst. */
 const DEFAULT_SETTINGS: MatchSettings = {
@@ -258,6 +298,13 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         'access-control-allow-origin': '*',
       })
       res.end(JSON.stringify(open))
+      return
+    }
+    // Statischer Client: die gebaute Spiel-App (dist/) auf derselben Domain ausliefern, damit ein
+    // Node-Server Client + Lockstep abdeckt (Production). SPA-Fallback auf index.html. Existiert
+    // dist/ nicht (lokale Dev — da liefert Vite die App), bleibt es bei 404.
+    if (req.method === 'GET' && existsSync(STATIC_DIR)) {
+      serveStatic(req, res)
       return
     }
     res.writeHead(404)

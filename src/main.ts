@@ -53,6 +53,18 @@ const SOLO_PLAYER_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
 const DEFAULT_SLIDER_PCT = 30
 
+/**
+ * Default-Lockstep-Server-URL: lokal (Dev) der mitlaufende Server auf :8787, sonst **dieselbe
+ * Origin** wie die ausgelieferte Seite (ein Node-Server liefert Client + Lockstep, z.B.
+ * `wss://loop.jarhost.de`). Im Mehrspieler-Dialog weiterhin überschreibbar.
+ */
+function defaultServerUrl(): string {
+  const host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1' || host === '') return 'ws://localhost:8787'
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  return `${proto}://${window.location.host}`
+}
+
 const DEFAULT_MENU: StartMenuValues = {
   playerName: 'Du',
   mapWidth: 1024,
@@ -608,7 +620,7 @@ function main(): void {
       difficulty: initial.difficulty,
     }
     lobby = createMultiplayerMenu(container, {
-      defaultServerUrl: loadServerUrl('ws://localhost:8787'),
+      defaultServerUrl: loadServerUrl(defaultServerUrl()),
       defaultName: initial.playerName,
       defaultSettings: settings,
       saveServerUrl,
@@ -664,7 +676,7 @@ function main(): void {
         menu.destroy()
         showLobby(initial, code)
       },
-      loadServerUrl('ws://localhost:8787'),
+      loadServerUrl(defaultServerUrl()),
       // „Wieder verbinden": nur wenn eine unterbrochene Sitzung existiert.
       activeSession === null
         ? undefined
