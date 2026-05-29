@@ -819,6 +819,66 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
   return { base: BASE_GOLD_PER_TICK, factory: Math.floor(gold), factories, dests }
 }
 
+/**
+ * Live-Beitrag EINER Fabrik zum Gold/Tick: ihre Cluster-Ziele (Städte+Häfen im selben
+ * Reichweiten-Cluster desselben Besitzers) × Fabrik-Level × `FACTORY_GOLD_PER_DEST`. `null`,
+ * wenn das Tile keine fertige Fabrik ist. Für den Hover-Tooltip (verstehen, was eine Fabrik bringt).
+ */
+export function factoryYield(
+  state: GameState,
+  tile: TileRef,
+): { goldPerTick: number; dests: number } | null {
+  const self = state.buildings.get(tile)
+  if (self === undefined || self.type !== 'factory' || !isBuildingComplete(self, state.tick))
+    return null
+  const ownerId = self.ownerId
+  const nodes: { tile: TileRef; isDest: boolean }[] = []
+  let selfIdx = -1
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== ownerId || !isBuildingComplete(b, state.tick)) continue
+    if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
+      if (b.tile === tile) selfIdx = nodes.length
+      nodes.push({ tile: b.tile, isDest: b.type === 'city' || b.type === 'port' })
+    }
+  }
+  if (selfIdx < 0) return null
+  const n = nodes.length
+  const parent = Array.from({ length: n }, (_, i) => i)
+  const find = (i: number): number => {
+    let r = i
+    while (parent[r] !== r) r = parent[r] ?? r
+    let c = i
+    while (parent[c] !== c) {
+      const next = parent[c] ?? c
+      parent[c] = r
+      c = next
+    }
+    return r
+  }
+  const { width, height } = state.map
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i]
+    if (a === undefined) continue
+    const ax = a.tile % width
+    const ay = Math.floor(a.tile / width)
+    for (let j = i + 1; j < n; j++) {
+      const b = nodes[j]
+      if (b === undefined) continue
+      const bx = b.tile % width
+      const by = Math.floor(b.tile / width)
+      if (torusDistance(ax, ay, bx, by, width, height) <= FACTORY_LINK_RANGE) {
+        parent[find(i)] = find(j)
+      }
+    }
+  }
+  const root = find(selfIdx)
+  let dests = 0
+  for (let i = 0; i < n; i++) {
+    if (nodes[i]?.isDest === true && find(i) === root) dests++
+  }
+  return { goldPerTick: FACTORY_GOLD_PER_DEST * dests * self.level, dests }
+}
+
 /** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */
 function cityCapBonus(state: GameState, playerId: number): number {
   let bonus = 0

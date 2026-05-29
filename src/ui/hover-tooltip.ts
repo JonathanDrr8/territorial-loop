@@ -9,13 +9,14 @@
  * Pointer-events: none, damit der Tooltip nie Klicks abfängt.
  */
 
-import { canReachByLand, effectiveMaxTroops, type GameState } from '../core/game'
+import { canReachByLand, effectiveMaxTroops, factoryYield, type GameState } from '../core/game'
 import {
   BUILDING_LABEL,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   defenseRange,
   isBuildingComplete,
+  upgradeCost,
   type Building,
 } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
@@ -54,9 +55,44 @@ function buildingEffect(b: Building): string {
     case 'defense':
       return `${String(DEFENSE_MAG_MULTIPLIER)}× Eroberungskosten · Reichweite ${String(defenseRange(b.level))} Tiles`
     case 'port':
-      return 'Schiffe & Handel'
+      return 'Schiffe & Handel · zählt als Netz-Ziel'
     case 'factory':
       return `Netzwerk-Gold · Reichweite ${String(FACTORY_LINK_RANGE)} Tiles`
+  }
+}
+
+/** Sim-Ticks pro Sekunde (Anzeige-Umrechnung Gold/Tick → Gold/s). */
+const SIM_TICKS_PER_SECOND = 10
+
+/** Kompakte Gold/s-Zeile für eine eigene fertige Fabrik (Live-Beitrag). */
+function factoryYieldLine(state: GameState, tile: number, level: number): string | null {
+  const y = factoryYield(state, tile)
+  if (y === null) return null
+  const perSec = fmtCompact(y.goldPerTick * SIM_TICKS_PER_SECOND)
+  const dests = `${String(y.dests)} Ziel${y.dests === 1 ? '' : 'e'}`
+  return `<span style="color:#e8d24a">+${perSec}/s</span> <span style="opacity:0.7">(${dests} × Lvl ${String(level)})</span>`
+}
+
+/**
+ * Was ein Upgrade auf die nächste Stufe konkret brächte (Effekt bei `level+1`). `null`, wenn
+ * die Stufe keinen Zusatzeffekt hat (Hafen: Level wirkt aktuell nicht). Für Fabriken live aus
+ * dem Netz gerechnet.
+ */
+function upgradeBenefit(state: GameState, b: Building): string | null {
+  const next = b.level + 1
+  switch (b.type) {
+    case 'city':
+      return `+${fmtCompact(CITY_CAP_BONUS * next)} Truppen-Cap`
+    case 'defense':
+      return `Reichweite ${String(defenseRange(next))} Tiles`
+    case 'factory': {
+      const y = factoryYield(state, b.tile)
+      if (y === null || b.level <= 0) return null
+      const nextGold = (y.goldPerTick / b.level) * next
+      return `<span style="color:#e8d24a">+${fmtCompact(nextGold * SIM_TICKS_PER_SECOND)}/s</span>`
+    }
+    case 'port':
+      return null // Hafen-Level hat aktuell keinen Effekt
   }
 }
 
@@ -144,13 +180,28 @@ export function createHoverTooltip(
     // Gebäude auf dem Tile → Typ/Level/Effekt zeigen (auch über eigenem Gebiet).
     const building = state.buildings.get(ref)
     if (building !== undefined) {
-      const ownerName =
-        building.ownerId === humanId ? 'Du' : (state.players.get(building.ownerId)?.name ?? '?')
+      const isOwn = building.ownerId === humanId
+      const ownerName = isOwn ? 'Du' : (state.players.get(building.ownerId)?.name ?? '?')
       const complete = isBuildingComplete(building, state.tick)
       const status = complete ? '' : ' <span style="opacity:0.6">(im Bau)</span>'
+      // Aktueller Effekt — für eigene fertige Fabriken der Live-Netz-Beitrag.
+      let effect = buildingEffect(building)
+      if (building.type === 'factory' && isOwn && complete) {
+        effect = factoryYieldLine(state, ref, building.level) ?? effect
+      }
+      // Upgrade-Vorschau: was die nächste Stufe brächte (+ Kosten), nur für eigene fertige
+      // Gebäude mit wirksamem Level.
+      let upgradeLine = ''
+      if (isOwn && complete) {
+        const benefit = upgradeBenefit(state, building)
+        if (benefit !== null) {
+          const cost = upgradeCost(building.type, building.level)
+          upgradeLine = `<br><span style="color:#7fd0ff">↑ Lvl ${String(building.level + 1)}: ${benefit} <span style="opacity:0.7">· ${fmtCompact(cost)} Gold</span></span>`
+        }
+      }
       place(
         `<b>${escapeHtml(BUILDING_LABEL[building.type])}</b> <span style="opacity:0.7">Lvl ${String(building.level)}</span>${status}<br>` +
-          `<span style="opacity:0.8">${buildingEffect(building)}</span><br>` +
+          `<span style="opacity:0.8">${effect}</span>${upgradeLine}<br>` +
           `<span style="opacity:0.55">${escapeHtml(ownerName)}</span>`,
       )
       return

@@ -3,6 +3,7 @@ import {
   CAPTURE_FADE_TICKS,
   createGame,
   effectiveMaxTroops,
+  factoryYield,
   goldBreakdown,
   tick,
   type GameConfig,
@@ -416,6 +417,43 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     p1.gold = 0
     tick(state, [])
     expect(p1.gold).toBe(gb.base + gb.factory)
+  })
+
+  it('factoryYield gibt den Live-Beitrag EINER Fabrik (Ziele × Level)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const cityTile = tileRef(20, 20, W, H)
+    const portTile = tileRef(20, 22, W, H)
+    const factoryTile = tileRef(21, 20, W, H)
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(portTile, {
+      type: 'port',
+      ownerId: 1,
+      tile: portTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 2,
+      completesAtTick: 0,
+    })
+    const y = factoryYield(state, factoryTile)
+    // 2 Ziele (Stadt + Hafen) × Level 2.
+    expect(y).not.toBeNull()
+    expect(y?.dests).toBe(2)
+    expect(y?.goldPerTick).toBe(FACTORY_GOLD_PER_DEST * 2 * 2)
+    // Nicht-Fabrik-Tile → null.
+    expect(factoryYield(state, cityTile)).toBeNull()
   })
 })
 
