@@ -33,8 +33,12 @@ export const WARSHIP_SPEED = 1.5
 export const WARSHIP_COST = 30_000
 /** Kriegsschiff-HP — klein gehalten (5 Treffer = versenkt), HP-Leiste gut ablesbar. */
 export const WARSHIP_HP = 5
-/** HP-Schaden pro Tick zwischen zwei feindlichen Kriegsschiffen in Reichweite (1 = 1 Treffer). */
+/** HP-Schaden eines einschlagenden Schusses (1 = 1 Treffer). */
 export const WARSHIP_DAMAGE_PER_TICK = 1
+/** Schuss-Cooldown eines Kriegsschiffs (Ticks) — bei 15 ≈ 1,5 s zwischen Schüssen. */
+export const WARSHIP_SHOT_COOLDOWN = 15
+/** Flugzeit eines Projektils (Ticks) bis zum Einschlag. Stirbt der Schütze vorher, verpufft es. */
+export const PROJECTILE_TRAVEL_TICKS = 4
 /** HP-Regeneration pro Tick, wenn ein Kriegsschiff nahe einem eigenen Hafen liegt. */
 export const WARSHIP_HEAL_PER_TICK = 1
 /** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift. */
@@ -77,8 +81,27 @@ export interface Warship {
   /** Fahrtrichtung entlang `path`: +1 vorwärts, -1 rückwärts (Ping-Pong-Patrouille). */
   dir: 1 | -1
   hp: number
+  /** Schuss-Cooldown in Ticks (0 = schussbereit); zählt pro Tick runter. */
+  cooldown: number
   /** Zurückgerufen → fährt zur Start-Küste und wird dort aufgelöst. */
   returning: boolean
+}
+
+/**
+ * Ein fliegendes Projektil eines Kriegsschiffs. Schaden wird erst beim Einschlag (nach
+ * `PROJECTILE_TRAVEL_TICKS`) angewendet — stirbt der Schütze vorher, verpufft das Projektil
+ * (kein Schaden „aus dem Grab", damit nicht beide Schiffe gleichzeitig sterben). Hält direkte
+ * Referenzen auf Schütze + Ziel (kurzlebig, nicht im State-Hash).
+ */
+export interface Projectile {
+  readonly shooter: Warship
+  readonly target: Warship | Boat | TradeShip
+  readonly targetKind: 'warship' | 'boat' | 'trade'
+  /** Abfeuer-Position (Welt-Koordinaten, fest) — Startpunkt der Flugbahn. */
+  readonly fromX: number
+  readonly fromY: number
+  /** Verstrichene Flug-Ticks (Einschlag bei >= PROJECTILE_TRAVEL_TICKS). */
+  travel: number
 }
 
 /** Struktureller Typ für die Bewegungs-/Positions-Helfer (Boot/Handel/Kriegsschiff). */

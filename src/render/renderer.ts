@@ -23,6 +23,7 @@ import {
   type TradeShip,
   type Warship,
   WARSHIP_HP,
+  PROJECTILE_TRAVEL_TICKS,
   shipWorldPos as shipWorldPosOf,
 } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
@@ -1219,6 +1220,51 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /** Zeichnet fliegende Kriegsschiff-Projektile als kurze helle Leuchtspur (Schütze-Farbe). */
+  function drawProjectiles(): void {
+    if (state.projectiles.length === 0) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    screenCtx.save()
+    screenCtx.lineCap = 'round'
+    for (const pr of state.projectiles) {
+      const tp = shipWorldPos(pr.target)
+      const frac = Math.min(1, pr.travel / PROJECTILE_TRAVEL_TICKS)
+      // Interpolation entlang der kürzeren Torus-Richtung von Abfeuer- zu Zielposition.
+      const dx = tp.wx - pr.fromX - mapW * Math.round((tp.wx - pr.fromX) / mapW)
+      const dy = tp.wy - pr.fromY - mapH * Math.round((tp.wy - pr.fromY) / mapH)
+      const wx = pr.fromX + dx * frac
+      const wy = pr.fromY + dy * frac
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      if (
+        sx < -20 ||
+        sx > container.clientWidth + 20 ||
+        sy < -20 ||
+        sy > container.clientHeight + 20
+      )
+        continue
+      // Kurze Spur entgegen der Flugrichtung.
+      const len = Math.max(4, z * 0.5)
+      const m = Math.hypot(dx, dy) || 1
+      const ux = (dx / m) * len
+      const uy = (dy / m) * len
+      const owner = state.players.get(pr.shooter.ownerId)
+      screenCtx.strokeStyle = owner === undefined ? '#ffe08a' : rgbaToCssLocal(owner.color)
+      screenCtx.lineWidth = Math.max(1.5, z * 0.18)
+      screenCtx.beginPath()
+      screenCtx.moveTo(sx - ux, sy - uy)
+      screenCtx.lineTo(sx, sy)
+      screenCtx.stroke()
+      // Heller Kopf.
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, Math.max(1.5, z * 0.22), 0, Math.PI * 2)
+      screenCtx.fillStyle = '#fff4c2'
+      screenCtx.fill()
+    }
+    screenCtx.restore()
+  }
+
   /** Rand-Farbe eines Schiffs nach Beziehung des Besitzers zum Menschen. */
   function shipRelationRing(ownerId: number): string {
     const humanId = lutHumanId
@@ -1443,6 +1489,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawAttackFronts()
     drawAttackTargets()
     drawShips()
+    drawProjectiles()
     drawBuildingLinks()
     drawBuildings()
     drawHoveredDefenseRange()

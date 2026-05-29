@@ -87,12 +87,15 @@ import {
   TRADE_SHIP_SPEED,
   type TradeShip,
   type Warship,
+  type Projectile,
   WARSHIP_COST,
   WARSHIP_DAMAGE_PER_TICK,
   WARSHIP_HEAL_PER_TICK,
   WARSHIP_HEAL_RANGE,
   WARSHIP_HP,
+  WARSHIP_SHOT_COOLDOWN,
   WARSHIP_SPEED,
+  PROJECTILE_TRAVEL_TICKS,
   planBoatLaunch,
   planWaterRoute,
   shipArrived,
@@ -245,6 +248,8 @@ export interface GameState {
   tradeShips: TradeShip[]
   /** Aktive Kriegsschiffe. */
   warships: Warship[]
+  /** Fliegende Kriegsschiff-Projektile (verzögerter Schaden; verpuffen, wenn der Schütze stirbt). */
+  projectiles: Projectile[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
   readonly alliances: Set<number>
   /** Ablauf-Tick je Allianz ([[pairKey]] → Tick) — Allianzen laufen automatisch aus. */
@@ -363,6 +368,7 @@ export function createGame(config: GameConfig): GameState {
     boats: [],
     tradeShips: [],
     warships: [],
+    projectiles: [],
     alliances: new Set<number>(),
     allianceExpiry: new Map<number, number>(),
     allianceRequests: new Set<number>(),
@@ -1496,6 +1502,7 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
     progress: 0,
     dir: 1,
     hp: WARSHIP_HP,
+    cooldown: 0,
     returning: false,
   })
   emitEvent(state, `${player.name} entsendet ein Kriegsschiff`, player.color)
@@ -1556,98 +1563,139 @@ function nearOwnPort(state: GameState, ws: Warship, width: number, height: numbe
   return false
 }
 
+/** Ob `arr` das Objekt `x` (per Identität) enthält — Union-sicher ohne Typ-Verengung. */
+function arrHas<T>(arr: readonly T[], x: unknown): boolean {
+  return (arr as readonly unknown[]).includes(x)
+}
+
 /**
- * Naval-Combat (feste Reihenfolge, deterministisch): feindliche Kriegsschiffe in
- * Reichweite beschädigen sich gegenseitig (HP); feindliche Handelsschiffe (Blockade)
- * und Transportboote in Reichweite eines Kriegsschiffs werden versenkt; Kriegsschiffe
- * mit HP ≤ 0 sinken. „Feindlich" = anderer Besitzer und nicht verbündet.
+ * Seekrieg (deterministisch, feste Reihenfolge): Kriegsschiffe feuern alle
+ * `WARSHIP_SHOT_COOLDOWN` Ticks ein **Projektil** auf ein feindliches Ziel (Kriegsschiff/
+ * Boot/Handelsschiff) in `NAVAL_RANGE`. Schaden fällt erst beim Einschlag (nach
+ * `PROJECTILE_TRAVEL_TICKS`) — stirbt der Schütze vorher, verpufft sein Projektil (nicht
+ * „beide sterben"). „Feindlich" = anderer Besitzer und nicht verbündet.
+ *
+ * Reihenfolge: Cooldowns runter → Projektile fliegen + Einschläge → Tote entfernen → neue
+ * Schüsse (von Überlebenden). So feuern in diesem Tick versenkte Schiffe nicht mehr.
  */
 function resolveNavalCombat(state: GameState): void {
-  if (state.warships.length === 0) return
   const { width: w, height: h } = state.map
-  const wpos = state.warships.map((ws) => shipWorldPos(ws, w, h))
 
-  // 1. Kriegsschiff gegen Kriegsschiff (symmetrischer HP-Schaden pro Tick).
-  for (let i = 0; i < state.warships.length; i++) {
-    const a = state.warships[i]
-    const pa = wpos[i]
-    if (a === undefined || pa === undefined) continue
-    for (let j = i + 1; j < state.warships.length; j++) {
-      const b = state.warships[j]
-      const pb = wpos[j]
-      if (b === undefined || pb === undefined) continue
-      if (a.ownerId === b.ownerId || areAllied(state.alliances, a.ownerId, b.ownerId)) continue
-      if (torusDistance(pa.wx, pa.wy, pb.wx, pb.wy, w, h) <= NAVAL_RANGE) {
-        a.hp -= WARSHIP_DAMAGE_PER_TICK
-        b.hp -= WARSHIP_DAMAGE_PER_TICK
+  // 1. Schuss-Cooldowns runterzählen.
+  for (const ws of state.warships) if (ws.cooldown > 0) ws.cooldown--
+
+  // 2. Projektile vorrücken; bei Einschlag Schaden/Versenkung (Schütze muss noch leben).
+  if (state.projectiles.length > 0) {
+    const sunkBoats = new Set<Boat>()
+    const sunkTrades = new Set<TradeShip>()
+    const flying: Projectile[] = []
+    for (const pr of state.projectiles) {
+      pr.travel++
+      if (pr.travel < PROJECTILE_TRAVEL_TICKS) {
+        flying.push(pr)
+        continue
       }
+      if (!arrHas(state.warships, pr.shooter)) continue // Schütze tot → verpufft
+      if (pr.targetKind === 'warship') {
+        if (arrHas(state.warships, pr.target)) (pr.target as Warship).hp -= WARSHIP_DAMAGE_PER_TICK
+      } else if (pr.targetKind === 'boat') {
+        if (arrHas(state.boats, pr.target)) sunkBoats.add(pr.target as Boat)
+      } else if (arrHas(state.tradeShips, pr.target)) {
+        sunkTrades.add(pr.target as TradeShip)
+      }
+    }
+    state.projectiles = flying
+    if (sunkBoats.size > 0) {
+      state.boats = state.boats.filter((b) => {
+        if (!sunkBoats.has(b)) return true
+        const o = state.players.get(b.ownerId)
+        emitEvent(state, `${o?.name ?? '?'}s Transportboot versenkt`, o?.color ?? 0xffffffff)
+        return false
+      })
+    }
+    if (sunkTrades.size > 0) {
+      state.tradeShips = state.tradeShips.filter((ts) => {
+        if (!sunkTrades.has(ts)) return true
+        const o = state.players.get(ts.fromOwnerId)
+        emitEvent(state, `Handelsschiff blockiert`, o?.color ?? 0xffffffff)
+        return false
+      })
     }
   }
 
-  // Ist ein zu allen `owners` feindliches Kriegsschiff in Reichweite von `pos`?
-  const hostileWarshipNear = (pos: { wx: number; wy: number }, owners: number[]): boolean => {
-    for (let i = 0; i < state.warships.length; i++) {
-      const ws = state.warships[i]
-      const p = wpos[i]
-      if (ws === undefined || p === undefined) continue
-      let hostile = true
-      for (const o of owners) {
-        if (ws.ownerId === o || areAllied(state.alliances, ws.ownerId, o)) {
-          hostile = false
+  // 3. Versenkte Kriegsschiffe (HP ≤ 0) entfernen.
+  if (state.warships.some((ws) => ws.hp <= 0)) {
+    state.warships = state.warships.filter((ws) => {
+      if (ws.hp > 0) return true
+      const o = state.players.get(ws.ownerId)
+      emitEvent(state, `${o?.name ?? '?'}s Kriegsschiff versenkt`, o?.color ?? 0xffffffff)
+      return false
+    })
+  }
+
+  // 4. Schussbereite Kriegsschiffe feuern auf ein feindliches Ziel in Reichweite.
+  if (state.warships.length === 0) return
+  const wpos = state.warships.map((ws) => shipWorldPos(ws, w, h))
+  const hostile = (a: number, b: number): boolean => a !== b && !areAllied(state.alliances, a, b)
+  const inRange = (
+    pos: { wx: number; wy: number },
+    ship: { path: readonly TileRef[]; progress: number },
+  ): boolean => {
+    const p = shipWorldPos(ship, w, h)
+    return torusDistance(pos.wx, pos.wy, p.wx, p.wy, w, h) <= NAVAL_RANGE
+  }
+  for (let i = 0; i < state.warships.length; i++) {
+    const ws = state.warships[i]
+    const pos = wpos[i]
+    if (ws === undefined || pos === undefined || ws.cooldown > 0 || ws.returning) continue
+    let target: Warship | Boat | TradeShip | null = null
+    let kind: 'warship' | 'boat' | 'trade' = 'warship'
+    // Priorität: feindliche Kriegsschiffe → Transportboote → Handelsschiffe (Array-Reihenfolge).
+    for (let j = 0; j < state.warships.length; j++) {
+      const o = state.warships[j]
+      const op = wpos[j]
+      if (o === undefined || op === undefined || o === ws || !hostile(ws.ownerId, o.ownerId))
+        continue
+      if (torusDistance(pos.wx, pos.wy, op.wx, op.wy, w, h) <= NAVAL_RANGE) {
+        target = o
+        kind = 'warship'
+        break
+      }
+    }
+    if (target === null) {
+      for (const b of state.boats) {
+        if (hostile(ws.ownerId, b.ownerId) && inRange(pos, b)) {
+          target = b
+          kind = 'boat'
           break
         }
       }
-      if (!hostile) continue
-      if (torusDistance(pos.wx, pos.wy, p.wx, p.wy, w, h) <= NAVAL_RANGE) return true
     }
-    return false
-  }
-
-  // 2. Handelsblockade: feindliche Handelsschiffe in Reichweite zerstören (kein Gold).
-  if (state.tradeShips.length > 0) {
-    const tsSurv: TradeShip[] = []
-    for (const ts of state.tradeShips) {
-      const pos = shipWorldPos(ts, w, h)
-      if (hostileWarshipNear(pos, [ts.fromOwnerId, ts.toOwnerId])) {
-        const owner = state.players.get(ts.fromOwnerId)
-        emitEvent(state, `Handelsschiff blockiert`, owner?.color ?? 0xffffffff)
-        continue
+    if (target === null) {
+      for (const ts of state.tradeShips) {
+        if (
+          hostile(ws.ownerId, ts.fromOwnerId) &&
+          hostile(ws.ownerId, ts.toOwnerId) &&
+          inRange(pos, ts)
+        ) {
+          target = ts
+          kind = 'trade'
+          break
+        }
       }
-      tsSurv.push(ts)
     }
-    state.tradeShips = tsSurv
-  }
-
-  // 3. Feindliche Transportboote in Reichweite versenken (Truppen verloren).
-  if (state.boats.length > 0) {
-    const bSurv: Boat[] = []
-    for (const boat of state.boats) {
-      const pos = shipWorldPos(boat, w, h)
-      if (hostileWarshipNear(pos, [boat.ownerId])) {
-        const owner = state.players.get(boat.ownerId)
-        emitEvent(
-          state,
-          `${owner?.name ?? '?'}s Transportboot versenkt`,
-          owner?.color ?? 0xffffffff,
-        )
-        continue
-      }
-      bSurv.push(boat)
+    if (target !== null) {
+      state.projectiles.push({
+        shooter: ws,
+        target,
+        targetKind: kind,
+        fromX: pos.wx,
+        fromY: pos.wy,
+        travel: 0,
+      })
+      ws.cooldown = WARSHIP_SHOT_COOLDOWN
     }
-    state.boats = bSurv
   }
-
-  // 4. Versenkte Kriegsschiffe (HP ≤ 0) entfernen.
-  const wSurv: Warship[] = []
-  for (const ws of state.warships) {
-    if (ws.hp <= 0) {
-      const owner = state.players.get(ws.ownerId)
-      emitEvent(state, `${owner?.name ?? '?'}s Kriegsschiff versenkt`, owner?.color ?? 0xffffffff)
-      continue
-    }
-    wSurv.push(ws)
-  }
-  state.warships = wSurv
 }
 
 /** Truppen die der Spieler aktuell in laufenden Angriffen gebunden hat. */

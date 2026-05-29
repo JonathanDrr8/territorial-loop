@@ -9,6 +9,7 @@ import {
   TRADE_INTERVAL_TICKS,
   WARSHIP_COST,
   WARSHIP_HP,
+  type Warship,
 } from '../src/core/ships'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
 import { getOwner, setOwner } from '../src/world/map'
@@ -330,6 +331,7 @@ describe('warships via tick', () => {
       progress: 0,
       dir: 1,
       hp: WARSHIP_HP,
+      cooldown: 0,
       returning: false,
     })
     state.tradeShips.push({
@@ -341,9 +343,60 @@ describe('warships via tick', () => {
       originPort: water[0],
       destPort: water[1],
     })
-    tick(state, [])
+    // Schuss (Tick 0) + 4 Ticks Projektil-Flug bis zum Einschlag.
+    for (let i = 0; i < 8 && state.tradeShips.length > 0; i++) tick(state, [])
     expect(state.tradeShips.length).toBe(0) // blockiert/zerstört
     expect(state.warships.length).toBe(1) // Kriegsschiff bleibt
+  })
+
+  it('Projektil eines versenkten Schiffs verpufft (nicht beide sterben)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    own(state, 5, 1, 2)
+    const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
+    // cooldown 99 → keine neuen Schüsse; nur die zwei injizierten Projektile zählen.
+    const a: Warship = {
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 5,
+      cooldown: 99,
+      returning: false,
+    }
+    const b: Warship = {
+      ownerId: 2,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 1,
+      cooldown: 99,
+      returning: false,
+    }
+    state.warships.push(a, b)
+    // A's Schuss schlägt EINEN Tick früher ein (travel 3 → tötet B), B's Schuss fliegt noch
+    // (travel 2) und verpufft, sobald B versenkt ist.
+    state.projectiles.push({
+      shooter: a,
+      target: b,
+      targetKind: 'warship',
+      fromX: 0,
+      fromY: 0,
+      travel: 3,
+    })
+    state.projectiles.push({
+      shooter: b,
+      target: a,
+      targetKind: 'warship',
+      fromX: 0,
+      fromY: 0,
+      travel: 2,
+    })
+    for (let i = 0; i < 5 && state.warships.length > 1; i++) tick(state, [])
+    expect(state.warships.length).toBe(1)
+    expect(state.warships[0]?.ownerId).toBe(1)
+    expect(state.warships[0]?.hp).toBe(5) // B's Projektil verpuffte → A unbeschädigt
   })
 
   it('warship vs warship: the one with more HP survives', () => {
@@ -352,10 +405,27 @@ describe('warships via tick', () => {
     own(state, 1, 1, 1)
     own(state, 5, 1, 2)
     const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H), tileRef(0, 2, W, H)] as const
-    // hp 5 vs 3 bei 1 Schaden/Tick → das schwächere (3) sinkt nach 3 Ticks, das stärkere überlebt.
-    state.warships.push({ ownerId: 1, path: water, progress: 0, dir: 1, hp: 5, returning: false })
-    state.warships.push({ ownerId: 2, path: water, progress: 0, dir: 1, hp: 3, returning: false })
-    for (let i = 0; i < 12 && state.warships.length > 1; i++) tick(state, [])
+    // hp 5 vs 3, 1 Schaden/Schuss (alle 15 Ticks, 4 Ticks Flug) → das schwächere (3) sinkt
+    // zuerst, das stärkere überlebt. Genug Ticks für mehrere Schuss-Runden.
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 5,
+      cooldown: 0,
+      returning: false,
+    })
+    state.warships.push({
+      ownerId: 2,
+      path: water,
+      progress: 0,
+      dir: 1,
+      hp: 3,
+      cooldown: 0,
+      returning: false,
+    })
+    for (let i = 0; i < 60 && state.warships.length > 1; i++) tick(state, [])
     expect(state.warships.length).toBe(1)
     expect(state.warships[0]?.ownerId).toBe(1)
   })
@@ -371,6 +441,7 @@ describe('warships via tick', () => {
       progress: 1,
       dir: 1,
       hp: WARSHIP_HP,
+      cooldown: 0,
       returning: false,
     })
     tick(state, [{ type: 'recall-warship', playerId: 1, warshipIndex: 0 }])
@@ -391,7 +462,15 @@ describe('warships via tick', () => {
       completesAtTick: 0,
     })
     const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
-    state.warships.push({ ownerId: 1, path: water, progress: 1, dir: 1, hp: 1, returning: false })
+    state.warships.push({
+      ownerId: 1,
+      path: water,
+      progress: 1,
+      dir: 1,
+      hp: 1,
+      cooldown: 0,
+      returning: false,
+    })
     for (let i = 0; i < 5; i++) tick(state, [])
     expect(state.warships[0]?.hp).toBeGreaterThan(1)
     expect(state.warships[0]?.hp).toBeLessThanOrEqual(WARSHIP_HP)
