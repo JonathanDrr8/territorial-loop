@@ -902,6 +902,35 @@ export function createRenderer(
     }
   }
 
+  /**
+   * Screen-Endpunkte für eine LINIE zwischen zwei Welt-Punkten. Der Start nimmt die
+   * kameranächste Wrap-Kopie, das Ziel die zum START nächste — so wird ein Link über die
+   * Torus-Naht KURZ gezeichnet statt quer über die ganze Karte (beide Punkte im selben
+   * Wrap-Rahmen). Für Verbindungslinien (Fabrik-Netz etc.).
+   */
+  function nearestWrappedSegment(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): { fromSx: number; fromSy: number; toSx: number; toSy: number } {
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const z = camera.zoom
+    const fnx = fromX + mapW * Math.round((camera.x - fromX) / mapW)
+    const fny = fromY + mapH * Math.round((camera.y - fromY) / mapH)
+    const tnx = toX + mapW * Math.round((fnx - toX) / mapW)
+    const tny = toY + mapH * Math.round((fny - toY) / mapH)
+    const cw = container.clientWidth
+    const ch = container.clientHeight
+    return {
+      fromSx: (fnx - camera.x) * z + cw / 2,
+      fromSy: (fny - camera.y) * z + ch / 2,
+      toSx: (tnx - camera.x) * z + cw / 2,
+      toSy: (tny - camera.y) * z + ch / 2,
+    }
+  }
+
   function drawLabels(): void {
     maybeRecomputeCentroids()
     const cssW = container.clientWidth
@@ -1124,7 +1153,6 @@ export function createRenderer(
       if (!f.factory) continue
       const fx = (f.tile % mapW) + 0.5
       const fy = Math.floor(f.tile / mapW) + 0.5
-      const fp = nearestWrappedScreenPos(fx, fy)
       const player = state.players.get(f.ownerId)
       const col = player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
       for (const e of eco) {
@@ -1137,11 +1165,11 @@ export function createRenderer(
           FACTORY_LINK_RANGE
         )
           continue
-        const ep = nearestWrappedScreenPos(ex + 0.5, ey + 0.5)
+        const seg = nearestWrappedSegment(fx, fy, ex + 0.5, ey + 0.5)
         screenCtx.strokeStyle = `rgba(${col},0.45)`
         screenCtx.beginPath()
-        screenCtx.moveTo(fp.sx, fp.sy)
-        screenCtx.lineTo(ep.sx, ep.sy)
+        screenCtx.moveTo(seg.fromSx, seg.fromSy)
+        screenCtx.lineTo(seg.toSx, seg.toSy)
         screenCtx.stroke()
       }
     }
@@ -1157,7 +1185,6 @@ export function createRenderer(
       if (!f.factory) continue
       const fpx = f.tile % mapW
       const fpy = Math.floor(f.tile / mapW)
-      const fp = nearestWrappedScreenPos(fpx + 0.5, fpy + 0.5)
       let drawn = 0
       for (const e of eco) {
         if (drawn >= FACTORY_FOREIGN_CAP) break
@@ -1167,10 +1194,10 @@ export function createRenderer(
         const ex = e.tile % mapW
         const ey = Math.floor(e.tile / mapW)
         if (torusDistance(fpx, fpy, ex, ey, mapW, mapH) > FACTORY_LINK_RANGE) continue
-        const ep = nearestWrappedScreenPos(ex + 0.5, ey + 0.5)
+        const seg = nearestWrappedSegment(fpx + 0.5, fpy + 0.5, ex + 0.5, ey + 0.5)
         screenCtx.beginPath()
-        screenCtx.moveTo(fp.sx, fp.sy)
-        screenCtx.lineTo(ep.sx, ep.sy)
+        screenCtx.moveTo(seg.fromSx, seg.fromSy)
+        screenCtx.lineTo(seg.toSx, seg.toSy)
         screenCtx.stroke()
         drawn++
       }
