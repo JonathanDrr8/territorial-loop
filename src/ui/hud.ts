@@ -742,8 +742,16 @@ export function createHUD(
       const costEl = buildCostEls.get(type)
       if (costEl !== undefined) {
         const c = buildCostFor(state, human.id, type)
+        const afford = human.gold >= c
         costEl.textContent = fmtCompact(c)
-        costEl.style.color = human.gold >= c ? '#5dd75d' : '#ef5350'
+        costEl.style.color = afford ? '#5dd75d' : '#ef5350'
+        // Ganzer Button signalisiert Bezahlbarkeit (nicht nur die kleine Zahl): unbezahlbar →
+        // gedimmt + roter Rand, damit der Wechsel sofort sichtbar ist.
+        const btn = buildButtons.get(type)
+        if (btn !== undefined) {
+          btn.style.opacity = afford ? '1' : '0.55'
+          btn.style.borderColor = afford ? 'rgba(255,255,255,0.15)' : 'rgba(239,83,80,0.7)'
+        }
       }
     }
   }
