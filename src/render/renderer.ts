@@ -24,6 +24,7 @@ import {
   type Warship,
   WARSHIP_HP,
   PROJECTILE_TRAVEL_TICKS,
+  NAVAL_RANGE,
   shipWorldPos as shipWorldPosOf,
 } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
@@ -167,6 +168,8 @@ export interface Renderer {
   clearHoverTile(): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
+  /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
+  toggleShipRanges(): boolean
   /**
    * Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers.
    * `screenOffsetY` (CSS-Pixel, positiv) hebt den Schwerpunkt optisch nach oben —
@@ -676,6 +679,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let hoverTile: { x: number; y: number } | null = null
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
+  // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
+  let shipRangesVisible = false
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
@@ -1187,6 +1192,16 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const { wx, wy } = shipWorldPos(ws)
       const { sx, sy } = nearestWrappedScreenPos(wx, wy)
       if (sx < -warR || sx > cssW + warR || sy < -warR || sy > cssH + warR) continue
+      // Angriffs-Reichweiten-Ring (Toggle) um eigene Kriegsschiffe.
+      if (shipRangesVisible && ws.ownerId === lutHumanId) {
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, NAVAL_RANGE * camera.zoom, 0, Math.PI * 2)
+        screenCtx.strokeStyle = 'rgba(120,200,255,0.5)'
+        screenCtx.lineWidth = 1.5
+        screenCtx.setLineDash([5, 4])
+        screenCtx.stroke()
+        screenCtx.setLineDash([])
+      }
       // Hintergrund-Scheibe in der BESITZERFARBE (zeigt, wem das Schiff gehört) + außen
       // der Beziehungs-Ring (weiß=eigen, grün=verbündet, rot=Groll, schwarz=neutral).
       const owner = state.players.get(ws.ownerId)
@@ -1546,6 +1561,10 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     clearHoverTile,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
+    },
+    toggleShipRanges(): boolean {
+      shipRangesVisible = !shipRangesVisible
+      return shipRangesVisible
     },
     centerOnPlayer,
     destroy,

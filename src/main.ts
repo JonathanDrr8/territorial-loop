@@ -269,6 +269,7 @@ function startMatch(
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
     },
+    onToggleShipRanges: () => renderer.toggleShipRanges(),
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)
     },

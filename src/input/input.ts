@@ -74,6 +74,8 @@ export interface InputDeps {
   readonly onBuildModeChange?: (mode: BuildingType | null) => void
   /** Optional: Boot-Modus an/aus (für HUD-Feedback). */
   readonly onBoatModeChange?: (on: boolean) => void
+  /** Optional: Taste „r" → Reichweiten-Ringe der eigenen Kriegsschiffe umschalten. */
+  readonly onToggleShipRanges?: () => void
   /**
    * Optional: Rechtsklick ohne Drag → Radialmenü an Welt-Tile öffnen.
    * Liefert TileRef + Screen-Position (CSS-Pixel).
@@ -375,6 +377,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
     } else if (key === 'b' && deps.interactive !== false) {
       setBoatMode(!boatMode)
+    } else if (key === 'r' && deps.interactive !== false) {
+      deps.onToggleShipRanges?.()
     } else if (e.key === 'Escape') {
       // Esc bricht erst Boot-/Bau-Modus ab, sonst zurück zum Menü
       if (boatMode) setBoatMode(false)
