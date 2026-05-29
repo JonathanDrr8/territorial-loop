@@ -2,19 +2,20 @@
 
 ## Status
 
-Accepted — umgesetzt als **3-Stufen-Setting** im Start-Menü (Dropdown „Kamera", persistiert,
-Default „Dynamische Box"):
+Accepted — umgesetzt als **4-Stufen-Setting** im Start-Menü (Dropdown „Kamera", persistiert,
+Default „Dynamische Box"). `CameraMode = 'tiles' | 'period' | 'fixed' | 'dynamic'`:
 
-- **Kacheln (wie vorher):** endloses Kacheln, ~87%-Füllung-min-Zoom.
-- **Box (fest):** `minZoom = max(canvasW/mapW, canvasH/mapH)` → genau eine Periode, nahtloser
-  Seam-Wrap, kein Weiter-Rauszoomen.
-- **Dynamische Box:** min-Zoom bis `0.6 × „Welt passt komplett"`; überspannt der Viewport eine
-  Periode, zeichnet `render()` nur EINE Welt-Kopie + clippt auf den Block → schwarze Ränder
-  statt Geister/Tapete; reingezoomt nahtloser Seam.
+- **Kacheln (wie vorher) `tiles`:** endloses Kacheln, ~87%-Füllung-min-Zoom.
+- **Box (nahtlos) `period`:** `minZoom = max(canvasW/mapW, canvasH/mapH)` → genau eine Periode,
+  nahtloser Seam-Wrap, kein Weiter-Rauszoomen (das ursprüngliche Box-Verhalten).
+- **Box (fest) `fixed`:** IMMER nur eine Welt-Kopie mit harten schwarzen Rändern (auch reingezoomt,
+  kein Wrap), frei zoombar (min-Zoom `0.6 × „Welt passt"`). Renderer: `singleX/Y = true`.
+- **Dynamische Box `dynamic`:** min-Zoom `0.6 × „Welt passt"`; überspannt der Viewport eine Periode,
+  zeichnet `render()` nur EINE Kopie + clippt auf den Block (schwarze Ränder statt Geister/Tapete);
+  reingezoomt nahtloser Seam.
 
-`CameraMode` in `start-menu.ts`; `input.minZoom` verzweigt 3-fach; Renderer `setDynamicBox`
-schaltet das Single-Copy-Rendering. Kein In-Game-Hotkey (Menü reicht). Schritt 4 (sichtbarer
-Box-Rahmen) bewusst weggelassen.
+`input.minZoom` verzweigt 4-fach; Renderer `setCameraMode` schaltet das Single-Copy/Clip-Rendering.
+Kein In-Game-Hotkey (Menü reicht). Schritt 4 (sichtbarer Box-Rahmen) bewusst weggelassen.
 
 ## Datum
 
