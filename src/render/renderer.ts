@@ -1156,12 +1156,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const { wx, wy } = shipWorldPos(ws)
       const { sx, sy } = nearestWrappedScreenPos(wx, wy)
       if (sx < -warR || sx > cssW + warR || sy < -warR || sy > cssH + warR) continue
-      // Beziehungs-Ring als Hintergrund-Scheibe.
+      // Hintergrund-Scheibe in der BESITZERFARBE (zeigt, wem das Schiff gehört) + außen
+      // der Beziehungs-Ring (weiß=eigen, grün=verbündet, rot=Groll, schwarz=neutral).
+      const owner = state.players.get(ws.ownerId)
       screenCtx.beginPath()
       screenCtx.arc(sx, sy, warR, 0, Math.PI * 2)
-      screenCtx.fillStyle = 'rgba(15,18,24,0.85)'
+      screenCtx.fillStyle =
+        owner === undefined ? 'rgba(15,18,24,0.85)' : rgbaToCssLocal(owner.color)
       screenCtx.fill()
-      screenCtx.lineWidth = 2
+      // Dunkle Tönung darüber, damit der graue Schiff-Sprite lesbar bleibt.
+      screenCtx.fillStyle = 'rgba(10,12,18,0.45)'
+      screenCtx.fill()
+      screenCtx.lineWidth = 2.5
       screenCtx.strokeStyle = shipRelationRing(ws.ownerId)
       screenCtx.stroke()
       if (warSprite !== null) {

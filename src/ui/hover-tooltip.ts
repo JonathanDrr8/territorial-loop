@@ -20,7 +20,7 @@ import {
 } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
-import { shipWorldPos } from '../core/ships'
+import { shipWorldPos, WARSHIP_HP } from '../core/ships'
 import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
 import { rgbaToCss } from './colors'
@@ -123,6 +123,17 @@ export function createHoverTooltip(
       const { wx, wy } = shipWorldPos(ship, w, h)
       if (near(wx, wy)) {
         place(`Handelsschiff · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`)
+        return
+      }
+    }
+    for (const ws of state.warships) {
+      const { wx, wy } = shipWorldPos(ws, w, h)
+      if (near(wx, wy)) {
+        const hp = Math.max(0, Math.round(ws.hp))
+        const status = ws.returning ? ' · kehrt um' : ''
+        place(
+          `⚓ Kriegsschiff · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
+        )
         return
       }
     }
