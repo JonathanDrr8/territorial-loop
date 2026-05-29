@@ -8,6 +8,7 @@
 
 import type { GameState } from '../core/game'
 import { rgbaToCss } from './colors'
+import { registerScalable } from './ui-scale'
 
 export interface EventLogApi {
   update(): void
@@ -48,6 +49,7 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     'text-align: right',
   ].join(';')
   container.appendChild(box)
+  registerScalable(box)
 
   function update(): void {
     const events = state.events

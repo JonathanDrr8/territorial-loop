@@ -15,6 +15,7 @@
 
 import type { GameState } from '../core/game'
 import { rgbaToCss } from './colors'
+import { registerScalable } from './ui-scale'
 
 const ID_STRIDE = 4096
 /** Wie lange ein unbeantwortetes Angebot sichtbar bleibt, bevor es ausfaded. */
@@ -61,6 +62,7 @@ export function createAlliancePrompt(
     'pointer-events: none',
   ].join(';')
   container.appendChild(box)
+  registerScalable(box)
 
   // Pro Anfragesteller eine verwaltete Zeile (kein Neubauen pro Frame → Klicks bleiben stabil,
   // und einzelne Zeilen können ein-/ausfaden).

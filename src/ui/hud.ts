@@ -33,6 +33,7 @@ import {
   type Player,
 } from '../core/game'
 import { rgbaToCss } from './colors'
+import { registerScalable } from './ui-scale'
 
 const DEFAULT_SLIDER_PCT = 30
 const SIM_TICKS_PER_SECOND = 10
@@ -169,6 +170,7 @@ export function createHUD(
   helpDetails.appendChild(helpBody)
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
+  registerScalable(infoBox)
 
   /* ---- Verräter-Warnung: oben mittig, nur wenn DU selbst geächtet bist ---------- */
   const traitorBanner = document.createElement('div')
@@ -348,6 +350,7 @@ export function createHUD(
   }
   rankPanel.appendChild(rankToggle)
   container.appendChild(rankPanel)
+  registerScalable(rankPanel)
 
   /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
   const actionBar = document.createElement('div')
@@ -598,6 +601,7 @@ export function createHUD(
   actionBar.appendChild(boatHint)
 
   container.appendChild(actionBar)
+  registerScalable(actionBar)
 
   /* ---- Game-Over-Banner ---------------------------------------------------- */
   const banner = document.createElement('div')

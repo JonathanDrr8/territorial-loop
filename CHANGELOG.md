@@ -4,10 +4,18 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.2.3] – 2026-05-30
+
 ### Neu
 
+- **UI-Größe einstellbar:** Slider unten links skaliert das ganze HUD (80–160 %, gespeichert) —
+  für alle, denen die Anzeigen zu klein sind.
 - **Diplo-Marker auf der Karte:** über dem Namen einer Nation zeigt 🤝, dass sie dir ein Bündnis
   anbietet, und ⛔, dass sie dich embargoiert hat — auf einen Blick erkennbar.
+
+### Behoben
+
+- Bündnis-Anfragen liegen jetzt links und überlappen nicht mehr die aufgeklappte Rangliste.
 
 ## [0.2.2] – 2026-05-30
 

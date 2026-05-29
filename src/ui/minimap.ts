@@ -13,6 +13,7 @@
 
 import type { GameState } from '../core/game'
 import type { Camera } from '../render/renderer'
+import { registerScalable } from './ui-scale'
 
 export interface MinimapApi {
   update(): void
@@ -63,6 +64,7 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   canvas.style.cssText = `display: block; width: ${w}px; height: ${h}px`
   wrapper.appendChild(canvas)
   container.appendChild(wrapper)
+  registerScalable(wrapper)
 
   const ctx = canvas.getContext('2d')
   if (ctx === null) throw new Error('Minimap: 2D context not available')

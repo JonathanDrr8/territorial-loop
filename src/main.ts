@@ -36,6 +36,7 @@ import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
+import { clearScalables, createUiScaleSlider } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -197,6 +198,7 @@ function startMatch(
   spectator: boolean,
   net?: NetSession,
 ): MatchSession {
+  clearScalables() // UI-Größen-Registry leeren — die HUD-Panels dieses Matches melden sich neu an
   const config = net?.config ?? buildConfig(menu, spectator)
   const humanId = net?.humanId ?? SOLO_PLAYER_ID
   // „Du" für Renderer/HUD: Zuschauen → kein lokaler Spieler (-1); sonst die eigene ID
@@ -575,6 +577,8 @@ function main(): void {
     endpoint: feedbackEndpoint(),
     version: __APP_VERSION__,
   })
+  // UI-Größen-Slider (unten links über dem Feedback-Knopf) — skaliert das ganze In-Game-HUD.
+  createUiScaleSlider(container)
 
   let session: MatchSession | null = null
   let lobby: MultiplayerMenuApi | null = null
