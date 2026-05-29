@@ -163,7 +163,7 @@ export function createHUD(
   const helpBody = document.createElement('div')
   helpBody.style.cssText = 'margin-top: 4px; line-height: 1.5'
   helpBody.innerHTML =
-    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–4: Gebäude (Stadt/Verteidigung/Hafen/Fabrik) · R: Schiff-Reichweiten · K: Kamera-Box · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück'
+    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–4: Gebäude (Stadt/Verteidigung/Hafen/Fabrik) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück'
   helpDetails.appendChild(helpBody)
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)

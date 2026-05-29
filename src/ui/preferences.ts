@@ -10,6 +10,7 @@
  */
 
 import type {
+  CameraMode,
   Difficulty,
   ExperimentalFlags,
   MatchTempo,
@@ -27,6 +28,11 @@ const TERRAINS: ReadonlySet<TerrainChoice> = new Set<TerrainChoice>([
   'islands',
 ])
 const MAP_DIMS: ReadonlySet<number> = new Set<number>([256, 512, 768, 1024, 1536, 2048])
+const CAMERA_MODES: ReadonlySet<CameraMode> = new Set<CameraMode>(['tiles', 'box', 'dynamic'])
+
+function isCameraMode(v: unknown): v is CameraMode {
+  return typeof v === 'string' && CAMERA_MODES.has(v as CameraMode)
+}
 
 function isDifficulty(v: unknown): v is Difficulty {
   return typeof v === 'string' && DIFFICULTIES.has(v as Difficulty)
@@ -87,7 +93,7 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (isTempo(parsed.tempo)) result.tempo = parsed.tempo
     if (isTerrain(parsed.terrain)) result.terrain = parsed.terrain
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
-    if (typeof parsed.cameraBox === 'boolean') result.cameraBox = parsed.cameraBox
+    if (isCameraMode(parsed.cameraMode)) result.cameraMode = parsed.cameraMode
     if (typeof parsed.experimental === 'object' && parsed.experimental !== null) {
       const exp: ExperimentalFlags = {}
       for (const [k, v] of Object.entries(parsed.experimental)) {

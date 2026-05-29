@@ -15,6 +15,7 @@ import type { Camera } from '../render/renderer'
 import { tileRef } from '../world/torus'
 import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
+import type { CameraMode } from '../ui/start-menu'
 
 /** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Hafen, 4=Fabrik). */
 const BUILD_HOTKEYS: Record<string, BuildingType> = {
@@ -58,10 +59,8 @@ export interface InputDeps {
   readonly events: InputEvents
   /** Spieler-Aktionen erlaubt (Angriff/Bau/Menü)? false im Zuschauer-Modus — nur Kamera. */
   readonly interactive?: boolean
-  /** Kamera-Box-Modus initial an? (begrenzt den Zoom auf genau eine Welt-Periode). */
-  readonly cameraBox?: boolean
-  /** Optional: Kamera-Box wurde per Taste umgeschaltet (für HUD-/Log-Feedback). */
-  readonly onCameraBoxChange?: (on: boolean) => void
+  /** Kamera-Darstellung (steuert das Zoom-Minimum): Kacheln / feste Box / dynamische Box. */
+  readonly cameraMode?: CameraMode
   /**
    * Optional: wird beim erfolgreichen Linksklick mit den Welt-Koords (vor `tileRef`)
    * aufgerufen — z.B. für visuelles Klick-Feedback im Renderer.
@@ -127,35 +126,28 @@ const ATTACK_STEP_PCT = 10
 export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
 
-  // Kamera-Box: begrenzt den Zoom so, dass nie mehr als EINE Welt-Periode sichtbar ist
-  // (kein endloses Kacheln/„Tapete"). Per Taste/Start-Menü umschaltbar.
-  let cameraBox = deps.cameraBox ?? true
+  // Kamera-Darstellung (Start-Menü): bestimmt, wie weit man rauszoomen darf.
+  const cameraMode: CameraMode = deps.cameraMode ?? 'dynamic'
 
   /**
-   * Dynamisches Zoom-Minimum.
-   *  - Kamera-Box an: man darf bis ~halbe Welt-Füllung rauszoomen — der Renderer zeigt dann
-   *    nur EINE Welt-Kopie mit schwarzen Rändern (kein Kacheln). So sieht man die ganze Welt
-   *    auf einen Blick, ohne „Tapete".
-   *  - Kamera-Box aus: bis ~87% Füllung (das Kacheln übernimmt den Rest); nie unter ZOOM_MIN_ABS.
+   * Dynamisches Zoom-Minimum je Kamera-Modus.
+   *  - `dynamic`: bis 0.6 × „Welt passt komplett" — der Renderer zeigt dann eine Welt-Kopie
+   *    mit schwarzen Rändern (ganze Welt auf einen Blick, kein Kacheln).
+   *  - `box`: genau eine Welt-Periode (`max(canvasW/mapW, canvasH/mapH)`) — nahtloser Wrap,
+   *    kein Weiter-Rauszoomen, keine „Tapete".
+   *  - `tiles`: bis ~87% Füllung (das Kacheln übernimmt den Rest); nie unter ZOOM_MIN_ABS.
    */
   function minZoom(): number {
-    if (cameraBox) {
-      // ganze Welt sichtbar + etwas Rand: 0.6 × „Welt passt komplett"-Zoom.
+    if (cameraMode === 'dynamic') {
       const fit = Math.min(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
       return Math.max(ZOOM_MIN_ABS, fit * 0.6)
+    }
+    if (cameraMode === 'box') {
+      return Math.max(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
     }
     const fitW = canvas.clientWidth / (mapWidth * 1.15)
     const fitH = canvas.clientHeight / (mapHeight * 1.15)
     return Math.max(ZOOM_MIN_ABS, Math.min(fitW, fitH))
-  }
-
-  /** Schaltet die Kamera-Box um; zoomt bei Bedarf auf das neue Minimum heran. */
-  function setCameraBox(on: boolean): void {
-    if (cameraBox === on) return
-    cameraBox = on
-    const mz = minZoom()
-    if (camera.zoom < mz) camera.zoom = mz
-    deps.onCameraBoxChange?.(on)
   }
 
   // Kamera-Drag mit Maus: 0 = linke, 2 = rechte Taste, null = kein Drag. Beide Tasten
@@ -495,9 +487,6 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       setBoatMode(!boatMode)
     } else if (key === 'r' && deps.interactive !== false) {
       deps.onToggleShipRanges?.()
-    } else if (key === 'k') {
-      // Kamera-Box umschalten (Ansichts-Einstellung — auch im Zuschauer-Modus erlaubt).
-      setCameraBox(!cameraBox)
     } else if (e.key === 'Escape') {
       // Esc bricht erst Boot-/Bau-Modus ab, sonst zurück zum Menü
       if (boatMode) setBoatMode(false)

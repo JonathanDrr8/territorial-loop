@@ -10,6 +10,13 @@
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
 export type TerrainChoice = 'flat' | 'continents' | 'islands'
+/**
+ * Kamera-Darstellung der Torus-Welt:
+ *  - `tiles`   → wie vorher: endloses Kacheln beim Rauszoomen (die Welt wiederholt sich).
+ *  - `box`     → feste Box: immer genau eine Welt-Periode, nahtloser Wrap, kein Weiter-Rauszoomen.
+ *  - `dynamic` → „Dynamische Box": reingezoomt nahtlos, weit rausgezoomt ganze Welt + schwarze Ränder.
+ */
+export type CameraMode = 'tiles' | 'box' | 'dynamic'
 
 /**
  * Opt-in „Experimentell"-Toggles. Vorerst leer — das Gerüst steht, künftige
@@ -31,8 +38,8 @@ export interface StartMenuValues {
   tempo: MatchTempo
   terrain: TerrainChoice
   soundEnabled: boolean
-  /** Kamera-Box: zeigt genau eine Welt-Periode (kein endloses Kacheln/„Tapete"). */
-  cameraBox: boolean
+  /** Kamera-Darstellung: Kacheln / feste Box / dynamische Box (siehe [[CameraMode]]). */
+  cameraMode: CameraMode
   /** Opt-in experimentelle Feature-Toggles (persistiert; vorerst Platzhalter). */
   experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */
@@ -358,27 +365,27 @@ export function createStartMenu(
   soundRow.appendChild(soundCheckWrap)
   panel.appendChild(soundRow)
 
-  // Kamera-Box toggle (eine Welt-Periode statt endlosem Kacheln)
+  // Kamera-Darstellung der Torus-Welt (3 Stufen)
   const camRow = document.createElement('div')
   camRow.style.cssText = FIELD_ROW_STYLE
   const camLabel = document.createElement('label')
-  camLabel.textContent = 'Kamera-Box'
-  const camCheckWrap = document.createElement('label')
-  camCheckWrap.style.cssText =
-    'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
-  const camCheck = document.createElement('input')
-  camCheck.type = 'checkbox'
-  camCheck.checked = initial.cameraBox
-  camCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
-  const camCheckText = document.createElement('span')
-  camCheckText.textContent = camCheck.checked ? 'an' : 'aus'
-  camCheckWrap.appendChild(camCheck)
-  camCheckWrap.appendChild(camCheckText)
-  camCheck.addEventListener('change', () => {
-    camCheckText.textContent = camCheck.checked ? 'an' : 'aus'
-  })
+  camLabel.textContent = 'Kamera'
+  const camSelect = document.createElement('select')
+  camSelect.style.cssText = SELECT_STYLE
+  const CAMERA_OPTIONS: ReadonlyArray<readonly [CameraMode, string]> = [
+    ['tiles', 'Kacheln (wie vorher)'],
+    ['box', 'Box (fest)'],
+    ['dynamic', 'Dynamische Box'],
+  ]
+  for (const [value, label] of CAMERA_OPTIONS) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    if (value === initial.cameraMode) opt.selected = true
+    camSelect.appendChild(opt)
+  }
   camRow.appendChild(camLabel)
-  camRow.appendChild(camCheckWrap)
+  camRow.appendChild(camSelect)
   panel.appendChild(camRow)
 
   // Aufklappbare Wachstums-Erklärung
@@ -438,7 +445,7 @@ export function createStartMenu(
       tempo: initial.tempo,
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
-      cameraBox: camCheck.checked,
+      cameraMode: camSelect.value as CameraMode,
       experimental: { ...initial.experimental },
       ...(seedRaw.length > 0 && { seed: seedRaw }),
     }
