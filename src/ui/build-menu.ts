@@ -116,7 +116,38 @@ export function createBuildMenu(
 
   let open_ = false
 
-  /** Stellt die Aktionen als Chip-Kranz um die Mitte dar; Cursor = Zentrum. */
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+
+  /** Punkt auf dem Kreis (Zentrum c) bei Radius r und Winkel a → "x,y". */
+  function polar(c: number, r: number, a: number): string {
+    return `${(c + r * Math.cos(a)).toFixed(2)} ${(c + r * Math.sin(a)).toFixed(2)}`
+  }
+
+  /** SVG-Pfad eines Ring-Segments (innen nicht spitz) zwischen Winkeln a0..a1, Radien rIn..rOut. */
+  function sectorPath(c: number, rIn: number, rOut: number, a0: number, a1: number): string {
+    const large = a1 - a0 > Math.PI ? 1 : 0
+    return (
+      `M ${polar(c, rIn, a0)} L ${polar(c, rOut, a0)} ` +
+      `A ${String(rOut)} ${String(rOut)} 0 ${String(large)} 1 ${polar(c, rOut, a1)} ` +
+      `L ${polar(c, rIn, a1)} A ${String(rIn)} ${String(rIn)} 0 ${String(large)} 0 ${polar(c, rIn, a0)} Z`
+    )
+  }
+
+  /** Voller Ring (Donut) als ein klickbares Segment — für genau eine Aktion. */
+  function ringPath(c: number, rIn: number, rOut: number): string {
+    return (
+      `M ${String(c + rOut)} ${String(c)} A ${String(rOut)} ${String(rOut)} 0 1 1 ${String(c - rOut)} ${String(c)} ` +
+      `A ${String(rOut)} ${String(rOut)} 0 1 1 ${String(c + rOut)} ${String(c)} Z ` +
+      `M ${String(c + rIn)} ${String(c)} A ${String(rIn)} ${String(rIn)} 0 1 0 ${String(c - rIn)} ${String(c)} ` +
+      `A ${String(rIn)} ${String(rIn)} 0 1 0 ${String(c + rIn)} ${String(c)} Z`
+    )
+  }
+
+  /**
+   * Stellt die Aktionen als Ring aus Kuchenstücken um den Cursor dar (Cursor = Zentrum). Jedes
+   * Segment ist auf ganzer Fläche klickbar → eine kleine Mausbewegung in die Richtung genügt.
+   * In der Mitte sitzt ein Totbereich mit der Kontext-Info (Titel + Detailzeile bei Hover).
+   */
   function renderRadial(
     actions: readonly MenuAction[],
     title: string,
@@ -126,104 +157,127 @@ export function createBuildMenu(
   ): void {
     panel.textContent = ''
     const n = actions.length
-    const ring = n <= 2 ? 60 : n <= 4 ? 78 : 96
-    const chip = 54
-    const pad = 16
-    const size = 2 * (ring + chip / 2 + pad)
-    const center = size / 2
+    const rIn = 44
+    const rOut = n <= 4 ? 116 : 132
+    const pad = 4
+    const size = 2 * (rOut + pad)
+    const c = size / 2
     panel.style.width = `${String(size)}px`
     panel.style.height = `${String(size)}px`
 
-    // Mittige Kontext-Info (Titel + dynamische Detailzeile bei Hover).
+    const svg = document.createElementNS(SVG_NS, 'svg')
+    svg.setAttribute('width', String(size))
+    svg.setAttribute('height', String(size))
+    svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible'
+    panel.appendChild(svg)
+
+    // Mittige Kontext-Info (Titel + dynamische Detailzeile bei Hover) im Totbereich.
     const info = document.createElement('div')
     info.style.cssText = [
       'position: absolute',
       'left: 50%',
       'top: 50%',
       'transform: translate(-50%,-50%)',
-      'width: ' + String(ring * 1.6) + 'px',
+      `width: ${String(rIn * 2.05)}px`,
+      `height: ${String(rIn * 2.05)}px`,
+      'box-sizing: border-box',
+      'border-radius: 50%',
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'justify-content: center',
+      'padding: 6px',
       'text-align: center',
       'pointer-events: none',
       'color: white',
-      'background: rgba(10,12,18,0.82)',
-      'border-radius: 10px',
-      'padding: 8px 6px',
+      'background: rgba(10,12,18,0.92)',
     ].join(';')
     const titleEl = document.createElement('div')
     titleEl.textContent = title
-    titleEl.style.cssText = `font-weight: bold; font-size: 12px; color: ${titleColor}`
+    titleEl.style.cssText = `font-weight: bold; font-size: 11px; line-height: 1.2; color: ${titleColor}`
     const detailEl = document.createElement('div')
     detailEl.textContent = 'Aktion wählen'
-    detailEl.style.cssText = 'font-size: 10px; opacity: 0.65; margin-top: 3px; min-height: 12px'
+    detailEl.style.cssText = 'font-size: 9px; opacity: 0.65; margin-top: 3px; line-height: 1.2'
     info.appendChild(titleEl)
     info.appendChild(detailEl)
-    panel.appendChild(info)
+
+    const gap = n > 1 ? 0.05 : 0
+    const idle = 'rgba(14,16,22,0.92)'
 
     actions.forEach((a, i) => {
-      const angle = -Math.PI / 2 + (i / n) * Math.PI * 2
-      const cx = center + Math.cos(angle) * ring
-      const cy = center + Math.sin(angle) * ring
       const clickable = a.enabled && (a.costText === '' || a.affordable)
+      const mid = -Math.PI / 2 + (i / n) * Math.PI * 2
+      const half = Math.PI / n - gap
 
-      const btn = document.createElement('button')
-      btn.style.cssText = [
-        'position: absolute',
-        `left: ${String(cx)}px`,
-        `top: ${String(cy)}px`,
-        'transform: translate(-50%,-50%)',
-        `width: ${String(chip)}px`,
-        `height: ${String(chip)}px`,
-        'border-radius: 50%',
-        'pointer-events: auto',
-        'display: flex',
-        'flex-direction: column',
-        'align-items: center',
-        'justify-content: center',
-        'gap: 1px',
-        'background: rgba(14,16,22,0.92)',
-        `border: 2px solid ${a.accent}`,
-        'color: white',
-        'font: inherit',
+      const path = document.createElementNS(SVG_NS, 'path')
+      path.setAttribute(
+        'd',
+        n === 1 ? ringPath(c, rIn, rOut) : sectorPath(c, rIn, rOut, mid - half, mid + half),
+      )
+      if (n === 1) path.setAttribute('fill-rule', 'evenodd')
+      path.setAttribute('fill', idle)
+      path.setAttribute('stroke', a.accent)
+      path.setAttribute('stroke-width', '2')
+      path.setAttribute('stroke-linejoin', 'round')
+      path.style.cssText = [
+        `pointer-events: ${clickable ? 'auto' : 'none'}`,
         `opacity: ${clickable ? '1' : '0.4'}`,
-        clickable ? 'cursor: pointer' : 'cursor: not-allowed',
+        `cursor: ${clickable ? 'pointer' : 'default'}`,
+        'transition: fill 0.08s',
       ].join(';')
 
-      const glyphEl = document.createElement('span')
-      glyphEl.textContent = a.glyph
-      glyphEl.style.cssText = 'font-size: 18px; font-weight: bold; line-height: 1'
-      btn.appendChild(glyphEl)
-      if (a.costText !== '') {
-        const costEl = document.createElement('span')
-        costEl.textContent = a.costText
-        costEl.style.cssText = `font-size: 9px; font-weight: bold; color: ${a.affordable ? '#5dd75d' : '#ef5350'}`
-        btn.appendChild(costEl)
-      }
-
-      btn.addEventListener('mouseenter', () => {
+      path.addEventListener('mouseenter', () => {
         const head = a.costText !== '' ? `${a.label} · ${a.costText}` : a.label
         detailEl.textContent = a.detail !== '' ? `${head} — ${a.detail}` : head
         detailEl.style.opacity = '1'
-        if (clickable) btn.style.background = 'rgba(40,44,54,0.96)'
+        if (clickable) path.setAttribute('fill', 'rgba(40,44,54,0.97)')
       })
-      btn.addEventListener('mouseleave', () => {
+      path.addEventListener('mouseleave', () => {
         detailEl.textContent = 'Aktion wählen'
         detailEl.style.opacity = '0.65'
-        btn.style.background = 'rgba(14,16,22,0.92)'
+        path.setAttribute('fill', idle)
       })
       if (clickable) {
-        btn.addEventListener('click', (e) => {
+        path.addEventListener('click', (e) => {
           e.stopPropagation()
           a.run()
         })
       }
-      panel.appendChild(btn)
+      svg.appendChild(path)
+
+      // Glyph (+ Kosten) mittig im Segment — rein visuell, fängt keine Klicks ab.
+      const gr = (rIn + rOut) / 2
+      const lbl = document.createElement('div')
+      lbl.style.cssText = [
+        'position: absolute',
+        `left: ${(c + gr * Math.cos(mid)).toFixed(1)}px`,
+        `top: ${(c + gr * Math.sin(mid)).toFixed(1)}px`,
+        'transform: translate(-50%,-50%)',
+        'pointer-events: none',
+        'text-align: center',
+        'color: white',
+        `opacity: ${clickable ? '1' : '0.5'}`,
+      ].join(';')
+      const glyphEl = document.createElement('div')
+      glyphEl.textContent = a.glyph
+      glyphEl.style.cssText = 'font-size: 19px; font-weight: bold; line-height: 1'
+      lbl.appendChild(glyphEl)
+      if (a.costText !== '') {
+        const costEl = document.createElement('div')
+        costEl.textContent = a.costText
+        costEl.style.cssText = `font-size: 10px; font-weight: bold; margin-top: 2px; color: ${a.affordable ? '#5dd75d' : '#ef5350'}`
+        lbl.appendChild(costEl)
+      }
+      panel.appendChild(lbl)
     })
+
+    panel.appendChild(info)
 
     // Panel so platzieren, dass die Mitte am Cursor sitzt (im Container gehalten).
     const cw = container.clientWidth
     const ch = container.clientHeight
-    const left = Math.max(8, Math.min(screenX - center, cw - size - 8))
-    const top = Math.max(8, Math.min(screenY - center, ch - size - 8))
+    const left = Math.max(8, Math.min(screenX - c, cw - size - 8))
+    const top = Math.max(8, Math.min(screenY - c, ch - size - 8))
     panel.style.left = `${String(left)}px`
     panel.style.top = `${String(top)}px`
     backdrop.style.display = 'block'
