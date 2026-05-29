@@ -150,18 +150,25 @@ describe('boat launch + landing via tick', () => {
     expect(getOwner(state.map, enemyTile)).toBe(1)
   })
 
-  it('a boat intent to a land-reachable target does nothing (use attack instead)', () => {
+  it('flankiert über Wasser zu einem über Land erreichbaren Gegner-Küstenziel', () => {
     const state = createGame(cfg())
     splitMap(state)
-    own(state, 1, 1, 1)
-    const neighborLand = tileRef(2, 1, W, H) // same landmass, neutral
+    own(state, 3, 1, 1) // Spieler, Küste an der x=4-Wasserspalte
+    // Gegner auf DERSELBEN (linken) Landmasse — über Land erreichbar — aber ebenfalls an
+    // x=4: eine kurze Überfahrt umgeht die Landgrenze.
+    const enemyTile = own(state, 3, 2, 2)
     const human = state.players.get(1)
-    if (human === undefined) throw new Error('no human')
-    human.troops = 500
-    tick(state, [{ type: 'boat', playerId: 1, targetTile: neighborLand, troops: 500 }])
-    // kein Boot und kein Angriff — über Land erreichbar ist kein Boot-Ziel (No-Op)
-    expect(state.boats.length).toBe(0)
-    expect(human.attacks.length).toBe(0)
+    const enemy = state.players.get(2)
+    if (human === undefined || enemy === undefined) throw new Error('missing player')
+    human.troops = 800
+    enemy.troops = 0 // unverteidigt → Landung gelingt
+    const before = human.troops
+    tick(state, [{ type: 'boat', playerId: 1, targetTile: enemyTile, troops: 500 }])
+    // Früher No-Op (über Land erreichbar); jetzt startet das Boot (Truppen aus dem Pool).
+    expect(human.troops).toBeLessThan(before)
+    for (let i = 0; i < 50 && state.boats.length > 0; i++) tick(state, [])
+    // Flankierung gelandet: ehemaliges Gegner-Tile gehört jetzt dem Menschen.
+    expect(getOwner(state.map, enemyTile)).toBe(1)
   })
 
   it('an attack across water no longer auto-launches a boat (explicit boat mode only)', () => {

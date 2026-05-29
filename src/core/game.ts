@@ -1179,10 +1179,11 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
 }
 
 /**
- * Bewusster Boot-Befehl (Boot-Modus): schickt EIN Transport-Boot mit der per
- * Slider gewählten Truppenzahl zu einem Küsten-Ziel auf einer anderen Landmasse.
- * Schlägt der Start fehl (kein Wasserweg von eigener Küste, Boot-Limit, Ziel über
- * Land erreichbar), gibt es einen Log-Hinweis statt eines stillen Fehlschlags.
+ * Bewusster Boot-Befehl (Boot-Modus): schickt EIN Transport-Boot mit der per Slider
+ * gewählten Truppenzahl zu einem beliebigen Küsten-Ziel (Wildnis oder Gegner), zu dem ein
+ * Wasserweg von einer eigenen Küste existiert — auch wenn es über Land erreichbar wäre
+ * (Flankierung über kurze Überfahrt). Schlägt der Start fehl (kein Wasserweg, keine eigene
+ * Küste, Boot-Limit), gibt es einen Log-Hinweis statt eines stillen Fehlschlags.
  */
 function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   const player = state.players.get(intent.playerId)
@@ -1191,10 +1192,12 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   if (!isPassable(state.map.terrain, intent.targetTile)) return
 
   const targetOwner = getOwner(state.map, intent.targetTile)
-  if (targetOwner === player.id) return
+  if (targetOwner === player.id) return // kein Boot ins eigene Gebiet
   if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) return
-  // Über Land erreichbar → das ist ein Land-Angriff, kein Boot.
-  if (reachableByLand(state, player, intent.targetTile)) return
+  // Bewusst KEINE „über Land erreichbar"-Sperre mehr: ein Boot darf zu jedem Küsten-Ziel
+  // fahren, zu dem ein Wasserweg existiert — auch wenn das Ziel über Land erreichbar wäre
+  // (z.B. eine kurze Überfahrt, um eine gegnerische Verteidigungslinie an der Landgrenze zu
+  // flankieren). Gültigkeit = Wasserweg vorhanden (unten via tryLaunchBoat).
 
   // Differenziertes Feedback: ohne eigene Küste ist ein Boot unmöglich (man muss erst
   // Land am Wasser erobern); sonst lag es am fehlenden Wasserweg zum Ziel.

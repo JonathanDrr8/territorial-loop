@@ -53,11 +53,12 @@ export interface AttackIntent {
 }
 
 /**
- * Spieler schickt ein einzelnes Transport-Boot zu einem Ziel auf einer anderen
- * Landmasse. Anders als beim Angriff ist das ein bewusster Befehl (Boot-Modus):
+ * Spieler schickt ein einzelnes Transport-Boot zu einem Küsten-Ziel. Anders als beim
+ * Angriff ist das ein bewusster Befehl (Boot-Modus):
  *
- * - `targetTile` muss ein begehbares Land-Tile am Wasser sein, das NICHT über
- *   Land erreichbar ist (eigene/feindliche Landmasse zählt nur, wenn übers Meer).
+ * - `targetTile` muss ein begehbares Land-Tile am Wasser sein (Wildnis oder Gegner),
+ *   zu dem ein Wasserweg von einer eigenen Küste existiert. Das Ziel DARF über Land
+ *   erreichbar sein — eine kurze Überfahrt zur Flankierung ist ausdrücklich erlaubt.
  * - `troops` ist die absolute Anzahl (Slider-%), gedeckelt auf `player.troops`.
  *   Findet die Sim keinen Wasserweg von einer eigenen Küste, passiert nichts
  *   (mit Log-Hinweis).
