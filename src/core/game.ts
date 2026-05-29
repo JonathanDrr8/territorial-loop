@@ -273,8 +273,8 @@ export interface GameState {
 const SPAWN_HALF_SIZE = 2 // 5×5-Kern muss Land sein (Zentrums-Validierung)
 /** Ziel-Größe eines Start-Gebiets (Tiles) — organisch gewachsen, nicht quadratisch. */
 const SPAWN_TARGET_TILES = 80
-/** Start-Größe wilder Nationen — klein gehalten (Puffer/Beute, oft hunderte auf der Karte). */
-const WILD_SPAWN_TILES = 14
+/** Start-Größe wilder Nationen — etwas kleiner als reguläre Spawns, aber sichtbar präsent. */
+const WILD_SPAWN_TILES = 28
 
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
@@ -1648,12 +1648,12 @@ const WILD_CAP_FACTOR = 0.5
 
 /**
  * Passive Ausbreitung wilder Nationen: Wahrscheinlichkeit pro wilder Nation und Tick, ein
- * angrenzendes neutrales Tile zu erobern (≈ alle 1.7 s eines bei 0.06). Wilde greifen nie
+ * angrenzendes neutrales Tile zu erobern (bei 0.3 ≈ 3 Tiles/s pro Nation). Wilde greifen nie
  * Spieler an — sie wachsen nur in freie Wildnis. Bewusst KEIN Größen-Limit: sie starten klein
  * und wachsen langsam (halber Cap, niedrige Rate), stoßen ohnehin bald auf andere Gebiete und
  * bleiben so lohnende Ziele. Startwert per Playtest tunbar.
  */
-const WILD_SPREAD_CHANCE = 0.06
+const WILD_SPREAD_CHANCE = 0.3
 
 /**
  * Lässt jede wilde Nation langsam in angrenzendes neutrales (begehbares) Land wachsen.

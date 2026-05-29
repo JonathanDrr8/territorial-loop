@@ -441,7 +441,7 @@ describe('wilde Nationen', () => {
     expect(effectiveMaxTroops(state, 2)).toBe(Math.floor(effectiveMaxTroops(state, 1) * 0.5))
   })
 
-  it('starten mit kleinem Spawn (Puffer/Beute) — deutlich kleiner als reguläre Spieler', () => {
+  it('starten kleiner als reguläre Spieler (Puffer/Beute)', () => {
     const state = createGame(
       baseConfig({
         terrain: 'flat',
@@ -456,7 +456,7 @@ describe('wilde Nationen', () => {
     const ai = state.players.get(1)
     const wild = state.players.get(2)
     if (ai === undefined || wild === undefined) throw new Error('players missing')
-    expect(wild.tilesOwned).toBeLessThanOrEqual(14)
+    expect(wild.tilesOwned).toBeLessThanOrEqual(28)
     expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
   })
 
