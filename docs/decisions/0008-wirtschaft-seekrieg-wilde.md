@@ -82,8 +82,8 @@ Aus späteren Playtests hervorgegangen, im Geist dieses ADRs:
 - **Gold-Beute beim Erobern** (`lootGoldOnCapture`): pro erobertem Tile wandert der Pro-Tile-
   Anteil des Gold-Vorrats des Verteidigers zum Angreifer (auch von Wilden) — analog zur
   Bevölkerung. Greift in `advanceAttack` (Land) und `landBoat` (amphibisch).
-- **Baukosten gedeckelt** (`BUILD_COST_CAP = 1 Mio`); \*\*Hafen & Fabrik teilen sich Basis (25k)
-  - Eskalation\*\* (`COST_GROUP`, `buildCostFor`) → früh ein bewusstes Entweder-Oder.
+- **Baukosten gedeckelt** (`BUILD_COST_CAP = 1 Mio`); **Hafen & Fabrik teilen sich dieselbe
+  Basis (25k) und Eskalation** (`COST_GROUP`, `buildCostFor`) → früh ein bewusstes Entweder-Oder.
 - **Boote dürfen über Wasser flankieren** (die „über Land erreichbar → kein Boot"-Sperre ist
   weg; Gültigkeit = Wasserweg vorhanden).
 - **Skalierung:** wilde Nationen bis 400, echte KI bis 200 (KI-Cooldown drosselt die teure
