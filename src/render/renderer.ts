@@ -210,6 +210,8 @@ const MAX_FLASHES_PER_TICK = 600
 
 /** Schwerpunkt-Neuberechnung alle N Sim-Ticks (Performance vs. Aktualität). */
 const CENTROID_INTERVAL = 10
+/** Ab dieser Tile-Zahl bekommt ein zusammenhängender Gebiets-Fetzen ein eigenes Label. */
+const MIN_LABEL_COMPONENT = 4
 
 /** Kompaktes Zahlenformat fürs Overlay: 1234567 → "1.2M", 12345 → "12k". */
 function fmtCompactRender(value: number): string {
@@ -681,50 +683,77 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   const flashes: CaptureFlash[] = []
   // Schwerpunkt pro Spieler (für Namens-Label + Angriffspfeile). Gedrosselt
   // alle CENTROID_INTERVAL Ticks neu berechnet — Torus-sicher via Sinus/Cosinus.
-  const centroids = new Map<number, { x: number; y: number }>()
+  // Ein Label-Anker je zusammenhängendem Gebiets-Fetzen (statt nur einem Schwerpunkt pro
+  // Nation) — so trägt jeder getrennte Teil einer geteilten Nation seinen eigenen Namen,
+  // keine Farbfläche bleibt unbeschriftet. Alle CENTROID_INTERVAL Ticks via Flood-Fill.
+  let labelAnchors: { owner: number; x: number; y: number }[] = []
   let lastCentroidTick = -1
+  let visited: Uint8Array = new Uint8Array(0)
+  let bfsQueue: Int32Array = new Int32Array(0)
 
   function maybeRecomputeCentroids(): void {
     if (lastCentroidTick >= 0 && state.tick - lastCentroidTick < CENTROID_INTERVAL) return
     lastCentroidTick = state.tick
     const w = state.map.width
     const h = state.map.height
-    const mapState = state.map.state
-    interface Acc {
-      sx: number
-      cx: number
-      sy: number
-      cy: number
-      n: number
-    }
-    const acc = new Map<number, Acc>()
+    const ms = state.map.state
+    const n = ms.length
     const kx = (2 * Math.PI) / w
     const ky = (2 * Math.PI) / h
-    for (let i = 0; i < mapState.length; i++) {
-      const owner = (mapState[i] ?? 0) & OWNER_MASK
-      if (owner === 0) continue
-      let a = acc.get(owner)
-      if (a === undefined) {
-        a = { sx: 0, cx: 0, sy: 0, cy: 0, n: 0 }
-        acc.set(owner, a)
+    if (visited.length !== n) {
+      visited = new Uint8Array(n)
+      bfsQueue = new Int32Array(n)
+    } else {
+      visited.fill(0)
+    }
+    const anchors: { owner: number; x: number; y: number }[] = []
+    for (let start = 0; start < n; start++) {
+      if (visited[start] === 1) continue
+      const owner = (ms[start] ?? 0) & OWNER_MASK
+      if (owner === 0) {
+        visited[start] = 1
+        continue
       }
-      const x = i % w
-      const y = (i - x) / w
-      a.sx += Math.sin(x * kx)
-      a.cx += Math.cos(x * kx)
-      a.sy += Math.sin(y * ky)
-      a.cy += Math.cos(y * ky)
-      a.n++
+      // BFS über zusammenhängende Tiles desselben Owners (Torus-4-Nachbarschaft); Torus-
+      // sicherer Schwerpunkt der Komponente via Sinus/Cosinus-Mittelung.
+      let head = 0
+      let tail = 0
+      bfsQueue[tail++] = start
+      visited[start] = 1
+      let sx = 0
+      let cx = 0
+      let sy = 0
+      let cy = 0
+      let count = 0
+      while (head < tail) {
+        const t = bfsQueue[head++] ?? 0
+        const x = t % w
+        const y = (t - x) / w
+        sx += Math.sin(x * kx)
+        cx += Math.cos(x * kx)
+        sy += Math.sin(y * ky)
+        cy += Math.cos(y * ky)
+        count++
+        const nbs = [
+          ((x - 1 + w) % w) + y * w,
+          ((x + 1) % w) + y * w,
+          x + ((y - 1 + h) % h) * w,
+          x + ((y + 1) % h) * w,
+        ]
+        for (const nb of nbs) {
+          if (visited[nb] !== 1 && ((ms[nb] ?? 0) & OWNER_MASK) === owner) {
+            visited[nb] = 1
+            bfsQueue[tail++] = nb
+          }
+        }
+      }
+      if (count >= MIN_LABEL_COMPONENT) {
+        const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
+        const my = (Math.atan2(sy, cy) / (2 * Math.PI)) * h
+        anchors.push({ owner, x: ((mx % w) + w) % w, y: ((my % h) + h) % h })
+      }
     }
-    centroids.clear()
-    for (const [owner, a] of acc) {
-      const mx = (Math.atan2(a.sx, a.cx) / (2 * Math.PI)) * w
-      const my = (Math.atan2(a.sy, a.cy) / (2 * Math.PI)) * h
-      centroids.set(owner, {
-        x: ((mx % w) + w) % w,
-        y: ((my % h) + h) % h,
-      })
-    }
+    labelAnchors = anchors
   }
 
   /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
@@ -803,17 +832,18 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       if (p.isAlive && p.tilesOwned > 0 && p.id !== lutHumanId) liveOthers++
     }
     const crowded = liveOthers > LABEL_CROWD_THRESHOLD
-    for (const p of state.players.values()) {
-      if (!p.isAlive || p.tilesOwned === 0) continue
+    // Ein Label je Gebiets-Fetzen (labelAnchors): geteilte Nationen werden mehrfach
+    // beschriftet, keine Farbfläche bleibt namenlos.
+    for (const anchor of labelAnchors) {
+      const p = state.players.get(anchor.owner)
+      if (p === undefined || !p.isAlive) continue
       // Mensch + Verbündete immer; sonst bei Gedränge oder wild erst ab nahem Zoom
       // (rausgezoomt sauber, Hover zeigt sie weiterhin). So skaliert es auf hunderte Nationen.
       const isHuman = p.id === lutHumanId
       const allied = lutHumanId >= 0 && !isHuman && areAllied(state.alliances, lutHumanId, p.id)
       if (!isHuman && !allied && (p.wild || crowded) && z < MINOR_LABEL_MIN_ZOOM) continue
-      const c = centroids.get(p.id)
-      if (c === undefined) continue
-      // Nächste Wrap-Kopie des Schwerpunkts (genau ein Label je Nation).
-      const { sx, sy } = nearestWrappedScreenPos(c.x + 0.5, c.y + 0.5)
+      // Nächste Wrap-Kopie des Fetzen-Schwerpunkts.
+      const { sx, sy } = nearestWrappedScreenPos(anchor.x + 0.5, anchor.y + 0.5)
       // Liegt der Schwerpunkt weit außerhalb (> 1 Viewport), ist die Nation nicht in
       // Sicht → kein Label. Sonst: an den Rand klemmen, damit man sieht welches Land
       // angrenzt (auch wenn der Schwerpunkt selbst außerhalb des Bildes liegt).
