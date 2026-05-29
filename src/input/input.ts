@@ -58,6 +58,10 @@ export interface InputDeps {
   readonly events: InputEvents
   /** Spieler-Aktionen erlaubt (Angriff/Bau/Menü)? false im Zuschauer-Modus — nur Kamera. */
   readonly interactive?: boolean
+  /** Kamera-Box-Modus initial an? (begrenzt den Zoom auf genau eine Welt-Periode). */
+  readonly cameraBox?: boolean
+  /** Optional: Kamera-Box wurde per Taste umgeschaltet (für HUD-/Log-Feedback). */
+  readonly onCameraBoxChange?: (on: boolean) => void
   /**
    * Optional: wird beim erfolgreichen Linksklick mit den Welt-Koords (vor `tileRef`)
    * aufgerufen — z.B. für visuelles Klick-Feedback im Renderer.
@@ -123,15 +127,31 @@ const ATTACK_STEP_PCT = 10
 export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
 
+  // Kamera-Box: begrenzt den Zoom so, dass nie mehr als EINE Welt-Periode sichtbar ist
+  // (kein endloses Kacheln/„Tapete"). Per Taste/Start-Menü umschaltbar.
+  let cameraBox = deps.cameraBox ?? true
+
   /**
-   * Dynamisches Zoom-Minimum: nicht weiter raus als bis die Karte ~87% des
-   * Viewports füllt — so sieht man (große) Karten praktisch komplett, ohne dass
-   * sich die Welt vielfach zur "Tapete" kachelt. Niemals unter ZOOM_MIN_ABS.
+   * Dynamisches Zoom-Minimum.
+   *  - Kamera-Box an: `max(canvasW/mapW, canvasH/mapH)` → keine Achse zeigt >1 Periode.
+   *  - Kamera-Box aus: bis ~87% Füllung (das Kacheln übernimmt den Rest); nie unter ZOOM_MIN_ABS.
    */
   function minZoom(): number {
+    if (cameraBox) {
+      return Math.max(canvas.clientWidth / mapWidth, canvas.clientHeight / mapHeight)
+    }
     const fitW = canvas.clientWidth / (mapWidth * 1.15)
     const fitH = canvas.clientHeight / (mapHeight * 1.15)
     return Math.max(ZOOM_MIN_ABS, Math.min(fitW, fitH))
+  }
+
+  /** Schaltet die Kamera-Box um; zoomt bei Bedarf auf das neue Minimum heran. */
+  function setCameraBox(on: boolean): void {
+    if (cameraBox === on) return
+    cameraBox = on
+    const mz = minZoom()
+    if (camera.zoom < mz) camera.zoom = mz
+    deps.onCameraBoxChange?.(on)
   }
 
   // Kamera-Drag mit Maus: 0 = linke, 2 = rechte Taste, null = kein Drag. Beide Tasten
@@ -471,6 +491,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       setBoatMode(!boatMode)
     } else if (key === 'r' && deps.interactive !== false) {
       deps.onToggleShipRanges?.()
+    } else if (key === 'k') {
+      // Kamera-Box umschalten (Ansichts-Einstellung — auch im Zuschauer-Modus erlaubt).
+      setCameraBox(!cameraBox)
     } else if (e.key === 'Escape') {
       // Esc bricht erst Boot-/Bau-Modus ab, sonst zurück zum Menü
       if (boatMode) setBoatMode(false)

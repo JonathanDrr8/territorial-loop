@@ -31,6 +31,8 @@ export interface StartMenuValues {
   tempo: MatchTempo
   terrain: TerrainChoice
   soundEnabled: boolean
+  /** Kamera-Box: zeigt genau eine Welt-Periode (kein endloses Kacheln/„Tapete"). */
+  cameraBox: boolean
   /** Opt-in experimentelle Feature-Toggles (persistiert; vorerst Platzhalter). */
   experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */
@@ -356,6 +358,29 @@ export function createStartMenu(
   soundRow.appendChild(soundCheckWrap)
   panel.appendChild(soundRow)
 
+  // Kamera-Box toggle (eine Welt-Periode statt endlosem Kacheln)
+  const camRow = document.createElement('div')
+  camRow.style.cssText = FIELD_ROW_STYLE
+  const camLabel = document.createElement('label')
+  camLabel.textContent = 'Kamera-Box'
+  const camCheckWrap = document.createElement('label')
+  camCheckWrap.style.cssText =
+    'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
+  const camCheck = document.createElement('input')
+  camCheck.type = 'checkbox'
+  camCheck.checked = initial.cameraBox
+  camCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
+  const camCheckText = document.createElement('span')
+  camCheckText.textContent = camCheck.checked ? 'an' : 'aus'
+  camCheckWrap.appendChild(camCheck)
+  camCheckWrap.appendChild(camCheckText)
+  camCheck.addEventListener('change', () => {
+    camCheckText.textContent = camCheck.checked ? 'an' : 'aus'
+  })
+  camRow.appendChild(camLabel)
+  camRow.appendChild(camCheckWrap)
+  panel.appendChild(camRow)
+
   // Aufklappbare Wachstums-Erklärung
   const help = document.createElement('details')
   help.style.cssText = 'margin-top: 14px; font-size: 12px; opacity: 0.85'
@@ -413,6 +438,7 @@ export function createStartMenu(
       tempo: initial.tempo,
       terrain: terrainSelect.value as TerrainChoice,
       soundEnabled: soundCheck.checked,
+      cameraBox: camCheck.checked,
       experimental: { ...initial.experimental },
       ...(seedRaw.length > 0 && { seed: seedRaw }),
     }

@@ -13,6 +13,7 @@ const DEFAULTS: StartMenuValues = {
   tempo: 'normal',
   terrain: 'flat',
   soundEnabled: true,
+  cameraBox: true,
   experimental: {},
 }
 
@@ -37,6 +38,7 @@ describe('preferences', () => {
       tempo: 'siege',
       terrain: 'islands',
       soundEnabled: false,
+      cameraBox: false,
       experimental: { earthlikeNoise: true },
     }
     saveMenuPrefs(custom)

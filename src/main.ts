@@ -46,6 +46,7 @@ const DEFAULT_MENU: StartMenuValues = {
   tempo: 'normal',
   terrain: 'continents',
   soundEnabled: true,
+  cameraBox: true,
   experimental: {},
 }
 
@@ -260,6 +261,7 @@ function startMatch(
     mapHeight: state.map.height,
     playerId: HUMAN_ID,
     interactive: !spectator,
+    cameraBox: menu.cameraBox,
     emit: (intent) => pendingIntents.push(intent),
     getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
     getSliderPct: () => sliderPct,

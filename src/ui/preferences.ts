@@ -87,6 +87,7 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (isTempo(parsed.tempo)) result.tempo = parsed.tempo
     if (isTerrain(parsed.terrain)) result.terrain = parsed.terrain
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
+    if (typeof parsed.cameraBox === 'boolean') result.cameraBox = parsed.cameraBox
     if (typeof parsed.experimental === 'object' && parsed.experimental !== null) {
       const exp: ExperimentalFlags = {}
       for (const [k, v] of Object.entries(parsed.experimental)) {
