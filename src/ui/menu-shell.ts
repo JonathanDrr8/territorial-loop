@@ -186,7 +186,7 @@ export function createMenuShell(
       'gap: 20px',
       'padding: 14px 24px',
       'border-bottom: 1px solid rgba(255,255,255,0.08)',
-      'background: rgba(0,0,0,0.25)',
+      'background: #11131b',
       'flex-wrap: wrap',
     ].join(';')
 
@@ -274,7 +274,7 @@ export function createMenuShell(
       'gap: 16px',
       'padding: 10px 24px',
       'border-top: 1px solid rgba(255,255,255,0.08)',
-      'background: rgba(0,0,0,0.25)',
+      'background: #11131b',
       'font-size: 12px',
       'opacity: 0.7',
       'flex-wrap: wrap',
