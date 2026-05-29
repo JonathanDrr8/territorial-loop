@@ -13,6 +13,7 @@ import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
 import { pickDistinctColors } from './ui/colors'
+import { createConfirmDialog } from './ui/confirm-dialog'
 import { createEventLog } from './ui/event-log'
 import { createAlliancePrompt } from './ui/alliance-prompt'
 import { createHoverTooltip } from './ui/hover-tooltip'
@@ -233,6 +234,8 @@ function startMatch(
     () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
   )
 
+  const confirmDialog = createConfirmDialog(container)
+
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -290,7 +293,13 @@ function startMatch(
           buildMenu.close()
           return
         }
-        onRequestNewMatch()
+        // Offenen Bestätigungs-Dialog mit Esc wieder schließen (nicht beenden).
+        if (confirmDialog.isOpen()) {
+          confirmDialog.close()
+          return
+        }
+        // Nicht sofort raus — erst nachfragen (versehentliches Runden-Ende vermeiden).
+        confirmDialog.open('Laufende Runde verlassen?', onRequestNewMatch)
       },
     },
   })
@@ -348,6 +357,7 @@ function startMatch(
       eventLog.destroy()
       alliancePrompt.destroy()
       buildMenu.destroy()
+      confirmDialog.destroy()
       renderer.destroy()
       sound.destroy()
     },
