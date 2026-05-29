@@ -177,8 +177,14 @@ export interface Renderer {
 
 // Inland-Tönung: Anteil Eigenfarbe über der Terrain-Basis (Rest = Landschaft sichtbar).
 const INTERIOR_TINT = 0.32
-/** Ab diesem Zoom werden auch wilde Nationen beschriftet (rausgezoomt nur Mensch/KI). */
-const WILD_LABEL_MIN_ZOOM = 2.5
+/**
+ * Ab diesem Zoom werden auch „Neben"-Nationen beschriftet (wilde, oder — bei vielen
+ * Nationen auf der Karte — auch KI). Rausgezoomt bleiben nur Mensch + Verbündete + (bei
+ * wenigen Nationen) alle, damit die Karte nicht in Labels ertrinkt.
+ */
+const MINOR_LABEL_MIN_ZOOM = 2.5
+/** Ab so vielen lebenden Nicht-Mensch-Nationen werden KI-Labels wie wilde gegated. */
+const LABEL_CROWD_THRESHOLD = 14
 const WATER_R = 24
 const WATER_G = 48
 const WATER_B = 92
@@ -790,12 +796,20 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.lineWidth = 3
+    // Bei vielen Nationen (viele Bots/Wilde) würden alle Labels die Karte zukleistern.
+    // Dann werden Neben-Nationen wie Wilde behandelt: erst ab nahem Zoom beschriftet.
+    let liveOthers = 0
+    for (const p of state.players.values()) {
+      if (p.isAlive && p.tilesOwned > 0 && p.id !== lutHumanId) liveOthers++
+    }
+    const crowded = liveOthers > LABEL_CROWD_THRESHOLD
     for (const p of state.players.values()) {
       if (!p.isAlive || p.tilesOwned === 0) continue
-      // Wilde Nationen können zu Hunderten existieren → ihre Labels würden die Karte
-      // zukleistern. Nur nah herangezoomt beschriften (dann sind ohnehin nur wenige in
-      // Sicht); rausgezoomt bleibt die Karte sauber (nur Mensch/KI). Hover zeigt sie immer.
-      if (p.wild && z < WILD_LABEL_MIN_ZOOM) continue
+      // Mensch + Verbündete immer; sonst bei Gedränge oder wild erst ab nahem Zoom
+      // (rausgezoomt sauber, Hover zeigt sie weiterhin). So skaliert es auf hunderte Nationen.
+      const isHuman = p.id === lutHumanId
+      const allied = lutHumanId >= 0 && !isHuman && areAllied(state.alliances, lutHumanId, p.id)
+      if (!isHuman && !allied && (p.wild || crowded) && z < MINOR_LABEL_MIN_ZOOM) continue
       const c = centroids.get(p.id)
       if (c === undefined) continue
       // Nächste Wrap-Kopie des Schwerpunkts (genau ein Label je Nation).
@@ -809,9 +823,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       const name = p.name
       const troopsLabel = fmtCompactRender(p.troops)
-      // Verbündete Nationen: Name grün, damit man Bündnisse auf der Karte sofort erkennt.
-      const allied =
-        lutHumanId >= 0 && p.id !== lutHumanId && areAllied(state.alliances, lutHumanId, p.id)
+      // Verbündete Nationen: Name grün (oben berechnet), damit man Bündnisse sofort erkennt.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - gap)
