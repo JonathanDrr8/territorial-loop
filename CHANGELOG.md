@@ -11,11 +11,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 - **Laufende Spiele zuschauen:** im Lobby-Browser erscheinen laufende Matches mit einer groben
   Karten-Vorschau — per Klick als Zuschauer beitreten.
 - **Tipps & Tricks** auf der Startseite (wechselnde Hinweise).
+- **„Handel mit allen stoppen":** globaler Schalter im Rechtsklick-Menü auf eigenem Gebiet —
+  legt den Handel mit allen Nationen auf einmal still (Häfen & Fabriken) bzw. erlaubt ihn wieder.
 
 ### Geändert
 
 - **Rechtsklick-Menü** ist jetzt ein Ring aus Kuchenstücken — eine kleine Mausbewegung in die
   Richtung genügt zum Auswählen.
+- **Bauen** läuft jetzt über die HUD-Knöpfe (1–4) statt übers Rechtsklick-Menü; das Menü auf
+  eigenem Gebiet ist für Diplomatie/Wirtschaft da.
 
 ## [0.1.1] – 2026-05-29
 

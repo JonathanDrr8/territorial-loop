@@ -3,8 +3,8 @@
  * Chips um den Cursor, mit einer Kontext-Info in der Mitte (aktualisiert bei Hover).
  *
  * Liest den GameState read-only und emittiert Intents, kontextabhängig vom Ziel-Tile:
- *  - Eigenes leeres Tile  → Gebäude bauen (Stadt/Verteidigung/Hafen) mit Kosten.
- *  - Eigenes bebautes Tile → Upgrade.
+ *  - Eigenes Tile → Diplomatie/Wirtschaft: „Handel mit allen stoppen" (globales Embargo) +
+ *    Upgrade eines vorhandenen Gebäudes + Hafen-/Schiff-Optionen. Neubau NICHT hier (HUD-Knöpfe).
  *  - Gegner/Wildnis über Land → Angriff (Slider-Truppen).
  *  - Gegner/Wildnis über Wasser → Transportboot.
  *  - Lebender Gegner zusätzlich → Allianz + Embargo.
@@ -13,7 +13,6 @@
 
 import {
   BUILDING_LABEL,
-  BUILDING_TYPES,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
@@ -21,7 +20,7 @@ import {
   upgradeCost,
   type BuildingType,
 } from '../core/buildings'
-import { buildCostFor, canReachByLand, nearWater, type GameState } from '../core/game'
+import { canReachByLand, type GameState } from '../core/game'
 import { areAllied, directedKey, hasAllianceRequest, pairKey } from '../core/diplomacy'
 import { WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
@@ -373,6 +372,49 @@ export function createBuildMenu(
     return out
   }
 
+  /**
+   * Globaler „Handel stoppen/erlauben"-Schalter: verhängt/hebt ein Embargo gegen ALLE lebenden
+   * fremden Nationen auf einmal. Ein Embargo schneidet sowohl Handelsschiffe als auch
+   * Fabrik-Auslandslinks ab (`isTradeEmbargoed`) → betrifft Häfen und Fabriken.
+   */
+  function tradeStopAllAction(): MenuAction {
+    const targets: number[] = []
+    for (const p of state.players.values()) {
+      if (p.id === humanPlayerId || !p.isAlive) continue
+      targets.push(p.id)
+    }
+    const embargoed = targets.filter((id) =>
+      state.embargoes.has(directedKey(humanPlayerId, id)),
+    ).length
+    const allStopped = targets.length > 0 && embargoed === targets.length
+    return {
+      glyph: '⛔',
+      label: allStopped ? 'Handel wieder erlauben' : 'Handel mit allen stoppen',
+      detail: allStopped
+        ? 'hebt alle Embargos auf — Häfen & Fabriken handeln wieder'
+        : 'Embargo gegen alle — stoppt Handelsschiffe & Fabrik-Auslandslinks',
+      costText: '',
+      affordable: true,
+      enabled: targets.length > 0,
+      accent: HOSTILE_ACCENT,
+      run: () => {
+        const enable = !allStopped
+        for (const id of targets) {
+          const has = state.embargoes.has(directedKey(humanPlayerId, id))
+          if (enable !== has) {
+            emit({
+              type: 'set-embargo',
+              playerId: humanPlayerId,
+              targetPlayerId: id,
+              enabled: enable,
+            })
+          }
+        }
+        close()
+      },
+    }
+  }
+
   function open(tile: number, screenX: number, screenY: number): void {
     const player = state.players.get(humanPlayerId)
     if (player === undefined || !player.isAlive) return
@@ -470,47 +512,13 @@ export function createBuildMenu(
           })
         }
       } else {
+        // Leeres eigenes Tile: kein Neubau mehr im Radialmenü (Bauen läuft über die HUD-Knöpfe
+        // 1–4: Gebäude wählen → Tile klicken). Das Eigen-Menü ist jetzt für Diplomatie/Wirtschaft.
         title = `Gold: ${fmtCompact(player.gold)}`
-        const portOk = nearWater(state, tile)
-        for (const type of BUILDING_TYPES) {
-          const cost = buildCostFor(state, humanPlayerId, type)
-          const enabled = type === 'port' ? portOk : true
-          actions.push({
-            glyph: BUILDING_GLYPH[type],
-            label: BUILDING_LABEL[type],
-            detail: type === 'port' && !portOk ? 'zu weit vom Wasser' : BUILDING_HINT[type],
-            costText: fmtCompact(cost),
-            affordable: player.gold >= cost,
-            enabled,
-            accent: titleColor,
-            run: () => {
-              emit({ type: 'build', playerId: humanPlayerId, tile, buildingType: type })
-              close()
-            },
-          })
-        }
       }
-      // Rundum ausbreiten: gleichzeitig in alle angrenzende Wildnis expandieren.
-      const omniTroops = getAttackTroops()
-      actions.push({
-        glyph: '⤢',
-        label: 'Rundum ausbreiten',
-        detail: `${fmtCompact(omniTroops)} Truppen in alle Richtungen`,
-        costText: '',
-        affordable: true,
-        enabled: omniTroops > 0,
-        accent: ATTACK_ACCENT,
-        run: () => {
-          emit({
-            type: 'attack',
-            playerId: humanPlayerId,
-            targetTile: tile,
-            troops: omniTroops,
-            omni: true,
-          })
-          close()
-        },
-      })
+      // Globaler Handels-Schalter: Embargo gegen alle lebenden Nationen auf einmal (betrifft
+      // Häfen UND Fabrik-Auslandslinks). „Rundum ausbreiten" liegt jetzt auf Shift+Linksklick.
+      actions.push(tradeStopAllAction())
     } else if (!isLand(state.map.terrain, tile)) {
       // Wasser-Tile → Kriegsschiff entsenden (braucht eigenen Hafen + Gold).
       title = 'Wasser'
