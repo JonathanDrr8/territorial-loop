@@ -101,15 +101,6 @@ describe('ServerMatch — autoritative Sim (ADR-0009 Phase 4)', () => {
     void client
   })
 
-  it('eingefrorene Nation: Intents werden ignoriert', () => {
-    const server = new ServerMatch(cfg())
-    server.setFrozen(1, true)
-    expect(server.isFrozen(1)).toBe(true)
-    server.submitIntents(0, [{ type: 'build', playerId: 1, tile: 0, buildingType: 'city' }], 1)
-    const commit = server.advanceTurn()
-    expect(commit.intents.some((i) => i.playerId === 1)).toBe(false)
-  })
-
   it('verifyHash erkennt Übereinstimmung und Desync', () => {
     const server = new ServerMatch(cfg({ seed: 'verify' }))
     const commit = server.advanceTurn()

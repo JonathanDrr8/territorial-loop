@@ -10,14 +10,7 @@
  */
 
 import { createAI, type AI } from '../src/ai/ai'
-import {
-  createGame,
-  isFrozen,
-  setFrozen,
-  tick,
-  type GameConfig,
-  type GameState,
-} from '../src/core/game'
+import { createGame, tick, type GameConfig, type GameState } from '../src/core/game'
 import { hashState } from '../src/core/hash'
 import type { Intent } from '../src/core/intent'
 import { serializeState, type SerializedGameState } from '../src/core/serialize'
@@ -65,7 +58,6 @@ export class ServerMatch {
    * nächsten offenen Turn statt verloren zu gehen (ADR-0009: „kommen ggf. im nächsten Turn").
    */
   submitIntents(targetTurn: number, intents: readonly Intent[], fromPlayerId: number): void {
-    if (isFrozen(this.state, fromPlayerId)) return // eingefrorene Nation gibt nichts ab
     const turn = Math.max(targetTurn, this.nextTurn)
     let buf = this.buffers.get(turn)
     if (buf === undefined) {
@@ -100,15 +92,6 @@ export class ServerMatch {
     }
     this.nextTurn++
     return { turn, intents: committed, hash }
-  }
-
-  /** Friert eine Nation ein/auf (Disconnect/Reconnect). */
-  setFrozen(playerId: number, frozen: boolean): void {
-    setFrozen(this.state, playerId, frozen)
-  }
-
-  isFrozen(playerId: number): boolean {
-    return isFrozen(this.state, playerId)
   }
 
   /**

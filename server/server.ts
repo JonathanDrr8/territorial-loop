@@ -301,22 +301,22 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
           }
           rooms.set(code, r)
         }
-        // Reconnect: ein eingefrorener Slot gleichen Namens wird übernommen.
-        const frozenSlot = [...r.members.values()].find(
+        // Reconnect: ein getrennter Slot (socket === null) gleichen Namens wird übernommen.
+        // Die Nation lief in der Zwischenzeit ganz normal idle weiter (kein Einfrieren).
+        const freeSlot = [...r.members.values()].find(
           (m) => m.socket === null && m.name === msg.name,
         )
-        if (frozenSlot !== undefined) {
-          frozenSlot.socket = socket
-          member = frozenSlot
+        if (freeSlot !== undefined) {
+          freeSlot.socket = socket
+          member = freeSlot
           room = r
-          r.match?.setFrozen(frozenSlot.playerId, false)
-          send(socket, { kind: 'joined', room: code, playerId: frozenSlot.playerId })
+          send(socket, { kind: 'joined', room: code, playerId: freeSlot.playerId })
           const snap = r.match?.snapshot()
           if (r.match !== null) {
-            broadcast(r, { kind: 'start', config: r.match.config })
+            // start + snapshot NUR an den Zurückkehrenden — die anderen spielen unbeirrt weiter.
+            send(socket, { kind: 'start', config: r.match.config })
             if (snap !== undefined)
               send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
-            broadcast(r, { kind: 'peer-frozen', playerId: frozenSlot.playerId, frozen: false })
           }
           sendLobby(r)
           return
@@ -337,11 +337,10 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     socket.on('close', () => {
       if (room === null || member === null) return
       member.socket = null
-      if (room.match !== null) {
-        // Laufendes Match: Nation einfrieren (angreifbar, Verbündete straffrei) statt entfernen.
-        room.match.setFrozen(member.playerId, true)
-        broadcast(room, { kind: 'peer-frozen', playerId: member.playerId, frozen: true })
-      } else {
+      // Laufendes Match: Slot für einen möglichen Reconnect halten — die Nation läuft in der
+      // Sim ganz normal idle weiter (kein Einfrieren) und wird ggf. von anderen erobert.
+      // Vor dem Start (Lobby): Slot entfernen.
+      if (room.match === null) {
         room.members.delete(member.playerId)
       }
       sendLobby(room)

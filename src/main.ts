@@ -10,18 +10,19 @@ import { createAI, type AI } from './ai/ai'
 import {
   canBuildAt,
   createGame,
-  isFrozen,
   snapBuildTile,
   tick,
   type GameConfig,
+  type GameState,
   type PlayerDef,
 } from './core/game'
 import { areAllied } from './core/diplomacy'
+import { deserializeState } from './core/serialize'
 import { getOwner } from './world/map'
 import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
-import { LocalTransport, type IntentTransport, type NetworkTransport } from './net/transport'
+import { LocalTransport, NetworkTransport, type IntentTransport } from './net/transport'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
@@ -35,7 +36,16 @@ import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import type { MatchSettings } from './net/protocol'
-import { loadMenuPrefs, loadServerUrl, saveMenuPrefs, saveServerUrl } from './ui/preferences'
+import {
+  clearActiveSession,
+  loadActiveSession,
+  loadMenuPrefs,
+  loadServerUrl,
+  saveActiveSession,
+  saveMenuPrefs,
+  saveServerUrl,
+  type ActiveSession,
+} from './ui/preferences'
 import { createSoundEngine } from './ui/sound'
 import { createStartMenu, TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
 
@@ -140,6 +150,8 @@ interface NetSession {
   transport: NetworkTransport
   config: GameConfig
   humanId: number
+  /** Bei Reconnect: bereits aus dem Server-Snapshot deserialisierter State (statt createGame). */
+  initialState?: GameState
 }
 
 function startMatch(
@@ -154,7 +166,8 @@ function startMatch(
   // „Du" für Renderer/HUD: Zuschauen → kein lokaler Spieler (-1); sonst die eigene ID
   // (Single: 1, MP: server-vergeben). Die interaktive Verdrahtung nutzt weiter `humanId`.
   const localHumanId = spectator ? -1 : humanId
-  const state = createGame(config)
+  // Reconnect lädt den Server-Snapshot direkt als State; sonst frisch generieren.
+  const state = net?.initialState ?? createGame(config)
   const renderer = createRenderer(container, state, localHumanId)
   renderer.setCameraMode(menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
@@ -225,7 +238,7 @@ function startMatch(
 
   /**
    * Liefert den Namen des verbündeten Ziels, wenn der Intent ein Angriff/Boot auf eine
-   * (nicht eingefrorene) verbündete Nation ist — sonst `null`. Grundlage für die Verrats-Warnung.
+   * verbündete Nation ist — sonst `null`. Grundlage für die Verrats-Warnung.
    */
   const treasonAllyName = (intent: Intent): string | null => {
     if (intent.type !== 'attack' && intent.type !== 'boat') return null
@@ -234,7 +247,6 @@ function startMatch(
     const owner = getOwner(state.map, tile)
     if (owner <= 0 || owner === humanId) return null
     if (!areAllied(state.alliances, humanId, owner)) return null
-    if (isFrozen(state, owner)) return null // eingefrorene Verbündete: Angriff ist straffrei
     return state.players.get(owner)?.name ?? null
   }
 
@@ -500,13 +512,84 @@ function main(): void {
   let session: MatchSession | null = null
   let lobby: MultiplayerMenuApi | null = null
 
-  /** Beendet eine evtl. laufende Session und kehrt ins Start-Menü zurück. */
+  /** Beendet eine evtl. laufende Session und kehrt ins Start-Menü zurück (absichtliches Verlassen). */
   function backToMenu(): void {
+    clearActiveSession() // absichtlich verlassen → kein „Wieder verbinden" mehr
     if (session !== null) {
       session.destroy()
       session = null
     }
     showMenu()
+  }
+
+  /**
+   * Startet eine Mehrspieler-Match-Session über den Server-Transport und hängt den
+   * Abbruch-Handler an: bricht die Verbindung UNERWARTET ab, geht es zurück ins Menü — die
+   * gespeicherte Sitzung bleibt, sodass dort „Wieder verbinden" erscheint.
+   */
+  function startNetSession(
+    initial: StartMenuValues,
+    transport: NetworkTransport,
+    config: GameConfig,
+    humanId: number,
+    initialState?: GameState,
+  ): void {
+    transport.onDisconnect(() => {
+      if (session !== null) {
+        session.destroy()
+        session = null
+      }
+      showMenu() // aktive Sitzung NICHT löschen → Reconnect-Button erscheint
+    })
+    session = startMatch(container, initial, backToMenu, false, {
+      transport,
+      config,
+      humanId,
+      ...(initialState !== undefined ? { initialState } : {}),
+    })
+  }
+
+  /**
+   * Verbindet erneut mit einer unterbrochenen Sitzung: tritt demselben Raum/Slot bei, lädt den
+   * Server-Snapshot und spielt weiter. Schlägt das fehl (Raum weg, Timeout), zurück ins Menü.
+   */
+  function reconnect(sess: ActiveSession): void {
+    const initial = loadMenuPrefs(DEFAULT_MENU)
+    const removeLoading = showLoadingOverlay(container)
+    let cfg: GameConfig | null = null
+    let snapState: GameState | null = null
+    let myId = 0
+    let built = false
+    const tryBuild = (): void => {
+      if (built || cfg === null || snapState === null) return
+      built = true
+      window.clearTimeout(failTimer)
+      removeLoading()
+      startNetSession(initial, transport, cfg, myId, snapState)
+    }
+    const transport = new NetworkTransport({
+      url: sess.serverUrl,
+      room: sess.room,
+      name: sess.name,
+      onJoined: (id) => {
+        myId = id
+      },
+      onStart: (c) => {
+        cfg = c
+        tryBuild()
+      },
+      onSnapshot: (_turn, state) => {
+        snapState = deserializeState(state)
+        tryBuild()
+      },
+    })
+    const failTimer = window.setTimeout(() => {
+      if (built) return
+      transport.destroy()
+      clearActiveSession() // Raum vermutlich weg → Sitzung verwerfen
+      removeLoading()
+      showMenu()
+    }, 8000)
   }
 
   /**
@@ -529,6 +612,7 @@ function main(): void {
       defaultName: initial.playerName,
       defaultSettings: settings,
       saveServerUrl,
+      saveActiveSession,
       ...(autoJoinRoom !== undefined ? { autoJoinRoom } : {}),
       onBack: () => {
         lobby?.destroy()
@@ -539,18 +623,20 @@ function main(): void {
         lobby?.destroy()
         lobby = null
         // NetworkTransport puffert frühe Commits → synchroner Start ist sicher.
-        session = startMatch(container, initial, backToMenu, false, { transport, config, humanId })
+        startNetSession(initial, transport, config, humanId)
       },
     })
   }
 
   function showMenu(): void {
     const initial = loadMenuPrefs(DEFAULT_MENU)
+    const activeSession = loadActiveSession()
     const menu = createStartMenu(
       container,
       initial,
       (values, spectator) => {
         saveMenuPrefs(values)
+        clearActiveSession() // ein frisches (Single-)Match verwirft eine alte MP-Sitzung
         menu.destroy()
         if (session !== null) {
           session.destroy()
@@ -579,6 +665,14 @@ function main(): void {
         showLobby(initial, code)
       },
       loadServerUrl('ws://localhost:8787'),
+      // „Wieder verbinden": nur wenn eine unterbrochene Sitzung existiert.
+      activeSession === null
+        ? undefined
+        : () => {
+            menu.destroy()
+            reconnect(activeSession)
+          },
+      activeSession?.room,
     )
   }
 

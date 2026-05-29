@@ -139,3 +139,55 @@ export function saveServerUrl(url: string): void {
     // silent ignore
   }
 }
+
+const ACTIVE_SESSION_KEY = 'territorial-loop:active-mp:v1'
+/** Eine unterbrochene Mehrspieler-Sitzung gilt nach 2 h als veraltet (Match längst vorbei). */
+const ACTIVE_SESSION_TTL_MS = 2 * 60 * 60 * 1000
+
+/** Laufende Mehrspieler-Sitzung (für „Wieder verbinden" nach Verbindungsabbruch/Reload). */
+export interface ActiveSession {
+  readonly serverUrl: string
+  readonly room: string
+  readonly name: string
+}
+
+/**
+ * Merkt die laufende MP-Sitzung (mit Zeitstempel). **sessionStorage**, nicht localStorage: pro
+ * Tab isoliert (zwei Spieler in zwei Tabs derselben Origin clobbern sich nicht) und übersteht
+ * einen Reload bzw. einen In-Tab-Abbruch — genau die Fälle, die „Wieder verbinden" abdeckt.
+ */
+export function saveActiveSession(s: ActiveSession): void {
+  try {
+    window.sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({ ...s, ts: Date.now() }))
+  } catch {
+    // silent ignore
+  }
+}
+
+/** Lädt eine unterbrochene MP-Sitzung, falls vorhanden und nicht veraltet. */
+export function loadActiveSession(): ActiveSession | null {
+  try {
+    const raw = window.sessionStorage.getItem(ACTIVE_SESSION_KEY)
+    if (raw === null) return null
+    const p = JSON.parse(raw) as Partial<ActiveSession> & { ts?: number }
+    if (
+      typeof p.serverUrl !== 'string' ||
+      typeof p.room !== 'string' ||
+      typeof p.name !== 'string' ||
+      p.room.length === 0
+    )
+      return null
+    if (typeof p.ts === 'number' && Date.now() - p.ts > ACTIVE_SESSION_TTL_MS) return null
+    return { serverUrl: p.serverUrl, room: p.room, name: p.name }
+  } catch {
+    return null
+  }
+}
+
+export function clearActiveSession(): void {
+  try {
+    window.sessionStorage.removeItem(ACTIVE_SESSION_KEY)
+  } catch {
+    // silent ignore
+  }
+}

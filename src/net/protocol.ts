@@ -141,27 +141,13 @@ export interface SnapshotMsg {
   readonly state: SerializedGameState
 }
 
-/** Eine Nation wurde eingefroren (Disconnect) bzw. ist zurück. */
-export interface PeerFrozenMsg {
-  readonly kind: 'peer-frozen'
-  readonly playerId: number
-  readonly frozen: boolean
-}
-
 /** Antwort auf {@link PingMsg} — `t` unverändert zurück, der Client berechnet daraus die RTT. */
 export interface PongMsg {
   readonly kind: 'pong'
   readonly t: number
 }
 
-export type ServerMessage =
-  | JoinedMsg
-  | LobbyMsg
-  | StartMsg
-  | CommitMsg
-  | SnapshotMsg
-  | PeerFrozenMsg
-  | PongMsg
+export type ServerMessage = JoinedMsg | LobbyMsg | StartMsg | CommitMsg | SnapshotMsg | PongMsg
 
 /** Serialisiert eine Nachricht für den Wire (JSON). */
 export function encode(msg: ClientMessage | ServerMessage): string {

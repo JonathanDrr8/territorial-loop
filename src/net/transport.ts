@@ -198,8 +198,6 @@ export interface NetworkTransportOptions {
     settings: MatchSettings,
     hostId: number,
   ) => void
-  /** Eine Nation wurde eingefroren (Disconnect) bzw. ist zurück. */
-  onPeerFrozen?: (playerId: number, frozen: boolean) => void
   /**
    * Fester Override der Eingabeverzögerung (Turns). Ohne Angabe wird der Delay **adaptiv** aus
    * der gemessenen Latenz (ping/pong) bestimmt — lokal ~1 Turn, bei Internet automatisch mehr.
@@ -224,6 +222,9 @@ export class NetworkTransport implements IntentTransport {
   /** Geglättete RTT (ms) für die Delay-Berechnung. */
   private rttMs = -1
   private pingTimer: ReturnType<typeof setInterval> | null = null
+  private destroyed = false
+  /** Wird bei UNERWARTETEM Verbindungsabbruch gerufen (nicht bei `destroy()`). */
+  private disconnectHandler: (() => void) | null = null
   private handler: CommitHandler | null = null
   /** Commits, die vor dem Registrieren von `onCommitted` eintrafen (Start-Rennen abfangen). */
   private pending: { turn: number; intents: readonly Intent[] }[] = []
@@ -247,8 +248,15 @@ export class NetworkTransport implements IntentTransport {
     this.ws.onmessage = (ev): void => {
       this.handleMessage(String(ev.data))
     }
-    this.ws.onclose = null
+    this.ws.onclose = (): void => {
+      if (!this.destroyed) this.disconnectHandler?.()
+    }
     this.ws.onerror = null
+  }
+
+  /** Handler für unerwarteten Verbindungsabbruch setzen (z.B. → „Wieder verbinden"-UI). */
+  onDisconnect(cb: () => void): void {
+    this.disconnectHandler = cb
   }
 
   /** Aktuelle Eingabeverzögerung (Turns): fester Override oder der adaptive Wert. */
@@ -312,7 +320,9 @@ export class NetworkTransport implements IntentTransport {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.handler = null
+    this.disconnectHandler = null
     if (this.pingTimer !== null) {
       clearInterval(this.pingTimer)
       this.pingTimer = null
@@ -356,9 +366,6 @@ export class NetworkTransport implements IntentTransport {
         // Der Client springt nach einem Snapshot auf dessen Turn (Resync/Reconnect).
         this.lastCommittedTurn = msg.turn - 1
         this.opts.onSnapshot?.(msg.turn, msg.state)
-        break
-      case 'peer-frozen':
-        this.opts.onPeerFrozen?.(msg.playerId, msg.frozen)
         break
       case 'pong':
         this.updateLatency(globalThis.performance.now() - msg.t)

@@ -1,7 +1,7 @@
 /**
  * Deterministischer Zustands-Hash (FNV-1a, 32-bit) über die spielentscheidenden Felder des
  * `GameState`: Tick, das Owner-/Terrain-Array und je Spieler (id-sortiert) Truppen, Gold,
- * Tiles, Lebt-Flag und Einfrier-Status (Disconnect, ADR-0009).
+ * Tiles und Lebt-Flag.
  *
  * Zweck: Determinismus absichern. Zwei Clients (oder zwei Läufe mit gleichem Seed +
  * identischem Intent-Strom) müssen denselben Hash je Tick liefern — Abweichung = Desync.
@@ -45,7 +45,6 @@ export function hashState(state: GameState): number {
     h = mix(h, p.gold)
     h = mix(h, p.tilesOwned)
     h = mix(h, p.isAlive ? 1 : 0)
-    h = mix(h, p.frozen ? 1 : 0)
   }
   return h >>> 0
 }

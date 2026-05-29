@@ -187,6 +187,10 @@ export function createStartMenu(
   onJoinLobby?: (code: string) => void,
   /** Server-URL (ws://…) für den Lobby-Browser; ohne sie wird er nicht gezeigt. */
   serverUrl?: string,
+  /** „Wieder verbinden" nach Verbindungsabbruch — nur gesetzt, wenn eine Sitzung offen ist. */
+  onReconnect?: () => void,
+  /** Raum-Code der unterbrochenen Sitzung (für die Button-Beschriftung). */
+  reconnectRoom?: string,
 ): StartMenuApi {
   const overlay = document.createElement('div')
   overlay.style.cssText = [
@@ -532,7 +536,32 @@ export function createStartMenu(
   }
   shell.appendChild(panel)
   shell.appendChild(rightPanel)
-  overlay.appendChild(shell)
+
+  // Spalten in einer Spalte stapeln, damit der Reconnect-Banner oben drüber passt.
+  const content = document.createElement('div')
+  content.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:14px'
+
+  // „Wieder verbinden"-Banner — nur bei unterbrochener Sitzung.
+  if (onReconnect !== undefined) {
+    const rc = document.createElement('button')
+    rc.textContent = `⟳ Wieder verbinden${reconnectRoom !== undefined ? ` — Raum ${reconnectRoom}` : ''}`
+    rc.style.cssText = [
+      'padding: 11px 20px',
+      'background: #2e8b57',
+      'color: white',
+      'border: 1px solid #5adc78',
+      'border-radius: 8px',
+      'font-size: 14px',
+      'font-weight: 700',
+      'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+      'cursor: pointer',
+    ].join(';')
+    rc.addEventListener('click', () => onReconnect())
+    content.appendChild(rc)
+  }
+
+  content.appendChild(shell)
+  overlay.appendChild(content)
   container.appendChild(overlay)
 
   // Auto-focus name input

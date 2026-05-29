@@ -25,6 +25,8 @@ export interface MultiplayerMenuOptions {
   onBack: () => void
   /** Persistiert die zuletzt genutzte Server-URL. */
   saveServerUrl?: (url: string) => void
+  /** Merkt die laufende Sitzung (für „Wieder verbinden" nach Abbruch) — beim Match-Start gerufen. */
+  saveActiveSession?: (info: { serverUrl: string; room: string; name: string }) => void
   /** Direkt einem Raum beitreten (aus dem Lobby-Browser) — überspringt das Formular. */
   autoJoinRoom?: string
 }
@@ -178,8 +180,12 @@ export function createMultiplayerMenu(
   }
 
   /* ── Verbindung ─────────────────────────────────────────────────────────── */
+  let connectedUrl = ''
+  let connectedName = ''
   function connect(url: string, room: string, name: string): void {
     showConnecting(url)
+    connectedUrl = url
+    connectedName = name
     let joined = false
     transport = new NetworkTransport({
       url,
@@ -198,7 +204,14 @@ export function createMultiplayerMenu(
       onStart: (config) => {
         started = true
         const t = transport
-        if (t !== null) opts.onMatchStart(config, t, myId)
+        if (t === null) return
+        // Sitzung merken (für „Wieder verbinden" nach Abbruch) und ans Match übergeben.
+        opts.saveActiveSession?.({
+          serverUrl: connectedUrl,
+          room: currentRoom,
+          name: connectedName,
+        })
+        opts.onMatchStart(config, t, myId)
       },
     })
     // Verbindungsfehler/Abbruch vor dem Join → zurück zum Formular (Timeout-basiert, da der
