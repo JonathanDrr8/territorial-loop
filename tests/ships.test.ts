@@ -151,6 +151,27 @@ describe('boat launch + landing via tick', () => {
     expect(getOwner(state.map, enemyTile)).toBe(1)
   })
 
+  it('warnt den Verteidiger schon beim Versand (Lande-Ziel auf fremdem Gebiet)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 3, 1, 1)
+    const enemyTile = own(state, 5, 1, 2)
+    const human = state.players.get(1)
+    const enemy = state.players.get(2)
+    if (human === undefined || enemy === undefined) throw new Error('missing player')
+    human.troops = 1000
+    enemy.troops = 0
+    const eventsBefore = state.events.length
+    tick(state, [{ type: 'boat', playerId: 1, targetTile: enemyTile, troops: 500 }])
+    const newEvents = state.events.slice(eventsBefore)
+    // Eine Warn-Meldung mit dem Namen des Verteidigers in dessen Farbe.
+    const warn = newEvents.find(
+      (e) => e.text.includes(enemy.name) && e.text.includes('Transportboot'),
+    )
+    expect(warn).toBeDefined()
+    expect(warn?.color).toBe(enemy.color)
+  })
+
   it('flankiert über Wasser zu einem über Land erreichbaren Gegner-Küstenziel', () => {
     const state = createGame(cfg())
     splitMap(state)

@@ -1438,6 +1438,61 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     screenCtx.restore()
   }
 
+  /**
+   * Lande-Ziele aller unterwegs befindlichen Transport-Boote — ein pulsierendes, gestricheltes
+   * Reticle in der Besitzerfarbe. Anders als `drawAttackTargets` (nur eigene Angriffe) für
+   * ALLE Boote sichtbar: man sieht, wo gerade ein Transport landen wird, auch der Verteidigte.
+   */
+  function drawBoatTargets(): void {
+    if (state.boats.length === 0) return
+    const time = performance.now() * 0.001
+    const pulse = 0.5 + Math.abs(Math.sin(time * Math.PI * 1.5)) * 0.45
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const baseR = 9 + Math.sin(time * Math.PI * 2) * 2
+
+    screenCtx.save()
+    screenCtx.lineWidth = 2
+    for (const boat of state.boats) {
+      if (boat.returning) continue
+      const owner = state.players.get(boat.ownerId)
+      const cr = owner === undefined ? 255 : (owner.color >>> 24) & 0xff
+      const cg = owner === undefined ? 255 : (owner.color >>> 16) & 0xff
+      const cb = owner === undefined ? 255 : (owner.color >>> 8) & 0xff
+      const fx = (boat.targetTile % mapW) + 0.5
+      const fy = Math.floor(boat.targetTile / mapW) + 0.5
+      const { sx, sy } = nearestWrappedScreenPos(fx, fy)
+      if (sx < -baseR - 6 || sx > cssW + baseR + 6 || sy < -baseR - 6 || sy > cssH + baseR + 6)
+        continue
+      // Weicher Warn-Halo.
+      screenCtx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${(pulse * 0.16).toFixed(3)})`
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, baseR + 3, 0, Math.PI * 2)
+      screenCtx.fill()
+      // Gestrichelter Reticle-Kreis in Besitzerfarbe.
+      screenCtx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse.toFixed(3)})`
+      screenCtx.setLineDash([4, 3])
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
+      screenCtx.stroke()
+      screenCtx.setLineDash([])
+      // Fadenkreuz-Ticks.
+      const tickLen = 4
+      screenCtx.beginPath()
+      screenCtx.moveTo(sx - baseR - tickLen, sy)
+      screenCtx.lineTo(sx - baseR, sy)
+      screenCtx.moveTo(sx + baseR, sy)
+      screenCtx.lineTo(sx + baseR + tickLen, sy)
+      screenCtx.moveTo(sx, sy - baseR - tickLen)
+      screenCtx.lineTo(sx, sy - baseR)
+      screenCtx.moveTo(sx, sy + baseR)
+      screenCtx.lineTo(sx, sy + baseR + tickLen)
+      screenCtx.stroke()
+    }
+    screenCtx.restore()
+  }
+
   /** Bau-Vorschau: Geist-Symbol am Hover-Tile, grün wenn baubar, sonst rot. */
   function drawBuildPreview(): void {
     if (buildPreviewType === null || hoverTile === null) return
@@ -1550,6 +1605,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawHoverOutline()
     drawAttackFronts()
     drawAttackTargets()
+    drawBoatTargets()
     drawShips()
     drawProjectiles()
     drawBuildingLinks()

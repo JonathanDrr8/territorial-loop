@@ -1350,7 +1350,19 @@ function tryLaunchBoat(
     targetTile: landingTile,
     returning: false,
   })
-  emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
+  // Landet das Boot auf fremdem Gebiet, wird der Verteidiger schon beim Versand gewarnt
+  // (wie bei einem Angriff) — in seiner Farbe, damit „dein Land wird angegriffen" auffällt.
+  const defenderId = getOwner(state.map, landingTile)
+  const defender = defenderId === player.id ? undefined : state.players.get(defenderId)
+  if (defender !== undefined && defender.isAlive) {
+    emitEvent(
+      state,
+      `⚠ ${defender.name} wird von ${player.name} per Transportboot angegriffen`,
+      defender.color,
+    )
+  } else {
+    emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
+  }
   return true
 }
 
