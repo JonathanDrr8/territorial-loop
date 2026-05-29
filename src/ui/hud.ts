@@ -186,16 +186,28 @@ export function createHUD(
   container.appendChild(dangerVignette)
 
   /* ---- Aktive Aktionen (Abbrechen/Abwehr/Schiff-Rückruf) ------------------- */
-  // Sitzt als oberste Zeile IM unteren Aktions-Panel (siehe weiter unten eingehängt),
-  // damit Abbrechen/Abwehr direkt beim Geschehen und immer frei klickbar sind (früher
-  // oben links, wo es die Steuerung-Hilfe überlappen konnte).
+  // Eigene Liste LINKS neben der Hauptbox (unten gemeinsam im bottomWrap, siehe unten) —
+  // ausgehende Angriffe (mit ✕), Abwehr und Schiff-/Boot-Rückruf. Frei klickbar, direkt
+  // beim Geschehen.
   const attackPanel = document.createElement('div')
+  // Absolut LINKS außerhalb der Hauptbox (right:100% = an deren linker Kante, unten bündig).
+  // So bleibt die zentrierte Hauptbox fest stehen — die Liste schiebt sie nicht weg.
   attackPanel.style.cssText = [
+    'position: absolute',
+    'right: 100%',
+    'bottom: 0',
+    'margin-right: 8px',
+    'background: rgba(0,0,0,0.86)',
+    'color: white',
+    'padding: 8px 11px',
+    'border-radius: 10px',
+    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 11px',
-    'line-height: 1.6',
-    'margin-bottom: 8px',
-    'padding-bottom: 6px',
-    'border-bottom: 1px solid rgba(255,255,255,0.14)',
+    'line-height: 1.7',
+    'width: max-content',
+    'max-width: 240px',
+    'pointer-events: auto',
     'display: none',
   ].join(';')
   // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote & Kriegsschiffe zurückrufen.
@@ -324,7 +336,7 @@ export function createHUD(
     'z-index: 11',
   ].join(';')
 
-  // Aktive-Aktionen-Leiste ganz oben ins Panel (Abbrechen/Abwehr/Rückruf, klickbar).
+  // Aktive-Aktionen-Liste als absolutes Kind LINKS außerhalb der Hauptbox (verschiebt sie nicht).
   actionBar.appendChild(attackPanel)
 
   // Truppen-Beschriftung liegt jetzt direkt IM Balken (zentriert, mit Schatten für
@@ -735,19 +747,23 @@ export function createHUD(
     }
     const dur = (startTick: number): string =>
       fmtDuration((state.tick - startTick) / SIM_TICKS_PER_SECOND)
-    const clickable = 'cursor:pointer;border-radius:3px;padding:0 2px'
+    // Eine Zeile = Flex-Row, einzeilig (kein Umbruch): Icon + Label links, Aktion rechts.
+    const rowStyle =
+      'cursor:pointer;border-radius:4px;padding:3px 5px;display:flex;align-items:center;gap:6px;white-space:nowrap'
+    const act = (html: string): string =>
+      `<span style="margin-left:auto;opacity:0.7">${html}</span>`
     const rows: string[] = []
     // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve fließt über ~2.5s zurück).
     human.attacks.forEach((atk, i) => {
       const target =
         atk.targetPlayerId === 0 ? 'Wildnis' : (state.players.get(atk.targetPlayerId)?.name ?? '?')
       const cancelling = atk.cancelStartTick !== undefined
-      const suffix = cancelling
-        ? `<span style="color:#e8b84a">bricht ab…</span>`
-        : `<span style="opacity:0.55">✕</span>`
+      const action = cancelling
+        ? `<span style="margin-left:auto;color:#e8b84a">bricht ab…</span>`
+        : act('✕')
       const title = cancelling ? 'Sofort abbrechen' : 'Angriff abbrechen (~2.5s Rückzug)'
       rows.push(
-        `<div data-cancel="${String(i)}" title="${title}" style="${clickable}"><span style="color:#5dd75d">⚔→</span> ${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} ${suffix}</div>`,
+        `<div data-cancel="${String(i)}" title="${title}" style="${rowStyle}"><span style="color:#5dd75d">⚔→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${action}</div>`,
       )
     })
     // Eigene Boote — klickbar zum Zurückrufen.
@@ -756,7 +772,7 @@ export function createHUD(
       if (boat.ownerId !== human.id) continue
       const label = boat.returning ? 'kehrt um' : 'unterwegs'
       rows.push(
-        `<div data-recall="${String(boatIdx)}" title="Boot zurückrufen" style="${clickable}"><span style="color:#46d9e6">🚢</span> ${fmtCompact(boat.troops)} · ${label} <span style="opacity:0.55">↩</span></div>`,
+        `<div data-recall="${String(boatIdx)}" title="Boot zurückrufen" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
       )
       boatIdx++
     }
@@ -766,7 +782,7 @@ export function createHUD(
       if (ws.ownerId !== human.id) continue
       const label = ws.returning ? 'kehrt um' : `${String(Math.max(0, Math.round(ws.hp)))} HP`
       rows.push(
-        `<div data-recall-warship="${String(warIdx)}" title="Kriegsschiff zurückrufen" style="${clickable}"><span style="color:#9fb2c4">⚓</span> ${label} <span style="opacity:0.55">↩</span></div>`,
+        `<div data-recall-warship="${String(warIdx)}" title="Kriegsschiff zurückrufen" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
       )
       warIdx++
     }
@@ -778,7 +794,7 @@ export function createHUD(
         if (atk.targetPlayerId !== human.id) continue
         incoming++
         rows.push(
-          `<div data-defend="${String(p.id)}" title="Abwehren — Truppen 1:1 einsetzen (Slider-Schub)" style="${clickable}"><span style="color:#e84545">⚔←</span> ${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)} <span style="opacity:0.55">🛡</span></div>`,
+          `<div data-defend="${String(p.id)}" title="Abwehren — Truppen 1:1 einsetzen (Slider-Schub)" style="${rowStyle}"><span style="color:#e84545">⚔←</span><span>${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${act('🛡')}</div>`,
         )
       }
     }
