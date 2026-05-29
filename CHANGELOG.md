@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.2.4] – 2026-05-30
+
+### Neu
+
+- **HUD aufgeräumt:** die Truppen-Anzeige sitzt jetzt als großes Badge oben in der Mitte, die
+  Aktions-Box unten ist kompakter und sitzt bündig am Bildrand — mehr Platz für die Karte.
+- **Verteidigungsposten sichtbar:** dezent „verstärkter Boden" + Reichweiten-Ring zeigen, wie
+  weit ein Posten schützt.
+- **Sprites für Transportboote & Handelsschiffe** (vorher nur Punkte).
+
+### Geändert
+
+- **Fabrik-Verbindungen** sehen wie kleine Straßen aus (Trasse + Mittellinie) statt dünner Linien.
+
 ## [0.2.3] – 2026-05-30
 
 ### Neu
