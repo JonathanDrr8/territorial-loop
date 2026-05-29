@@ -31,6 +31,7 @@ import {
   type ServerMessage,
   type PeerInfo,
   type MatchSettings,
+  type GameListing,
   type LobbyListing,
 } from '../src/net/protocol'
 
@@ -167,6 +168,8 @@ interface Member {
 interface Room {
   readonly code: string
   readonly members: Map<number, Member>
+  /** Reine Zuschauer (kein Spieler-Slot): bekommen start/commit/snapshot, schicken keine Intents. */
+  readonly spectators: Set<WebSocket>
   nextPlayerId: number
   hostId: number // erster Beitritt = Host (darf Settings setzen)
   settings: MatchSettings
@@ -190,6 +193,7 @@ function send(socket: WebSocket, msg: ServerMessage): void {
 
 function broadcast(room: Room, msg: ServerMessage): void {
   for (const m of room.members.values()) if (m.socket !== null) send(m.socket, msg)
+  for (const s of room.spectators) send(s, msg)
 }
 
 function peerList(room: Room): (PeerInfo & { ready: boolean })[] {
@@ -304,6 +308,32 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
   }
 }
 
+/**
+ * Nachrichten eines reinen Zuschauers (kein Spieler-Slot). Er schickt keine Intents; nur
+ * Desync-Selbstkorrektur ist sinnvoll: bei Hash-Abweichung / auf Anfrage einen Snapshot NUR an
+ * diesen Socket. ping wird bereits global (vor dem Join) beantwortet.
+ */
+function handleSpectatorMessage(socket: WebSocket, room: Room, msg: ClientMessage): void {
+  if (msg.kind === 'state-hash') {
+    if (room.match?.verifyHash(msg.turn, msg.hash) === false) {
+      const snap = room.match.snapshot()
+      send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
+    }
+  } else if (msg.kind === 'resync-request') {
+    const snap = room.match?.snapshot()
+    if (snap !== undefined) send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
+  }
+}
+
+/** Räumt einen Raum auf, wenn niemand mehr verbunden ist (kein Spieler-Socket UND kein Zuschauer). */
+function cleanupIfEmpty(room: Room): void {
+  const noPlayers = [...room.members.values()].every((m) => m.socket === null)
+  if (noPlayers && room.spectators.size === 0) {
+    if (room.clock !== null) clearInterval(room.clock)
+    rooms.delete(room.code)
+  }
+}
+
 /** Laufender Server mit Handle zum Schließen (für Tests / sauberes Herunterfahren). */
 export interface RunningServer {
   readonly port: number
@@ -344,6 +374,28 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         'access-control-allow-origin': '*',
       })
       res.end(JSON.stringify(open))
+      return
+    }
+    // Laufende, öffentliche Matches → im Lobby-Browser als „Zuschauen" + grobe Terrain-Vorschau.
+    if (req.url === '/games') {
+      const games: GameListing[] = []
+      for (const r of rooms.values()) {
+        if (r.match === null) continue // nur laufende
+        if (!r.settings.public) continue // privat → nicht listen
+        const host = [...r.members.values()].find((m) => m.playerId === r.hostId)
+        games.push({
+          code: r.code,
+          host: host?.name ?? '?',
+          players: [...r.members.values()].filter((m) => m.socket !== null).length,
+          spectators: r.spectators.size,
+          mapWidth: r.settings.mapWidth,
+          mapHeight: r.settings.mapHeight,
+          terrain: r.settings.terrain,
+          seed: r.settings.seed.length > 0 ? r.settings.seed : `room-${r.code}`,
+        })
+      }
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify(games))
       return
     }
     if (req.url === '/version') {
@@ -387,6 +439,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
   wss.on('connection', (socket) => {
     let room: Room | null = null
     let member: Member | null = null
+    let spectator = false
 
     socket.on('message', (data) => {
       let msg: ClientMessage
@@ -402,15 +455,37 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         return
       }
 
-      // Erste Nachricht MUSS 'join' sein (legt Raum + Slot an).
-      if (room === null || member === null) {
+      // Erste Nachricht MUSS 'join' sein (legt Raum/Slot an bzw. hängt einen Zuschauer an).
+      if (room === null) {
         if (msg.kind !== 'join') return
+
+        // Zuschauer: kein Spieler-Slot. Raum muss existieren; bei laufendem Match sofort
+        // start + Snapshot, danach folgt der Zuschauer den Commits (broadcast inkl. Spectators).
+        if (msg.spectate === true) {
+          const r = rooms.get(msg.room.toUpperCase())
+          if (r === undefined) {
+            socket.close()
+            return
+          }
+          r.spectators.add(socket)
+          room = r
+          spectator = true
+          send(socket, { kind: 'joined', room: r.code, playerId: -1 })
+          if (r.match !== null) {
+            send(socket, { kind: 'start', config: r.match.config })
+            const snap = r.match.snapshot()
+            send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
+          }
+          return
+        }
+
         const code = msg.room.length > 0 ? msg.room.toUpperCase() : makeRoomCode()
         let r = rooms.get(code)
         if (r === undefined) {
           r = {
             code,
             members: new Map(),
+            spectators: new Set(),
             nextPlayerId: 1,
             hostId: 0,
             settings: DEFAULT_SETTINGS,
@@ -449,11 +524,18 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         return
       }
 
-      handleMessage(socket, room, member, msg)
+      if (member !== null) handleMessage(socket, room, member, msg)
+      else if (spectator) handleSpectatorMessage(socket, room, msg)
     })
 
     socket.on('close', () => {
-      if (room === null || member === null) return
+      if (room === null) return
+      if (spectator) {
+        room.spectators.delete(socket)
+        cleanupIfEmpty(room)
+        return
+      }
+      if (member === null) return
       member.socket = null
       // Laufendes Match: Slot für einen möglichen Reconnect halten — die Nation läuft in der
       // Sim ganz normal idle weiter (kein Einfrieren) und wird ggf. von anderen erobert.
@@ -462,11 +544,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         room.members.delete(member.playerId)
       }
       sendLobby(room)
-      // Leeren Raum aufräumen.
-      if ([...room.members.values()].every((m) => m.socket === null)) {
-        if (room.clock !== null) clearInterval(room.clock)
-        rooms.delete(room.code)
-      }
+      cleanupIfEmpty(room)
     })
   })
 

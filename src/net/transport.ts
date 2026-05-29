@@ -186,6 +186,8 @@ export interface NetworkTransportOptions {
   /** Raum-Code; leer ⇒ der Server erstellt einen neuen und teilt ihn per `onJoined` mit. */
   room: string
   name: string
+  /** Als reiner Zuschauer beitreten (kein Spieler-Slot): nur start/commit/snapshot empfangen. */
+  spectate?: boolean
   /** Match-Start: der Server schickt die Config — der Verbraucher baut `createGame(config)`. */
   onStart: (config: GameConfig) => void
   /** Voller Snapshot (Resync nach Desync / Reconnect) — Verbraucher lädt `deserializeState`. */
@@ -238,9 +240,14 @@ export class NetworkTransport implements IntentTransport {
       opts.socketFactory ?? ((url) => new WebSocket(url) as unknown as WebSocketLike)
     this.ws = factory(opts.url)
     this.ws.onopen = (): void => {
-      this.sendMsg({ kind: 'join', room: opts.room, name: opts.name })
-      // Latenz-Messung starten (nur sinnvoll ohne festen Override).
-      if (this.fixedDelay === undefined) {
+      this.sendMsg({
+        kind: 'join',
+        room: opts.room,
+        name: opts.name,
+        ...(opts.spectate === true ? { spectate: true } : {}),
+      })
+      // Latenz-Messung starten (nur sinnvoll ohne festen Override; Zuschauer reichen nichts ein).
+      if (this.fixedDelay === undefined && opts.spectate !== true) {
         this.sendPing()
         this.pingTimer = setInterval(() => this.sendPing(), PING_INTERVAL_MS)
       }

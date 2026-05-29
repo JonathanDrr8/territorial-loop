@@ -47,6 +47,8 @@ export interface MenuShellCallbacks {
   onMultiplayer(values: StartMenuValues): void
   /** Klick auf eine offene Lobby im Browser → direkt beitreten. */
   onJoinLobby(code: string, values: StartMenuValues): void
+  /** Klick auf ein laufendes Spiel im Browser → als Zuschauer beitreten. */
+  onSpectate(code: string): void
 }
 
 type TabId = 'play' | 'multiplayer' | 'settings' | 'changelog' | 'help'
@@ -510,9 +512,12 @@ export function createMenuShell(
 
     wrap.appendChild(p)
 
-    // Lobby-Browser (offene Lobbys) — nur mit Server-URL + Join-Wiring.
+    // Lobby-Browser (offene Lobbys + laufende Spiele zum Zuschauen) — nur mit Server-URL.
     if (serverUrl !== undefined) {
-      lobbyBrowser = createLobbyBrowser(serverUrl, (code) => callbacks.onJoinLobby(code, collect()))
+      lobbyBrowser = createLobbyBrowser(serverUrl, {
+        onJoin: (code) => callbacks.onJoinLobby(code, collect()),
+        onSpectate: (code) => callbacks.onSpectate(code),
+      })
       lobbyBrowser.element.style.maxWidth = '560px'
       lobbyBrowser.element.style.width = '100%'
       wrap.appendChild(lobbyBrowser.element)

@@ -56,6 +56,16 @@ export const en: Record<string, string> = {
   'mp.openDialog': 'Create lobby / join by code',
   'mp.reconnect': '⟳ Reconnect — room {room}',
 
+  // Lobby browser (open lobbies + live games)
+  'lobby.openTitle': 'Open lobbies',
+  'lobby.runningTitle': 'Live games',
+  'lobby.refresh': '↻ Refresh',
+  'lobby.emptyOpen': 'No open lobbies. Start one via "Multiplayer".',
+  'lobby.emptyRunning': 'No live games right now.',
+  'lobby.spectate': 'Watch',
+  'lobby.unreachable': 'Server unreachable.',
+  'lobby.loading': 'Loading …',
+
   'changelog.openFull': 'Open full changelog',
 
   'changelog.title': "What's new",

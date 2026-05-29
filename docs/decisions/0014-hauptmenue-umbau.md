@@ -88,8 +88,14 @@ im Footer. **Default-Tab:** „Spielen".
    `start-menu.ts` ist jetzt Typen + Formular-Toolkit. Sprachwechsel baut die Shell mit erhaltenen
    Feldständen/Tab neu. Verifiziert: typecheck/lint/312 Tests grün + Playwright durch alle Tabs.
    _Noch deutsch (1b):_ die internen Texte von `lobby-browser.ts` / Mehrspieler-Dialog / Feedback.
-2. **Mehrspieler-Tab-Politik:** Lobby-Browser inkl. laufender Spiele (= Zuschauen-Einstieg, der
-   ohnehin anstehende Schritt), Erstellen/Beitreten/Privat sauber im Tab statt im Extra-Dialog.
+2. ✅ **Zuschauen umgesetzt:** Server listet laufende öffentliche Matches (`GET /games`, mit Seed),
+   ein Client kann als **reiner Zuschauer** beitreten (`join` mit `spectate:true` → kein Spieler-Slot,
+   `playerId -1`; bekommt start + Snapshot + folgt den Commits; Desync-Selbstkorrektur per Snapshot).
+   Der Lobby-Browser zeigt „Laufende Spiele" mit **grober Terrain-Vorschau aus dem Seed**
+   (gemeinsamer Maler `menu-background.ts`, pro Seed gecacht) + „Zuschauen". Verifiziert: Spectator
+   landet bit-genau auf demselben State (E2E-Test), Browser-Durchstich (Live-Match zuschauen).
+   _Offen für später:_ Lobby-Erstellen/Beitreten ganz im Tab statt Extra-Dialog; Live-Gebiete im
+   Thumbnail (statt nur Terrain-Form).
 3. **Politur:** Karten-Vorschau-Kacheln im „Spielen"-Tab (wie OpenFronts Karten-Karten, aber aus
    unserem Seed generiert), Tab-Übergänge, Responsives Layout.
 4. _(später)_ Leaderboard-Tab, wenn Accounts/ELO kommen.

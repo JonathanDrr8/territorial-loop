@@ -56,6 +56,16 @@ export const de: Record<string, string> = {
   'mp.openDialog': 'Lobby erstellen / per Code beitreten',
   'mp.reconnect': '⟳ Wieder verbinden — Raum {room}',
 
+  // Lobby-Browser (offene Lobbys + laufende Spiele)
+  'lobby.openTitle': 'Offene Lobbys',
+  'lobby.runningTitle': 'Laufende Spiele',
+  'lobby.refresh': '↻ Aktualisieren',
+  'lobby.emptyOpen': 'Keine offenen Lobbys. Starte selbst eine über „Mehrspieler".',
+  'lobby.emptyRunning': 'Gerade keine laufenden Spiele.',
+  'lobby.spectate': 'Zuschauen',
+  'lobby.unreachable': 'Server nicht erreichbar.',
+  'lobby.loading': 'Lade …',
+
   'changelog.openFull': 'Vollständigen Changelog öffnen',
 
   'changelog.title': 'Was ist neu',

@@ -26,6 +26,19 @@ export interface LobbyListing {
   readonly terrain: TerrainType
 }
 
+/** Ein laufendes Match (`GET /games`) — beitretbar nur als Zuschauer. */
+export interface GameListing {
+  readonly code: string
+  readonly host: string
+  readonly players: number
+  readonly spectators: number
+  readonly mapWidth: number
+  readonly mapHeight: number
+  readonly terrain: TerrainType
+  /** Aufgelöster Match-Seed → Client kann daraus eine grobe Terrain-Vorschau zeichnen. */
+  readonly seed: string
+}
+
 /** Eine Lobby-/Match-Teilnehmerzeile (für Anzeige + Slot-Zuordnung). */
 export interface PeerInfo {
   readonly playerId: number
@@ -58,6 +71,8 @@ export interface JoinMsg {
   readonly kind: 'join'
   readonly room: string
   readonly name: string
+  /** Als reiner Zuschauer beitreten (kein Spieler-Slot) — Raum muss existieren. */
+  readonly spectate?: boolean
 }
 
 /** Eigene Intents für einen Ziel-Turn einreichen (Server bündelt sie pro Turn). */

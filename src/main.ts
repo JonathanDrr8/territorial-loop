@@ -632,6 +632,57 @@ function main(): void {
   }
 
   /**
+   * Tritt einem laufenden Match als reiner Zuschauer bei (kein Spieler-Slot): Server schickt
+   * start + Snapshot, danach folgt der Client den Commits. Keine Eingabe, kein Reconnect-Slot.
+   */
+  function spectate(code: string): void {
+    const initial = loadMenuPrefs(DEFAULT_MENU)
+    const removeLoading = showLoadingOverlay(container)
+    let cfg: GameConfig | null = null
+    let snapState: GameState | null = null
+    let built = false
+    const tryBuild = (): void => {
+      if (built || cfg === null || snapState === null) return
+      built = true
+      window.clearTimeout(failTimer)
+      removeLoading()
+      transport.onDisconnect(() => {
+        if (session !== null) {
+          session.destroy()
+          session = null
+        }
+        showMenu()
+      })
+      session = startMatch(container, initial, backToMenu, true, {
+        transport,
+        config: cfg,
+        humanId: -1,
+        initialState: snapState,
+      })
+    }
+    const transport = new NetworkTransport({
+      url: loadServerUrl(defaultServerUrl()),
+      room: code,
+      name: initial.playerName,
+      spectate: true,
+      onStart: (c) => {
+        cfg = c
+        tryBuild()
+      },
+      onSnapshot: (_turn, state) => {
+        snapState = deserializeState(state)
+        tryBuild()
+      },
+    })
+    const failTimer = window.setTimeout(() => {
+      if (built) return
+      transport.destroy()
+      removeLoading()
+      showMenu()
+    }, 8000)
+  }
+
+  /**
    * Öffnet die Mehrspieler-Lobby; bei Match-Start läuft die Session über den Server-Transport.
    * `autoJoinRoom` (aus dem Lobby-Browser) tritt einem Raum direkt bei.
    */
@@ -706,6 +757,11 @@ function main(): void {
           saveMenuPrefs(values)
           menu.destroy()
           showLobby(values, code)
+        },
+        // Lobby-Browser: Klick auf ein laufendes Spiel → als Zuschauer beitreten.
+        onSpectate: (code) => {
+          menu.destroy()
+          spectate(code)
         },
       },
       loadServerUrl(defaultServerUrl()),
