@@ -75,7 +75,7 @@ import { createPRNG, type PRNG } from './random'
 import {
   AECHTUNG_DURATION_TICKS,
   ALLIANCE_DURATION_TICKS,
-  TRAITOR_DEFENSE_PENALTY,
+  TRAITOR_DAMAGE_MULT,
   areAllied,
   directedKey,
   hasAllianceRequest,
@@ -1071,20 +1071,19 @@ function defenseMagMultiplier(state: GameState, tile: TileRef, defenderId: numbe
 }
 
 /**
- * Verteidigungs-Multiplikator für die Angreifer-Verluste, wenn der Verteidiger
- * ein geächteter Verräter ist: gegen Nationen, die er NICHT selbst gerade
- * angreift, verteidigt er um TRAITOR_DEFENSE_PENALTY geschwächt (Angreifer
- * verlieren entsprechend weniger). Greift er den Angreifer selbst an, kein Malus.
+ * Schadens-Multiplikator GEGEN einen Verteidiger, der ein geächteter Verräter ist: greift ihn
+ * jemand an, den er NICHT selbst gerade angreift, nimmt er `TRAITOR_DAMAGE_MULT`× Verluste
+ * (Freiwild). Greift der Verräter den Angreifer selbst an (sein „Opfer"), kämpft es normal (1×).
  */
-function traitorDefenseMul(state: GameState, defenderId: number, attackerId: number): number {
+function traitorDamageMul(state: GameState, defenderId: number, attackerId: number): number {
   if (defenderId <= 0) return 1
   const defender = state.players.get(defenderId)
   if (defender === undefined || defender.traitorUntil <= state.tick) return 1
-  // Greift der Verräter den aktuellen Angreifer selbst an? Dann kein Malus.
+  // Das aktuelle Opfer des Verräters (das er selbst angreift) kämpft normal gegen ihn.
   for (const atk of defender.attacks) {
     if (atk.targetPlayerId === attackerId) return 1
   }
-  return TRAITOR_DEFENSE_PENALTY
+  return TRAITOR_DAMAGE_MULT
 }
 
 function updatePeakStats(state: GameState): void {
@@ -1340,26 +1339,31 @@ function formAlliance(state: GameState, a: number, b: number): void {
 }
 
 /**
- * Verrat: bricht ein bestehendes Bündnis zwischen `traitorId` und `betrayedId`, ächtet den
- * Verräter (Verteidigungs-Malus auf Zeit) und meldet es. No-op, wenn kein Bündnis besteht.
+ * Bricht ein bestehendes Bündnis zwischen `breakerId` und `partnerId`. No-op ohne Bündnis.
+ * Normalerweise Verrat → der Brecher wird geächtet. AUSNAHME: ist der Partner bereits ein
+ * geächteter Verräter, ist das Aufkündigen gerechtfertigt → KEINE eigene Ächtung.
  */
-function betrayAlliance(state: GameState, traitorId: number, betrayedId: number): void {
-  const key = pairKey(traitorId, betrayedId)
+function betrayAlliance(state: GameState, breakerId: number, partnerId: number): void {
+  const key = pairKey(breakerId, partnerId)
   if (!state.alliances.has(key)) return
   state.alliances.delete(key)
   state.allianceExpiry.delete(key)
-  const traitor = state.players.get(traitorId)
-  const betrayed = state.players.get(betrayedId)
-  if (traitor !== undefined) traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
-  if (traitor !== undefined && betrayed !== undefined) {
+  const breaker = state.players.get(breakerId)
+  const partner = state.players.get(partnerId)
+  if (breaker === undefined || partner === undefined) return
+  // Den Partner trifft schon eine Ächtung? Dann darf man das Bündnis straflos kündigen.
+  if (partner.traitorUntil > state.tick) {
     emitDiploEvent(
       state,
-      traitor,
-      betrayed,
-      `${traitor.name} verrät ${betrayed.name}!`,
-      traitor.color,
+      breaker,
+      partner,
+      `${breaker.name} kündigt das Bündnis mit Verräter ${partner.name}`,
+      breaker.color,
     )
+    return
   }
+  breaker.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
+  emitDiploEvent(state, breaker, partner, `${breaker.name} verrät ${partner.name}!`, breaker.color)
 }
 
 /** Ab so vielen Spielern wird Bot-zu-Bot-Diplomatie nicht mehr geloggt (nur Mensch-bezogene). */
@@ -2230,15 +2234,15 @@ function landBoat(state: GameState, boat: Boat): void {
   const defTiles = vsNull ? 1 : (defender?.tilesOwned ?? 1)
   const mag =
     terrainMagnitude(state.map.terrain, target) * defenseMagMultiplier(state, target, owner)
-  const aLoss =
-    attackerLossPerTile(defTroops, defTiles, vsNull, mag) *
-    traitorDefenseMul(state, owner, boat.ownerId)
+  const aLoss = attackerLossPerTile(defTroops, defTiles, vsNull, mag)
 
   if (boat.troops <= aLoss) return // gescheiterte Landung, Truppen verloren
 
-  // Verlorenes Land nimmt seine Bevölkerung mit (siehe advanceAttack).
+  // Verlorenes Land nimmt seine Bevölkerung mit (siehe advanceAttack); Verräter: 1,5× Verluste.
   if (!vsNull && defender !== undefined) {
-    const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+    const dLoss =
+      defenderLossPerTile(defender.troops, defender.tilesOwned, false) *
+      traitorDamageMul(state, owner, boat.ownerId)
     defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
     lootGoldOnCapture(attacker, defender) // Gold-Anteil des Brückenkopf-Tiles erbeuten
   }
@@ -2590,13 +2594,12 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     // Terrain-Magnitude, multipliziert mit Verteidigungsposten-Bonus des Verteidigers.
     const mag =
       terrainMagnitude(state.map.terrain, ref) * defenseMagMultiplier(state, ref, currentOwner)
-    const aLoss =
-      attackerLossPerTile(
-        isCurrentlyTerraNullius ? 0 : defenderTroops,
-        isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
-        isCurrentlyTerraNullius,
-        mag,
-      ) * traitorDefenseMul(state, currentOwner, attacker.id)
+    const aLoss = attackerLossPerTile(
+      isCurrentlyTerraNullius ? 0 : defenderTroops,
+      isCurrentlyTerraNullius ? 1 : defenderTilesOwned,
+      isCurrentlyTerraNullius,
+      mag,
+    )
 
     if (attack.reserveTroops < aLoss) {
       attack.reserveTroops = 0
@@ -2608,8 +2611,11 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     // Verlorenes Land nimmt seine Bevölkerung mit: der Verteidiger verliert pro Tile
     // seine Pro-Tile-Truppen → Truppen und Tiles sinken proportional, die Dichte
     // bleibt konstant, und 2:1-Übermacht reicht exakt für die komplette Einnahme.
+    // Verräter (von Dritten angegriffen): 1,5× Verluste → er bricht schneller weg.
     if (!isCurrentlyTerraNullius && defender !== undefined) {
-      const dLoss = defenderLossPerTile(defender.troops, defender.tilesOwned, false)
+      const dLoss =
+        defenderLossPerTile(defender.troops, defender.tilesOwned, false) *
+        traitorDamageMul(state, currentOwner, attacker.id)
       defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
       lootGoldOnCapture(attacker, defender) // Gold-Anteil dieses Tiles erbeuten
     }

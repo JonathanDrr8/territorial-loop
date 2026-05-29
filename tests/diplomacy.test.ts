@@ -132,7 +132,7 @@ describe('betrayal (Ächtung)', () => {
     expect(traitor.traitorUntil).toBe(tickAtBreak + AECHTUNG_DURATION_TICKS)
   })
 
-  it('halves attacker losses against a traitor (defends weaker vs uninvolved nations)', () => {
+  it('ein Verräter nimmt 1,5× Schaden von Dritten (Verteidiger-Truppen sinken stärker)', () => {
     // Zwei identische Läufe, nur der Verteidiger ist im zweiten ein Verräter.
     function runAttackOnce(makeTraitor: boolean): number {
       const state = createGame(cfg())
@@ -149,13 +149,25 @@ describe('betrayal (Ächtung)', () => {
       tick(state, [
         { type: 'attack', playerId: 3, targetTile: tileRef(5, 0, W, H), troops: 50_000 },
       ])
-      const atk = attacker.attacks[0]
-      return atk?.reserveTroops ?? 0
+      return defender.troops // verbleibende Verteidiger-Truppen
     }
-    const normalReserve = runAttackOnce(false)
-    const traitorReserve = runAttackOnce(true)
-    // Gegen den Verräter verliert der Angreifer weniger → mehr Reserve übrig.
-    expect(traitorReserve).toBeGreaterThan(normalReserve)
+    const normalRemaining = runAttackOnce(false)
+    const traitorRemaining = runAttackOnce(true)
+    // Der Verräter verliert pro Tile 1,5× Truppen → ihm bleibt weniger übrig.
+    expect(traitorRemaining).toBeLessThan(normalRemaining)
+  })
+
+  it('Bündnis mit einem Verräter brechen → der Brecher wird NICHT selbst geächtet', () => {
+    const state = createGame(cfg())
+    tick(state, [{ type: 'request-alliance', playerId: 1, targetPlayerId: 2 }])
+    tick(state, [{ type: 'accept-alliance', playerId: 2, targetPlayerId: 1 }])
+    const p2 = state.players.get(2)
+    const p1 = state.players.get(1)
+    if (p1 === undefined || p2 === undefined) throw new Error('missing')
+    p2.traitorUntil = state.tick + 1000 // Partner ist bereits ein geächteter Verräter
+    tick(state, [{ type: 'break-alliance', playerId: 1, targetPlayerId: 2 }])
+    expect(areAllied(state.alliances, 1, 2)).toBe(false) // Bündnis aufgekündigt
+    expect(p1.traitorUntil).toBeLessThanOrEqual(state.tick) // aber KEINE eigene Ächtung
   })
 })
 
