@@ -70,8 +70,28 @@ Zwei-Spalten-Layout: links die Einstellungen, rechts ein eigenes, stehendes
 - Tests: Fabrik-Cluster-Gold + isolierte Fabrik, Wild-Cap/-Flag, Kriegsschiff-
   Launch/Blockade/Schiff-gegen-Schiff/Rückruf, `wildCount`-Persistenz.
 
+## Nachtrag (Playtest-Verfeinerungen)
+
+Aus späteren Playtests hervorgegangen, im Geist dieses ADRs:
+
+- **Wilde Nationen breiten sich passiv aus** (`spreadWildNations`): erobern mit kleiner
+  Wahrscheinlichkeit pro Tick ein angrenzendes **neutrales** Tile (nie gegen Spieler), bis
+  `WILD_MAX_TILES` (60). Da ihr Gebiet wächst, steigt ihr Cap → sie sammeln spürbar Truppen
+  (statt am Spawn-Cap zu kleben). Selbstregulierend (keine neutralen Nachbarn → kein Wachstum).
+- **Wilde mit halber Gold-Produktion** (`WILD_GOLD_FACTOR = 0.5`) → kleiner Vorrat als Beute.
+- **Gold-Beute beim Erobern** (`lootGoldOnCapture`): pro erobertem Tile wandert der Pro-Tile-
+  Anteil des Gold-Vorrats des Verteidigers zum Angreifer (auch von Wilden) — analog zur
+  Bevölkerung. Greift in `advanceAttack` (Land) und `landBoat` (amphibisch).
+- **Baukosten gedeckelt** (`BUILD_COST_CAP = 1 Mio`); \*\*Hafen & Fabrik teilen sich Basis (25k)
+  - Eskalation\*\* (`COST_GROUP`, `buildCostFor`) → früh ein bewusstes Entweder-Oder.
+- **Boote dürfen über Wasser flankieren** (die „über Land erreichbar → kein Boot"-Sperre ist
+  weg; Gültigkeit = Wasserweg vorhanden).
+- **Skalierung:** wilde Nationen bis 400, echte KI bis 200 (KI-Cooldown drosselt die teure
+  Planung → 150 Bots @ 61 fps verifiziert); Karten-Labels dünnen bei >14 Nicht-Mensch-Nationen
+  aus (`MINOR_LABEL_MIN_ZOOM`); Bot-zu-Bot-Diplomatie wird bei >20 Spielern nicht geloggt.
+
 ## Offen / später (eigene Pläne, mit Jonathan)
 
-Kamera-Box statt endlosem Tiling (Render-/UX-Umbau), Multiplayer (Lockstep-Netcode
-auf der deterministischen Sim), Radial-Boot-/Warship-Feinschliff, weitere
-Experimentell-Toggles (Wälder/Flüsse/Fische).
+Kamera-Box statt endlosem Tiling (Render-/UX-Umbau, ADR-0011), Multiplayer (Lockstep-Netcode
+auf der deterministischen Sim, ADR-0009), HUD-Komplettumbau (ADR-0010, Schritt 1 umgesetzt),
+weitere Experimentell-Toggles (Wälder/Flüsse/Fische).
