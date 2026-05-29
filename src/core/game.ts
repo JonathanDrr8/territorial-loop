@@ -671,7 +671,7 @@ function expireAlliances(state: GameState): void {
     const a = state.players.get(Math.floor(key / 4096))
     const b = state.players.get(key % 4096)
     if (a !== undefined && b !== undefined) {
-      emitEvent(state, `Allianz zwischen ${a.name} und ${b.name} ausgelaufen`, a.color)
+      emitDiploEvent(state, a, b, `Allianz zwischen ${a.name} und ${b.name} ausgelaufen`, a.color)
     }
   }
 }
@@ -1035,6 +1035,26 @@ function formAlliance(state: GameState, a: number, b: number): void {
   state.allianceExpiry.set(key, state.tick + ALLIANCE_DURATION_TICKS)
 }
 
+/** Ab so vielen Spielern wird Bot-zu-Bot-Diplomatie nicht mehr geloggt (nur Mensch-bezogene). */
+const DIPLO_LOG_ALL_MAX = 20
+
+/**
+ * Loggt ein Diplomatie-Ereignis. Bei wenigen Spielern (≤ DIPLO_LOG_ALL_MAX) immer — die
+ * Welt-Diplomatie ist nette Atmosphäre. Bei vielen Bots nur, wenn der Mensch beteiligt ist,
+ * sonst würde Bot-zu-Bot-Diplomatie den Ereignislog fluten und relevante Meldungen verdrängen.
+ */
+function emitDiploEvent(
+  state: GameState,
+  a: Player,
+  b: Player,
+  text: string,
+  color?: number,
+): void {
+  if (a.isHuman || b.isHuman || state.players.size <= DIPLO_LOG_ALL_MAX) {
+    emitEvent(state, text, color)
+  }
+}
+
 function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceIntent): void {
   const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
   if (pair === null) return
@@ -1044,12 +1064,12 @@ function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceInt
   if (hasAllianceRequest(state.allianceRequests, to.id, from.id)) {
     state.allianceRequests.delete(directedKey(to.id, from.id))
     formAlliance(state, from.id, to.id)
-    emitEvent(state, `${from.name} und ${to.name} sind verbündet`, from.color)
+    emitDiploEvent(state, from, to, `${from.name} und ${to.name} sind verbündet`, from.color)
     return
   }
   if (hasAllianceRequest(state.allianceRequests, from.id, to.id)) return
   state.allianceRequests.add(directedKey(from.id, to.id))
-  emitEvent(state, `${from.name} bietet ${to.name} ein Bündnis an`, from.color)
+  emitDiploEvent(state, from, to, `${from.name} bietet ${to.name} ein Bündnis an`, from.color)
 }
 
 function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceIntent): void {
@@ -1060,7 +1080,13 @@ function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceInten
   if (!hasAllianceRequest(state.allianceRequests, requester.id, accepter.id)) return
   state.allianceRequests.delete(directedKey(requester.id, accepter.id))
   formAlliance(state, accepter.id, requester.id)
-  emitEvent(state, `${accepter.name} und ${requester.name} sind verbündet`, accepter.color)
+  emitDiploEvent(
+    state,
+    accepter,
+    requester,
+    `${accepter.name} und ${requester.name} sind verbündet`,
+    accepter.color,
+  )
 }
 
 /** Lehnt ein Bündnis-Angebot `requesterId → playerId` ab (verwirft die Anfrage). */
@@ -1070,7 +1096,13 @@ function applyDeclineAllianceIntent(state: GameState, intent: DeclineAllianceInt
   const [decliner, requester] = pair
   if (!hasAllianceRequest(state.allianceRequests, requester.id, decliner.id)) return
   state.allianceRequests.delete(directedKey(requester.id, decliner.id))
-  emitEvent(state, `${decliner.name} lehnt das Bündnis von ${requester.name} ab`, decliner.color)
+  emitDiploEvent(
+    state,
+    decliner,
+    requester,
+    `${decliner.name} lehnt das Bündnis von ${requester.name} ab`,
+    decliner.color,
+  )
 }
 
 function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent): void {
@@ -1081,7 +1113,13 @@ function applyBreakAllianceIntent(state: GameState, intent: BreakAllianceIntent)
   state.alliances.delete(pairKey(traitor.id, betrayed.id))
   state.allianceExpiry.delete(pairKey(traitor.id, betrayed.id))
   traitor.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
-  emitEvent(state, `${traitor.name} verrät ${betrayed.name}!`, traitor.color)
+  emitDiploEvent(
+    state,
+    traitor,
+    betrayed,
+    `${traitor.name} verrät ${betrayed.name}!`,
+    traitor.color,
+  )
 }
 
 function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void {
@@ -1092,11 +1130,23 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
   if (intent.enabled) {
     if (state.embargoes.has(key)) return
     state.embargoes.add(key)
-    emitEvent(state, `${from.name} verhängt ein Embargo gegen ${to.name}`, from.color)
+    emitDiploEvent(
+      state,
+      from,
+      to,
+      `${from.name} verhängt ein Embargo gegen ${to.name}`,
+      from.color,
+    )
   } else {
     if (!state.embargoes.has(key)) return
     state.embargoes.delete(key)
-    emitEvent(state, `${from.name} hebt das Embargo gegen ${to.name} auf`, from.color)
+    emitDiploEvent(
+      state,
+      from,
+      to,
+      `${from.name} hebt das Embargo gegen ${to.name} auf`,
+      from.color,
+    )
   }
 }
 
