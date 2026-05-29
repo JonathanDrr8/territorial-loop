@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.2.2] – 2026-05-30
+
+### Neu
+
+- **Eingeschlossene Wilde sofort annektieren:** umzingelst du eine wilde Nation komplett, fällt
+  ihr ganzes Gebiet samt Gold-Beute sofort an dich — der Start wird viel dynamischer.
+
+### Geändert
+
+- **Größerer Start:** Spieler beginnen mit mehr Gebiet (organischere Startform).
+- **Wilde Nationen** sind größer, aber dünner besiedelt — mehr Land und Beute, weniger Truppen
+  pro Fläche.
+
 ## [0.2.1] – 2026-05-30
 
 ### Neu
