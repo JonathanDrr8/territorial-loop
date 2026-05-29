@@ -76,6 +76,16 @@ export interface InputDeps {
   readonly onBoatModeChange?: (on: boolean) => void
   /** Optional: Taste „r" → Reichweiten-Ringe der eigenen Kriegsschiffe umschalten. */
   readonly onToggleShipRanges?: () => void
+  /** Optional: aktuelle Auswahl-Box (Screen-CSS) beim Shift-Ziehen; null = aus. */
+  readonly onSelectionBox?: (box: { x0: number; y0: number; x1: number; y1: number } | null) => void
+  /** Optional: Shift-Box losgelassen → eigene Kriegsschiffe in der Box auswählen. */
+  readonly onBoxSelect?: (box: { x0: number; y0: number; x1: number; y1: number }) => void
+  /** Optional: Sind eigene Kriegsschiffe ausgewählt? (entscheidet Shift+LMB: schicken vs. Angriff). */
+  readonly hasWarshipSelection?: () => boolean
+  /** Optional: ausgewählte Kriegsschiffe zum Wasser-`tile` schicken. */
+  readonly onMoveWarships?: (tile: number) => void
+  /** Optional: Kriegsschiff-Auswahl aufheben (Klick ins Leere). */
+  readonly onClearWarshipSelection?: () => void
   /**
    * Optional: Rechtsklick ohne Drag → Radialmenü an Welt-Tile öffnen.
    * Liefert TileRef + Screen-Position (CSS-Pixel).
@@ -133,6 +143,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let buildMode: BuildingType | null = null
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
   let boatMode = false
+  // Box-Select (Shift+Linksklick-Ziehen): Start-Position in CSS-/Client-Koords, null = inaktiv.
+  let boxStart: { sx: number; sy: number; clientX: number; clientY: number } | null = null
   // WASD-Kamera-Pan: gedrückte Richtungstasten + laufende rAF-Schleife.
   const heldPan = new Set<string>()
   let panRaf: number | null = null
@@ -190,6 +202,25 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseDown(e: MouseEvent): void {
+    // Shift+Linksklick startet einen Box-Select (Kriegsschiffe) statt Pan/Angriff.
+    if (
+      e.button === 0 &&
+      e.shiftKey &&
+      deps.interactive !== false &&
+      deps.onBoxSelect !== undefined &&
+      buildMode === null &&
+      !boatMode
+    ) {
+      const rect = canvas.getBoundingClientRect()
+      boxStart = {
+        sx: e.clientX - rect.left,
+        sy: e.clientY - rect.top,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      }
+      e.preventDefault()
+      return
+    }
     if (e.button === 0 || e.button === 2) {
       // Beide Tasten starten einen potenziellen Drag-Pan; bei kaum Bewegung wird's
       // beim Loslassen als Klick (links) bzw. Radialmenü (rechts) gewertet.
@@ -204,6 +235,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseMove(e: MouseEvent): void {
+    if (boxStart !== null) {
+      const rect = canvas.getBoundingClientRect()
+      deps.onSelectionBox?.({
+        x0: boxStart.sx,
+        y0: boxStart.sy,
+        x1: e.clientX - rect.left,
+        y1: e.clientY - rect.top,
+      })
+      return
+    }
     if (dragButton !== null) {
       // Taste außerhalb des Canvas losgelassen? Dann Drag beenden (sonst „klebt" der Pan).
       if (e.buttons === 0) {
@@ -243,6 +284,43 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseUp(e: MouseEvent): void {
+    // Box-Select abschließen (Shift+Linksklick).
+    if (boxStart !== null && e.button === 0) {
+      const start = boxStart
+      boxStart = null
+      deps.onSelectionBox?.(null)
+      const moved =
+        Math.abs(e.clientX - start.clientX) > DRAG_THRESHOLD ||
+        Math.abs(e.clientY - start.clientY) > DRAG_THRESHOLD
+      if (moved) {
+        const rect = canvas.getBoundingClientRect()
+        deps.onBoxSelect?.({
+          x0: start.sx,
+          y0: start.sy,
+          x1: e.clientX - rect.left,
+          y1: e.clientY - rect.top,
+        })
+      } else {
+        // Shift-Klick ohne Ziehen: Auswahl vorhanden → Schiffe schicken; sonst Rundum-Angriff.
+        const target = screenToTile(e.clientX, e.clientY)
+        if (deps.hasWarshipSelection?.() === true) {
+          deps.onMoveWarships?.(target)
+        } else {
+          const troops = deps.getPlayerTroops()
+          const sendTroops = Math.floor((troops * deps.getSliderPct()) / 100)
+          if (sendTroops > 0) {
+            emit({
+              type: 'attack',
+              playerId: deps.playerId,
+              targetTile: target,
+              troops: sendTroops,
+              omni: true,
+            })
+          }
+        }
+      }
+      return
+    }
     // Nur die Taste finalisieren, die den Drag begonnen hat.
     if (dragButton !== e.button) return
     const wasMoved = dragMoved
@@ -275,6 +353,13 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     if (wasMoved) return
     // Zuschauer-Modus: keine Spieler-Aktionen (Angriff/Bau).
     if (deps.interactive === false) return
+
+    // Klick ins Leere (ohne Shift, kein Bau/Boot) hebt eine Kriegsschiff-Auswahl auf —
+    // statt direkt anzugreifen (verhindert versehentliche Angriffe nach dem Steuern).
+    if (buildMode === null && !boatMode && deps.hasWarshipSelection?.() === true) {
+      deps.onClearWarshipSelection?.()
+      return
+    }
 
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left

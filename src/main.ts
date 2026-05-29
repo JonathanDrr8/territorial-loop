@@ -270,6 +270,20 @@ function startMatch(
       hud.setBoatMode(on)
     },
     onToggleShipRanges: () => renderer.toggleShipRanges(),
+    onSelectionBox: (box) => renderer.setSelectionBox(box),
+    onBoxSelect: (box) => renderer.selectWarshipsInBox(box),
+    hasWarshipSelection: () => renderer.hasWarshipSelection(),
+    onMoveWarships: (tile) => {
+      const indices = renderer.selectedWarshipIndices()
+      if (indices.length > 0)
+        pendingIntents.push({
+          type: 'move-warship',
+          playerId: HUMAN_ID,
+          warshipIndices: indices,
+          targetTile: tile,
+        })
+    },
+    onClearWarshipSelection: () => renderer.clearWarshipSelection(),
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)
     },

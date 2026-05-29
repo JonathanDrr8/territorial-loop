@@ -170,6 +170,16 @@ export interface Renderer {
   setBuildPreview(type: BuildingType | null): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
   toggleShipRanges(): boolean
+  /** Setzt die Auswahl-Box (Screen-CSS) für die Anzeige während des Ziehens; null = aus. */
+  setSelectionBox(box: { x0: number; y0: number; x1: number; y1: number } | null): void
+  /** Wählt die eigenen Kriegsschiffe in der Screen-Box aus; gibt die Anzahl zurück. */
+  selectWarshipsInBox(box: { x0: number; y0: number; x1: number; y1: number }): number
+  /** Hebt die Kriegsschiff-Auswahl auf. */
+  clearWarshipSelection(): void
+  /** Hat der Spieler aktuell Kriegsschiffe ausgewählt? */
+  hasWarshipSelection(): boolean
+  /** Indizes der aktuell ausgewählten (noch lebenden) Kriegsschiffe in `state.warships`. */
+  selectedWarshipIndices(): number[]
   /**
    * Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers.
    * `screenOffsetY` (CSS-Pixel, positiv) hebt den Schwerpunkt optisch nach oben —
@@ -681,6 +691,9 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
   let buildPreviewType: BuildingType | null = null
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
   let shipRangesVisible = false
+  // Box-Select: ausgewählte eigene Kriegsschiffe + aktuelle Auswahl-Box (Screen-CSS).
+  const selectedWarships = new Set<Warship>()
+  let selectionBox: { x0: number; y0: number; x1: number; y1: number } | null = null
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
@@ -1202,6 +1215,14 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
         screenCtx.stroke()
         screenCtx.setLineDash([])
       }
+      // Auswahl-Ring (Box-Select) — heller cyan Kreis um gewählte Schiffe.
+      if (selectedWarships.has(ws)) {
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, warR + 3, 0, Math.PI * 2)
+        screenCtx.strokeStyle = 'rgba(120,230,255,0.95)'
+        screenCtx.lineWidth = 2.5
+        screenCtx.stroke()
+      }
       // Hintergrund-Scheibe in der BESITZERFARBE (zeigt, wem das Schiff gehört) + außen
       // der Beziehungs-Ring (weiß=eigen, grün=verbündet, rot=Groll, schwarz=neutral).
       const owner = state.players.get(ws.ownerId)
@@ -1277,6 +1298,22 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       screenCtx.fillStyle = '#fff4c2'
       screenCtx.fill()
     }
+    screenCtx.restore()
+  }
+
+  /** Zeichnet die Auswahl-Box (Box-Select) während des Ziehens. */
+  function drawSelectionBox(): void {
+    if (selectionBox === null) return
+    const x = Math.min(selectionBox.x0, selectionBox.x1)
+    const y = Math.min(selectionBox.y0, selectionBox.y1)
+    const wd = Math.abs(selectionBox.x1 - selectionBox.x0)
+    const ht = Math.abs(selectionBox.y1 - selectionBox.y0)
+    screenCtx.save()
+    screenCtx.fillStyle = 'rgba(120,230,255,0.12)'
+    screenCtx.fillRect(x, y, wd, ht)
+    screenCtx.strokeStyle = 'rgba(120,230,255,0.9)'
+    screenCtx.lineWidth = 1.5
+    screenCtx.strokeRect(x, y, wd, ht)
     screenCtx.restore()
   }
 
@@ -1511,6 +1548,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     drawBuildPreview()
     drawMarkers()
     drawLabels()
+    drawSelectionBox()
   }
 
   function addClickMarker(worldX: number, worldY: number): void {
@@ -1565,6 +1603,40 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     toggleShipRanges(): boolean {
       shipRangesVisible = !shipRangesVisible
       return shipRangesVisible
+    },
+    setSelectionBox(box): void {
+      selectionBox = box
+    },
+    selectWarshipsInBox(box): number {
+      selectedWarships.clear()
+      const x0 = Math.min(box.x0, box.x1)
+      const x1 = Math.max(box.x0, box.x1)
+      const y0 = Math.min(box.y0, box.y1)
+      const y1 = Math.max(box.y0, box.y1)
+      for (const ws of state.warships) {
+        if (ws.ownerId !== lutHumanId) continue
+        const { wx, wy } = shipWorldPos(ws)
+        const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+        if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) selectedWarships.add(ws)
+      }
+      return selectedWarships.size
+    },
+    clearWarshipSelection(): void {
+      selectedWarships.clear()
+    },
+    hasWarshipSelection(): boolean {
+      // Tote Schiffe aus der Auswahl entfernen, dann prüfen.
+      for (const ws of [...selectedWarships])
+        if (!state.warships.includes(ws)) selectedWarships.delete(ws)
+      return selectedWarships.size > 0
+    },
+    selectedWarshipIndices(): number[] {
+      const idx: number[] = []
+      for (let i = 0; i < state.warships.length; i++) {
+        const ws = state.warships[i]
+        if (ws !== undefined && selectedWarships.has(ws)) idx.push(i)
+      }
+      return idx
     },
     centerOnPlayer,
     destroy,
