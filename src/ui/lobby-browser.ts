@@ -42,15 +42,16 @@ export function createLobbyBrowser(
 ): LobbyBrowserApi {
   const panel = document.createElement('div')
   panel.style.cssText = [
-    'background: #14141c',
+    'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
     'color: white',
     'border: 1px solid rgba(255,255,255,0.12)',
     'border-radius: 12px',
-    'padding: 18px 18px',
-    'width: 230px',
+    'padding: 20px',
+    'width: 250px',
     'max-width: 100%',
     'box-sizing: border-box',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 14px',
     'display: flex',
     'flex-direction: column',
     'gap: 4px',
@@ -59,7 +60,7 @@ export function createLobbyBrowser(
   const sectionHead = (key: string): HTMLElement => {
     const h = document.createElement('div')
     h.textContent = t(key)
-    h.style.cssText = 'font-size: 14px; font-weight: 700; margin: 6px 0 8px'
+    h.style.cssText = 'font-size: 16px; font-weight: 700; margin: 6px 0 8px'
     return h
   }
   const makeList = (): HTMLElement => {
@@ -87,7 +88,7 @@ export function createLobbyBrowser(
     'color: white',
     'border: 1px solid rgba(255,255,255,0.25)',
     'border-radius: 8px',
-    'font-size: 12px',
+    'font-size: 13px',
     'font-family: inherit',
     'cursor: pointer',
   ].join(';')
@@ -97,7 +98,7 @@ export function createLobbyBrowser(
     target.textContent = ''
     const h = document.createElement('div')
     h.textContent = text
-    h.style.cssText = 'font-size: 12px; opacity: 0.55; padding: 6px 0'
+    h.style.cssText = 'font-size: 13px; opacity: 0.55; padding: 6px 0'
     target.appendChild(h)
   }
 
@@ -110,9 +111,9 @@ export function createLobbyBrowser(
     'color: white',
     'border: 1px solid rgba(255,255,255,0.15)',
     'border-radius: 8px',
-    'padding: 8px 10px',
+    'padding: 9px 11px',
     'font-family: inherit',
-    'font-size: 12px',
+    'font-size: 13px',
     'cursor: pointer',
     'line-height: 1.45',
     'width: 100%',
@@ -168,13 +169,21 @@ export function createLobbyBrowser(
     for (const g of games) {
       const row = document.createElement('button')
       row.style.cssText = rowBase
+      // Spalten-Layout: oben Vorschau + Infos, darunter eigene „Zuschauen"-Zeile (rechtsbündig)
+      // — der Knopf wird sonst neben dem umbrechenden Text gequetscht.
+      row.style.flexDirection = 'column'
+      row.style.alignItems = 'stretch'
+      row.style.gap = '8px'
+
+      const top = document.createElement('div')
+      top.style.cssText = 'display: flex; align-items: center; gap: 10px'
       const url = thumbFor(g)
       if (url !== null) {
         const thumb = document.createElement('img')
         thumb.src = url
         thumb.style.cssText =
-          'width: 44px; height: 44px; flex: 0 0 auto; border-radius: 4px; object-fit: cover; image-rendering: auto; border: 1px solid rgba(255,255,255,0.12)'
-        row.appendChild(thumb)
+          'width: 48px; height: 48px; flex: 0 0 auto; border-radius: 4px; object-fit: cover; image-rendering: auto; border: 1px solid rgba(255,255,255,0.12)'
+        top.appendChild(thumb)
       }
       const terrain = TERRAIN_LABEL[g.terrain] ?? g.terrain
       const text = document.createElement('div')
@@ -184,11 +193,14 @@ export function createLobbyBrowser(
         ` <span style="opacity:0.6">· ${String(g.players)} ${t('lobby.players')} · ` +
         `${String(g.spectators)} ${t('lobby.spectators')}</span><br>` +
         `<span style="opacity:0.75">${escapeHtml(g.host)} · ${String(g.mapWidth)}² · ${terrain}</span>`
-      row.appendChild(text)
-      const watch = document.createElement('span')
+      top.appendChild(text)
+      row.appendChild(top)
+
+      const watch = document.createElement('div')
       watch.textContent = t('lobby.spectate')
-      watch.style.cssText = `flex: 0 0 auto; color: ${ACCENT}; opacity: 0.9`
+      watch.style.cssText = `align-self: flex-end; color: ${ACCENT}; font-weight: 700`
       row.appendChild(watch)
+
       row.addEventListener('click', () => callbacks.onSpectate(g.code))
       runningList.appendChild(row)
     }

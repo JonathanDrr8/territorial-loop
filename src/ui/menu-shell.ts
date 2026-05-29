@@ -127,7 +127,7 @@ export function createMenuShell(
       'background: radial-gradient(120% 120% at 50% 0%, #1a1d28 0%, #0c0c12 70%)',
       'color: white',
       'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-      'font-size: 14px',
+      'font-size: 16px',
       'z-index: 50',
       'overflow: hidden',
     ].join(';')
@@ -179,7 +179,7 @@ export function createMenuShell(
 
     const tabContent = document.createElement('div')
     tabContent.style.cssText =
-      'width: 100%; max-width: 1100px; display: flex; justify-content: center'
+      'width: 100%; max-width: 1200px; display: flex; justify-content: center'
     tabContent.appendChild(buildTab(activeTab))
     contentScroll.appendChild(tabContent)
 
@@ -208,10 +208,10 @@ export function createMenuShell(
     brand.style.cssText = 'display: flex; flex-direction: column; line-height: 1.1'
     const title = document.createElement('div')
     title.innerHTML = `territorial-<span style="color:${ACCENT}">loop</span>`
-    title.style.cssText = 'font-size: 20px; font-weight: bold; letter-spacing: 0.5px'
+    title.style.cssText = 'font-size: 24px; font-weight: bold; letter-spacing: 0.5px'
     const version = document.createElement('div')
     version.textContent = `v${__APP_VERSION__}`
-    version.style.cssText = 'font-size: 11px; opacity: 0.5'
+    version.style.cssText = 'font-size: 13px; opacity: 0.5'
     brand.appendChild(title)
     brand.appendChild(version)
     header.appendChild(brand)
@@ -238,14 +238,14 @@ export function createMenuShell(
 
     const nameWrap = document.createElement('label')
     nameWrap.style.cssText =
-      'display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: 0.85'
+      'display: flex; align-items: center; gap: 8px; font-size: 14px; opacity: 0.85'
     nameWrap.appendChild(document.createTextNode(t('header.name')))
     const nameInput = document.createElement('input')
     nameInput.type = 'text'
     nameInput.value = values.playerName
     nameInput.maxLength = 16
     nameInput.placeholder = t('header.namePlaceholder')
-    nameInput.style.cssText = INPUT_STYLE + ';width: 140px'
+    nameInput.style.cssText = INPUT_STYLE + ';width: 160px'
     nameInput.addEventListener('input', () => {
       values = { ...values, playerName: nameInput.value.trim() || values.playerName }
     })
@@ -288,7 +288,7 @@ export function createMenuShell(
       'padding: 10px 24px',
       'border-top: 1px solid rgba(255,255,255,0.08)',
       'background: #11131b',
-      'font-size: 12px',
+      'font-size: 14px',
       'opacity: 0.7',
       'flex-wrap: wrap',
     ].join(';')
@@ -311,7 +311,7 @@ export function createMenuShell(
         'border: none',
         'padding: 0',
         'font-family: inherit',
-        'font-size: 12px',
+        'font-size: 14px',
         'cursor: pointer',
       ].join(';')
       fb.addEventListener('click', () => callbacks.onFeedback?.())
@@ -333,9 +333,9 @@ export function createMenuShell(
       'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
       'border: 1px solid rgba(70,217,230,0.18)',
       'border-radius: 14px',
-      'padding: 26px 30px',
+      'padding: 30px 34px',
       'width: 100%',
-      'max-width: 560px',
+      'max-width: 620px',
       'box-sizing: border-box',
       'box-shadow: 0 18px 60px rgba(0,0,0,0.5)',
     ].join(';')
@@ -478,7 +478,7 @@ export function createMenuShell(
     const tips = buildTipsPanel()
     const row = document.createElement('div')
     row.style.cssText =
-      'display: grid; grid-template-columns: 230px auto 230px; gap: 20px; align-items: start; justify-content: center; width: 100%'
+      'display: grid; grid-template-columns: 250px auto 250px; gap: 22px; align-items: start; justify-content: center; width: 100%'
     row.appendChild(browser ?? document.createElement('div'))
     row.appendChild(p)
     row.appendChild(tips)
@@ -489,12 +489,12 @@ export function createMenuShell(
   function buildTipsPanel(): HTMLElement {
     const p = document.createElement('div')
     p.style.cssText = [
-      'background: #14141c',
+      'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
       'color: white',
       'border: 1px solid rgba(255,255,255,0.12)',
       'border-radius: 12px',
-      'padding: 18px',
-      'width: 230px',
+      'padding: 20px',
+      'width: 250px',
       'max-width: 100%',
       'box-sizing: border-box',
       'display: flex',
@@ -504,11 +504,11 @@ export function createMenuShell(
 
     const head = document.createElement('div')
     head.textContent = t('info.title')
-    head.style.cssText = 'font-size: 14px; font-weight: 700'
+    head.style.cssText = 'font-size: 16px; font-weight: 700'
     p.appendChild(head)
 
     const tipEl = document.createElement('div')
-    tipEl.style.cssText = 'font-size: 12px; line-height: 1.5; opacity: 0.8; min-height: 80px'
+    tipEl.style.cssText = 'font-size: 14px; line-height: 1.5; opacity: 0.8; min-height: 92px'
     p.appendChild(tipEl)
 
     const tipKeys = [
@@ -535,13 +535,13 @@ export function createMenuShell(
       fb.textContent = t('info.feedback')
       fb.style.cssText = [
         'margin-top: auto',
-        'padding: 9px 10px',
+        'padding: 11px 12px',
         'background: rgba(70,217,230,0.12)',
         `color: ${ACCENT}`,
         `border: 1px solid ${ACCENT}`,
         'border-radius: 8px',
         'font-family: inherit',
-        'font-size: 12px',
+        'font-size: 14px',
         'font-weight: 700',
         'cursor: pointer',
       ].join(';')
@@ -634,7 +634,7 @@ export function createMenuShell(
 
   function buildChangelogTab(): HTMLElement {
     const p = panel()
-    p.style.maxWidth = '720px'
+    p.style.maxWidth = '820px'
     const h = document.createElement('div')
     h.className = 'tl-section'
     h.style.borderTop = 'none'
@@ -652,7 +652,7 @@ export function createMenuShell(
 
   function buildHelpTab(): HTMLElement {
     const p = panel()
-    p.style.maxWidth = '720px'
+    p.style.maxWidth = '820px'
 
     const h = document.createElement('div')
     h.className = 'tl-section'
@@ -741,12 +741,12 @@ function secondaryButtonStyle(): string {
   return [
     'margin-top: 10px',
     'width: 100%',
-    'padding: 10px',
+    'padding: 12px',
     'background: transparent',
     'color: white',
     'border: 1px solid rgba(255,255,255,0.25)',
     'border-radius: 8px',
-    'font-size: 13px',
+    'font-size: 15px',
     'font-family: inherit',
     'cursor: pointer',
     'opacity: 0.85',

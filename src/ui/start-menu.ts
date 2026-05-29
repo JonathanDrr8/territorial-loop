@@ -83,17 +83,17 @@ export const CAMERA_OPTIONS: ReadonlyArray<readonly [CameraMode, string]> = [
 export const ACCENT = '#46d9e6'
 
 export const FIELD_ROW_STYLE =
-  'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
+  'display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 14px; margin-bottom: 13px'
 
 export const BUTTON_STYLE = [
   'margin-top: 22px',
   'width: 100%',
-  'padding: 13px',
+  'padding: 16px',
   'background: linear-gradient(180deg, #3fd0c0 0%, #2bb39c 100%)',
   'color: #07120f',
   'border: none',
   'border-radius: 8px',
-  'font-size: 15px',
+  'font-size: 18px',
   'font-family: inherit',
   'letter-spacing: 0.3px',
   'cursor: pointer',
@@ -107,9 +107,9 @@ export const INPUT_STYLE = [
   'color: white',
   'border: 1px solid #2c2c3a',
   'border-radius: 5px',
-  'padding: 7px 9px',
+  'padding: 9px 11px',
   'font-family: inherit',
-  'font-size: 14px',
+  'font-size: 16px',
   'width: 100%',
   'box-sizing: border-box',
   'outline: none',
@@ -123,10 +123,10 @@ export const MENU_CSS = `
 .tl-menu input[type=text]:focus, .tl-menu select:focus { border-color: ${ACCENT}; box-shadow: 0 0 0 2px rgba(70,217,230,0.2) }
 .tl-menu .tl-start:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(63,208,192,0.45) }
 .tl-menu .tl-start:active { transform: translateY(0) }
-.tl-menu .tl-section { margin: 18px 0 9px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: ${ACCENT}; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 12px }
+.tl-menu .tl-section { margin: 20px 0 10px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: ${ACCENT}; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 14px }
 .tl-menu input[type=range] { accent-color: ${ACCENT} }
 .tl-menu input[type=checkbox] { accent-color: ${ACCENT} }
-.tl-tab { background: transparent; border: 1px solid transparent; color: rgba(255,255,255,0.7); padding: 8px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; cursor: pointer; transition: color 0.12s, background 0.12s, border-color 0.12s }
+.tl-tab { background: transparent; border: 1px solid transparent; color: rgba(255,255,255,0.7); padding: 9px 18px; border-radius: 8px; font-family: inherit; font-size: 16px; cursor: pointer; transition: color 0.12s, background 0.12s, border-color 0.12s }
 .tl-tab:hover { color: white; background: rgba(255,255,255,0.06) }
 .tl-tab.tl-tab-active { color: #07120f; background: ${ACCENT}; border-color: ${ACCENT}; font-weight: 700 }
 `
@@ -167,7 +167,7 @@ export function makeSliderRow(
   const valueLabel = document.createElement('span')
   valueLabel.textContent = String(initialValue) + suffix
   valueLabel.style.cssText =
-    'min-width: 50px; text-align: right; font-variant-numeric: tabular-nums'
+    'min-width: 58px; text-align: right; font-variant-numeric: tabular-nums'
 
   slider.addEventListener('input', () => {
     valueLabel.textContent = slider.value + suffix
