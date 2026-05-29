@@ -310,9 +310,12 @@ export interface GameState {
 
 const SPAWN_HALF_SIZE = 2 // 5×5-Kern muss Land sein (Zentrums-Validierung)
 /** Ziel-Größe eines Start-Gebiets (Tiles) — organisch gewachsen, nicht quadratisch. */
-const SPAWN_TARGET_TILES = 80
-/** Start-Größe wilder Nationen — etwas kleiner als reguläre Spawns, aber sichtbar präsent. */
-const WILD_SPAWN_TILES = 28
+const SPAWN_TARGET_TILES = 100
+/** Start-Größe wilder Nationen — größer als zuvor (mehr Land/Beute), dafür dünn besiedelt
+ * (niedriger Cap-Faktor), und beim Einschließen sofort annektierbar (eroberbarer Puffer). */
+const WILD_SPAWN_TILES = 48
+/** Alle wie viele Ticks geprüft wird, ob eine wilde Nation eingeschlossen wurde (→ Annexion). */
+const WILD_ENCIRCLE_INTERVAL = 12
 
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
@@ -703,6 +706,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   decayGoodwill(state)
   pruneRecentCaptures(state)
   expireAlliances(state)
+  annexEncircledWilds(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
@@ -2191,8 +2195,9 @@ export function totalTroops(player: Player): number {
   return player.troops + committedTroops(player)
 }
 
-/** Truppen-Cap-Faktor für wilde Nationen — niedrige Dichte → eroberbarer Puffer. */
-const WILD_CAP_FACTOR = 0.5
+/** Truppen-Cap-Faktor für wilde Nationen — niedrige Dichte → eroberbarer Puffer (größere
+ * Fläche, aber wenig Bevölkerung pro Tile). */
+const WILD_CAP_FACTOR = 0.38
 
 function growPopulations(state: GameState): void {
   for (const player of orderedPlayers(state)) {
@@ -2804,6 +2809,80 @@ function collectAttackableTiles(
 }
 
 /** Erobert ein Tile für `attackerId`, aktualisiert tilesOwned und Frontier-Sets. */
+/**
+ * Eingeschlossene wilde Nationen sofort annektieren: Ist eine wilde Nation rundum nur von
+ * GENAU EINEM Spieler (und Wänden = Wasser/Berg) umgeben — also ohne Fluchtweg in freie
+ * Wildnis und ohne dass ein zweiter Spieler angrenzt —, fällt ihr ganzes Gebiet samt Gold-Beute
+ * an diesen Spieler. Macht den Start dynamisch (man „verschluckt" eroberte Puffer). Periodisch
+ * geprüft (nicht jeden Tick), iteriert nur die kleinen Frontier-Mengen der Wilden.
+ */
+function annexEncircledWilds(state: GameState): void {
+  if (state.tick % WILD_ENCIRCLE_INTERVAL !== 0) return
+  const { map, players } = state
+  const { width, height } = map
+  for (const w of players.values()) {
+    if (!w.wild || !w.isAlive || w.tilesOwned <= 0) continue
+    let encloser = -1 // -1 = noch keiner gesehen, >0 = genau dieser Spieler
+    let escapeOrMixed = false
+    outer: for (const ref of w.frontier) {
+      for (const n of neighbors4(ref, width, height)) {
+        const o = getOwner(map, n)
+        if (o === w.id) continue
+        if (!isPassable(map.terrain, n)) continue // Wasser/Berg = Wand (blockiert nicht)
+        if (o === 0) {
+          escapeOrMixed = true // freie Wildnis als Nachbar → Fluchtweg, nicht eingeschlossen
+          break outer
+        }
+        if (encloser === -1) encloser = o
+        else if (encloser !== o) {
+          escapeOrMixed = true // zwei verschiedene Spieler grenzen an → nicht von einem umschlossen
+          break outer
+        }
+      }
+    }
+    if (escapeOrMixed || encloser <= 0) continue
+    const p = players.get(encloser)
+    if (p === undefined || !p.isAlive || p.wild) continue
+    annexWild(state, w, p)
+  }
+}
+
+/** Annektiert die GESAMTE wilde Nation `w` für Spieler `p` (Flood-Fill) + überträgt ihr Gold. */
+function annexWild(state: GameState, w: Player, p: Player): void {
+  const loot = w.gold
+  if (loot > 0) {
+    p.gold += loot
+    p.goldEarned += loot
+    w.gold = 0
+  }
+  const { map } = state
+  const { width, height } = map
+  // Flood-Fill über alle Tiles von w (von der Frontier nach innen) und an p übergeben.
+  const seen = new Set<number>(w.frontier)
+  const queue = [...w.frontier]
+  while (queue.length > 0) {
+    const ref = queue.pop()
+    if (ref === undefined) break
+    if (getOwner(map, ref) !== w.id) continue
+    for (const n of neighbors4(ref, width, height)) {
+      if (!seen.has(n) && getOwner(map, n) === w.id) {
+        seen.add(n)
+        queue.push(n)
+      }
+    }
+    captureTile(state, ref, p.id) // setzt Owner/Frontier/Flash; senkt w.tilesOwned
+  }
+  if (p.isHuman) {
+    emitEvent(
+      state,
+      loot > 0
+        ? `${p.name} schließt ${w.name} ein und annektiert sie (+${fmtCompactGold(loot)} Gold)`
+        : `${p.name} schließt ${w.name} ein und annektiert sie`,
+      p.color,
+    )
+  }
+}
+
 function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   const { map, players } = state
   const oldOwner = getOwner(map, ref)

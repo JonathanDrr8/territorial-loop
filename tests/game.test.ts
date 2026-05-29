@@ -644,7 +644,7 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
 })
 
 describe('wilde Nationen', () => {
-  it('werden mit wild-Flag erzeugt und haben den halben Truppen-Cap', () => {
+  it('werden mit wild-Flag erzeugt und haben einen niedrigeren Truppen-Cap', () => {
     const state = createGame(
       baseConfig({
         terrain: 'flat',
@@ -659,10 +659,11 @@ describe('wilde Nationen', () => {
     if (ai === undefined || wild === undefined) throw new Error('players missing')
     expect(ai.wild).toBe(false)
     expect(wild.wild).toBe(true)
-    // Gleiche Gebietsbasis → wilde Nation hat ~halben Cap.
+    // Gleiche Gebietsbasis → wilde Nation hat einen deutlich niedrigeren Cap (dünn besiedelt).
     ai.weightedTiles = 100
     wild.weightedTiles = 100
-    expect(effectiveMaxTroops(state, 2)).toBe(Math.floor(effectiveMaxTroops(state, 1) * 0.5))
+    expect(effectiveMaxTroops(state, 2)).toBe(Math.floor(effectiveMaxTroops(state, 1) * 0.38))
+    expect(effectiveMaxTroops(state, 2)).toBeLessThan(effectiveMaxTroops(state, 1))
   })
 
   it('starten kleiner als reguläre Spieler (Puffer/Beute)', () => {
@@ -680,8 +681,53 @@ describe('wilde Nationen', () => {
     const ai = state.players.get(1)
     const wild = state.players.get(2)
     if (ai === undefined || wild === undefined) throw new Error('players missing')
-    expect(wild.tilesOwned).toBeLessThanOrEqual(28)
+    expect(wild.tilesOwned).toBeLessThanOrEqual(48)
     expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
+  })
+
+  it('eingeschlossene wilde Nation wird sofort annektiert (samt Gold-Beute)', () => {
+    const state = createGame(
+      baseConfig({
+        terrain: 'flat',
+        mapWidth: 64,
+        mapHeight: 64,
+        players: [
+          { id: 1, name: 'Du', color: 0x00ff00ff, isHuman: true },
+          { id: 2, name: 'Wilde', color: 0x8f8a78ff, isHuman: false, wild: true },
+        ],
+      }),
+    )
+    const W = state.map.width
+    const Hgt = state.map.height
+    const p1 = state.players.get(1)
+    const wild = state.players.get(2)
+    if (p1 === undefined || wild === undefined) throw new Error('players missing')
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    const center = T(10, 10)
+    // Spieler 1 umschließt das einzelne wilde Tile vollständig (alle 4 Nachbarn).
+    for (const t of [T(9, 10), T(11, 10), T(10, 9), T(10, 11)]) {
+      setOwner(state.map, t, 1)
+      p1.tilesOwned++
+      p1.frontier.add(t)
+    }
+    setOwner(state.map, center, 2)
+    wild.tilesOwned = 1
+    wild.frontier.add(center)
+    wild.gold = 1000
+    const goldBefore = p1.gold
+
+    tick(state, []) // tick 0 → Encircle-Check läuft (Intervall-Vielfaches)
+
+    expect(getOwner(state.map, center)).toBe(1) // Gebiet übernommen
+    expect(wild.tilesOwned).toBe(0)
+    expect(wild.isAlive).toBe(false) // ohne Gebiet eliminiert
+    expect(p1.gold - goldBefore).toBeGreaterThanOrEqual(1000) // Beute erhalten
   })
 
   it('produzieren nur halbes Gold pro Tick', () => {
