@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed (Plan — Teile A+B bereits umgesetzt, siehe unten)
+Accepted — vollständig umgesetzt (A+B Seekrieg-Groll/Abfangen, F Gunst aus Handel +
+Fabrik-Nachbarschaft, C grüner Gunst-Tint, D KI-Zielwahl nach Beziehung). Offene
+Design-Fragen unten wurden so entschieden: Gunst aus **Handel + Fabrik-Nachbarschaft**,
+Visualisierung zuerst **grüner Karten-Tint**, Neutral-Toggle-Default **alle angreifen**.
 
 ## Datum
 
