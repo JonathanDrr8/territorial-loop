@@ -7,7 +7,14 @@
  */
 
 import { createAI, type AI } from './ai/ai'
-import { canBuildAt, createGame, tick, type GameConfig, type PlayerDef } from './core/game'
+import {
+  canBuildAt,
+  createGame,
+  snapBuildTile,
+  tick,
+  type GameConfig,
+  type PlayerDef,
+} from './core/game'
 import type { Intent } from './core/intent'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -294,6 +301,7 @@ function startMatch(
       buildMenu.open(tile, screenX, screenY)
     },
     canPlaceBuilding: (tile, type) => canBuildAt(state, HUMAN_ID, tile, type),
+    snapBuildTarget: (tile, type) => snapBuildTile(state, HUMAN_ID, tile, type),
     events: {
       pause(): void {
         paused = !paused

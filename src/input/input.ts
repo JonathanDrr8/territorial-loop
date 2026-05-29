@@ -96,6 +96,11 @@ export interface InputDeps {
    * Ist die Position ungültig, bleibt der Bau-Modus aktiv (kein Platzieren).
    */
   readonly canPlaceBuilding?: (tile: number, type: BuildingType) => boolean
+  /**
+   * Optional: rastet das Bau-Ziel auf ein nahes eigenes Gebäude desselben Typs (Snapping beim
+   * Upgraden — kein pixelgenaues Treffen nötig). Liefert das (ggf. gerastete) Ziel-Tile.
+   */
+  readonly snapBuildTarget?: (tile: number, type: BuildingType) => number
 }
 
 export interface InputHandler {
@@ -374,9 +379,11 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     // (z.B. Hafen nicht am Wasser, fremdes Tile, zu wenig Gold) bleibt der Modus
     // aktiv, damit man einfach ein anderes Tile wählen kann.
     if (buildMode !== null) {
-      const placeable = deps.canPlaceBuilding?.(target, buildMode) ?? true
+      // Auf ein nahes eigenes Gebäude rasten (Upgrade ohne pixelgenaues Treffen).
+      const snapped = deps.snapBuildTarget?.(target, buildMode) ?? target
+      const placeable = deps.canPlaceBuilding?.(snapped, buildMode) ?? true
       if (!placeable) return
-      emit({ type: 'build', playerId: deps.playerId, tile: target, buildingType: buildMode })
+      emit({ type: 'build', playerId: deps.playerId, tile: snapped, buildingType: buildMode })
       setBuildMode(null)
       return
     }

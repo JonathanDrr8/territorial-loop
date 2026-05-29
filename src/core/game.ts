@@ -1120,6 +1120,36 @@ export function buildCostFor(state: GameState, playerId: number, type: BuildingT
   return buildCost(type, count)
 }
 
+/** Snap-Radius (Tiles) beim Bauen — innerhalb dessen der Cursor auf ein eigenes Gebäude rastet. */
+export const BUILD_SNAP_RADIUS = 2
+
+/**
+ * „Snapping" beim Bauen/Upgraden: liegt nahe `tile` (≤ [[BUILD_SNAP_RADIUS]], Torus) ein
+ * EIGENES Gebäude desselben `type`, liefert dessen Tile (→ Klick upgradet es, ohne pixelgenaues
+ * Treffen). Sonst `tile` unverändert. Wird für Vorschau UND Platzierung genutzt (konsistent).
+ */
+export function snapBuildTile(
+  state: GameState,
+  playerId: number,
+  tile: TileRef,
+  type: BuildingType,
+): TileRef {
+  const { width, height } = state.map
+  const tx = tile % width
+  const ty = Math.floor(tile / width)
+  let best = -1
+  let bestDist = BUILD_SNAP_RADIUS + 0.0001
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== playerId || b.type !== type) continue
+    const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+    if (d <= bestDist) {
+      bestDist = d
+      best = b.tile
+    }
+  }
+  return best >= 0 ? best : tile
+}
+
 /** Prüft ob ein Tile in `PORT_WATER_RANGE` an Wasser grenzt (für Hafen-Bau). */
 export function nearWater(state: GameState, tile: TileRef): boolean {
   const { width, height } = state.map

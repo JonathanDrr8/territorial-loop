@@ -16,7 +16,13 @@
 import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
-import { canBuildAt, CAPTURE_FADE_TICKS, type GameState, type Player } from '../core/game'
+import {
+  canBuildAt,
+  CAPTURE_FADE_TICKS,
+  snapBuildTile,
+  type GameState,
+  type Player,
+} from '../core/game'
 import { areAllied, directedKey } from '../core/diplomacy'
 import {
   type Boat,
@@ -1514,7 +1520,7 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     if (buildPreviewType === null || hoverTile === null) return
     const mapW = state.map.width
     const mapH = state.map.height
-    const ref = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+    const rawRef = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
     let humanId = -1
     for (const p of state.players.values()) {
       if (p.isHuman) {
@@ -1523,6 +1529,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
       }
     }
     if (humanId < 0) return
+    // Auf ein nahes eigenes Gebäude gleichen Typs rasten (wie der Klick) — Geist springt dorthin.
+    const ref = snapBuildTile(state, humanId, rawRef, buildPreviewType)
     const valid = canBuildAt(state, humanId, ref, buildPreviewType)
     const ring = valid ? '#5dd75d' : '#e05a5a'
     const fill = valid ? 'rgba(93,215,93,0.30)' : 'rgba(224,90,90,0.30)'
@@ -1531,8 +1539,8 @@ export function createRenderer(container: HTMLElement, state: GameState): Render
     const z = camera.zoom
     const radius = Math.max(7, Math.min(13, z * 4.5))
     const glyph = BUILDING_GLYPH[buildPreviewType]
-    const tx = hoverTile.x + 0.5
-    const ty = hoverTile.y + 0.5
+    const tx = (ref % mapW) + 0.5
+    const ty = Math.floor(ref / mapW) + 0.5
     screenCtx.save()
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'

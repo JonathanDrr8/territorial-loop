@@ -5,6 +5,7 @@ import {
   effectiveMaxTroops,
   factoryYield,
   goldBreakdown,
+  snapBuildTile,
   tick,
   type GameConfig,
   type GameState,
@@ -500,6 +501,30 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     for (let i = 0; i < 31; i++) tick(state, [])
     expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0) // Gunst entstand
     expect(p2.gold).toBeGreaterThan(goldBefore) // Nachbar bekam (auch) den Gold-Bonus
+  })
+
+  it('snapBuildTile rastet auf ein nahes eigenes Gebäude gleichen Typs', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const H = state.map.height
+    const cityTile = tileRef(20, 20, W, H)
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // Cursor 2 Tiles daneben, gleicher Typ → rastet auf die Stadt.
+    expect(snapBuildTile(state, 1, tileRef(22, 20, W, H), 'city')).toBe(cityTile)
+    // Weiter weg → kein Snap (Original-Tile).
+    const far = tileRef(30, 20, W, H)
+    expect(snapBuildTile(state, 1, far, 'city')).toBe(far)
+    // Anderer Typ → kein Snap.
+    const near = tileRef(21, 20, W, H)
+    expect(snapBuildTile(state, 1, near, 'port')).toBe(near)
+    // Fremdes Gebäude (anderer Besitzer) → kein Snap.
+    expect(snapBuildTile(state, 2, tileRef(22, 20, W, H), 'city')).toBe(tileRef(22, 20, W, H))
   })
 })
 
