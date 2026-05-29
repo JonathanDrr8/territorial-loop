@@ -67,4 +67,43 @@ describe('NetworkTransport — Client-Lockstep gegen den Server (ADR-0009 Phase 
     const [ha, hb] = await Promise.all([a, b])
     expect(ha).toBe(hb)
   }, 15000)
+
+  it('Host-Settings greifen: KI=0/Wilde=0 → Match nur mit den Menschen', async () => {
+    const startConfig = new Promise<number>((resolve, reject) => {
+      let myId = 0
+      let configured = false
+      let readied = false
+      let t: NetworkTransport | null = null
+      t = new NetworkTransport({
+        url: `ws://localhost:${String(server.port)}`,
+        room: 'CFG',
+        name: 'Host',
+        socketFactory,
+        onJoined: (playerId) => {
+          myId = playerId
+        },
+        onLobby: (peers, settings, hostId) => {
+          if (myId === hostId && !configured) {
+            configured = true
+            t?.configure({ ...settings, aiCount: 0, wildCount: 0 })
+          }
+          if (!readied && peers.length >= 2) {
+            readied = true
+            t?.setReady(true)
+          }
+        },
+        onStart: (config) => {
+          t?.destroy()
+          resolve(config.players.length)
+        },
+      })
+      setTimeout(() => reject(new Error('host timeout')), 12000)
+    })
+    // Zweiter Spieler, damit „alle bereit" erreichbar ist.
+    await new Promise((r) => setTimeout(r, 100))
+    const guest = runClient('Gast', 'CFG', 3).catch(() => 0) // läuft kurz mit
+    const playerCount = await startConfig
+    await guest
+    expect(playerCount).toBe(2) // 2 Menschen, 0 KI, 0 Wilde
+  }, 15000)
 })

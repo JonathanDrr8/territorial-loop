@@ -17,21 +17,57 @@ import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
 
 import { ServerMatch } from './match'
+import type { Difficulty } from '../src/ai/ai'
 import type { GameConfig, PlayerDef } from '../src/core/game'
+import type { TerrainType } from '../src/world/terrain'
 import {
   encode,
   decodeClient,
   type ClientMessage,
   type ServerMessage,
   type PeerInfo,
+  type MatchSettings,
 } from '../src/net/protocol'
 
 const PORT = Number(process.env.PORT ?? 8787)
 /** Turn-Takt in ms (entspricht SIM_BASE_INTERVAL_MS des Clients). */
 const TURN_MS = 100
-/** Default-Gegner/Wilde, bis die Lobby (Phase 5) das konfigurierbar macht. */
-const DEFAULT_AI = 2
-const DEFAULT_WILD = 2
+
+/** Default-Match-Settings, bis der Host sie in der Lobby anpasst. */
+const DEFAULT_SETTINGS: MatchSettings = {
+  mapWidth: 256,
+  mapHeight: 256,
+  terrain: 'continents',
+  seed: '',
+  aiCount: 2,
+  wildCount: 2,
+  victoryPct: 90,
+  difficulty: 'normal',
+}
+
+/** Begrenzt vom Host gesetzte Settings auf sinnvolle Bereiche (Schutz vor Unfug/Riesenkarten). */
+function clampSettings(s: MatchSettings): MatchSettings {
+  const clamp = (v: number, lo: number, hi: number): number =>
+    Math.max(lo, Math.min(hi, Math.round(v)))
+  const terrain: TerrainType =
+    s.terrain === 'flat' || s.terrain === 'continents' || s.terrain === 'islands'
+      ? s.terrain
+      : 'continents'
+  const difficulty: Difficulty =
+    s.difficulty === 'easy' || s.difficulty === 'normal' || s.difficulty === 'hard'
+      ? s.difficulty
+      : 'normal'
+  return {
+    mapWidth: clamp(s.mapWidth, 64, 2048),
+    mapHeight: clamp(s.mapHeight, 64, 2048),
+    terrain,
+    seed: typeof s.seed === 'string' ? s.seed.slice(0, 64) : '',
+    aiCount: clamp(s.aiCount, 0, 200),
+    wildCount: clamp(s.wildCount, 0, 400),
+    victoryPct: clamp(s.victoryPct, 1, 100),
+    difficulty,
+  }
+}
 
 interface Member {
   readonly playerId: number
@@ -44,6 +80,8 @@ interface Room {
   readonly code: string
   readonly members: Map<number, Member>
   nextPlayerId: number
+  hostId: number // erster Beitritt = Host (darf Settings setzen)
+  settings: MatchSettings
   match: ServerMatch | null
   clock: ReturnType<typeof setInterval> | null
 }
@@ -76,20 +114,26 @@ function peerList(room: Room): (PeerInfo & { ready: boolean })[] {
 }
 
 function sendLobby(room: Room): void {
-  broadcast(room, { kind: 'lobby', peers: peerList(room) })
+  broadcast(room, {
+    kind: 'lobby',
+    peers: peerList(room),
+    settings: room.settings,
+    hostId: room.hostId,
+  })
 }
 
-/** Baut die Match-Config aus den menschlichen Mitgliedern + Default-KI/Wilden. */
+/** Baut die Match-Config aus den menschlichen Mitgliedern + den Host-Settings. */
 function buildConfig(room: Room): GameConfig {
+  const s = room.settings
   const players: PlayerDef[] = []
   let id = 0
   for (const m of room.members.values()) {
     players.push({ id: m.playerId, name: m.name, color: colorFor(m.playerId), isHuman: true })
     id = Math.max(id, m.playerId)
   }
-  for (let i = 0; i < DEFAULT_AI; i++)
+  for (let i = 0; i < s.aiCount; i++)
     players.push({ id: ++id, name: `KI ${String(i + 1)}`, color: colorFor(id), isHuman: false })
-  for (let i = 0; i < DEFAULT_WILD; i++)
+  for (let i = 0; i < s.wildCount; i++)
     players.push({
       id: ++id,
       name: `Wilde ${String(i + 1)}`,
@@ -98,11 +142,11 @@ function buildConfig(room: Room): GameConfig {
       wild: true,
     })
   return {
-    mapWidth: 256,
-    mapHeight: 256,
-    seed: `room-${room.code}`,
-    victoryPct: 90,
-    terrain: 'continents',
+    mapWidth: s.mapWidth,
+    mapHeight: s.mapHeight,
+    seed: s.seed.length > 0 ? s.seed : `room-${room.code}`,
+    victoryPct: s.victoryPct,
+    terrain: s.terrain,
     players,
   }
 }
@@ -116,7 +160,7 @@ function colorFor(id: number): number {
 function startMatch(room: Room): void {
   if (room.match !== null) return
   const config = buildConfig(room)
-  room.match = new ServerMatch(config)
+  room.match = new ServerMatch(config, room.settings.difficulty)
   broadcast(room, { kind: 'start', config })
   room.clock = setInterval(() => {
     const match = room.match
@@ -144,6 +188,13 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
       member.ready = msg.ready
       sendLobby(room)
       maybeStart(room)
+      break
+    case 'configure':
+      // Nur der Host darf die Match-Settings setzen, und nur vor dem Start.
+      if (member.playerId === room.hostId && room.match === null) {
+        room.settings = clampSettings(msg.settings)
+        sendLobby(room)
+      }
       break
     case 'submit-intents':
       room.match?.submitIntents(msg.turn, msg.intents, member.playerId)
@@ -206,7 +257,15 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
         const code = msg.room.length > 0 ? msg.room.toUpperCase() : makeRoomCode()
         let r = rooms.get(code)
         if (r === undefined) {
-          r = { code, members: new Map(), nextPlayerId: 1, match: null, clock: null }
+          r = {
+            code,
+            members: new Map(),
+            nextPlayerId: 1,
+            hostId: 0,
+            settings: DEFAULT_SETTINGS,
+            match: null,
+            clock: null,
+          }
           rooms.set(code, r)
         }
         // Reconnect: ein eingefrorener Slot gleichen Namens wird übernommen.
@@ -230,6 +289,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
           return
         }
         const playerId = r.nextPlayerId++
+        if (r.hostId === 0) r.hostId = playerId // erster Beitritt wird Host
         member = { playerId, name: msg.name || `Spieler ${String(playerId)}`, ready: false, socket }
         r.members.set(playerId, member)
         room = r

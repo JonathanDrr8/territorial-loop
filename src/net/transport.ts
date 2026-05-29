@@ -23,7 +23,13 @@
 import type { GameConfig } from '../core/game'
 import type { Intent } from '../core/intent'
 import type { SerializedGameState } from '../core/serialize'
-import { decodeServer, encode, type ClientMessage, type PeerInfo } from './protocol'
+import {
+  decodeServer,
+  encode,
+  type ClientMessage,
+  type MatchSettings,
+  type PeerInfo,
+} from './protocol'
 
 /** Ein committetes Intent-Set für genau einen Turn, in fester Anwendungsreihenfolge. */
 export type CommitHandler = (turn: number, intents: readonly Intent[]) => void
@@ -180,8 +186,12 @@ export interface NetworkTransportOptions {
   onSnapshot?: (turn: number, state: SerializedGameState) => void
   /** Beitritt bestätigt (eigene Spieler-ID + tatsächlicher Raum-Code). */
   onJoined?: (playerId: number, room: string) => void
-  /** Lobby-Aktualisierung (Teilnehmer + Ready). */
-  onLobby?: (peers: readonly (PeerInfo & { ready: boolean })[]) => void
+  /** Lobby-Aktualisierung (Teilnehmer + Ready, aktuelle Settings, Host-ID). */
+  onLobby?: (
+    peers: readonly (PeerInfo & { ready: boolean })[],
+    settings: MatchSettings,
+    hostId: number,
+  ) => void
   /** Eine Nation wurde eingefroren (Disconnect) bzw. ist zurück. */
   onPeerFrozen?: (playerId: number, frozen: boolean) => void
   /** Eingabeverzögerung in Turns (Default {@link DEFAULT_INPUT_DELAY}). */
@@ -242,6 +252,11 @@ export class NetworkTransport implements IntentTransport {
     this.sendMsg({ kind: 'ready', ready })
   }
 
+  /** Match-Settings setzen (nur als Host wirksam — der Server prüft das). */
+  configure(settings: MatchSettings): void {
+    this.sendMsg({ kind: 'configure', settings })
+  }
+
   /** Eigenen State-Hash zu einem Turn melden — der Server prüft auf Desync (→ Snapshot). */
   reportHash(turn: number, hash: number): void {
     this.sendMsg({ kind: 'state-hash', turn, hash })
@@ -279,7 +294,7 @@ export class NetworkTransport implements IntentTransport {
         this.opts.onJoined?.(msg.playerId, msg.room)
         break
       case 'lobby':
-        this.opts.onLobby?.(msg.peers)
+        this.opts.onLobby?.(msg.peers, msg.settings, msg.hostId)
         break
       case 'start':
         this.opts.onStart(msg.config)

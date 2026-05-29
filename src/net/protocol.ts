@@ -9,15 +9,33 @@
  * MVP: JSON über WebSocket. Später ggf. binär — die Typen bleiben die Schnittstelle.
  */
 
+import type { Difficulty } from '../ai/ai'
 import type { GameConfig } from '../core/game'
 import type { Intent } from '../core/intent'
 import type { SerializedGameState } from '../core/serialize'
+import type { TerrainType } from '../world/terrain'
 
 /** Eine Lobby-/Match-Teilnehmerzeile (für Anzeige + Slot-Zuordnung). */
 export interface PeerInfo {
   readonly playerId: number
   readonly name: string
   readonly connected: boolean
+}
+
+/**
+ * Vom Host konfigurierbare Match-Parameter (die Menschen kommen aus der Lobby dazu). Der Server
+ * baut daraus + den verbundenen Spielern die finale `GameConfig`. Leerer `seed` ⇒ Server leitet
+ * einen aus dem Raum-Code ab.
+ */
+export interface MatchSettings {
+  readonly mapWidth: number
+  readonly mapHeight: number
+  readonly terrain: TerrainType
+  readonly seed: string
+  readonly aiCount: number
+  readonly wildCount: number
+  readonly victoryPct: number
+  readonly difficulty: Difficulty
 }
 
 /* ── Client → Server ──────────────────────────────────────────────────────── */
@@ -54,7 +72,19 @@ export interface ResyncRequestMsg {
   readonly kind: 'resync-request'
 }
 
-export type ClientMessage = JoinMsg | SubmitIntentsMsg | StateHashMsg | ReadyMsg | ResyncRequestMsg
+/** Host setzt die Match-Parameter (nur vom Raum-Ersteller akzeptiert). */
+export interface ConfigureMsg {
+  readonly kind: 'configure'
+  readonly settings: MatchSettings
+}
+
+export type ClientMessage =
+  | JoinMsg
+  | SubmitIntentsMsg
+  | StateHashMsg
+  | ReadyMsg
+  | ResyncRequestMsg
+  | ConfigureMsg
 
 /* ── Server → Client ──────────────────────────────────────────────────────── */
 
@@ -65,10 +95,12 @@ export interface JoinedMsg {
   readonly playerId: number
 }
 
-/** Lobby-Zustand (Teilnehmerliste + Ready-Status). */
+/** Lobby-Zustand: Teilnehmer + Ready, aktuelle Match-Settings, wer der Host ist. */
 export interface LobbyMsg {
   readonly kind: 'lobby'
   readonly peers: readonly (PeerInfo & { readonly ready: boolean })[]
+  readonly settings: MatchSettings
+  readonly hostId: number
 }
 
 /** Match-Start: alle Clients bauen `createGame(config)` mit demselben Seed/Config. */
