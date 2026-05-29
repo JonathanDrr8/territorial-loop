@@ -15,9 +15,10 @@ import {
   type GameConfig,
   type PlayerDef,
 } from './core/game'
+import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
-import { LocalTransport } from './net/transport'
+import { LocalTransport, type IntentTransport, type NetworkTransport } from './net/transport'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
@@ -29,11 +30,13 @@ import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { pickRandomNames } from './ui/player-names'
-import { loadMenuPrefs, saveMenuPrefs } from './ui/preferences'
+import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
+import type { MatchSettings } from './net/protocol'
+import { loadMenuPrefs, loadServerUrl, saveMenuPrefs, saveServerUrl } from './ui/preferences'
 import { createSoundEngine } from './ui/sound'
 import { createStartMenu, TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
 
-const HUMAN_ID = 1
+const SOLO_PLAYER_ID = 1
 const SIM_BASE_INTERVAL_MS = 100
 const DEFAULT_SLIDER_PCT = 30
 
@@ -85,7 +88,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
 
   const players: PlayerDef[] = []
-  let id = HUMAN_ID
+  let id = SOLO_PLAYER_ID
   let colorIdx = 0
   let nameIdx = 0
   if (!spectator) {
@@ -125,20 +128,33 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   }
 }
 
+/**
+ * Mehrspieler-Sitzung: ein bereits verbundener `NetworkTransport`, die vom Server gelieferte
+ * Config und die eigene (server-vergebene) Spieler-ID. Ist das gesetzt, läuft das Match über
+ * den Server (KI auf dem Server, keine lokale KI/Takt-Uhr).
+ */
+interface NetSession {
+  transport: NetworkTransport
+  config: GameConfig
+  humanId: number
+}
+
 function startMatch(
   container: HTMLElement,
   menu: StartMenuValues,
   onRequestNewMatch: () => void,
   spectator: boolean,
+  net?: NetSession,
 ): MatchSession {
-  const config = buildConfig(menu, spectator)
+  const config = net?.config ?? buildConfig(menu, spectator)
+  const humanId = net?.humanId ?? SOLO_PLAYER_ID
   const state = createGame(config)
   const renderer = createRenderer(container, state)
   renderer.setCameraMode(menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
   // das Canvas hier noch nicht final dimensioniert ist.)
-  renderer.centerOnPlayer(HUMAN_ID)
+  renderer.centerOnPlayer(humanId)
   let recenterPending = true
   const sound = createSoundEngine()
   sound.setEnabled(menu.soundEnabled)
@@ -162,34 +178,40 @@ function startMatch(
   let renderRafId: number | null = null
   let destroyed = false
 
+  // Sim-Naht (ADR-0009): UI/Eingabe reichen Intents per `submit` ein, `tick()` läuft aus
+  // `onCommitted`. Single-Player: LocalTransport mit lokaler Takt-Uhr + lokaler KI. Mehrspieler:
+  // der schon verbundene NetworkTransport (KI + Takt auf dem Server).
   const ais: AI[] = []
-  for (const p of state.players.values()) {
-    if (p.isHuman) continue
-    // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
-    // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
-    ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild))
+  if (net === undefined) {
+    for (const p of state.players.values()) {
+      if (p.isHuman) continue
+      // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
+      // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
+      ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild))
+    }
   }
 
-  // Sim-Naht (ADR-0009): UI/Eingabe reichen Intents per `submit` ein, die KI liefert die
-  // „server-seitigen" Intents je Turn. Der Transport bündelt beides ([UI…, KI…]) und treibt
-  // `tick()` aus `onCommitted` — identisches Interface für späteres Network-Lockstep.
-  const transport = new LocalTransport({
-    produceServerIntents: () => {
-      const aiIntents: Intent[] = []
-      for (const ai of ais) {
-        for (const intent of ai.decide(state)) aiIntents.push(intent)
-      }
-      return aiIntents
-    },
-    intervalMs: SIM_BASE_INTERVAL_MS,
-    running: true,
-  })
+  const transport: IntentTransport =
+    net?.transport ??
+    new LocalTransport({
+      produceServerIntents: () => {
+        const aiIntents: Intent[] = []
+        for (const ai of ais) {
+          for (const intent of ai.decide(state)) aiIntents.push(intent)
+        }
+        return aiIntents
+      },
+      intervalMs: SIM_BASE_INTERVAL_MS,
+      running: true,
+    })
   // Jeden committeten Turn mitschneiden → ein Replay-Log (config + turns) reproduziert das
   // Match bit-genau (ADR-0009 Phase 3). Für Desync-Repro/Debugging über `__TL__` erreichbar.
   const recorder = createRecorder()
   transport.onCommitted((turn, intents) => {
     recorder.record(turn, intents)
     tick(state, intents)
+    // Im Mehrspieler dem Server den eigenen Hash melden → Desync-Erkennung (→ Snapshot).
+    net?.transport.reportHash(turn, hashState(state))
   })
   const submit = (intent: Intent): void => {
     transport.submit([intent])
@@ -206,15 +228,15 @@ function startMatch(
     onRequestNewMatch,
     (type) => inputHandler?.toggleBuildMode(type),
     () => inputHandler?.toggleBoatMode(),
-    (attackIndex) => submit({ type: 'cancel-attack', playerId: HUMAN_ID, attackIndex }),
-    (boatIndex) => submit({ type: 'boat-recall', playerId: HUMAN_ID, boatIndex }),
-    (warshipIndex) => submit({ type: 'recall-warship', playerId: HUMAN_ID, warshipIndex }),
+    (attackIndex) => submit({ type: 'cancel-attack', playerId: humanId, attackIndex }),
+    (boatIndex) => submit({ type: 'boat-recall', playerId: humanId, boatIndex }),
+    (warshipIndex) => submit({ type: 'recall-warship', playerId: humanId, warshipIndex }),
     (attackerId) =>
       submit({
         type: 'defend',
-        playerId: HUMAN_ID,
+        playerId: humanId,
         attackerId,
-        troops: Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+        troops: Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
       }),
     (tile) => {
       // ⌖ „Zum Kampf springen": Kamera auf das (Front-)Tile zentrieren.
@@ -238,29 +260,29 @@ function startMatch(
   const tooltip = createHoverTooltip(
     container,
     state,
-    HUMAN_ID,
-    () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+    humanId,
+    () => Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
     (h) => renderer.setHoverHighlight(h),
   )
   const eventLog = createEventLog(container, state)
   const alliancePrompt = createAlliancePrompt(
     container,
     state,
-    HUMAN_ID,
+    humanId,
     (requesterId) =>
       submit({
         type: 'accept-alliance',
-        playerId: HUMAN_ID,
+        playerId: humanId,
         targetPlayerId: requesterId,
       }),
-    (requesterId) => submit({ type: 'decline-alliance', playerId: HUMAN_ID, requesterId }),
+    (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
   )
   const buildMenu = createBuildMenu(
     container,
     state,
-    HUMAN_ID,
+    humanId,
     (intent) => submit(intent),
-    () => Math.floor(((state.players.get(HUMAN_ID)?.troops ?? 0) * sliderPct) / 100),
+    () => Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
   )
 
   const confirmDialog = createConfirmDialog(container)
@@ -270,11 +292,11 @@ function startMatch(
     camera: renderer.camera,
     mapWidth: state.map.width,
     mapHeight: state.map.height,
-    playerId: HUMAN_ID,
+    playerId: humanId,
     interactive: !spectator,
     cameraMode: menu.cameraMode,
     emit: (intent) => submit(intent),
-    getPlayerTroops: () => state.players.get(HUMAN_ID)?.troops ?? 0,
+    getPlayerTroops: () => state.players.get(humanId)?.troops ?? 0,
     getSliderPct: () => sliderPct,
     setSliderPct: (pct) => {
       sliderPct = pct
@@ -308,7 +330,7 @@ function startMatch(
       if (indices.length > 0)
         submit({
           type: 'move-warship',
-          playerId: HUMAN_ID,
+          playerId: humanId,
           warshipIndices: indices,
           targetTile: tile,
         })
@@ -317,8 +339,8 @@ function startMatch(
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)
     },
-    canPlaceBuilding: (tile, type) => canBuildAt(state, HUMAN_ID, tile, type),
-    snapBuildTarget: (tile, type) => snapBuildTile(state, HUMAN_ID, tile, type),
+    canPlaceBuilding: (tile, type) => canBuildAt(state, humanId, tile, type),
+    snapBuildTarget: (tile, type) => snapBuildTile(state, humanId, tile, type),
     events: {
       pause(): void {
         paused = !paused
@@ -360,12 +382,12 @@ function startMatch(
     // ist (initialer Aufruf kann vor dem finalen Layout passieren).
     if (recenterPending) {
       recenterPending = false
-      renderer.centerOnPlayer(HUMAN_ID)
+      renderer.centerOnPlayer(humanId)
     }
     // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
     if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
       endChimePlayed = true
-      if (state.winner === HUMAN_ID) {
+      if (state.winner === humanId) {
         sound.victory()
       } else {
         sound.defeat()
@@ -440,40 +462,78 @@ function main(): void {
   container.style.position = 'relative'
 
   let session: MatchSession | null = null
+  let lobby: MultiplayerMenuApi | null = null
+
+  /** Beendet eine evtl. laufende Session und kehrt ins Start-Menü zurück. */
+  function backToMenu(): void {
+    if (session !== null) {
+      session.destroy()
+      session = null
+    }
+    showMenu()
+  }
+
+  /** Öffnet die Mehrspieler-Lobby; bei Match-Start läuft die Session über den Server-Transport. */
+  function showLobby(initial: StartMenuValues): void {
+    const settings: MatchSettings = {
+      mapWidth: 256,
+      mapHeight: 256,
+      terrain: initial.terrain,
+      seed: '',
+      aiCount: 2,
+      wildCount: 2,
+      victoryPct: initial.victoryPct,
+      difficulty: initial.difficulty,
+    }
+    lobby = createMultiplayerMenu(container, {
+      defaultServerUrl: loadServerUrl('ws://localhost:8787'),
+      defaultName: initial.playerName,
+      defaultSettings: settings,
+      saveServerUrl,
+      onBack: () => {
+        lobby?.destroy()
+        lobby = null
+        showMenu()
+      },
+      onMatchStart: (config, transport, humanId) => {
+        lobby?.destroy()
+        lobby = null
+        // NetworkTransport puffert frühe Commits → synchroner Start ist sicher.
+        session = startMatch(container, initial, backToMenu, false, { transport, config, humanId })
+      },
+    })
+  }
 
   function showMenu(): void {
     const initial = loadMenuPrefs(DEFAULT_MENU)
-    const menu = createStartMenu(container, initial, (values, spectator) => {
-      saveMenuPrefs(values)
-      menu.destroy()
-      if (session !== null) {
-        session.destroy()
-        session = null
-      }
-      // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
-      // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
-      const removeLoading = showLoadingOverlay(container)
-      requestAnimationFrame(() => {
+    const menu = createStartMenu(
+      container,
+      initial,
+      (values, spectator) => {
+        saveMenuPrefs(values)
+        menu.destroy()
+        if (session !== null) {
+          session.destroy()
+          session = null
+        }
+        // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
+        // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
+        const removeLoading = showLoadingOverlay(container)
         requestAnimationFrame(() => {
-          try {
-            session = startMatch(
-              container,
-              values,
-              () => {
-                if (session !== null) {
-                  session.destroy()
-                  session = null
-                }
-                showMenu()
-              },
-              spectator,
-            )
-          } finally {
-            removeLoading()
-          }
+          requestAnimationFrame(() => {
+            try {
+              session = startMatch(container, values, backToMenu, spectator)
+            } finally {
+              removeLoading()
+            }
+          })
         })
-      })
-    })
+      },
+      () => {
+        menu.destroy()
+        showLobby(initial)
+      },
+    )
   }
 
   showMenu()

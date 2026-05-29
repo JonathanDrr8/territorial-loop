@@ -119,3 +119,23 @@ export function saveMenuPrefs(values: StartMenuValues): void {
     // Privacy-Modus / Quota überschritten — silent ignore
   }
 }
+
+const SERVER_URL_KEY = 'territorial-loop:server-url:v1'
+
+/** Lädt die zuletzt genutzte Mehrspieler-Server-URL (oder `fallback`). */
+export function loadServerUrl(fallback: string): string {
+  try {
+    const v = window.localStorage.getItem(SERVER_URL_KEY)
+    return v !== null && v.length > 0 ? v : fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function saveServerUrl(url: string): void {
+  try {
+    window.localStorage.setItem(SERVER_URL_KEY, url)
+  } catch {
+    // silent ignore
+  }
+}

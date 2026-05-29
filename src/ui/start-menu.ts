@@ -180,6 +180,7 @@ export function createStartMenu(
   container: HTMLElement,
   initial: StartMenuValues,
   onStart: (values: StartMenuValues, spectator: boolean) => void,
+  onMultiplayer?: () => void,
 ): StartMenuApi {
   const overlay = document.createElement('div')
   overlay.style.cssText = [
@@ -483,6 +484,27 @@ export function createStartMenu(
     onStart(collectValues(), true)
   })
   panel.appendChild(watchBtn)
+
+  // Mehrspieler — öffnet die Lobby (Verbindung zum Lockstep-Server, ADR-0009).
+  if (onMultiplayer !== undefined) {
+    const mpBtn = document.createElement('button')
+    mpBtn.textContent = 'Mehrspieler'
+    mpBtn.style.cssText = [
+      'margin-top: 10px',
+      'width: 100%',
+      'padding: 10px',
+      'background: transparent',
+      'color: white',
+      `border: 1px solid ${ACCENT}`,
+      'border-radius: 8px',
+      'font-size: 13px',
+      'font-family: inherit',
+      'cursor: pointer',
+      'opacity: 0.95',
+    ].join(';')
+    mpBtn.addEventListener('click', () => onMultiplayer())
+    panel.appendChild(mpBtn)
+  }
 
   // Zwei-Spalten-Shell: links das Einstellungs-Panel, rechts das Experimentell-Panel.
   const shell = document.createElement('div')

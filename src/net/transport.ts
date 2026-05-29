@@ -210,6 +210,8 @@ export class NetworkTransport implements IntentTransport {
   private readonly opts: NetworkTransportOptions
   private readonly inputDelay: number
   private handler: CommitHandler | null = null
+  /** Commits, die vor dem Registrieren von `onCommitted` eintrafen (Start-Rennen abfangen). */
+  private pending: { turn: number; intents: readonly Intent[] }[] = []
   /** Zuletzt committeter Turn vom Server (−1 = noch keiner). */
   private lastCommittedTurn = -1
 
@@ -237,6 +239,10 @@ export class NetworkTransport implements IntentTransport {
 
   onCommitted(cb: CommitHandler): void {
     this.handler = cb
+    // Vor der Registrierung eingetroffene Commits in Reihenfolge nachholen.
+    const queued = this.pending
+    this.pending = []
+    for (const c of queued) cb(c.turn, c.intents)
   }
 
   // Die Uhr liegt beim Server — lokale Pause/Tempo-Steuerung greift im Lockstep nicht.
@@ -301,7 +307,8 @@ export class NetworkTransport implements IntentTransport {
         break
       case 'commit':
         this.lastCommittedTurn = msg.turn
-        this.handler?.(msg.turn, msg.intents)
+        if (this.handler === null) this.pending.push({ turn: msg.turn, intents: msg.intents })
+        else this.handler(msg.turn, msg.intents)
         break
       case 'snapshot':
         // Der Client springt nach einem Snapshot auf dessen Turn (Resync/Reconnect).
