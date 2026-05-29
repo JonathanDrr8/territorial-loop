@@ -185,26 +185,19 @@ export function createHUD(
   ].join(';')
   container.appendChild(dangerVignette)
 
-  /* ---- Oben links (unter Info): Angriffs-Übersicht ------------------------- */
+  /* ---- Aktive Aktionen (Abbrechen/Abwehr/Schiff-Rückruf) ------------------- */
+  // Sitzt als oberste Zeile IM unteren Aktions-Panel (siehe weiter unten eingehängt),
+  // damit Abbrechen/Abwehr direkt beim Geschehen und immer frei klickbar sind (früher
+  // oben links, wo es die Steuerung-Hilfe überlappen konnte).
   const attackPanel = document.createElement('div')
   attackPanel.style.cssText = [
-    'position: absolute',
-    'top: 92px',
-    'left: 12px',
-    'min-width: 180px',
-    'max-width: 240px',
-    'background: rgba(0,0,0,0.82)',
-    'color: white',
-    'padding: 6px 9px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 11px',
-    'line-height: 1.5',
-    'border-radius: 6px',
-    'pointer-events: auto',
-    'z-index: 10',
+    'line-height: 1.6',
+    'margin-bottom: 8px',
+    'padding-bottom: 6px',
+    'border-bottom: 1px solid rgba(255,255,255,0.14)',
     'display: none',
   ].join(';')
-  container.appendChild(attackPanel)
   // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote & Kriegsschiffe zurückrufen.
   attackPanel.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement | null)?.closest(
@@ -330,6 +323,9 @@ export function createHUD(
     'pointer-events: auto',
     'z-index: 11',
   ].join(';')
+
+  // Aktive-Aktionen-Leiste ganz oben ins Panel (Abbrechen/Abwehr/Rückruf, klickbar).
+  actionBar.appendChild(attackPanel)
 
   // Truppen-Beschriftung liegt jetzt direkt IM Balken (zentriert, mit Schatten für
   // Lesbarkeit über den farbigen Segmenten).
