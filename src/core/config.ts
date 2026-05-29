@@ -6,10 +6,14 @@
  *
  * **Implementierungs-Hinweis:** Werte sind als `number`, nicht `bigint`. Auch
  * bei extremen Map-Größen (≥10M Tiles) bleiben alle Truppen-Zahlen weit unter
- * `Number.MAX_SAFE_INTEGER`. Native `Math.pow` ist deutlich performanter als
- * bigint-Math. Falls zukünftige Map-Größen oder Skill-Multiplier das ändern,
- * wechseln wir punktuell zu bigint.
+ * `Number.MAX_SAFE_INTEGER`. Falls zukünftige Map-Größen oder Skill-Multiplier das
+ * ändern, wechseln wir punktuell zu bigint.
+ *
+ * **Determinismus:** Potenzen über `detPow` statt `Math.pow` — `Math.pow` ist über
+ * JS-Engines nicht bit-genau, und Cap/Wachstum fließen jeden Tick in den State (ADR-0009).
  */
+
+import { detPow } from './det-math'
 
 /** Start-Truppen für menschliche Spieler (klein → längere, spürbare Wachstumskurve). */
 export const HUMAN_START_TROOPS = 2_500
@@ -73,7 +77,7 @@ export function maxTroops(numTilesOwned: number, opts: { readonly bot?: boolean 
   if (numTilesOwned < 0) {
     throw new RangeError(`numTilesOwned must be >= 0, got ${numTilesOwned}`)
   }
-  const raw = MAX_TROOPS_BASE + Math.pow(numTilesOwned, 0.6) * MAX_TROOPS_PER_TILE
+  const raw = MAX_TROOPS_BASE + detPow(numTilesOwned, 0.6) * MAX_TROOPS_PER_TILE
   const value = opts.bot === true ? raw * BOT_CAP_FACTOR : raw
   return Math.floor(value)
 }
@@ -113,7 +117,7 @@ export function troopIncreaseRate(
   // dieselbe Größe `troops`. Der Aufrufer entscheidet, welche Bevölkerung das ist —
   // für Wachstum: die FREIE Bevölkerung gegen ihren freien Cap-Platz (siehe
   // growPopulations), damit gebundene Angriffstruppen das Wachstum nicht verzerren.
-  let toAdd = 10 + Math.pow(troops, 0.73) / 4
+  let toAdd = 10 + detPow(troops, 0.73) / 4
   if (opts.bot === true) toAdd *= 0.5
   const ratio = 1 - troops / max
   return Math.floor(toAdd * ratio)

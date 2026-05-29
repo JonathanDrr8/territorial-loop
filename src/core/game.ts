@@ -71,6 +71,7 @@ import type {
   TradeMode,
   UpgradeIntent,
 } from './intent'
+import { detAtan2, detSin } from './det-math'
 import { createPRNG, type PRNG } from './random'
 import {
   AECHTUNG_DURATION_TICKS,
@@ -512,9 +513,9 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
   const baseCost = (ref: TileRef): number => {
     const dx = signedTorusDelta(ref % width, cx, width)
     const dy = signedTorusDelta(Math.floor(ref / width), cy, height)
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    const angle = Math.atan2(dy, dx)
-    const lobe = Math.sin(angle * freq1 + ph1) * 0.32 + Math.sin(angle * freq2 + ph2) * 0.16
+    const dist = Math.sqrt(dx * dx + dy * dy) // sqrt ist IEEE-754-deterministisch
+    const angle = detAtan2(dy, dx)
+    const lobe = detSin(angle * freq1 + ph1) * 0.32 + detSin(angle * freq2 + ph2) * 0.16
     // Höheres Terrain ist teurer → der Spawn-Blob schmiegt sich ans Tiefland und
     // meidet Gebirge (Hügel ≈ +2, Berg ≈ +4 Tiles „weiter").
     const terrainCost = (terrainMagnitude(map.terrain, ref) - PLAINS_MAG) * SPAWN_TERRAIN_PENALTY

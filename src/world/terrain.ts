@@ -16,6 +16,7 @@
  */
 
 import type { GameMap } from './map'
+import { detCos, detSin } from '../core/det-math'
 import type { PRNG } from '../core/random'
 
 /** Bit 7 im terrain-Byte = "tile ist Land". */
@@ -114,8 +115,8 @@ function buildFractalNoise(
   for (let o = 0; o < octaves; o++) {
     for (let k = 0; k < compsPerOctave; k++) {
       const theta = prng.nextFloat(0, Math.PI * 2)
-      let fx = Math.abs(Math.round(freq * Math.cos(theta)))
-      const fy = Math.abs(Math.round(freq * Math.sin(theta)))
+      let fx = Math.abs(Math.round(freq * detCos(theta)))
+      const fy = Math.abs(Math.round(freq * detSin(theta)))
       if (fx === 0 && fy === 0) fx = 1
       const phase = prng.nextFloat(0, Math.PI * 2)
       const a = amp / compsPerOctave
@@ -131,7 +132,7 @@ function buildFractalNoise(
     for (let x = 0; x < w; x++) {
       let n = 0
       for (const c of components) {
-        n += c.amplitude * Math.cos(2 * Math.PI * ((c.fx * x) / w + (c.fy * y) / h) + c.phase)
+        n += c.amplitude * detCos(2 * Math.PI * ((c.fx * x) / w + (c.fy * y) / h) + c.phase)
       }
       values[yw + x] = totalAmp > 0 ? n / totalAmp : 0
     }
