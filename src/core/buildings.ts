@@ -38,12 +38,28 @@ export function isBuildingComplete(b: Building, tick: number): boolean {
   return tick >= b.completesAtTick
 }
 
-/** Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude des Typs. */
+/** Basis-Baukosten; tatsächliche Kosten eskalieren mit Anzahl gebauter Gebäude der Gruppe. */
 const BASE_BUILD_COST: Record<BuildingType, number> = {
   city: 25_000,
   defense: 25_000,
   port: 20_000,
   factory: 50_000,
+}
+
+/** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer. */
+export const BUILD_COST_CAP = 1_000_000
+
+/**
+ * Eskalations-Gruppen: Gebäude derselben Gruppe teilen sich den Kosten-Multiplikator
+ * (der Exponent zählt ALLE gebauten Gebäude der Gruppe, nicht nur den eigenen Typ). Häfen
+ * und Fabriken bilden eine gemeinsame Gruppe; jede andere Sorte steht für sich. Die Basis
+ * bleibt typ-spezifisch (Hafen 20k, Fabrik 50k) — nur der Exponent ist geteilt.
+ */
+export const COST_GROUP: Record<BuildingType, readonly BuildingType[]> = {
+  city: ['city'],
+  defense: ['defense'],
+  port: ['port', 'factory'],
+  factory: ['port', 'factory'],
 }
 
 /** Anzeige-Namen (UI). */
@@ -56,11 +72,14 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
 
 /**
  * Baukosten. Verteidigungsposten kosten immer gleich viel (flach); alle anderen
- * eskalieren — jedes weitere Gebäude des Typs kostet doppelt (Stadt: 25k/50k/100k…).
+ * eskalieren — jedes weitere Gebäude der Gruppe kostet doppelt (Stadt: 25k/50k/100k…),
+ * gedeckelt bei [[BUILD_COST_CAP]] (1 Mio). `existingCountInGroup` ist die Anzahl bereits
+ * gebauter Gebäude der Eskalations-Gruppe (siehe [[COST_GROUP]]).
  */
-export function buildCost(type: BuildingType, existingCountOfType: number): number {
+export function buildCost(type: BuildingType, existingCountInGroup: number): number {
   if (type === 'defense') return BASE_BUILD_COST.defense
-  return Math.round(BASE_BUILD_COST[type] * Math.pow(2, existingCountOfType))
+  const raw = Math.round(BASE_BUILD_COST[type] * Math.pow(2, existingCountInGroup))
+  return Math.min(raw, BUILD_COST_CAP)
 }
 
 /** Upgrade-Kosten von `currentLevel` auf das nächste (linear in der Stufe). */

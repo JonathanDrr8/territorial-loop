@@ -20,13 +20,12 @@ import {
   DEFENSE_BASE_RANGE,
   DEFENSE_MAG_MULTIPLIER,
   DEFENSE_RANGE_PER_LEVEL,
-  buildCost,
   type BuildingType,
 } from '../core/buildings'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
-  countBuildingsOfType,
+  buildCostFor,
   effectiveMaxTroops,
   goldBreakdown,
   totalTroops,
@@ -724,7 +723,7 @@ export function createHUD(
     for (const type of BUILDING_TYPES) {
       const costEl = buildCostEls.get(type)
       if (costEl !== undefined) {
-        const c = buildCost(type, countBuildingsOfType(state, human.id, type))
+        const c = buildCostFor(state, human.id, type)
         costEl.textContent = fmtCompact(c)
         costEl.style.color = human.gold >= c ? '#5dd75d' : '#ef5350'
       }

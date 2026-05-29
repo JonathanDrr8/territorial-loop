@@ -4,10 +4,17 @@ import {
   upgradeCost,
   defenseRange,
   BUILD_TIME_TICKS,
+  BUILD_COST_CAP,
   CITY_CAP_BONUS,
 } from '../src/core/buildings'
-import { createGame, tick, effectiveMaxTroops, type GameConfig } from '../src/core/game'
-import { getOwner } from '../src/world/map'
+import {
+  buildCostFor,
+  createGame,
+  tick,
+  effectiveMaxTroops,
+  type GameConfig,
+} from '../src/core/game'
+import { getOwner, setOwner } from '../src/world/map'
 
 function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
   return {
@@ -43,10 +50,51 @@ describe('building cost functions', () => {
     expect(upgradeCost('city', 2)).toBe(75_000)
   })
 
+  it('build cost is capped at BUILD_COST_CAP (1 Mio)', () => {
+    // Stadt: 25k × 2^n; ohne Cap wäre 2^6 = 1.6 Mio → gedeckelt.
+    expect(buildCost('city', 6)).toBe(BUILD_COST_CAP)
+    expect(buildCost('city', 20)).toBe(BUILD_COST_CAP)
+    // Fabrik: 50k × 2^n; 2^5 = 1.6 Mio → gedeckelt.
+    expect(buildCost('factory', 5)).toBe(BUILD_COST_CAP)
+  })
+
   it('defense range grows per level', () => {
     expect(defenseRange(1)).toBe(8)
     expect(defenseRange(2)).toBe(12)
     expect(defenseRange(3)).toBe(16)
+  })
+})
+
+describe('buildCostFor — Eskalations-Gruppen (pro Spieler)', () => {
+  it('Hafen und Fabrik teilen sich den Kosten-Multiplikator', () => {
+    const state = createGame(cfg())
+    // Spieler 1 hat 1 Hafen + 1 Fabrik fertig → Gruppen-Zähler = 2 für beide.
+    const t1 = ownedTile(state, 1)
+    setOwner(state.map, t1, 1)
+    state.buildings.set(t1, { type: 'port', ownerId: 1, tile: t1, level: 1, completesAtTick: 0 })
+    const t2 = t1 + 1
+    setOwner(state.map, t2, 1)
+    state.buildings.set(t2, { type: 'factory', ownerId: 1, tile: t2, level: 1, completesAtTick: 0 })
+    // Nächster Hafen: 20k × 2^2 = 80k; nächste Fabrik: 50k × 2^2 = 200k.
+    expect(buildCostFor(state, 1, 'port')).toBe(80_000)
+    expect(buildCostFor(state, 1, 'factory')).toBe(200_000)
+    // Stadt bleibt eigene Gruppe (Zähler 0) → Basispreis.
+    expect(buildCostFor(state, 1, 'city')).toBe(25_000)
+  })
+
+  it('zählt nur eigene Gebäude (pro Spieler, nicht pro Spiel)', () => {
+    const state = createGame(cfg())
+    const tEnemy = ownedTile(state, 2)
+    setOwner(state.map, tEnemy, 2)
+    state.buildings.set(tEnemy, {
+      type: 'port',
+      ownerId: 2,
+      tile: tEnemy,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // Spieler 1 hat selbst keinen Hafen → Basispreis, unbeeinflusst von Spieler 2.
+    expect(buildCostFor(state, 1, 'port')).toBe(20_000)
   })
 })
 

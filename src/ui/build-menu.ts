@@ -17,12 +17,11 @@ import {
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
-  buildCost,
   isBuildingComplete,
   upgradeCost,
   type BuildingType,
 } from '../core/buildings'
-import { canReachByLand, countBuildingsOfType, nearWater, type GameState } from '../core/game'
+import { buildCostFor, canReachByLand, nearWater, type GameState } from '../core/game'
 import { areAllied, directedKey, hasAllianceRequest, pairKey } from '../core/diplomacy'
 import { WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
@@ -364,7 +363,7 @@ export function createBuildMenu(
         title = `Gold: ${fmtCompact(player.gold)}`
         const portOk = nearWater(state, tile)
         for (const type of BUILDING_TYPES) {
-          const cost = buildCost(type, countBuildingsOfType(state, humanPlayerId, type))
+          const cost = buildCostFor(state, humanPlayerId, type)
           const enabled = type === 'port' ? portOk : true
           actions.push({
             glyph: BUILDING_GLYPH[type],

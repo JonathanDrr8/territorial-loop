@@ -40,6 +40,7 @@ import {
   type BuildingType,
   BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
+  COST_GROUP,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
   PORT_WATER_RANGE,
@@ -905,6 +906,17 @@ export function countBuildingsOfType(
   return n
 }
 
+/**
+ * Baukosten für `type` beim aktuellen Spieler-Bestand. Kapselt die Eskalations-Gruppen
+ * ([[COST_GROUP]]) — z.B. zählen für Hafen/Fabrik beide Sorten gemeinsam, sodass sie sich
+ * den Kosten-Multiplikator teilen. Single Source of Truth für UI, KI und Build-Intent.
+ */
+export function buildCostFor(state: GameState, playerId: number, type: BuildingType): number {
+  let count = 0
+  for (const t of COST_GROUP[type]) count += countBuildingsOfType(state, playerId, t)
+  return buildCost(type, count)
+}
+
 /** Prüft ob ein Tile in `PORT_WATER_RANGE` an Wasser grenzt (für Hafen-Bau). */
 export function nearWater(state: GameState, tile: TileRef): boolean {
   const { width, height } = state.map
@@ -954,7 +966,7 @@ export function canBuildAt(
     return player.gold >= upgradeCost(type, existing.level)
   }
   if (type === 'port' && !nearWater(state, tile)) return false
-  const cost = buildCost(type, countBuildingsOfType(state, playerId, type))
+  const cost = buildCostFor(state, playerId, type)
   return player.gold >= cost
 }
 
@@ -971,10 +983,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
     return
   }
 
-  const cost = buildCost(
-    intent.buildingType,
-    countBuildingsOfType(state, player.id, intent.buildingType),
-  )
+  const cost = buildCostFor(state, player.id, intent.buildingType)
   player.gold -= cost
   state.buildings.set(intent.tile, {
     type: intent.buildingType,

@@ -17,8 +17,14 @@
  * AI-PRNG → reproduzierbar.
  */
 
-import { countBuildingsOfType, effectiveMaxTroops, type GameState, type Player } from '../core/game'
-import { buildCost, defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
+import {
+  buildCostFor,
+  countBuildingsOfType,
+  effectiveMaxTroops,
+  type GameState,
+  type Player,
+} from '../core/game'
+import { defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, hasAllianceRequest } from '../core/diplomacy'
 import { MAX_WARSHIPS_PER_PLAYER, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
@@ -268,8 +274,7 @@ export function createAI(
   /** Plant einen Bau nach einfachen Prioritäten (Stadt → Hafen → Verteidigung). */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
-    const costOf = (t: BuildingType): number =>
-      buildCost(t, countBuildingsOfType(state, player.id, t))
+    const costOf = (t: BuildingType): number => buildCostFor(state, player.id, t)
 
     // 1. Truppen-Cap ist der Engpass → Stadt
     if (player.troops >= 0.9 * effectiveMaxTroops(state, player.id) && gold >= costOf('city')) {
