@@ -14,6 +14,8 @@ export interface SoundEngine {
   defeat(): void
   /** Kurzer Warnton „du wirst angegriffen". */
   alarm(): void
+  /** Sanfter Zwei-Ton-Hinweis „neues Bündnis-Angebot". */
+  alliance(): void
   setEnabled(enabled: boolean): void
   isEnabled(): boolean
   destroy(): void
@@ -98,6 +100,11 @@ export function createSoundEngine(): SoundEngine {
       // Zwei kurze, dringliche Töne (Warnung) — dezent, aber auffällig.
       playTone(620, 0.1, { type: 'square', volume: 0.07 })
       playTone(620, 0.12, { type: 'square', volume: 0.07, delay: 0.14 })
+    },
+    alliance(): void {
+      // Sanfter, freundlicher Aufwärts-Zweiklang — „Angebot eingegangen".
+      playTone(587, 0.1, { type: 'sine', volume: 0.05 })
+      playTone(880, 0.14, { type: 'sine', volume: 0.05, delay: 0.09 })
     },
     setEnabled(value: boolean): void {
       enabled = value

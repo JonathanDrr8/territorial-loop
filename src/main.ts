@@ -365,6 +365,7 @@ function startMatch(
         targetPlayerId: requesterId,
       }),
     (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
+    () => sound.alliance(),
   )
   const buildMenu = createBuildMenu(
     container,
