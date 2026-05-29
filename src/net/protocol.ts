@@ -1,0 +1,121 @@
+/**
+ * Wire-Protokoll für server-autoritatives Lockstep (ADR-0009). Geteilt zwischen Client
+ * (`NetworkTransport`, Phase 5) und Server (`server/`, Phase 4).
+ *
+ * Discriminated Unions wie in `intent.ts` — über `kind` unterscheidbar, JSON-serialisierbar.
+ * Übers Netz gehen im Normalbetrieb **nur Intents** (geringe Bandbreite); ein `snapshot` wird
+ * nur bei Resync/Reconnect verschickt.
+ *
+ * MVP: JSON über WebSocket. Später ggf. binär — die Typen bleiben die Schnittstelle.
+ */
+
+import type { GameConfig } from '../core/game'
+import type { Intent } from '../core/intent'
+import type { SerializedGameState } from '../core/serialize'
+
+/** Eine Lobby-/Match-Teilnehmerzeile (für Anzeige + Slot-Zuordnung). */
+export interface PeerInfo {
+  readonly playerId: number
+  readonly name: string
+  readonly connected: boolean
+}
+
+/* ── Client → Server ──────────────────────────────────────────────────────── */
+
+/** Raum betreten/erstellen. `room` leer ⇒ neuen Raum erstellen (Server vergibt Code). */
+export interface JoinMsg {
+  readonly kind: 'join'
+  readonly room: string
+  readonly name: string
+}
+
+/** Eigene Intents für einen Ziel-Turn einreichen (Server bündelt sie pro Turn). */
+export interface SubmitIntentsMsg {
+  readonly kind: 'submit-intents'
+  readonly turn: number
+  readonly intents: readonly Intent[]
+}
+
+/** Eigener State-Hash zu einem Turn — der Server vergleicht ihn gegen seinen (Desync-Check). */
+export interface StateHashMsg {
+  readonly kind: 'state-hash'
+  readonly turn: number
+  readonly hash: number
+}
+
+/** Bereit-Status in der Lobby (Match startet, wenn alle bereit sind). */
+export interface ReadyMsg {
+  readonly kind: 'ready'
+  readonly ready: boolean
+}
+
+/** Vollen Snapshot anfordern (Resync nach erkanntem Desync / nach Reconnect). */
+export interface ResyncRequestMsg {
+  readonly kind: 'resync-request'
+}
+
+export type ClientMessage = JoinMsg | SubmitIntentsMsg | StateHashMsg | ReadyMsg | ResyncRequestMsg
+
+/* ── Server → Client ──────────────────────────────────────────────────────── */
+
+/** Bestätigt den Beitritt + teilt dem Client seine Spieler-ID/Slot und den Raum-Code mit. */
+export interface JoinedMsg {
+  readonly kind: 'joined'
+  readonly room: string
+  readonly playerId: number
+}
+
+/** Lobby-Zustand (Teilnehmerliste + Ready-Status). */
+export interface LobbyMsg {
+  readonly kind: 'lobby'
+  readonly peers: readonly (PeerInfo & { readonly ready: boolean })[]
+}
+
+/** Match-Start: alle Clients bauen `createGame(config)` mit demselben Seed/Config. */
+export interface StartMsg {
+  readonly kind: 'start'
+  readonly config: GameConfig
+}
+
+/** Committeter Turn: das gebündelte Intent-Set (inkl. KI) in Anwendungsreihenfolge. */
+export interface CommitMsg {
+  readonly kind: 'commit'
+  readonly turn: number
+  readonly intents: readonly Intent[]
+}
+
+/** Voller State-Snapshot für Resync/Reconnect (kein State im Normalbetrieb). */
+export interface SnapshotMsg {
+  readonly kind: 'snapshot'
+  readonly turn: number
+  readonly state: SerializedGameState
+}
+
+/** Eine Nation wurde eingefroren (Disconnect) bzw. ist zurück. */
+export interface PeerFrozenMsg {
+  readonly kind: 'peer-frozen'
+  readonly playerId: number
+  readonly frozen: boolean
+}
+
+export type ServerMessage =
+  | JoinedMsg
+  | LobbyMsg
+  | StartMsg
+  | CommitMsg
+  | SnapshotMsg
+  | PeerFrozenMsg
+
+/** Serialisiert eine Nachricht für den Wire (JSON). */
+export function encode(msg: ClientMessage | ServerMessage): string {
+  return JSON.stringify(msg)
+}
+
+/** Parst eine Wire-Nachricht. Wirft bei ungültigem JSON; Typprüfung beim Verbraucher. */
+export function decodeClient(raw: string): ClientMessage {
+  return JSON.parse(raw) as ClientMessage
+}
+
+export function decodeServer(raw: string): ServerMessage {
+  return JSON.parse(raw) as ServerMessage
+}
