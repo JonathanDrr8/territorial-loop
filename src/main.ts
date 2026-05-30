@@ -219,7 +219,9 @@ function startMatch(
   // Reconnect lädt den Server-Snapshot direkt als State; sonst frisch generieren.
   const state = net?.initialState ?? createGame(config)
   const renderer = createRenderer(container, state, localHumanId)
-  renderer.setCameraMode(menu.cameraMode)
+  // Geo-Karten (ADR-0016) sind meer-umrandete Kontinent-Ausschnitte → fest „Box (fest)" (eine
+  // Welt-Kopie + harte Ränder), damit sie nicht kacheln/wrappen. Prozedural: Menü-Wahl.
+  renderer.setCameraMode(config.mapId !== undefined ? 'fixed' : menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
   // das Canvas hier noch nicht final dimensioniert ist.)
