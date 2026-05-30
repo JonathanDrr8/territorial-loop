@@ -4,6 +4,22 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.1] – 2026-05-30
+
+### Behoben
+
+- **Gebäude-Upgrades kosten jetzt passend zum Baupreis.** Eine teure, mehrfach eskalierte Fabrik
+  (oder Hafen/Stadt) kostet auch beim Aufwerten mehr — vorher war jedes Upgrade immer billig
+  (der Grundpreis), egal wie teuer das Gebäude im Bau war.
+
+## [0.6.0] – 2026-05-30
+
+### Neu
+
+- **Karten aus echter Geografie** — **Welt, Europa, Afrika, Australien** mit echten Küstenlinien,
+  im Kartentyp-Menü wählbar (Höhen/Berge noch prozedural). Geo-Karten laufen fest als „Box (fest)"
+  (eine Welt-Kopie mit harten Rändern) statt zu kacheln.
+
 ## [0.5.0] – 2026-05-30
 
 ### Neu
