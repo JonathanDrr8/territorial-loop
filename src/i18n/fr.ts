@@ -218,7 +218,7 @@ export const fr: Record<string, string> = {
     'DCA — abat les bombardiers ennemis dans un rayon de {range} (+{per}/niveau).',
   'hud.controls': 'Commandes',
   'hud.controlsBody':
-    'Clic gauche : attaque · B : mode bateau (cible sur une autre île)<br/>Clic droit : menu (construire/attaque/bateau/navire/diplomatie)<br/>Glisser (gauche/droite) ou WASD : caméra · Molette : zoom<br/>1–6 : bâtiments (ville/défense/port/usine/aéroport/DCA) · R : portées des navires · Espace : pause<br/>, / . : vitesse · Échap : menu<br/>Clic sur le panneau d’attaque : annuler / bateau · navire retour',
+    'Clic gauche : attaque · B : mode bateau (cible sur une autre île) · 7 : mode bombardier<br/>Clic droit : menu (construire/attaque/bateau/navire/diplomatie)<br/>Glisser (gauche/droite) ou WASD : caméra · Molette : zoom<br/>1–6 : bâtiments (ville/défense/port/usine/aéroport/DCA) · R : portées des navires · Espace : pause<br/>, / . : vitesse · Échap : menu<br/>Clic sur le panneau d’attaque : annuler / bateau · navire retour',
   'hud.rank': 'Classement',
   'hud.troops': 'Troupes',
   'hud.gold': 'Or',
@@ -226,6 +226,11 @@ export const fr: Record<string, string> = {
   'hud.boatHintShort': 'cible sur une autre île',
   'hud.boatModeHint':
     'Mode bateau : clique une cible côtière sur une autre masse de terre · Échap quitte',
+  'route.direct': 'direct',
+  'route.arc-left': 'arc à gauche',
+  'route.arc-right': 'arc à droite',
+  'hud.bomberModeHint':
+    'Mode bombardier · Route : {route} · Maj+molette change · Clic = cible · Échap quitte',
   'hud.attack': 'Attaque : {pct}%',
   'hud.newMatch': 'Nouvelle partie',
   'hud.pauseOverlay': 'PAUSE',

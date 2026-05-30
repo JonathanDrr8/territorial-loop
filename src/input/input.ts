@@ -15,7 +15,11 @@ import type { Camera } from '../render/renderer'
 import { tileRef } from '../world/torus'
 import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
+import type { BomberRoute } from '../core/ships'
 import type { CameraMode } from '../ui/start-menu'
+
+/** Reihenfolge, in der das Mausrad im Bomber-Modus durch die Flugrouten blättert. */
+const BOMBER_ROUTES: readonly BomberRoute[] = ['direct', 'arc-left', 'arc-right']
 
 /** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Hafen, 4=Fabrik). */
 const BUILD_HOTKEYS: Record<string, BuildingType> = {
@@ -79,6 +83,8 @@ export interface InputDeps {
   readonly onBuildModeChange?: (mode: BuildingType | null) => void
   /** Optional: Boot-Modus an/aus (für HUD-Feedback). */
   readonly onBoatModeChange?: (on: boolean) => void
+  /** Optional: Bomber-Modus an/aus + aktuelle Route (für HUD-Feedback + Render-Vorschau). */
+  readonly onBomberModeChange?: (on: boolean, route: BomberRoute) => void
   /** Optional: Taste „r" → Reichweiten-Ringe der eigenen Kriegsschiffe umschalten. */
   readonly onToggleShipRanges?: () => void
   /** Optional: aktuelle Auswahl-Box (Screen-CSS) beim Shift-Ziehen; null = aus. */
@@ -113,6 +119,8 @@ export interface InputHandler {
   toggleBuildMode(type: BuildingType): void
   /** Schaltet den Boot-Modus um (für einen HUD-Button; wie der Hotkey „b"). */
   toggleBoatMode(): void
+  /** Schaltet den Bomber-Modus um (für einen HUD-Button; wie der Hotkey „7"). */
+  toggleBomberMode(): void
   destroy(): void
 }
 
@@ -166,6 +174,10 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let buildMode: BuildingType | null = null
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
   let boatMode = false
+  // Bomber-Modus (Toggle, Taste 7): solange aktiv startet jeder Linksklick einen Bomber zum Ziel;
+  // Mausrad blättert durch die Routen. Live-Vorschau (Route/Radius/Warnung) zeigt der Renderer.
+  let bomberMode = false
+  let bomberRoute: BomberRoute = 'direct'
   // Box-Select (Shift+Linksklick-Ziehen): Start-Position in CSS-/Client-Koords, null = inaktiv.
   let boxStart: { sx: number; sy: number; clientX: number; clientY: number } | null = null
   // WASD-Kamera-Pan: gedrückte Richtungstasten + laufende rAF-Schleife.
@@ -173,8 +185,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let panRaf: number | null = null
 
   function setBuildMode(mode: BuildingType | null): void {
-    // Bau- und Boot-Modus schließen sich gegenseitig aus.
+    // Bau-, Boot- und Bomber-Modus schließen sich gegenseitig aus.
     if (mode !== null && boatMode) setBoatMode(false)
+    if (mode !== null && bomberMode) setBomberMode(false)
     if (buildMode === mode) return
     buildMode = mode
     deps.onBuildModeChange?.(mode)
@@ -182,9 +195,18 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   function setBoatMode(on: boolean): void {
     if (on && buildMode !== null) setBuildMode(null)
+    if (on && bomberMode) setBomberMode(false)
     if (boatMode === on) return
     boatMode = on
     deps.onBoatModeChange?.(on)
+  }
+
+  function setBomberMode(on: boolean): void {
+    if (on && buildMode !== null) setBuildMode(null)
+    if (on && boatMode) setBoatMode(false)
+    if (bomberMode === on) return
+    bomberMode = on
+    deps.onBomberModeChange?.(on, bomberRoute)
   }
 
   function panStep(): void {
@@ -361,6 +383,10 @@ export function createInputHandler(deps: InputDeps): InputHandler {
         setBoatMode(false)
         return
       }
+      if (bomberMode) {
+        setBomberMode(false)
+        return
+      }
       // Sonst Rechtsklick ohne Drag → Radialmenü an dem Tile
       if (deps.onRadialMenu !== undefined) {
         const rect = canvas.getBoundingClientRect()
@@ -379,7 +405,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
     // Klick ins Leere (ohne Shift, kein Bau/Boot) hebt eine Kriegsschiff-Auswahl auf —
     // statt direkt anzugreifen (verhindert versehentliche Angriffe nach dem Steuern).
-    if (buildMode === null && !boatMode && deps.hasWarshipSelection?.() === true) {
+    if (buildMode === null && !boatMode && !bomberMode && deps.hasWarshipSelection?.() === true) {
       deps.onClearWarshipSelection?.()
       return
     }
@@ -403,6 +429,18 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       if (!placeable) return
       emit({ type: 'build', playerId: deps.playerId, tile: snapped, buildingType: buildMode })
       setBuildMode(null)
+      return
+    }
+
+    // Bomber-Modus aktiv → Linksklick startet einen Bomber (gewählte Route) zum Ziel. Der Modus
+    // bleibt an (mehrere Würfe möglich; der Flughafen-Cooldown drosselt von selbst).
+    if (bomberMode) {
+      emit({
+        type: 'launch-bomber',
+        playerId: deps.playerId,
+        targetTile: target,
+        route: bomberRoute,
+      })
       return
     }
 
@@ -440,6 +478,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   function onWheel(e: WheelEvent): void {
     e.preventDefault()
+    // Bomber-Modus: Shift+Mausrad blättert durch die Flugrouten (direkt/Bogen links/rechts).
+    // Normales Mausrad zoomt weiterhin, auch im Bomber-Modus.
+    if (bomberMode && e.shiftKey) {
+      const dir = e.deltaY < 0 ? 1 : -1
+      const idx = BOMBER_ROUTES.indexOf(bomberRoute)
+      bomberRoute =
+        BOMBER_ROUTES[(idx + dir + BOMBER_ROUTES.length) % BOMBER_ROUTES.length] ?? 'direct'
+      deps.onBomberModeChange?.(true, bomberRoute)
+      return
+    }
     // Shift+Mausrad → Angriffsgröße ändern (statt Zoom). Feinschritte (1 %) unter 10 %,
     // gröber (10 %) darüber — runter UND wieder hoch, sodass 1 % erreichbar ist.
     if (e.shiftKey && deps.setSliderPct !== undefined && deps.interactive !== false) {
@@ -487,11 +535,14 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
     } else if (key === 'b' && deps.interactive !== false) {
       setBoatMode(!boatMode)
+    } else if (key === '7' && deps.interactive !== false) {
+      setBomberMode(!bomberMode)
     } else if (key === 'r' && deps.interactive !== false) {
       deps.onToggleShipRanges?.()
     } else if (e.key === 'Escape') {
-      // Esc bricht erst Boot-/Bau-Modus ab, sonst zurück zum Menü
-      if (boatMode) setBoatMode(false)
+      // Esc bricht erst Bomber-/Boot-/Bau-Modus ab, sonst zurück zum Menü
+      if (bomberMode) setBomberMode(false)
+      else if (boatMode) setBoatMode(false)
       else if (buildMode !== null) setBuildMode(null)
       else events.escape?.()
     }
@@ -522,6 +573,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     },
     toggleBoatMode(): void {
       setBoatMode(!boatMode)
+    },
+    toggleBomberMode(): void {
+      setBomberMode(!bomberMode)
     },
     destroy(): void {
       canvas.removeEventListener('mousedown', onMouseDown)

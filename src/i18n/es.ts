@@ -217,7 +217,7 @@ export const es: Record<string, string> = {
     'Antiaéreo — derriba bombarderos enemigos en un radio de {range} (+{per}/nivel).',
   'hud.controls': 'Controles',
   'hud.controlsBody':
-    'Clic izquierdo: atacar · B: modo barco (objetivo en otra isla)<br/>Clic derecho: menú (construir/atacar/barco/buque/diplomacia)<br/>Arrastrar (izq./der.) o WASD: cámara · Rueda: zoom<br/>1–6: edificios (ciudad/defensa/puerto/fábrica/aeropuerto/antiaéreo) · R: alcances de barcos · Espacio: pausa<br/>, / . : velocidad · Esc: menú<br/>Clic en el panel de ataque: cancelar / barco · volver',
+    'Clic izquierdo: atacar · B: modo barco (objetivo en otra isla) · 7: modo bombardero<br/>Clic derecho: menú (construir/atacar/barco/buque/diplomacia)<br/>Arrastrar (izq./der.) o WASD: cámara · Rueda: zoom<br/>1–6: edificios (ciudad/defensa/puerto/fábrica/aeropuerto/antiaéreo) · R: alcances de barcos · Espacio: pausa<br/>, / . : velocidad · Esc: menú<br/>Clic en el panel de ataque: cancelar / barco · volver',
   'hud.rank': 'Clasificación',
   'hud.troops': 'Tropas',
   'hud.gold': 'Oro',
@@ -225,6 +225,11 @@ export const es: Record<string, string> = {
   'hud.boatHintShort': 'objetivo en otra isla',
   'hud.boatModeHint':
     'Modo barco: haz clic en un objetivo costero de otra masa de tierra · Esc termina',
+  'route.direct': 'directo',
+  'route.arc-left': 'arco izquierda',
+  'route.arc-right': 'arco derecha',
+  'hud.bomberModeHint':
+    'Modo bombardero · Ruta: {route} · Shift+rueda cambia · Clic = objetivo · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nueva partida',
   'hud.pauseOverlay': 'PAUSA',

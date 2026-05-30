@@ -24,6 +24,7 @@ import {
   FLAK_RANGE_PER_LEVEL,
   type BuildingType,
 } from '../core/buildings'
+import type { BomberRoute } from '../core/ships'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
@@ -103,6 +104,8 @@ export interface HUDApi {
   setBuildMode(type: BuildingType | null): void
   /** Markiert den Boot-Modus (Button-Highlight + Hinweisbanner). */
   setBoatMode(on: boolean): void
+  /** Zeigt/aktualisiert den Bomber-Modus-Hinweis (mit aktiver Route). */
+  setBomberMode(on: boolean, route: BomberRoute): void
   /** Setzt den Angriffs-Slider extern (z.B. Shift+Mausrad) — bewegt Regler + Label. */
   setSliderPct(pct: number): void
   /** Blitzt kurz einen „Resync…"-Hinweis auf (Server-Korrektur-Snapshot eingespielt). */
@@ -717,6 +720,21 @@ export function createHUD(
   boatHint.textContent = `🚢 ${t('hud.boatModeHint')}`
   actionBar.appendChild(boatHint)
 
+  // Hinweis-Banner während aktivem Bomber-Modus (zeigt die gewählte Route, Shift+Rad wechselt).
+  const bomberHint = document.createElement('div')
+  bomberHint.style.cssText = [
+    'margin-top: 6px',
+    'padding: 5px 8px',
+    'display: none',
+    'background: rgba(232,136,74,0.15)',
+    'border: 1px solid rgba(232,136,74,0.6)',
+    'border-radius: 6px',
+    'color: #f4c89a',
+    'font-size: 11px',
+    'text-align: center',
+  ].join(';')
+  actionBar.appendChild(bomberHint)
+
   container.appendChild(actionBar)
   registerScalable(actionBar)
 
@@ -1155,6 +1173,13 @@ export function createHUD(
       boatBtn.style.background = on ? 'rgba(70,217,230,0.85)' : 'rgba(255,255,255,0.06)'
       boatBtn.style.color = on ? '#06222a' : 'white'
       boatBtn.style.borderColor = on ? '#46d9e6' : 'rgba(255,255,255,0.15)'
+    },
+    setBomberMode(on: boolean, route: BomberRoute): void {
+      bomberHint.style.display = on ? 'block' : 'none'
+      if (on) {
+        const routeLabel = t(`route.${route}`)
+        bomberHint.textContent = `${t('hud.bomberModeHint', { route: routeLabel })}`
+      }
     },
     flashResync(): void {
       resyncTag.textContent = `⟳ ${t('hud.resync')}`

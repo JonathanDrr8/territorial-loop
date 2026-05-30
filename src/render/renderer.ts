@@ -31,8 +31,10 @@ import {
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import {
   type Boat,
+  type BomberRoute,
   BOMB_RADIUS,
   BOMBER_HP,
+  planBomberRoute,
   type TradeShip,
   type Warship,
   WARSHIP_HP,
@@ -242,6 +244,8 @@ export interface Renderer {
   setCameraMode(mode: 'tiles' | 'period' | 'fixed' | 'dynamic'): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
+  /** Bomber-Ziel-Vorschau (Flugroute + Einschlagsradius am Cursor); null = aus. */
+  setBomberPreview(route: BomberRoute | null): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
   toggleShipRanges(): boolean
   /** Setzt die Auswahl-Box (Screen-CSS) für die Anzeige während des Ziehens; null = aus. */
@@ -946,6 +950,8 @@ export function createRenderer(
   let cameraMode: 'tiles' | 'period' | 'fixed' | 'dynamic' = 'dynamic'
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
+  // Bomber-Ziel-Vorschau: aktive Route (null = kein Bomber-Modus).
+  let bomberPreviewRoute: BomberRoute | null = null
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
   let shipRangesVisible = false
   // Box-Select: ausgewählte eigene Kriegsschiffe + aktuelle Auswahl-Box (Screen-CSS).
@@ -2298,6 +2304,82 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /**
+   * Bomber-Ziel-Vorschau (ADR-0019): im Bomber-Modus die geplante Flugroute vom nächsten eigenen
+   * Flughafen zum Cursor + den Einschlagsradius am Ziel zeichnen. Die Flak-Warnung (ob die Route
+   * sicher abgeschossen wird) kommt im nächsten Schritt dazu.
+   */
+  function drawBomberPreview(): void {
+    if (bomberPreviewRoute === null || hoverTile === null || lutHumanId < 0) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const target = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+    // Nächsten eigenen, fertigen Flughafen zum Ziel finden (= Startpunkt der Route).
+    let from = -1
+    let bestDist = Infinity
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'airport' || b.ownerId !== lutHumanId || !isBuildingComplete(b, state.tick))
+        continue
+      const d = torusDistance(
+        hoverTile.x,
+        hoverTile.y,
+        b.tile % mapW,
+        Math.floor(b.tile / mapW),
+        mapW,
+        mapH,
+      )
+      if (d < bestDist) {
+        bestDist = d
+        from = b.tile
+      }
+    }
+    screenCtx.save()
+    // Flugroute als gepunktete orange Linie (Segment bricht bei Torus-Wrap-Sprüngen).
+    if (from >= 0) {
+      const path = planBomberRoute(mapW, mapH, from, target, bomberPreviewRoute)
+      screenCtx.strokeStyle = 'rgba(232,136,74,0.85)'
+      screenCtx.lineWidth = 2
+      screenCtx.setLineDash([6, 5])
+      const jumpLimit = Math.max(cssW, cssH)
+      let prev: { sx: number; sy: number } | null = null
+      for (const ref of path) {
+        const wx = (ref % mapW) + 0.5
+        const wy = Math.floor(ref / mapW) + 0.5
+        const p = nearestWrappedScreenPos(wx, wy)
+        if (prev !== null && Math.hypot(p.sx - prev.sx, p.sy - prev.sy) < jumpLimit) {
+          screenCtx.beginPath()
+          screenCtx.moveTo(prev.sx, prev.sy)
+          screenCtx.lineTo(p.sx, p.sy)
+          screenCtx.stroke()
+        }
+        prev = p
+      }
+      screenCtx.setLineDash([])
+    }
+    // Einschlagsradius am Ziel (oranger Ring + leichte Füllung).
+    const rr = BOMB_RADIUS * z
+    const tx = hoverTile.x + 0.5
+    const ty = hoverTile.y + 0.5
+    screenCtx.strokeStyle = 'rgba(232,115,42,0.8)'
+    screenCtx.fillStyle = 'rgba(232,115,42,0.12)'
+    screenCtx.lineWidth = 1.5
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const sx = worldToScreenX(tx + dx * mapW)
+        const sy = worldToScreenY(ty + dy * mapH)
+        if (sx < -rr || sx > cssW + rr || sy < -rr || sy > cssH + rr) continue
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, rr, 0, Math.PI * 2)
+        screenCtx.fill()
+        screenCtx.stroke()
+      }
+    }
+    screenCtx.restore()
+  }
+
   function render(): void {
     if (state.tick !== lastBitmapTick) {
       // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
@@ -2347,6 +2429,7 @@ export function createRenderer(
     drawHoveredDefenseRange()
     drawAllOwnDefenseRanges()
     drawBuildPreview()
+    drawBomberPreview()
     drawMarkers()
     drawLabels()
     drawFlakShots()
@@ -2443,6 +2526,9 @@ export function createRenderer(
     setCameraMode,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
+    },
+    setBomberPreview(route: BomberRoute | null): void {
+      bomberPreviewRoute = route
     },
     toggleShipRanges(): boolean {
       shipRangesVisible = !shipRangesVisible
