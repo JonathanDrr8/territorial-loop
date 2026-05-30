@@ -1455,6 +1455,14 @@ export function createRenderer(
       const cx = seg.fromSx + (seg.toSx - seg.fromSx) * frac
       const cy = seg.fromSy + (seg.toSy - seg.fromSy) * frac
       screenCtx.globalAlpha = focused ? 1 : 0.25
+      // Besitzer-farbige Scheibe unter dem Karren — zeigt, welcher Nation die Fuhre gehört.
+      const cartOwner = state.players.get(cart.ownerId)
+      if (cartOwner !== undefined) {
+        screenCtx.beginPath()
+        screenCtx.arc(cx, cy, cartSize * 0.62, 0, Math.PI * 2)
+        screenCtx.fillStyle = rgbaToCssLocal(cartOwner.color)
+        screenCtx.fill()
+      }
       if (cartSprite !== null) {
         screenCtx.imageSmoothingEnabled = false
         screenCtx.drawImage(cartSprite, cx - cartSize / 2, cy - cartSize / 2, cartSize, cartSize)
