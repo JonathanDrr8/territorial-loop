@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createGame, tick, type GameConfig } from '../src/core/game'
 import { hashState } from '../src/core/hash'
-import { deserializeState, serializeState } from '../src/core/serialize'
+import { deserializeState, loadSnapshotInto, serializeState } from '../src/core/serialize'
 import type { Intent } from '../src/core/intent'
 import { getOwner, setOwner } from '../src/world/map'
 import { neighbors4 } from '../src/world/torus'
@@ -118,5 +118,49 @@ describe('serializeState / deserializeState', () => {
     setOwner(s.map, 0, 1)
     // … der Snapshot darf sich nicht mitverändert haben.
     expect(hashState(deserializeState(JSON.parse(JSON.stringify(snap))))).toBe(hashAtSnap)
+  })
+})
+
+describe('loadSnapshotInto (Mid-Match-Resync, ADR-0009 Phase 6)', () => {
+  it('schnappt einen abgedrifteten State IN-PLACE bit-genau auf den Snapshot zurück', () => {
+    // Autoritativer Verlauf: Spieler 1 greift an.
+    const authoritative = createGame(cfg())
+    for (let i = 0; i < 20; i++) {
+      const target = neutralBorder(authoritative, 1)
+      tick(
+        authoritative,
+        target >= 0 ? [{ type: 'attack', playerId: 1, targetTile: target, troops: 1200 }] : [],
+      )
+    }
+    const snap = JSON.parse(JSON.stringify(serializeState(authoritative))) as ReturnType<
+      typeof serializeState
+    >
+
+    // Abgedrifteter Client: anderer Intent-Strom → garantiert anderer Hash.
+    const drifted = createGame(cfg())
+    for (let i = 0; i < 14; i++) {
+      const target = neutralBorder(drifted, 2)
+      tick(
+        drifted,
+        target >= 0 ? [{ type: 'attack', playerId: 2, targetTile: target, troops: 900 }] : [],
+      )
+    }
+    expect(hashState(drifted)).not.toBe(hashState(authoritative))
+
+    // Resync IN-PLACE: gleiche Objekt-Referenz, danach bit-genau wie der Snapshot.
+    const ref = drifted
+    loadSnapshotInto(drifted, snap)
+    expect(drifted).toBe(ref) // Referenz erhalten → Closure-Halter sehen die Korrektur
+    expect(hashState(drifted)).toBe(hashState(authoritative))
+
+    // Läuft danach mit identischem Intent-Strom Tick für Tick deckungsgleich weiter.
+    for (let i = 0; i < 30; i++) {
+      const target = neutralBorder(authoritative, 1)
+      const intents: Intent[] =
+        target >= 0 ? [{ type: 'attack', playerId: 1, targetTile: target, troops: 1200 }] : []
+      tick(authoritative, intents)
+      tick(drifted, intents)
+      expect(hashState(drifted)).toBe(hashState(authoritative))
+    }
   })
 })

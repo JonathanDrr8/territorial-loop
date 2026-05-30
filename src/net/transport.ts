@@ -228,6 +228,8 @@ export class NetworkTransport implements IntentTransport {
   /** Wird bei UNERWARTETEM Verbindungsabbruch gerufen (nicht bei `destroy()`). */
   private disconnectHandler: (() => void) | null = null
   private handler: CommitHandler | null = null
+  /** Mid-Match-Snapshot-Handler (ADR-0009 Phase 6) — getrennt von `opts.onSnapshot` (Lobby-Build). */
+  private snapshotHandler: ((turn: number, state: SerializedGameState) => void) | null = null
   /** Commits, die vor dem Registrieren von `onCommitted` eintrafen (Start-Rennen abfangen). */
   private pending: { turn: number; intents: readonly Intent[] }[] = []
   /** Zuletzt committeter Turn vom Server (−1 = noch keiner). */
@@ -264,6 +266,15 @@ export class NetworkTransport implements IntentTransport {
   /** Handler für unerwarteten Verbindungsabbruch setzen (z.B. → „Wieder verbinden"-UI). */
   onDisconnect(cb: () => void): void {
     this.disconnectHandler = cb
+  }
+
+  /**
+   * Registriert den Mid-Match-Snapshot-Handler: feuert, wenn der Server während des laufenden
+   * Matches einen Korrektur-Snapshot schickt (Desync-Resync). Der Verbraucher lädt ihn in-place
+   * in den laufenden State. Läuft zusätzlich zu `opts.onSnapshot` (das den Erst-Build bedient).
+   */
+  setSnapshotHandler(cb: (turn: number, state: SerializedGameState) => void): void {
+    this.snapshotHandler = cb
   }
 
   /** Aktuelle Eingabeverzögerung (Turns): fester Override oder der adaptive Wert. */
@@ -373,6 +384,7 @@ export class NetworkTransport implements IntentTransport {
         // Der Client springt nach einem Snapshot auf dessen Turn (Resync/Reconnect).
         this.lastCommittedTurn = msg.turn - 1
         this.opts.onSnapshot?.(msg.turn, msg.state)
+        this.snapshotHandler?.(msg.turn, msg.state)
         break
       case 'pong':
         this.updateLatency(globalThis.performance.now() - msg.t)

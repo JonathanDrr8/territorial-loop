@@ -365,4 +365,5 @@ export const ru: Record<string, string> = {
   'mp.visible': 'Виден',
   'uiscale.title': 'Размер интерфейса',
   'nation.wild': 'дикая',
+  'hud.resync': 'Ресинхронизация …',
 }

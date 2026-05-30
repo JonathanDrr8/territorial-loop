@@ -337,4 +337,5 @@ export const zh: Record<string, string> = {
   'mp.visible': '可见',
   'uiscale.title': '界面大小',
   'nation.wild': '野生',
+  'hud.resync': '重新同步 …',
 }

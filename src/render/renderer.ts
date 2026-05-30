@@ -168,6 +168,8 @@ export interface Renderer {
   readonly camera: Camera
   /** Liest den aktuellen GameState aus und zeichnet einen Frame. */
   render(): void
+  /** Erzwingt ein vollständiges Neu-Backen des Karten-Bitmaps (nach Mid-Match-Resync/State-Swap). */
+  invalidate(): void
   /**
    * Das Map-Auflösungs-Bitmap. Wird pro `render()`-Aufruf aktualisiert.
    * Read-only: Konsumenten (z.B. Minimap) zeichnen es ab, mutieren es nicht.
@@ -2048,6 +2050,12 @@ export function createRenderer(
     canvas: screenCanvas,
     camera,
     render,
+    invalidate(): void {
+      // Nach einem State-Swap (Resync) stimmt das inkrementell gebackene Bitmap nicht mehr —
+      // beim nächsten render() komplett neu backen.
+      bitmapBaked = false
+      lastBitmapTick = -1
+    },
     screenToWorld,
     getBitmap,
     addClickMarker,

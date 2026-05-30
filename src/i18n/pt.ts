@@ -372,4 +372,5 @@ export const pt: Record<string, string> = {
   'mp.visible': 'Visível',
   'uiscale.title': 'Tamanho da interface',
   'nation.wild': 'selvagem',
+  'hud.resync': 'Ressincronizando …',
 }

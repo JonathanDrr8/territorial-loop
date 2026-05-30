@@ -156,3 +156,14 @@ export function deserializeState(data: SerializedGameState): GameState {
   initializeAllFrontiers(state)
   return state
 }
+
+/**
+ * Lädt einen Snapshot **in-place** in einen bestehenden `GameState`: alle Felder werden ersetzt,
+ * die Objekt-Referenz selbst bleibt erhalten. Dadurch sehen alle Closure-Halter (Renderer, HUD,
+ * Input) die Korrektur sofort — ohne Match-Neuaufbau. Grundlage für den Mid-Match-Resync nach
+ * server-erkanntem Desync (ADR-0009 Phase 6): der laufende State schnappt auf den autoritativen
+ * Server-Snapshot zurück, statt still weiter zu driften.
+ */
+export function loadSnapshotInto(target: GameState, data: SerializedGameState): void {
+  Object.assign(target, deserializeState(data))
+}

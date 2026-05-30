@@ -93,6 +93,8 @@ export interface HUDApi {
   setBoatMode(on: boolean): void
   /** Setzt den Angriffs-Slider extern (z.B. Shift+Mausrad) — bewegt Regler + Label. */
   setSliderPct(pct: number): void
+  /** Blitzt kurz einen „Resync…"-Hinweis auf (Server-Korrektur-Snapshot eingespielt). */
+  flashResync(): void
   destroy(): void
 }
 
@@ -202,6 +204,29 @@ export function createHUD(
     'text-align: center',
   ].join(';')
   container.appendChild(traitorBanner)
+
+  // Resync-Hinweis: blitzt nur kurz auf, wenn der Server gerade einen Korrektur-Snapshot
+  // eingespielt hat (Mid-Match-Resync, ADR-0009 Phase 6). Kein Dauer-Status — nur „passiert gerade".
+  const resyncTag = document.createElement('div')
+  resyncTag.style.cssText = [
+    'position: absolute',
+    'top: 100px',
+    'left: 50%',
+    'transform: translateX(-50%)',
+    'background: rgba(20,60,110,0.92)',
+    'color: #cfe6ff',
+    'padding: 6px 12px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 12px',
+    'border: 1px solid #4f9fe0',
+    'border-radius: 6px',
+    'z-index: 12',
+    'display: none',
+    'pointer-events: none',
+    'transition: opacity 0.3s',
+  ].join(';')
+  container.appendChild(resyncTag)
+  let resyncTimer: ReturnType<typeof setTimeout> | null = null
 
   /* ---- Gefahren-Vignette: pulst rot am Bildschirmrand wenn man angegriffen wird --- */
   const dangerStyle = document.createElement('style')
@@ -1051,9 +1076,24 @@ export function createHUD(
       boatBtn.style.color = on ? '#06222a' : 'white'
       boatBtn.style.borderColor = on ? '#46d9e6' : 'rgba(255,255,255,0.15)'
     },
+    flashResync(): void {
+      resyncTag.textContent = `⟳ ${t('hud.resync')}`
+      resyncTag.style.display = 'block'
+      resyncTag.style.opacity = '1'
+      if (resyncTimer !== null) clearTimeout(resyncTimer)
+      // 1,6 s sichtbar, dann ausblenden — nur „passiert gerade", kein Dauer-Status.
+      resyncTimer = setTimeout(() => {
+        resyncTag.style.opacity = '0'
+        resyncTimer = setTimeout(() => {
+          resyncTag.style.display = 'none'
+        }, 300)
+      }, 1600)
+    },
     destroy(): void {
+      if (resyncTimer !== null) clearTimeout(resyncTimer)
       infoBox.remove()
       traitorBanner.remove()
+      resyncTag.remove()
       attackPanel.remove()
       rankPanel.remove()
       actionBar.remove()

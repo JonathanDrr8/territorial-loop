@@ -373,4 +373,5 @@ export const it: Record<string, string> = {
   'mp.visible': 'Visibile',
   'uiscale.title': 'Dimensione UI',
   'nation.wild': 'selvaggia',
+  'hud.resync': 'Risincronizzazione …',
 }

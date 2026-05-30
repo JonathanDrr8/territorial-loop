@@ -17,7 +17,7 @@ import {
   type PlayerDef,
 } from './core/game'
 import { areAllied } from './core/diplomacy'
-import { deserializeState } from './core/serialize'
+import { deserializeState, loadSnapshotInto } from './core/serialize'
 import { getOwner } from './world/map'
 import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
@@ -335,6 +335,19 @@ function startMatch(
     },
     localHumanId,
   )
+
+  // Mid-Match-Resync (ADR-0009 Phase 6): erkennt der Server einen Desync (aus `reportHash`),
+  // schickt er einen Korrektur-Snapshot. Den laden wir IN-PLACE in den laufenden State — alle
+  // Closure-Halter (Renderer/HUD/Minimap) sehen die Korrektur sofort — backen das Bitmap neu
+  // und blitzen kurz „Resync…" auf. So schnappt ein abgedrifteter Client zurück, statt still
+  // weiter zu driften.
+  net?.transport.setSnapshotHandler((_turn, snap) => {
+    loadSnapshotInto(state, snap)
+    renderer.invalidate()
+    hud.flashResync()
+  })
+  // HUD am Debug-Hook erreichbar (z.B. `__TL__.hud.flashResync()` zum Desync-UI-Testen).
+  ;(window as unknown as { __TL__: { hud?: unknown } }).__TL__.hud = hud
 
   const minimap = createMinimap({
     container,

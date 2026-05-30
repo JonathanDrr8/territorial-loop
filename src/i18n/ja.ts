@@ -340,4 +340,5 @@ export const ja: Record<string, string> = {
   'mp.visible': '公開',
   'uiscale.title': 'UI サイズ',
   'nation.wild': '野生',
+  'hud.resync': '再同期 …',
 }
