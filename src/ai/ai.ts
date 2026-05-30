@@ -72,6 +72,8 @@ interface DifficultyProfile {
   readonly usesBombers: boolean
   /** Wahrscheinlichkeit pro Entscheidung einen Bomber zu starten (wenn startbar). ADR-0020 Stufe 2. */
   readonly bomberChance: number
+  /** Heilt die KI Bombenkrater / neutrale Löcher tief im eigenen Reich. ADR-0020 Stufe 3. */
+  readonly healsCraters: boolean
 }
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
@@ -88,6 +90,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesAirDefense: false,
     usesBombers: false,
     bomberChance: 0,
+    healsCraters: false,
   },
   normal: {
     attackPct: 30,
@@ -102,6 +105,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesAirDefense: true,
     usesBombers: false,
     bomberChance: 0,
+    healsCraters: true,
   },
   hard: {
     attackPct: 42,
@@ -116,6 +120,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesAirDefense: true,
     usesBombers: true,
     bomberChance: 0.15,
+    healsCraters: true,
   },
 }
 
@@ -138,6 +143,7 @@ const WILD_PROFILE: DifficultyProfile = {
   usesAirDefense: false,
   usesBombers: false,
   bomberChance: 0,
+  healsCraters: false,
 }
 
 export interface AI {
@@ -212,20 +218,40 @@ export function createAI(
   }
 
   /**
-   * Ein entferntes Gegner-Tile für einen amphibischen Angriff. Wir wählen ein
-   * Frontier-Tile eines lebenden, nicht-verbündeten Gegners — der Core prüft, ob
-   * eine Wasserroute existiert, und startet ggf. ein Boot.
+   * Ein entferntes Gegner-Tile für einen amphibischen Angriff. Statt rein zufällig wird der
+   * Gegner gewichtet: SCHWACHE (wenig Truppen → echtes Land zu holen) und BEGROLLTE Nationen
+   * bevorzugt. Der Core prüft danach, ob eine Wasserroute existiert. (ADR-0020 Stufe 3)
    */
   function pickBoatTarget(state: GameState, player: Player): number {
-    const enemies: Player[] = []
+    const enemies: { p: Player; weight: number }[] = []
     for (const p of state.players.values()) {
       if (p.id === player.id || !p.isAlive) continue
       if (areAllied(state.alliances, player.id, p.id)) continue
-      if (p.frontier.size > 0) enemies.push(p)
+      if (p.frontier.size === 0) continue
+      const grudge = state.grudge.get(directedKey(p.id, player.id)) ?? 0
+      const goodwill = state.goodwill.get(directedKey(p.id, player.id)) ?? 0
+      if (goodwill - grudge > FRIEND_SPARE_THRESHOLD) continue // Gunst-Partner verschonen
+      // Schwäche (eigene/feindliche Truppen) + Groll-Aufschlag, gedämpft durch Gunst.
+      const weakness = player.troops / Math.max(1, p.troops)
+      const weight = Math.max(
+        0.1,
+        weakness + Math.min(grudge / 40, 3) - Math.min(goodwill / 60, 1.5),
+      )
+      enemies.push({ p, weight })
     }
     if (enemies.length === 0) return -1
-    enemies.sort((a, b) => a.id - b.id)
-    const enemy = rng.randElement(enemies)
+    enemies.sort((a, b) => a.p.id - b.p.id)
+    let total = 0
+    for (const e of enemies) total += e.weight
+    let r = rng.next() * total
+    let enemy = enemies[enemies.length - 1]?.p
+    for (const e of enemies) {
+      r -= e.weight
+      if (r <= 0) {
+        enemy = e.p
+        break
+      }
+    }
     if (enemy === undefined) return -1
     const tiles = [...enemy.frontier]
     return rng.randElement(tiles) ?? -1
@@ -666,10 +692,44 @@ export function createAI(
     return null
   }
 
+  /**
+   * Ein VOLL umschlossenes neutrales Tile (alle 4 Nachbarn eigen) — ein echter Bombenkrater bzw.
+   * verlorenes Innen-Tile, das die normale Grenz-Expansion NICHT von selbst schließt. Extrem billig
+   * zurückzuerobern (TerraNullius). Bewusst nur 4/4-Nachbarn, damit die KI nicht Tempo verliert,
+   * indem sie normale Expansions-Pötte heilt statt Grenzen zu schieben. (ADR-0020 Stufe 3)
+   */
+  function findCraterTarget(state: GameState, player: Player): number {
+    const { width, height } = state.map
+    const seen = new Set<number>()
+    let best = -1
+    for (const ref of player.frontier) {
+      for (const n of neighbors4(ref, width, height)) {
+        if (seen.has(n)) continue
+        seen.add(n)
+        if (getOwner(state.map, n) !== 0) continue
+        let own = 0
+        for (const m of neighbors4(n, width, height)) {
+          if (getOwner(state.map, m) === player.id) own++
+        }
+        if (own === 4 && (best < 0 || n < best)) best = n
+      }
+    }
+    return best
+  }
+
   function planMilitary(state: GameState, player: Player): Intent | null {
     const max = effectiveMaxTroops(state, player.id)
     const popRatio = max > 0 ? player.troops / max : 0
     const preferEnemies = popRatio >= profile.popThresholdForPvp
+
+    // Bombenkrater / neutrale Innen-Löcher zuerst heilen (billig, schließt die eigene Fläche).
+    if (profile.healsCraters) {
+      const crater = findCraterTarget(state, player)
+      if (crater >= 0) {
+        const troops = Math.floor((player.troops * profile.attackPct) / 100)
+        if (troops > 0) return { type: 'attack', playerId: player.id, targetTile: crater, troops }
+      }
+    }
 
     // Gelegentlich amphibisch: entferntes Küsten-Ziel über Wasser → explizites Boot.
     if (preferEnemies && rng.next() < profile.boatChance) {
@@ -845,7 +905,12 @@ export function createAI(
         }
       }
       if (routeDmg >= BOMBER_HP) continue // würde abgeschossen → Ziel überspringen
-      const score = bombValue(b.type) + Math.min(grudge / 30, 5) - routeDmg
+      // Annektieren-vs-zerstören: stärkere Gegner (kann man nicht überrennen) bevorzugt bomben;
+      // schwache nimmt man lieber per Bodenangriff ein, statt Bomben zu verschwenden.
+      const ep = state.players.get(owner)
+      const strength = ep !== undefined ? ep.troops / Math.max(1, player.troops) : 1
+      const strengthBonus = Math.min(2, Math.max(0, strength - 1)) * 2
+      const score = bombValue(b.type) + Math.min(grudge / 30, 5) + strengthBonus - routeDmg
       if (score > bestScore || (score === bestScore && (bestTarget < 0 || tile < bestTarget))) {
         bestScore = score
         bestTarget = tile
