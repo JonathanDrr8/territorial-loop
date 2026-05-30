@@ -46,7 +46,7 @@ export const ja: Record<string, string> = {
   'camera.dynamic': '動的ボックス',
   'settings.experimental': '実験的',
   'settings.experimental.body':
-    '試せる任意機能は個別のスイッチとしてここに並びます —— 森・川・魚・地球風ノイズなど。まだ何も有効ではありません。',
+    '試せる任意機能は個別のスイッチとして並びます。川は有効です —— 今後、森・魚・地球風ノイズなどが続きます。',
 
   'mp.intro': '公開中の対戦に参加するか、自分の部屋を作成しましょう。',
   'mp.openDialog': '部屋を作成 / コードで参加',

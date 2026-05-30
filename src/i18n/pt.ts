@@ -46,8 +46,7 @@ export const pt: Record<string, string> = {
   'camera.dynamic': 'Caixa dinâmica',
   'settings.experimental': 'Experimental',
   'settings.experimental.body':
-    'Recursos opcionais para testar aparecerão aqui como botões próprios — florestas, rios, peixes, ' +
-    'ruído tipo terrestre… Nada ativo ainda.',
+    'Recursos opcionais para testar como botões próprios. Os rios estão ativos — mais (florestas, peixes, ruído tipo terrestre …) a caminho.',
 
   'mp.intro': 'Entre em uma partida aberta ou crie sua própria sala.',
   'mp.openDialog': 'Criar sala / entrar por código',

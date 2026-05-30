@@ -48,8 +48,7 @@ export const en: Record<string, string> = {
   'camera.dynamic': 'Dynamic box',
   'settings.experimental': 'Experimental',
   'settings.experimental.body':
-    'Opt-in features to try out land here as their own switches — forests, rivers, fish, ' +
-    'earth-like noise … Nothing active yet.',
+    'Opt-in features to try out as their own switches. Rivers are active — more (forests, fish, earth-like noise …) to come.',
 
   // ── Tab "Multiplayer" ──────────────────────────────────────────────────────
   'mp.intro': 'Join an open game or create your own lobby.',

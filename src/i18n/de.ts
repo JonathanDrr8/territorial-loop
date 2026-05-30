@@ -48,8 +48,7 @@ export const de: Record<string, string> = {
   'camera.dynamic': 'Dynamische Box',
   'settings.experimental': 'Experimentell',
   'settings.experimental.body':
-    'Opt-in-Features zum Ausprobieren landen hier als eigene Schalter — Wälder, Flüsse, ' +
-    'Fische, erdähnlicher Noise … Noch nichts aktiv.',
+    'Opt-in-Features zum Ausprobieren als eigene Schalter. Flüsse sind aktiv — weitere (Wälder, Fische, erdähnlicher Noise …) folgen.',
 
   // ── Tab „Mehrspieler" ──────────────────────────────────────────────────────
   'mp.intro': 'Tritt einem offenen Spiel bei oder erstelle deine eigene Lobby.',

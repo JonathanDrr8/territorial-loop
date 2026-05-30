@@ -46,8 +46,7 @@ export const fr: Record<string, string> = {
   'camera.dynamic': 'Boîte dynamique',
   'settings.experimental': 'Expérimental',
   'settings.experimental.body':
-    'Les fonctions optionnelles à essayer apparaîtront ici sous forme de boutons — forêts, ' +
-    'rivières, poissons, bruit type terrestre… Rien d’actif pour l’instant.',
+    'Fonctions optionnelles à essayer comme interrupteurs. Les rivières sont actives — d’autres (forêts, poissons, bruit type terrestre …) à venir.',
 
   'mp.intro': 'Rejoins une partie ouverte ou crée ton propre salon.',
   'mp.openDialog': 'Créer un salon / rejoindre par code',

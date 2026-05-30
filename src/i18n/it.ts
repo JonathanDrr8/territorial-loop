@@ -46,8 +46,7 @@ export const it: Record<string, string> = {
   'camera.dynamic': 'Riquadro dinamico',
   'settings.experimental': 'Sperimentale',
   'settings.experimental.body':
-    'Le funzioni opzionali da provare compariranno qui come interruttori dedicati — foreste, fiumi, ' +
-    'pesci, rumore tipo terrestre… Ancora niente di attivo.',
+    'Funzioni opzionali da provare come interruttori. I fiumi sono attivi — altre (foreste, pesci, rumore tipo terrestre …) in arrivo.',
 
   'mp.intro': 'Unisciti a una partita aperta o crea la tua stanza.',
   'mp.openDialog': 'Crea stanza / entra con codice',
