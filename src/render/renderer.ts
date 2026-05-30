@@ -1367,7 +1367,7 @@ export function createRenderer(
     }
     // Karren-Sprites auf ihrer interpolierten Position.
     const cartSprite = getCartSprite()
-    const cartSize = Math.max(7, camera.zoom * 3.2)
+    const cartSize = Math.max(5, camera.zoom * 2.2)
     for (const cart of state.goldCarts) {
       if (cart.path.length < 2) continue
       const focused = focusFactory < 0 || cart.factoryTile === focusFactory

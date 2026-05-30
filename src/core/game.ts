@@ -1303,6 +1303,34 @@ export function canReachByLand(state: GameState, playerId: number, targetTile: T
  * Truth für `applyBuildIntent` UND die UI-Platzierungsvorschau (Geist grün/rot).
  * Prüft Besitz, Begehbarkeit, freies Tile, Hafen-am-Wasser und Gold.
  */
+/**
+ * Mindestabstand (Tiles, Torus-Luftlinie) zwischen einer Fabrik und ihren Quellen (Stadt/Hafen).
+ * Verhindert, dass man die Wirtschaft auf einen Haufen baut (Weg ≈ 0 → Fuhren pendeln blitzschnell
+ * → zu viel Gold). Erzwingt eine Mindest-Weglänge und damit einen Durchsatz-Deckel.
+ */
+export const MIN_FACTORY_SOURCE_DIST = 5
+
+/** True, wenn ein Fabrik↔Stadt/Hafen-Neubau den Mindestabstand zu eigenen Gegenstücken verletzt. */
+function factorySourceTooClose(
+  state: GameState,
+  playerId: number,
+  tile: TileRef,
+  type: BuildingType,
+): boolean {
+  const conflictsWith = (other: BuildingType): boolean =>
+    (type === 'factory' && (other === 'city' || other === 'port')) ||
+    ((type === 'city' || type === 'port') && other === 'factory')
+  const { width, height } = state.map
+  const tx = tile % width
+  const ty = Math.floor(tile / width)
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== playerId || !conflictsWith(b.type)) continue
+    const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+    if (d < MIN_FACTORY_SOURCE_DIST) return true
+  }
+  return false
+}
+
 export function canBuildAt(
   state: GameState,
   playerId: number,
@@ -1322,6 +1350,7 @@ export function canBuildAt(
     return player.gold >= upgradeCost(existing)
   }
   if (type === 'port' && !nearWater(state, tile)) return false
+  if (factorySourceTooClose(state, playerId, tile, type)) return false
   const cost = buildCostFor(state, playerId, type)
   return player.gold >= cost
 }
