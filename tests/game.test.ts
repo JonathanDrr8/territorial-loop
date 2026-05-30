@@ -427,13 +427,22 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(gb.factory).toBeGreaterThan(0) // geschätzte Fuhren-Rate
   })
 
-  it('factoryYield gibt den Live-Beitrag EINER Fabrik (Ziele × Level)', () => {
-    const state = createGame(baseConfig({ terrain: 'flat' }))
+  it('factoryYield gibt den Fuhren-Live-Beitrag EINER Fabrik (ADR-0018)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
     const W = state.map.width
     const H = state.map.height
-    const cityTile = tileRef(20, 20, W, H)
-    const portTile = tileRef(20, 22, W, H)
-    const factoryTile = tileRef(21, 20, W, H)
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+
+    // Eigene zusammenhängende Landinsel: Stadt + Hafen + Fabrik direkt benachbart.
+    for (const [x, y] of [
+      [10, 10],
+      [11, 10],
+      [10, 11],
+    ] as const)
+      setOwner(state.map, T(x, y), 1)
+    const cityTile = T(10, 10)
+    const factoryTile = T(11, 10)
     state.buildings.set(cityTile, {
       type: 'city',
       ownerId: 1,
@@ -441,10 +450,10 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    state.buildings.set(portTile, {
+    state.buildings.set(T(10, 11), {
       type: 'port',
       ownerId: 1,
-      tile: portTile,
+      tile: T(10, 11),
       level: 1,
       completesAtTick: 0,
     })
@@ -455,11 +464,14 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 2,
       completesAtTick: 0,
     })
+
+    tick(state, []) // recompute erzeugt die Fuhren Stadt→Fabrik und Hafen→Fabrik
+
     const y = factoryYield(state, factoryTile)
-    // 2 Ziele (Stadt + Hafen) × Level 2.
+    // Zwei Quellen (Stadt + Hafen) pendeln zu dieser Fabrik → dests=2, positive Rate.
     expect(y).not.toBeNull()
     expect(y?.dests).toBe(2)
-    expect(y?.goldPerTick).toBe(FACTORY_GOLD_PER_DEST * 2 * 2)
+    expect(y?.goldPerTick ?? 0).toBeGreaterThan(0)
     // Nicht-Fabrik-Tile → null.
     expect(factoryYield(state, cityTile)).toBeNull()
   })

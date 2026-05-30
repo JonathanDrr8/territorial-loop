@@ -980,13 +980,6 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
 /** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
 const FACTORY_FOREIGN_MULT = 3
 /**
- * Deckel an Zielen JE Fabrik (eigene bzw. ausländische, getrennt). Macht eine Fabrik linear
- * statt quadratisch (kein Cluster-Schneeball) und gibt dem Level Sinn: Level multipliziert das
- * Gold innerhalb des Deckels, also = „verdichten/Platz sparen" vs. Duplizieren = „Fläche abdecken"
- * (beide gleich viel Gold/Kosten). An OpenFronts diminishing-returns (nach 10 Stops) angelehnt.
- */
-const FACTORY_OWN_CAP = 4
-/**
  * Max. ausländische Fabrik-Ziele je Fabrik (3× Gold each). Bewusst niedrig (2) — soll nicht zu
  * stark sein; 2 × 3× = die Leistung von 6 normalen Inland-Verbindungen. Exportiert, damit das
  * Rendering die Viz exakt spiegelt.
@@ -1048,9 +1041,10 @@ function foreignFactoryGold(
 }
 
 /**
- * Live-Beitrag EINER Fabrik zum Gold/Tick: ihre Cluster-Ziele (Städte+Häfen im selben
- * Reichweiten-Cluster desselben Besitzers) × Fabrik-Level × `FACTORY_GOLD_PER_DEST`. `null`,
- * wenn das Tile keine fertige Fabrik ist. Für den Hover-Tooltip (verstehen, was eine Fabrik bringt).
+ * Live-Beitrag EINER Fabrik zum Gold/Tick (ADR-0018 Fuhren-Modell): die geglättete Rate aller
+ * Gold-Fuhren, die genau zu DIESER Fabrik pendeln (nähere Quellen liefern öfter → mehr Rate),
+ * plus ihre Auslands-Fabrik-Verbindungen (3× Gold). `null`, wenn das Tile keine fertige Fabrik ist.
+ * Für den Hover-Tooltip (verstehen, was eine Fabrik konkret einbringt).
  */
 export function factoryYield(
   state: GameState,
@@ -1059,57 +1053,21 @@ export function factoryYield(
   const self = state.buildings.get(tile)
   if (self === undefined || self.type !== 'factory' || !isBuildingComplete(self, state.tick))
     return null
-  const ownerId = self.ownerId
-  const nodes: { tile: TileRef; isDest: boolean }[] = []
-  let selfIdx = -1
-  for (const b of state.buildings.values()) {
-    if (b.ownerId !== ownerId || !isBuildingComplete(b, state.tick)) continue
-    if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
-      if (b.tile === tile) selfIdx = nodes.length
-      nodes.push({ tile: b.tile, isDest: b.type === 'city' || b.type === 'port' })
-    }
+  // Inland: Summe der Fuhren-Raten dieser Fabrik (gleiche Formel wie `estimatedCartIncome`):
+  // Rate je Fuhre = gold / Rundreise-Dauer. Kürzerer Land-Weg = höhere Rate (emergenter Nähe-Bonus).
+  let goldPerTick = 0
+  let dests = 0
+  for (const cart of state.goldCarts) {
+    if (cart.factoryTile !== tile) continue
+    const oneWay = Math.max(1, cart.path.length - 1)
+    goldPerTick += (cart.gold * CART_SPEED) / (2 * oneWay)
+    dests++
   }
-  if (selfIdx < 0) return null
-  const n = nodes.length
-  const parent = Array.from({ length: n }, (_, i) => i)
-  const find = (i: number): number => {
-    let r = i
-    while (parent[r] !== r) r = parent[r] ?? r
-    let c = i
-    while (parent[c] !== c) {
-      const next = parent[c] ?? c
-      parent[c] = r
-      c = next
-    }
-    return r
-  }
-  const { width, height } = state.map
-  for (let i = 0; i < n; i++) {
-    const a = nodes[i]
-    if (a === undefined) continue
-    const ax = a.tile % width
-    const ay = Math.floor(a.tile / width)
-    for (let j = i + 1; j < n; j++) {
-      const b = nodes[j]
-      if (b === undefined) continue
-      const bx = b.tile % width
-      const by = Math.floor(b.tile / width)
-      if (torusDistance(ax, ay, bx, by, width, height) <= FACTORY_LINK_RANGE) {
-        parent[find(i)] = find(j)
-      }
-    }
-  }
-  const root = find(selfIdx)
-  let clusterDests = 0
-  for (let i = 0; i < n; i++) {
-    if (nodes[i]?.isDest === true && find(i) === root) clusterDests++
-  }
-  const own = Math.min(clusterDests, FACTORY_OWN_CAP) // eigene Ziele gedeckelt
   // Auslands-Verbindungen dieser Fabrik (3× Gold) mitzählen.
-  const foreign = factoryForeignContribution(state, ownerId, tile, self.level)
+  const foreign = factoryForeignContribution(state, self.ownerId, tile, self.level)
   return {
-    goldPerTick: FACTORY_GOLD_PER_DEST * own * self.level + foreign.gold,
-    dests: own + foreign.dests,
+    goldPerTick: goldPerTick + foreign.gold,
+    dests: dests + foreign.dests,
   }
 }
 
