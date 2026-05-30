@@ -50,7 +50,7 @@ import {
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
   PORT_WATER_RANGE,
-  airportCooldown,
+  airportSlots,
   buildCost,
   defenseRange,
   flakRange,
@@ -96,8 +96,9 @@ import {
   type Boat,
   BOAT_SPEED,
   type Bomber,
+  AIRCRAFT_COST,
+  BOMB_MUNITION,
   BOMB_RADIUS,
-  BOMBER_COST,
   BOMBER_HP,
   BOMBER_SPEED,
   FLAK_DAMAGE,
@@ -106,7 +107,6 @@ import {
   CART_SPEED,
   type GoldCart,
   MAX_BOATS_PER_PLAYER,
-  MAX_WARSHIPS_PER_PLAYER,
   NAVAL_RANGE,
   TRADE_INTERVAL_TICKS,
   TRADE_SHIP_SPEED,
@@ -1866,6 +1866,16 @@ function planWarshipRoute(
 }
 
 /** Entsendet ein Kriegsschiff zu einem Wasser-Ziel (von einem eigenen Hafen, gegen Gold). */
+/** Kriegsschiff-Kapazität eines Spielers = Summe der Level seiner fertigen Häfen (ADR-0019-Nachtrag). */
+function warshipCapacity(state: GameState, playerId: number): number {
+  let cap = 0
+  for (const b of state.buildings.values()) {
+    if (b.type === 'port' && b.ownerId === playerId && isBuildingComplete(b, state.tick))
+      cap += b.level
+  }
+  return cap
+}
+
 function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
@@ -1875,7 +1885,8 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
     if (player.isHuman) emitEvent(state, key, { p: player.name }, player.color)
   }
   const active = state.warships.reduce((n, w) => (w.ownerId === player.id ? n + 1 : n), 0)
-  if (active >= MAX_WARSHIPS_PER_PLAYER) {
+  // Slots pro Hafen (Level) statt globalem Limit: mehr/höhere Häfen = mehr Kriegsschiffe.
+  if (active >= warshipCapacity(state, player.id)) {
     note('event.warshipLimit')
     return
   }
@@ -1907,39 +1918,86 @@ export const BOMB_IMPACT_LIFETIME = 20
 /** Lebensdauer einer Flak-Leuchtspur (Ticks) — kurz, nur ein Aufblitzen. */
 export const FLAK_SHOT_LIFETIME = 6
 
+/** Wie viele Bomber gerade von `airportTile` aus in der Luft sind (belegen Hangar-Plätze). */
+function flyingBombersFrom(state: GameState, airportTile: TileRef): number {
+  let n = 0
+  for (const b of state.bombers) if (b.homeAirport === airportTile) n++
+  return n
+}
+
 /**
- * Startet einen Bomber vom nächstgelegenen eigenen, fertigen, startbereiten Flughafen Richtung
- * Ziel (ADR-0019). Kostet `BOMBER_COST` Gold und löst den Flughafen-Cooldown aus. Ohne passenden
- * Flughafen / zu wenig Gold passiert nichts (stiller Fehlschlag — Feedback macht das UI).
+ * Was der nächste Bomber-Start einen Spieler kosten würde + ob überhaupt möglich (für HUD/Menü).
+ * `cost` ist der günstigste Fall über alle eigenen Flughäfen: nur Munition, wenn irgendwo ein
+ * Flugzeug geparkt ist, sonst Flugzeug-Kauf + Munition; `available`, wenn ein Flughafen ein
+ * geparktes Flugzeug ODER einen freien Hangar-Platz hat (Gold-Prüfung macht der Aufrufer).
+ */
+export function bomberLaunchInfo(
+  state: GameState,
+  playerId: number,
+): { available: boolean; cost: number } {
+  let hasParked = false
+  let hasFreeSlot = false
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'airport' || b.ownerId !== playerId || !isBuildingComplete(b, state.tick))
+      continue
+    const parked = b.aircraft ?? 0
+    if (parked > 0) hasParked = true
+    else if (parked + flyingBombersFrom(state, b.tile) < airportSlots(b.level)) hasFreeSlot = true
+  }
+  if (hasParked) return { available: true, cost: BOMB_MUNITION }
+  return { available: hasFreeSlot, cost: AIRCRAFT_COST + BOMB_MUNITION }
+}
+
+/**
+ * Startet einen Bomber vom nächstgelegenen eigenen, startfähigen Flughafen Richtung Ziel
+ * (ADR-0019-Nachtrag, Hangar-Modell). Ein GEPARKTES Flugzeug startet für nur Munition
+ * (`BOMB_MUNITION`); ist keins da, aber ein Hangar-Platz frei + genug Gold, wird automatisch eins
+ * gekauft (`AIRCRAFT_COST` + Munition). Hangar voll (alle in der Luft) / zu wenig Gold → nichts
+ * (stiller Fehlschlag, Feedback macht das UI).
  */
 function applyLaunchBomberIntent(state: GameState, intent: LaunchBomberIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
   const target = intent.targetTile
   if (target < 0 || target >= state.map.state.length) return
-  if (player.gold < BOMBER_COST) return
   const { map } = state
   const { width, height } = map
   const tx = target % width
   const ty = Math.floor(target / width)
-  // Nächsten eigenen, fertigen, startbereiten Flughafen wählen (deterministisch: kürzeste Distanz).
+  // Nächsten eigenen, fertigen Flughafen wählen, der STARTEN kann (geparktes Flugzeug → Munition,
+  // sonst freier Hangar-Platz + Gold für Kauf+Munition). Deterministisch: kürzeste Distanz.
   let chosen: Building | undefined
+  let chosenNeedsBuy = false
   let bestDist = Infinity
   for (const b of state.buildings.values()) {
-    if (b.type !== 'airport' || b.ownerId !== player.id) continue
-    if (!isBuildingComplete(b, state.tick)) continue
-    if ((b.cooldownUntilTick ?? 0) > state.tick) continue
+    if (b.type !== 'airport' || b.ownerId !== player.id || !isBuildingComplete(b, state.tick))
+      continue
+    const parked = b.aircraft ?? 0
+    let needsBuy = false
+    let canStart = false
+    if (parked > 0) {
+      canStart = player.gold >= BOMB_MUNITION
+    } else if (parked + flyingBombersFrom(state, b.tile) < airportSlots(b.level)) {
+      needsBuy = true
+      canStart = player.gold >= AIRCRAFT_COST + BOMB_MUNITION
+    }
+    if (!canStart) continue
     const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
     if (d < bestDist) {
       bestDist = d
       chosen = b
+      chosenNeedsBuy = needsBuy
     }
   }
   if (chosen === undefined) return
   const path = planBomberRoute(width, height, chosen.tile, target, intent.route)
   if (path.length < 2) return
-  player.gold -= BOMBER_COST
-  chosen.cooldownUntilTick = state.tick + airportCooldown(chosen.level)
+  if (chosenNeedsBuy) {
+    player.gold -= AIRCRAFT_COST + BOMB_MUNITION // neues Flugzeug + Munition; es fliegt sofort los
+  } else {
+    player.gold -= BOMB_MUNITION
+    chosen.aircraft = (chosen.aircraft ?? 0) - 1 // geparktes Flugzeug startet
+  }
   state.bombers.push({
     ownerId: player.id,
     path,
@@ -1948,6 +2006,7 @@ function applyLaunchBomberIntent(state: GameState, intent: LaunchBomberIntent): 
     hp: BOMBER_HP,
     dropped: false,
     targetTile: target,
+    homeAirport: chosen.tile,
   })
 }
 
@@ -2063,7 +2122,13 @@ function advanceBombers(state: GameState): void {
       }
       bomber.dir = -1
     } else if (bomber.dir === -1 && bomber.progress <= 0) {
-      continue // am Flughafen angekommen → aufgelöst
+      // Heil zurück: Flugzeug parkt wieder im Hangar (wiederverwendbar), falls der Heimat-Flughafen
+      // noch steht und dem Besitzer gehört — sonst ist es verloren (Hangar-Platz wird frei).
+      const home = state.buildings.get(bomber.homeAirport)
+      if (home !== undefined && home.type === 'airport' && home.ownerId === bomber.ownerId) {
+        home.aircraft = (home.aircraft ?? 0) + 1
+      }
+      continue
     }
     next.push(bomber)
   }

@@ -212,7 +212,7 @@ export const es: Record<string, string> = {
   'hud.tooltip.factory':
     'Fábrica — se conecta en línea recta con tus ciudades/puertos/fábricas y produce oro por cada ciudad/puerto conectado.',
   'hud.tooltip.airport':
-    'Aeropuerto — lanza bombarderos contra un objetivo (oro por lanzamiento). Recarga {cooldown}s, baja por nivel.',
+    'Aeropuerto — hangar para {slots} avión por nivel; lanza bombarderos (compra avión + munición por lanzamiento).',
   'hud.tooltip.flak':
     'Antiaéreo — derriba bombarderos enemigos en un radio de {range} (+{per}/nivel).',
   'hud.controls': 'Controles',
@@ -326,6 +326,7 @@ export const es: Record<string, string> = {
   'menu.bomberDetail':
     'Bombardea el objetivo — destruye edificios, tropas y territorio en el radio de la explosión',
   'menu.bomberCooldown': 'el aeródromo aún se recarga',
+  'menu.bomberFull': 'hangar lleno o sin avión',
   'menu.attack': 'Ataque',
   'menu.attackDetail': '{n} tropas al frente',
   'menu.boatDetail': '{n} tropas por el agua',
@@ -335,10 +336,10 @@ export const es: Record<string, string> = {
   'tip.effect.defense': '{mult}× coste de conquista · alcance {range} casillas',
   'tip.effect.port': 'barcos y comercio · cuenta como objetivo de red',
   'tip.effect.factory': 'oro de red · alcance {range} casillas',
-  'tip.effect.airport': 'lanzamiento de bombarderos · recarga {cooldown}s',
+  'tip.effect.airport': 'hangar · {slots} plazas de avión',
   'tip.effect.flak': 'antiaéreo · alcance {range} casillas',
   'tip.upgrade.defense': 'alcance {range} casillas',
-  'tip.upgrade.airport': 'recarga {cooldown}s',
+  'tip.upgrade.airport': 'hangar {slots} plazas',
   'tip.upgrade.flak': 'alcance {range} casillas',
   'tip.dests': '{n} objetivos',
   'tip.tradeShip': 'Barco mercante',

@@ -24,7 +24,13 @@ import {
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
-import { BOMBER_HP, CART_GOLD_PER_LEVEL, planBomberRoute } from '../src/core/ships'
+import {
+  AIRCRAFT_COST,
+  BOMB_MUNITION,
+  BOMBER_HP,
+  CART_GOLD_PER_LEVEL,
+  planBomberRoute,
+} from '../src/core/ships'
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
@@ -601,6 +607,49 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p2.troops).toBeLessThan(troopsBefore) // Truppen geschmolzen
     expect(p2.tilesOwned).toBeLessThan(n) // Gebiet verloren
     expect(state.bombers.length).toBe(0) // Bomber nach Rückflug aufgelöst
+  })
+
+  it('Hangar: Bomber kehrt zurück + parkt; nächster Wurf kostet nur Munition (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    const airport = T(10, 10)
+    setOwner(state.map, airport, 1)
+    state.buildings.set(airport, {
+      type: 'airport',
+      ownerId: 1,
+      tile: airport,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 1_000_000
+    p1.tilesOwned = 1
+    initializeAllFrontiers(state)
+    const target = T(20, 10)
+
+    // Erster Wurf: kein geparktes Flugzeug → kauft eins (50k) + Munition (25k). Im selben Tick
+    // gibt es BASE_GOLD_PER_TICK Grund-Einkommen, das die Netto-Ausgabe entsprechend mindert.
+    const before1 = p1.gold
+    tick(state, [
+      { type: 'launch-bomber' as const, playerId: 1, targetTile: target, route: 'direct' },
+    ])
+    expect(before1 - p1.gold).toBe(AIRCRAFT_COST + BOMB_MUNITION - BASE_GOLD_PER_TICK)
+    // Genug Ticks, bis der Bomber hin und zurück ist → er parkt wieder im Hangar.
+    for (let i = 0; i < 40; i++) tick(state, [])
+    expect(state.bombers.length).toBe(0)
+    expect(state.buildings.get(airport)?.aircraft).toBe(1)
+
+    // Nächster Wurf nutzt das geparkte Flugzeug → nur Munition (minus Grund-Einkommen des Ticks).
+    const before2 = p1.gold
+    tick(state, [
+      { type: 'launch-bomber' as const, playerId: 1, targetTile: target, route: 'direct' },
+    ])
+    expect(before2 - p1.gold).toBe(BOMB_MUNITION - BASE_GOLD_PER_TICK)
+    expect(state.buildings.get(airport)?.aircraft).toBe(0)
   })
 
   it('Bombe: Groll + Verrat bei Verbündeten + versenkt Schiffe im Radius (ADR-0019)', () => {

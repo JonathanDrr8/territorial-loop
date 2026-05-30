@@ -40,10 +40,16 @@ export interface Building {
    */
   readonly buildPrice?: number
   /**
-   * Nur Flughafen (ADR-0019): Tick, bis zu dem kein weiterer Bomber gestartet werden kann
-   * (Start-Cooldown, Level senkt ihn). `undefined`/0 = startbereit. Mutiert beim Start.
+   * Nur Flak (ADR-0019): Tick, bis zu dem der Turm nicht wieder feuern kann (Schuss-Cooldown).
+   * `undefined`/0 = schussbereit. Mutiert beim Feuern.
    */
   cooldownUntilTick?: number
+  /**
+   * Nur Flughafen (ADR-0019-Nachtrag): wie viele GEPARKTE (startbereite) Flugzeuge gerade im
+   * Hangar stehen. Fliegende Bomber zählen nicht hier, sondern in `state.bombers`. Hangar-Größe
+   * = Flughafen-Level ([[airportSlots]]). `undefined` = 0. Mutiert beim Start/Rückkehr/Abschuss.
+   */
+  aircraft?: number
 }
 
 export const MAX_BUILDING_LEVEL = 3
@@ -150,13 +156,11 @@ export function defenseRange(level: number): number {
 
 // ── Flughafen & Flak (ADR-0019) ─────────────────────────────────────────────
 /**
- * Cooldown des Flughafens zwischen zwei Bomber-Starts (Ticks). Level senkt ihn
- * (L1 100 = 10 s, L2 80 = 8 s, L3 60 = 6 s) → höheres Level = schnellere Starts.
+ * Hangar-Plätze eines Flughafens = sein Level (ADR-0019-Nachtrag): L1 1 / L2 2 / L3 3. So viele
+ * Flugzeuge kann er besitzen (geparkt + gerade in der Luft). Die Flugzeit ersetzt einen Cooldown.
  */
-export const AIRPORT_BASE_COOLDOWN = 100
-export const AIRPORT_COOLDOWN_PER_LEVEL = 20
-export function airportCooldown(level: number): number {
-  return Math.max(20, AIRPORT_BASE_COOLDOWN - (level - 1) * AIRPORT_COOLDOWN_PER_LEVEL)
+export function airportSlots(level: number): number {
+  return level
 }
 
 /** Flak-Reichweite (Tiles) — wie der Verteidigungsposten: L1 8 / L2 12 / L3 16. */

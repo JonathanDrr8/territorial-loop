@@ -14,7 +14,13 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import { BUILD_TIME_TICKS, defenseRange, flakRange, isBuildingComplete } from '../core/buildings'
+import {
+  airportSlots,
+  BUILD_TIME_TICKS,
+  defenseRange,
+  flakRange,
+  isBuildingComplete,
+} from '../core/buildings'
 import {
   BOMB_IMPACT_LIFETIME,
   canBuildAt,
@@ -1491,6 +1497,37 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /**
+   * Hangar-Punkte über jedem eigenen Flughafen (ADR-0019-Nachtrag): so viele Punkte wie Hangar-
+   * Plätze (Level); gefüllt = geparktes, startbereites Flugzeug, leer = freier Platz / in der Luft.
+   */
+  function drawAirportHangars(): void {
+    if (lutHumanId < 0 || camera.zoom < 1.4) return
+    const mapW = state.map.width
+    const r = Math.max(1.5, camera.zoom * 0.55)
+    const gap = r * 2.3
+    screenCtx.save()
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'airport' || b.ownerId !== lutHumanId || !isBuildingComplete(b, state.tick))
+        continue
+      const slots = airportSlots(b.level)
+      const parked = b.aircraft ?? 0
+      const { sx, sy } = nearestWrappedScreenPos(
+        (b.tile % mapW) + 0.5,
+        Math.floor(b.tile / mapW) + 0.5,
+      )
+      const py = sy - Math.max(7, camera.zoom * 3.5)
+      const x0 = sx - ((slots - 1) * gap) / 2
+      for (let s = 0; s < slots; s++) {
+        screenCtx.beginPath()
+        screenCtx.arc(x0 + s * gap, py, r, 0, Math.PI * 2)
+        screenCtx.fillStyle = s < parked ? 'rgba(232,136,74,0.95)' : 'rgba(255,255,255,0.22)'
+        screenCtx.fill()
+      }
+    }
+    screenCtx.restore()
+  }
+
   /** Flüchtige „+Gold"-Einblendungen des Menschen (Fuhr-/Handelsschiff-Anlieferungen, ADR-0018). */
   function drawGoldPops(): void {
     const humanId = lutHumanId
@@ -2490,6 +2527,7 @@ export function createRenderer(
     drawShips()
     drawProjectiles()
     drawBuildingLinks()
+    drawAirportHangars()
     drawBuildings()
     drawHoverHighlight()
     drawHoveredDefenseRange()

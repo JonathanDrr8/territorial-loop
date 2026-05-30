@@ -153,8 +153,10 @@ export interface Projectile {
 export const BOMBER_SPEED = 2
 /** Bomber-HP (Flak-Treffer bis zum Abschuss). */
 export const BOMBER_HP = 4
-/** Gold-Kosten je Bomber-Start (Munition — die offensive Gold-Senke). */
-export const BOMBER_COST = 40_000
+/** Gold, um EIN Flugzeug zu kaufen (einmalig; es parkt danach im Hangar, ADR-0019-Nachtrag). */
+export const AIRCRAFT_COST = 50_000
+/** Gold je Bomben-Abwurf (Munition, pro Flug). Ein etabliertes Flugzeug bombt für diesen Preis weiter. */
+export const BOMB_MUNITION = 25_000
 /** Bomben-Wirkradius (Tiles) am Einschlagpunkt — großzügig, die Fläche soll spürbar sein. */
 export const BOMB_RADIUS = 6
 /** Schuss-Cooldown eines Flak-Turms (Ticks) — bewusst schnell, knabbert die Bomber-HP runter. */
@@ -182,6 +184,8 @@ export interface Bomber {
   dropped: boolean
   /** Einschlag-Ziel (= letztes Vorwärts-path-Tile). */
   readonly targetTile: TileRef
+  /** Heimat-Flughafen — dorthin kehrt der Bomber zurück und parkt wieder (ADR-0019-Nachtrag). */
+  readonly homeAirport: TileRef
 }
 
 /**

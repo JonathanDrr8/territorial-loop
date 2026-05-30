@@ -214,7 +214,7 @@ export const en: Record<string, string> = {
   'hud.tooltip.factory':
     'Factory — links by line of sight to your own cities/ports/factories and produces gold per connected city/port.',
   'hud.tooltip.airport':
-    'Airport — launches bombers at a target (gold per launch). Cooldown {cooldown}s, drops per level.',
+    'Airport — hangar for {slots} plane per level; launches bombers (buy plane + ammo per drop).',
   'hud.tooltip.flak': 'Anti-air — shoots down enemy bombers within range {range} (+{per}/level).',
   'hud.controls': 'Controls',
   'hud.controlsBody':
@@ -324,6 +324,7 @@ export const en: Record<string, string> = {
   'menu.bomberDetail':
     'Bomb the target — destroys buildings, troops and territory in the blast radius',
   'menu.bomberCooldown': 'airfield still reloading',
+  'menu.bomberFull': 'hangar full or no plane',
   'menu.attack': 'Attack',
   'menu.attackDetail': '{n} troops to the front',
   'menu.boatDetail': '{n} troops across the water',
@@ -333,10 +334,10 @@ export const en: Record<string, string> = {
   'tip.effect.defense': '{mult}× conquest cost · range {range} tiles',
   'tip.effect.port': 'ships & trade · counts as a network target',
   'tip.effect.factory': 'network gold · range {range} tiles',
-  'tip.effect.airport': 'bomber launch · cooldown {cooldown}s',
+  'tip.effect.airport': 'hangar · {slots} plane slots',
   'tip.effect.flak': 'anti-air · range {range} tiles',
   'tip.upgrade.defense': 'range {range} tiles',
-  'tip.upgrade.airport': 'cooldown {cooldown}s',
+  'tip.upgrade.airport': 'hangar {slots} slots',
   'tip.upgrade.flak': 'range {range} tiles',
   'tip.dests': '{n} targets',
   'tip.tradeShip': 'Trade ship',

@@ -98,3 +98,28 @@ Bomber den echten Spielstand (Gebiet/Truppen/Gebäude). Deshalb:
 - Neue Determinismus-Anforderung an „fliegende, wirksame" Einheiten (Hash/Serialize) — sauber
   abgegrenzt von den bestehenden Deko-Einheiten.
 - Flugabwehr schafft ein **Bau-Wettrüsten** (Angreifer-Routen vs. Verteidiger-Abdeckung).
+
+## Nachtrag (Hangar-Modell + Schiff-Slots, abgesegnet 2026-05-30)
+
+Die Iteration nach dem ersten Spieltest verlagert das Flugzeug von „Einweg pro Wurf" zu
+**wiederverwendbaren Flugzeugen in einem Hangar**:
+
+- **Zwei getrennte Kosten:** **Flugzeug kaufen 50 k** (einmalig, parkt im Hangar) + **Bombe
+  werfen 25 k** (Munition, pro Wurf). Ein etabliertes Flugzeug bombt danach für 25 k weiter.
+- **Hangar-Plätze = Flughafen-Level** (L1 1 / L2 2 / L3 3). So viele Flugzeuge kann ein Flughafen
+  besitzen (geparkt + gerade in der Luft).
+- **Rückflug zählt (Variante A):** Kommt der Bomber heil zum Flughafen zurück, **parkt** er
+  wieder (wiederverwendbar). Wird er unterwegs/heimwärts **abgeschossen, ist das Flugzeug weg**
+  (Hangar-Platz frei). Die **Flugzeit ist der natürliche Cooldown** — der bisherige
+  Flughafen-Cooldown entfällt; nähere Ziele bombt man öfter.
+- **Auto-Nachkauf statt Menü:** Ein Wurf auf ein Ziel startet ein **geparktes** Flugzeug (nur
+  Munition); ist keins da, aber ein Hangar-Platz frei und genug Gold, wird **automatisch ein
+  Flugzeug gekauft + gestartet** (50 k + 25 k). Hangar voll (alle in der Luft) → kein Start. Der
+  Bomber-Knopf zeigt die jeweils fälligen Kosten (25 k oder 75 k).
+- **Hangar-Anzeige:** kleine Punkte über dem Flughafen (gefüllt = geparktes Flugzeug bereit,
+  leer = Platz frei / in der Luft).
+- **Häfen analog:** Der **Hafen-Level steuert Handels- UND Kriegsschiffe** (L1 1+1 … L3 3+3) —
+  Kriegsschiffe sind nicht mehr global (MAX_WARSHIPS) gedeckelt, sondern pro Hafen. Entsenden
+  kauft automatisch (wie der Bomber), solange ein Slot frei und Gold da ist.
+
+Spätere Phase 3 (offen): verschiedene Flugzeug-Typen am selben Flughafen (andere Bomben/Preise).

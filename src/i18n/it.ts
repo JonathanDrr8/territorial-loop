@@ -210,7 +210,7 @@ export const it: Record<string, string> = {
   'hud.tooltip.factory':
     'Fabbrica — si collega in linea d’aria alle tue città/porti/fabbriche e produce oro per ogni città/porto collegato.',
   'hud.tooltip.airport':
-    'Aeroporto — lancia bombardieri contro un bersaglio (oro per lancio). Ricarica {cooldown}s, cala per livello.',
+    'Aeroporto — hangar per {slots} aereo per livello; lancia bombardieri (compra aereo + munizioni per sgancio).',
   'hud.tooltip.flak':
     'Contraerea — abbatte i bombardieri nemici nel raggio di {range} (+{per}/livello).',
   'hud.controls': 'Comandi',
@@ -324,6 +324,7 @@ export const it: Record<string, string> = {
   'menu.bomberDetail':
     'Bombarda il bersaglio — distrugge edifici, truppe e territorio nel raggio dell’esplosione',
   'menu.bomberCooldown': 'l’aeroporto si sta ancora ricaricando',
+  'menu.bomberFull': 'hangar pieno o nessun aereo',
   'menu.attack': 'Attacco',
   'menu.attackDetail': '{n} truppe al fronte',
   'menu.boatDetail': '{n} truppe via acqua',
@@ -333,10 +334,10 @@ export const it: Record<string, string> = {
   'tip.effect.defense': '{mult}× costo di conquista · portata {range} caselle',
   'tip.effect.port': 'navi e commercio · conta come obiettivo di rete',
   'tip.effect.factory': 'oro di rete · portata {range} caselle',
-  'tip.effect.airport': 'lancio bombardieri · ricarica {cooldown}s',
+  'tip.effect.airport': 'hangar · {slots} posti aereo',
   'tip.effect.flak': 'contraerea · portata {range} caselle',
   'tip.upgrade.defense': 'portata {range} caselle',
-  'tip.upgrade.airport': 'ricarica {cooldown}s',
+  'tip.upgrade.airport': 'hangar {slots} posti',
   'tip.upgrade.flak': 'portata {range} caselle',
   'tip.dests': '{n} obiettivi',
   'tip.tradeShip': 'Nave mercantile',

@@ -215,7 +215,7 @@ export const de: Record<string, string> = {
   'hud.tooltip.factory':
     'Fabrik — verbindet sich per Luftlinie mit eigenen Städten/Häfen/Fabriken und produziert Gold je verbundener Stadt/Hafen.',
   'hud.tooltip.airport':
-    'Flughafen — startet Bomber gegen ein Ziel (Gold je Start). Cooldown {cooldown}s, sinkt pro Stufe.',
+    'Flughafen — Hangar für {slots} Flugzeug je Stufe; startet Bomber (Flugzeug kaufen + Munition pro Wurf).',
   'hud.tooltip.flak':
     'Flugabwehr — schießt feindliche Bomber im Umkreis {range} (+{per}/Stufe) ab.',
   'hud.controls': 'Steuerung',
@@ -326,6 +326,7 @@ export const de: Record<string, string> = {
   'menu.bomber': 'Bomber starten',
   'menu.bomberDetail': 'Bombe aufs Ziel — zerstört Gebäude, Truppen und Gebiet im Umkreis',
   'menu.bomberCooldown': 'Flughafen lädt noch nach',
+  'menu.bomberFull': 'Hangar voll oder kein Flugzeug',
   'menu.attack': 'Angriff',
   'menu.attackDetail': '{n} Truppen an die Front',
   'menu.boatDetail': '{n} Truppen übers Wasser',
@@ -335,10 +336,10 @@ export const de: Record<string, string> = {
   'tip.effect.defense': '{mult}× Eroberungskosten · Reichweite {range} Tiles',
   'tip.effect.port': 'Schiffe & Handel · zählt als Netz-Ziel',
   'tip.effect.factory': 'Netzwerk-Gold · Reichweite {range} Tiles',
-  'tip.effect.airport': 'Bomber-Start · Cooldown {cooldown}s',
+  'tip.effect.airport': 'Hangar · {slots} Flugzeug-Plätze',
   'tip.effect.flak': 'Flugabwehr · Reichweite {range} Tiles',
   'tip.upgrade.defense': 'Reichweite {range} Tiles',
-  'tip.upgrade.airport': 'Cooldown {cooldown}s',
+  'tip.upgrade.airport': 'Hangar {slots} Plätze',
   'tip.upgrade.flak': 'Reichweite {range} Tiles',
   'tip.dests': '{n} Ziele',
   'tip.tradeShip': 'Handelsschiff',

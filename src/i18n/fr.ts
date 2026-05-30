@@ -213,7 +213,7 @@ export const fr: Record<string, string> = {
   'hud.tooltip.factory':
     'Usine — se relie à vue à tes villes/ports/usines et produit de l’or par ville/port connecté.',
   'hud.tooltip.airport':
-    'Aéroport — lance des bombardiers sur une cible (or par lancement). Recharge {cooldown}s, baisse par niveau.',
+    'Aéroport — hangar pour {slots} avion par niveau ; lance des bombardiers (acheter avion + munitions par largage).',
   'hud.tooltip.flak':
     'DCA — abat les bombardiers ennemis dans un rayon de {range} (+{per}/niveau).',
   'hud.controls': 'Commandes',
@@ -328,6 +328,7 @@ export const fr: Record<string, string> = {
   'menu.bomberDetail':
     'Bombarde la cible — détruit bâtiments, troupes et territoire dans le rayon de l’explosion',
   'menu.bomberCooldown': 'l’aérodrome recharge encore',
+  'menu.bomberFull': 'hangar plein ou aucun avion',
   'menu.attack': 'Attaque',
   'menu.attackDetail': '{n} troupes au front',
   'menu.boatDetail': '{n} troupes par l’eau',
@@ -337,10 +338,10 @@ export const fr: Record<string, string> = {
   'tip.effect.defense': '{mult}× coût de conquête · portée {range} tuiles',
   'tip.effect.port': 'navires et commerce · compte comme cible de réseau',
   'tip.effect.factory': 'or de réseau · portée {range} tuiles',
-  'tip.effect.airport': 'lancement de bombardiers · recharge {cooldown}s',
+  'tip.effect.airport': 'hangar · {slots} places d’avion',
   'tip.effect.flak': 'DCA · portée {range} tuiles',
   'tip.upgrade.defense': 'portée {range} tuiles',
-  'tip.upgrade.airport': 'recharge {cooldown}s',
+  'tip.upgrade.airport': 'hangar {slots} places',
   'tip.upgrade.flak': 'portée {range} tuiles',
   'tip.dests': '{n} cibles',
   'tip.tradeShip': 'Navire marchand',

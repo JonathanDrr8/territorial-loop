@@ -14,7 +14,7 @@
  */
 
 import {
-  AIRPORT_BASE_COOLDOWN,
+  airportSlots,
   BUILDING_TYPES,
   CITY_CAP_BONUS,
   DEFENSE_BASE_RANGE,
@@ -24,10 +24,11 @@ import {
   FLAK_RANGE_PER_LEVEL,
   type BuildingType,
 } from '../core/buildings'
-import { BOMBER_COST, WARSHIP_COST, type BomberRoute } from '../core/ships'
+import { WARSHIP_COST, type BomberRoute } from '../core/ships'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
+  bomberLaunchInfo,
   buildCostFor,
   countBuildingsOfType,
   effectiveMaxTroops,
@@ -79,7 +80,7 @@ function buildingTooltip(type: BuildingType): string {
     case 'factory':
       return t('hud.tooltip.factory')
     case 'airport':
-      return t('hud.tooltip.airport', { cooldown: (AIRPORT_BASE_COOLDOWN / 10).toFixed(0) })
+      return t('hud.tooltip.airport', { slots: airportSlots(1) })
     case 'flak':
       return t('hud.tooltip.flak', { range: FLAK_BASE_RANGE, per: FLAK_RANGE_PER_LEVEL })
   }
@@ -743,7 +744,7 @@ export function createHUD(
   boatBtn.addEventListener('click', () => {
     onBoatClick()
   })
-  const bomber = makeUnitBtn('7', t('hud.bomber'), fmtCompact(BOMBER_COST))
+  const bomber = makeUnitBtn('7', t('hud.bomber'), '')
   const bomberBtn = bomber.btn
   const bomberCostEl = bomber.costEl
   bomberBtn.addEventListener('click', () => {
@@ -996,8 +997,11 @@ export function createHUD(
         }
       }
     }
-    // Bomber- und Kriegsschiff-Kosten einfärben (bezahlbar grün, sonst rot). Boot kostet kein Gold.
-    bomberCostEl.style.color = human.gold >= BOMBER_COST ? '#5dd75d' : '#ef5350'
+    // Bomber-Kosten dynamisch: nur Munition (geparktes Flugzeug) oder Flugzeug-Kauf + Munition.
+    const bi = bomberLaunchInfo(state, human.id)
+    bomberCostEl.textContent = fmtCompact(bi.cost)
+    bomberCostEl.style.color = bi.available && human.gold >= bi.cost ? '#5dd75d' : '#ef5350'
+    // Kriegsschiff-Kosten einfärben (bezahlbar grün, sonst rot). Boot kostet kein Gold.
     warshipCostEl.style.color = human.gold >= WARSHIP_COST ? '#5dd75d' : '#ef5350'
   }
 

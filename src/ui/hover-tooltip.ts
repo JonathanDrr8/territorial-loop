@@ -11,7 +11,7 @@
 
 import { canReachByLand, effectiveMaxTroops, factoryYield, type GameState } from '../core/game'
 import {
-  airportCooldown,
+  airportSlots,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   defenseRange,
@@ -77,7 +77,7 @@ function buildingEffect(b: Building): string {
     case 'factory':
       return t('tip.effect.factory', { range: FACTORY_LINK_RANGE })
     case 'airport':
-      return t('tip.effect.airport', { cooldown: (airportCooldown(b.level) / 10).toFixed(0) })
+      return t('tip.effect.airport', { slots: airportSlots(b.level) })
     case 'flak':
       return t('tip.effect.flak', { range: flakRange(b.level) })
   }
@@ -116,7 +116,7 @@ function upgradeBenefit(state: GameState, b: Building): string | null {
     case 'port':
       return null // Hafen-Level hat aktuell keinen Effekt
     case 'airport':
-      return t('tip.upgrade.airport', { cooldown: (airportCooldown(next) / 10).toFixed(0) })
+      return t('tip.upgrade.airport', { slots: airportSlots(next) })
     case 'flak':
       return t('tip.upgrade.flak', { range: flakRange(next) })
   }

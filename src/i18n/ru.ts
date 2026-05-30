@@ -203,7 +203,7 @@ export const ru: Record<string, string> = {
   'hud.tooltip.factory':
     'Фабрика — связывается по прямой с твоими городами/портами/фабриками и даёт золото за каждый связанный город/порт.',
   'hud.tooltip.airport':
-    'Аэропорт — запускает бомбардировщики по цели (золото за вылет). Перезарядка {cooldown}с, снижается за уровень.',
+    'Аэропорт — ангар на {slots} самолёт за уровень; запускает бомбардировщики (покупка самолёта + боезапас за сброс).',
   'hud.tooltip.flak':
     'Зенитка — сбивает вражеские бомбардировщики в радиусе {range} (+{per}/уровень).',
   'hud.controls': 'Управление',
@@ -315,6 +315,7 @@ export const ru: Record<string, string> = {
   'menu.bomber': 'Запустить бомбардировщик',
   'menu.bomberDetail': 'Бомбит цель — уничтожает здания, войска и территорию в радиусе взрыва',
   'menu.bomberCooldown': 'аэродром ещё перезаряжается',
+  'menu.bomberFull': 'ангар полон или нет самолёта',
   'menu.attack': 'Атака',
   'menu.attackDetail': '{n} войск на фронт',
   'menu.boatDetail': '{n} войск по воде',
@@ -324,10 +325,10 @@ export const ru: Record<string, string> = {
   'tip.effect.defense': '{mult}× стоимость захвата · радиус {range} клеток',
   'tip.effect.port': 'корабли и торговля · считается целью сети',
   'tip.effect.factory': 'золото сети · радиус {range} клеток',
-  'tip.effect.airport': 'вылет бомбардировщиков · перезарядка {cooldown}с',
+  'tip.effect.airport': 'ангар · {slots} мест для самолётов',
   'tip.effect.flak': 'зенитка · радиус {range} клеток',
   'tip.upgrade.defense': 'радиус {range} клеток',
-  'tip.upgrade.airport': 'перезарядка {cooldown}с',
+  'tip.upgrade.airport': 'ангар {slots} мест',
   'tip.upgrade.flak': 'радиус {range} клеток',
   'tip.dests': '{n} целей',
   'tip.tradeShip': 'Торговое судно',
