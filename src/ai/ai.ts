@@ -21,6 +21,7 @@ import {
   buildCostFor,
   countBuildingsOfType,
   effectiveMaxTroops,
+  isBuildingAllowed,
   type GameState,
   type Player,
 } from '../core/game'
@@ -330,13 +331,21 @@ export function createAI(
     const costOf = (t: BuildingType): number => buildCostFor(state, player.id, t)
 
     // 1. Truppen-Cap ist der Engpass → Stadt
-    if (player.troops >= 0.9 * effectiveMaxTroops(state, player.id) && gold >= costOf('city')) {
+    if (
+      isBuildingAllowed(state.config, 'city') &&
+      player.troops >= 0.9 * effectiveMaxTroops(state, player.id) &&
+      gold >= costOf('city')
+    ) {
       const tile = pickOwnTile(state, player, false)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
     }
     // 2. Am Wasser ohne Hafen → Hafen (VOR Verteidigung, sonst baut die KI bei flachen
     //    Verteidigungskosten endlos Posten und kommt nie zum Hafen / zu Schiffen).
-    if (countBuildingsOfType(state, player.id, 'port') === 0 && gold >= costOf('port')) {
+    if (
+      isBuildingAllowed(state.config, 'port') &&
+      countBuildingsOfType(state, player.id, 'port') === 0 &&
+      gold >= costOf('port')
+    ) {
       const tile = pickCoastalTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
@@ -346,6 +355,7 @@ export function createAI(
       countBuildingsOfType(state, player.id, 'city') +
       countBuildingsOfType(state, player.id, 'port')
     if (
+      isBuildingAllowed(state.config, 'factory') &&
       dests > 0 &&
       countBuildingsOfType(state, player.id, 'factory') < dests &&
       gold >= costOf('factory')
@@ -354,7 +364,7 @@ export function createAI(
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'factory' }
     }
     // 3. Bedrohte Front → Verteidigungsposten (hinter der Grenze, nicht drauf)
-    if (gold >= costOf('defense')) {
+    if (isBuildingAllowed(state.config, 'defense') && gold >= costOf('defense')) {
       const tile = pickDefenseTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'defense' }
     }

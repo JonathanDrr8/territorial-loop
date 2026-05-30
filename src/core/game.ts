@@ -156,6 +156,13 @@ export interface GameConfig {
   /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). Default false. */
   readonly rivers?: boolean
   /**
+   * Erlaubte Gebäudetypen. Fehlt ein Eintrag → erlaubt (Default: alles erlaubt).
+   * Steht ein Typ auf `false`, kann ihn niemand bauen (Spieler-HUD blendet aus, KI überspringt,
+   * `canBuildAt` lehnt ab). Pro Match im Setup togglebar; via `MatchSettings` an alle MP-Clients
+   * gespiegelt, damit es deterministisch bleibt.
+   */
+  readonly allowedBuildings?: Partial<Record<BuildingType, boolean>>
+  /**
    * Gebackene Geo-Karte (ADR-0016): ist dies gesetzt, lädt `createGame` das Terrain aus der
    * Geo-Map-Registry (per `mapId`) statt es prozedural zu generieren. `mapWidth`/`mapHeight`
    * müssen zu den Asset-Dimensionen passen (setzt der Aufrufer beim Laden). Die Karte muss vorher
@@ -1335,12 +1342,18 @@ function factorySourceTooClose(
   return false
 }
 
+/** Ist dieser Gebäudetyp im aktuellen Match erlaubt? Fehlender Eintrag → erlaubt. */
+export function isBuildingAllowed(config: GameConfig, type: BuildingType): boolean {
+  return config.allowedBuildings?.[type] !== false
+}
+
 export function canBuildAt(
   state: GameState,
   playerId: number,
   tile: TileRef,
   type: BuildingType,
 ): boolean {
+  if (!isBuildingAllowed(state.config, type)) return false
   const player = state.players.get(playerId)
   if (player === undefined || !player.isAlive) return false
   if (tile < 0 || tile >= state.map.state.length) return false

@@ -8,6 +8,7 @@
  * Reine DOM-UI (kein Framework), passend zum Start-Menü-Stil. Der Aufrufer ruft `destroy()`.
  */
 
+import type { BuildingType } from '../core/buildings'
 import type { GameConfig } from '../core/game'
 import { NetworkTransport } from '../net/transport'
 import type { MatchSettings, PeerInfo } from '../net/protocol'
@@ -455,6 +456,20 @@ export function createMultiplayerMenu(
       (on) => (on ? t('toggle.on') : t('toggle.off')),
       (v) => ({ ...settings, rivers: v }),
     )
+    // Gebäude-Toggles: deaktivierte Typen kann im Match niemand bauen (deterministisch übers Netz).
+    const setBuilding = (type: BuildingType, on: boolean): MatchSettings => {
+      const ab: Partial<Record<BuildingType, boolean>> = { ...(settings.allowedBuildings ?? {}) }
+      ab[type] = on
+      return { ...settings, allowedBuildings: ab }
+    }
+    for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+      checkboxRow(
+        t(`building.${type}`),
+        s.allowedBuildings?.[type] !== false,
+        (on) => (on ? t('toggle.on') : t('toggle.off')),
+        (v) => setBuilding(type, v),
+      )
+    }
     checkboxRow(
       t('mp.visible'),
       s.public,

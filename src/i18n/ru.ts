@@ -48,9 +48,9 @@ export const ru: Record<string, string> = {
   'camera.period': 'Рамка (бесшовно)',
   'camera.fixed': 'Рамка (фикс.)',
   'camera.dynamic': 'Динамическая рамка',
-  'settings.experimental': 'Эксперименты',
-  'settings.experimental.body':
-    'Опциональные функции для проб как отдельные переключатели. Реки уже активны — дальше будут леса, рыбы, землеподобный шум …',
+  'settings.buildings': 'Разрешённые здания',
+  'settings.buildings.body': 'Отключённые здания не сможет построить никто в матче — даже ИИ.',
+  'settings.world': 'Мир',
 
   'mp.intro': 'Присоединись к открытому матчу или создай свою комнату.',
   'mp.openDialog': 'Создать комнату / войти по коду',

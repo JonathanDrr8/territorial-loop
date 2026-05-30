@@ -48,9 +48,10 @@ export const pt: Record<string, string> = {
   'camera.period': 'Caixa (sem emendas)',
   'camera.fixed': 'Caixa (fixa)',
   'camera.dynamic': 'Caixa dinâmica',
-  'settings.experimental': 'Experimental',
-  'settings.experimental.body':
-    'Recursos opcionais para testar como botões próprios. Os rios estão ativos — mais (florestas, peixes, ruído tipo terrestre …) a caminho.',
+  'settings.buildings': 'Edifícios permitidos',
+  'settings.buildings.body':
+    'Os edifícios desativados não podem ser construídos por ninguém na partida — nem pela IA.',
+  'settings.world': 'Mundo',
 
   'mp.intro': 'Entre em uma partida aberta ou crie sua própria sala.',
   'mp.openDialog': 'Criar sala / entrar por código',

@@ -48,9 +48,9 @@ export const ja: Record<string, string> = {
   'camera.period': 'ボックス（シームレス）',
   'camera.fixed': 'ボックス（固定）',
   'camera.dynamic': '動的ボックス',
-  'settings.experimental': '実験的',
-  'settings.experimental.body':
-    '試せる任意機能は個別のスイッチとして並びます。川は有効です —— 今後、森・魚・地球風ノイズなどが続きます。',
+  'settings.buildings': '許可する建物',
+  'settings.buildings.body': '無効にした建物は試合中だれも建てられません — AI も同様です。',
+  'settings.world': 'ワールド',
 
   'mp.intro': '公開中の対戦に参加するか、自分の部屋を作成しましょう。',
   'mp.openDialog': '部屋を作成 / コードで参加',

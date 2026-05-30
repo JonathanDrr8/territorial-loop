@@ -50,9 +50,9 @@ export const de: Record<string, string> = {
   'camera.period': 'Box (nahtlos)',
   'camera.fixed': 'Box (fest)',
   'camera.dynamic': 'Dynamische Box',
-  'settings.experimental': 'Experimentell',
-  'settings.experimental.body':
-    'Opt-in-Features zum Ausprobieren als eigene Schalter. Flüsse sind aktiv — weitere (Wälder, Fische, erdähnlicher Noise …) folgen.',
+  'settings.buildings': 'Erlaubte Gebäude',
+  'settings.buildings.body': 'Deaktivierte Gebäude kann im Match niemand bauen — auch keine KI.',
+  'settings.world': 'Welt',
 
   // ── Tab „Mehrspieler" ──────────────────────────────────────────────────────
   'mp.intro': 'Tritt einem offenen Spiel bei oder erstelle deine eigene Lobby.',

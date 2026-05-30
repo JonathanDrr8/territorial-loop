@@ -10,6 +10,7 @@
  */
 
 import type { Difficulty } from '../ai/ai'
+import type { BuildingType } from '../core/buildings'
 import type { GameConfig } from '../core/game'
 import type { Intent } from '../core/intent'
 import type { SerializedGameState } from '../core/serialize'
@@ -62,6 +63,11 @@ export interface MatchSettings {
   readonly difficulty: Difficulty
   /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). */
   readonly rivers: boolean
+  /**
+   * Erlaubte Gebäudetypen (deterministisch an alle Clients gespiegelt). Fehlt das Feld komplett
+   * (Alt-Client), gilt alles als erlaubt; ein Eintrag `false` verbietet den Typ matchweit.
+   */
+  readonly allowedBuildings?: Partial<Record<BuildingType, boolean>>
   /** Öffentlich = im Server-Browser (`/lobbies`) gelistet. Privat = nur per Code/Link beitretbar. */
   readonly public: boolean
 }

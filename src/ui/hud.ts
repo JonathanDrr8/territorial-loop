@@ -27,6 +27,7 @@ import {
   buildCostFor,
   effectiveMaxTroops,
   goldBreakdown,
+  isBuildingAllowed,
   totalTroops,
   type GameState,
   type Player,
@@ -871,6 +872,11 @@ export function createHUD(
     }
 
     for (const type of BUILDING_TYPES) {
+      const btnEl = buildButtons.get(type)
+      // Im Match deaktivierte Gebäudetypen ganz ausblenden (Setup-Toggle / MP-Settings).
+      if (btnEl !== undefined) {
+        btnEl.style.display = isBuildingAllowed(state.config, type) ? '' : 'none'
+      }
       const costEl = buildCostEls.get(type)
       if (costEl !== undefined) {
         const c = buildCostFor(state, human.id, type)

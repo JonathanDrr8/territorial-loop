@@ -104,7 +104,9 @@ const DEFAULT_MENU: StartMenuValues = {
   terrain: 'continents',
   soundEnabled: true,
   cameraMode: 'period',
-  experimental: { rivers: true }, // Flüsse standardmäßig an (noch im Experimentell-Panel)
+  allowedBuildings: { city: true, defense: true, port: true, factory: true },
+  rivers: true, // Flüsse standardmäßig an (reguläres Match-Toggle, ADR-0015)
+  experimental: {},
 }
 
 /** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */
@@ -182,7 +184,8 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     terrain: isGeoMapId(menu.terrain) ? 'continents' : menu.terrain,
-    rivers: menu.experimental.rivers ?? false,
+    rivers: menu.rivers,
+    allowedBuildings: menu.allowedBuildings,
     players,
     ...(geoId !== undefined ? { mapId: geoId } : {}),
   }
@@ -770,7 +773,8 @@ function main(): void {
       wildCount: 2,
       victoryPct: initial.victoryPct,
       difficulty: initial.difficulty,
-      rivers: initial.experimental.rivers ?? false,
+      rivers: initial.rivers,
+      allowedBuildings: initial.allowedBuildings,
       public: true,
     }
     lobby = createMultiplayerMenu(container, {

@@ -50,9 +50,10 @@ export const en: Record<string, string> = {
   'camera.period': 'Box (seamless)',
   'camera.fixed': 'Box (fixed)',
   'camera.dynamic': 'Dynamic box',
-  'settings.experimental': 'Experimental',
-  'settings.experimental.body':
-    'Opt-in features to try out as their own switches. Rivers are active — more (forests, fish, earth-like noise …) to come.',
+  'settings.buildings': 'Allowed buildings',
+  'settings.buildings.body':
+    'Disabled buildings cannot be built by anyone in the match — not even the AI.',
+  'settings.world': 'World',
 
   // ── Tab "Multiplayer" ──────────────────────────────────────────────────────
   'mp.intro': 'Join an open game or create your own lobby.',

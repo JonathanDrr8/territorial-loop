@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   CAPTURE_FADE_TICKS,
+  canBuildAt,
   createGame,
   effectiveMaxTroops,
   factoryYield,
   goldBreakdown,
+  isBuildingAllowed,
   snapBuildTile,
   tick,
   type GameConfig,
@@ -477,6 +479,34 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
     expect(p.gold).toBeLessThan(30_000) // Gold wurde ausgegeben
     expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
+  })
+
+  it('allowedBuildings: ein deaktivierter Typ kann nicht gebaut werden, andere schon', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', allowedBuildings: { factory: false } }))
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('player missing')
+    p.gold = 5_000_000
+    const tile = findOwnedTile(state, 1)
+    expect(tile).toBeGreaterThanOrEqual(0)
+
+    // Fabrik verboten → canBuildAt lehnt ab, der Build-Intent bewirkt nichts.
+    expect(isBuildingAllowed(state.config, 'factory')).toBe(false)
+    expect(canBuildAt(state, 1, tile, 'factory')).toBe(false)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'factory' }])
+    expect(state.buildings.get(tile)).toBeUndefined()
+
+    // Stadt ist erlaubt (kein Eintrag) → baubar.
+    expect(isBuildingAllowed(state.config, 'city')).toBe(true)
+    expect(canBuildAt(state, 1, tile, 'city')).toBe(true)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    expect(state.buildings.get(tile)?.type).toBe('city')
+  })
+
+  it('allowedBuildings: fehlende Map → alles erlaubt (Default)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+      expect(isBuildingAllowed(state.config, type)).toBe(true)
+    }
   })
 
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {

@@ -48,9 +48,10 @@ export const fr: Record<string, string> = {
   'camera.period': 'Boîte (sans couture)',
   'camera.fixed': 'Boîte (fixe)',
   'camera.dynamic': 'Boîte dynamique',
-  'settings.experimental': 'Expérimental',
-  'settings.experimental.body':
-    'Fonctions optionnelles à essayer comme interrupteurs. Les rivières sont actives — d’autres (forêts, poissons, bruit type terrestre …) à venir.',
+  'settings.buildings': 'Bâtiments autorisés',
+  'settings.buildings.body':
+    'Les bâtiments désactivés ne peuvent être construits par personne dans la partie — pas même l’IA.',
+  'settings.world': 'Monde',
 
   'mp.intro': 'Rejoins une partie ouverte ou crée ton propre salon.',
   'mp.openDialog': 'Créer un salon / rejoindre par code',

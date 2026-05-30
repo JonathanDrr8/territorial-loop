@@ -99,6 +99,15 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (isTerrain(parsed.terrain)) result.terrain = parsed.terrain
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
     if (isCameraMode(parsed.cameraMode)) result.cameraMode = parsed.cameraMode
+    if (typeof parsed.rivers === 'boolean') result.rivers = parsed.rivers
+    if (typeof parsed.allowedBuildings === 'object' && parsed.allowedBuildings !== null) {
+      const ab = { ...defaults.allowedBuildings }
+      const src = parsed.allowedBuildings as Record<string, unknown>
+      for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+        if (typeof src[type] === 'boolean') ab[type] = src[type]
+      }
+      result.allowedBuildings = ab
+    }
     if (typeof parsed.experimental === 'object' && parsed.experimental !== null) {
       // Gespeicherte Flags ÜBER die Defaults legen (nicht ersetzen) → neue Default-Flags wie
       // `rivers: true` bleiben aktiv, außer der Nutzer hat sie explizit anders gespeichert.

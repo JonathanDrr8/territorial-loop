@@ -7,6 +7,8 @@
  * Widget-Builder (Slider/Select/Text/Check-Zeilen), die die Tabs zusammensetzen.
  */
 
+import type { BuildingType } from '../core/buildings'
+
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
 /**
@@ -54,6 +56,14 @@ export interface StartMenuValues {
   soundEnabled: boolean
   /** Kamera-Darstellung: Kacheln / feste Box / dynamische Box (siehe [[CameraMode]]). */
   cameraMode: CameraMode
+  /**
+   * Erlaubte Gebäudetypen im Match (default alle an). Ein deaktivierter Typ kann von niemandem
+   * gebaut werden (HUD blendet aus, KI überspringt, `canBuildAt` lehnt ab). Wird als
+   * `GameConfig.allowedBuildings` durchgereicht und im MP über `MatchSettings` gespiegelt.
+   */
+  allowedBuildings: Record<BuildingType, boolean>
+  /** Flüsse ins Terrain carven (ADR-0015). Reguläres Match-Toggle (nicht mehr „experimentell"). */
+  rivers: boolean
   /** Opt-in experimentelle Feature-Toggles (persistiert; vorerst Platzhalter). */
   experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */

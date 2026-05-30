@@ -48,9 +48,10 @@ export const it: Record<string, string> = {
   'camera.period': 'Riquadro (senza giunture)',
   'camera.fixed': 'Riquadro (fisso)',
   'camera.dynamic': 'Riquadro dinamico',
-  'settings.experimental': 'Sperimentale',
-  'settings.experimental.body':
-    'Funzioni opzionali da provare come interruttori. I fiumi sono attivi — altre (foreste, pesci, rumore tipo terrestre …) in arrivo.',
+  'settings.buildings': 'Edifici consentiti',
+  'settings.buildings.body':
+    'Gli edifici disattivati non possono essere costruiti da nessuno nella partita — nemmeno dall’IA.',
+  'settings.world': 'Mondo',
 
   'mp.intro': 'Unisciti a una partita aperta o crea la tua stanza.',
   'mp.openDialog': 'Crea stanza / entra con codice',

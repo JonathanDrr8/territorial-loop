@@ -48,9 +48,9 @@ export const zh: Record<string, string> = {
   'camera.period': '边框（无缝）',
   'camera.fixed': '边框（固定）',
   'camera.dynamic': '动态边框',
-  'settings.experimental': '实验性',
-  'settings.experimental.body':
-    '可试用的可选功能作为独立开关。河流已启用 —— 更多（森林、鱼群、类地噪声 …）即将到来。',
+  'settings.buildings': '允许的建筑',
+  'settings.buildings.body': '在对局中被禁用的建筑任何人都无法建造——AI 也不行。',
+  'settings.world': '世界',
 
   'mp.intro': '加入一个开放对局，或创建你自己的房间。',
   'mp.openDialog': '创建房间 / 用代码加入',

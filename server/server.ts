@@ -22,6 +22,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 
 import { ServerMatch } from './match'
 import type { Difficulty } from '../src/ai/ai'
+import type { BuildingType } from '../src/core/buildings'
 import type { GameConfig, PlayerDef } from '../src/core/game'
 import type { TerrainType } from '../src/world/terrain'
 import { pickRandomNames } from '../src/ui/player-names'
@@ -175,8 +176,22 @@ function clampSettings(s: MatchSettings): MatchSettings {
     victoryPct: clamp(s.victoryPct, 1, 100),
     difficulty,
     rivers: s.rivers === true,
+    ...(s.allowedBuildings !== undefined && {
+      allowedBuildings: sanitizeAllowed(s.allowedBuildings),
+    }),
     public: s.public !== false,
   }
+}
+
+/** Übernimmt nur die vier bekannten Gebäude-Flags (Schutz vor manipulierten Feldern). */
+function sanitizeAllowed(
+  a: Partial<Record<BuildingType, boolean>>,
+): Partial<Record<BuildingType, boolean>> {
+  const out: Partial<Record<BuildingType, boolean>> = {}
+  for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+    if (a[type] === false) out[type] = false
+  }
+  return out
 }
 
 interface Member {
@@ -285,6 +300,7 @@ function buildConfig(room: Room): GameConfig {
     victoryPct: s.victoryPct,
     terrain: s.terrain,
     rivers: s.rivers,
+    ...(s.allowedBuildings !== undefined && { allowedBuildings: s.allowedBuildings }),
     players,
   }
 }

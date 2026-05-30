@@ -21,6 +21,7 @@ import {
   CAMERA_OPTIONS,
   DIFFICULTY_OPTIONS,
   INPUT_STYLE,
+  makeCheckRow,
   makeMapRow,
   makeSelectRow,
   makeSliderRow,
@@ -33,6 +34,7 @@ import {
   type StartMenuValues,
   type TerrainChoice,
 } from './start-menu'
+import type { BuildingType } from '../core/buildings'
 
 export interface MenuShellApi {
   destroy(): void
@@ -386,6 +388,7 @@ export function createMenuShell(
     camera: () => CameraMode
     sound: () => boolean
     rivers: () => boolean
+    buildings: () => Record<BuildingType, boolean>
   } | null = null
   let seedGetter: () => string = () => values.seed ?? ''
 
@@ -403,10 +406,9 @@ export function createMenuShell(
       terrain: playFields?.terrain() ?? values.terrain,
       soundEnabled: settingsFields?.sound() ?? values.soundEnabled,
       cameraMode: settingsFields?.camera() ?? values.cameraMode,
-      experimental: {
-        ...values.experimental,
-        rivers: settingsFields?.rivers() ?? values.experimental.rivers ?? false,
-      },
+      allowedBuildings: settingsFields?.buildings() ?? values.allowedBuildings,
+      rivers: settingsFields?.rivers() ?? values.rivers,
+      experimental: { ...values.experimental },
       ...(seed.length > 0 && { seed }),
     }
     return out
@@ -594,43 +596,48 @@ export function createMenuShell(
     soundRow.appendChild(soundWrap)
     p.appendChild(soundRow)
 
-    section(p, t('settings.experimental'))
-    const expBody = document.createElement('div')
-    expBody.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px; margin-bottom: 11px'
-    expBody.textContent = t('settings.experimental.body')
-    p.appendChild(expBody)
+    // Erlaubte Gebäude: deaktivierte Typen kann im Match niemand bauen (Spieler-HUD blendet aus,
+    // KI überspringt, `canBuildAt` lehnt ab). Default alle an.
+    section(p, t('settings.buildings'))
+    const buildBody = document.createElement('div')
+    buildBody.style.cssText =
+      'line-height: 1.55; opacity: 0.7; font-size: 12px; margin-bottom: 11px'
+    buildBody.textContent = t('settings.buildings.body')
+    p.appendChild(buildBody)
 
-    // Flüsse (Opt-in, ADR-0015): navigierbares echtes Wasser, nur bei Kontinente/Inseln.
-    const riversRow = document.createElement('div')
-    riversRow.style.cssText =
-      'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
-    const riversLabel = document.createElement('label')
-    riversLabel.textContent = t('field.rivers')
-    const riversWrap = document.createElement('label')
-    riversWrap.style.cssText =
-      'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
-    const riversCheck = document.createElement('input')
-    riversCheck.type = 'checkbox'
-    riversCheck.checked = values.experimental.rivers ?? false
-    riversCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
-    const riversText = document.createElement('span')
-    const riversHint = (): string =>
-      (riversCheck.checked ? t('toggle.on') : t('toggle.off')) + ' · ' + t('field.rivers.hint')
-    riversText.style.cssText = 'opacity: 0.7; font-size: 12px'
-    riversText.textContent = riversHint()
-    riversCheck.addEventListener('change', () => {
-      riversText.textContent = riversHint()
-    })
-    riversWrap.appendChild(riversCheck)
-    riversWrap.appendChild(riversText)
-    riversRow.appendChild(riversLabel)
-    riversRow.appendChild(riversWrap)
-    p.appendChild(riversRow)
+    const buildingTypes = ['city', 'defense', 'port', 'factory'] as const
+    const buildingChecks = new Map<BuildingType, () => boolean>()
+    for (const type of buildingTypes) {
+      const row = makeCheckRow(
+        t(`building.${type}`),
+        values.allowedBuildings[type] !== false,
+        t('toggle.on'),
+        t('toggle.off'),
+      )
+      p.appendChild(row.element)
+      buildingChecks.set(type, row.getValue)
+    }
+
+    // Flüsse (ADR-0015): navigierbares echtes Wasser, nur bei Kontinente/Inseln. Reguläres Toggle.
+    section(p, t('settings.world'))
+    const riversRow = makeCheckRow(
+      t('field.rivers'),
+      values.rivers,
+      t('toggle.on') + ' · ' + t('field.rivers.hint'),
+      t('toggle.off') + ' · ' + t('field.rivers.hint'),
+    )
+    p.appendChild(riversRow.element)
 
     settingsFields = {
       camera: camera.getValue,
       sound: () => soundCheck.checked,
-      rivers: () => riversCheck.checked,
+      rivers: riversRow.getValue,
+      buildings: () => ({
+        city: buildingChecks.get('city')?.() ?? true,
+        defense: buildingChecks.get('defense')?.() ?? true,
+        port: buildingChecks.get('port')?.() ?? true,
+        factory: buildingChecks.get('factory')?.() ?? true,
+      }),
     }
 
     return p
