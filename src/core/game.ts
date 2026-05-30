@@ -838,11 +838,13 @@ const GRUDGE_PER_EMBARGO = 80
 /** Ab diesem Groll gilt ein Handelspartner im „Neutrale schonen"-Modus als verfeindet (→ angreifbar). */
 const NEUTRAL_BLOCKADE_GRUDGE = 60
 /**
- * Verstärkung des Truppen-Verlusts einer Bombe (ADR-0019): der Anteil der getroffenen Fläche ×
- * Faktor = Anteil der getöteten Truppen (gedeckelt bei 100 %). Ohne Faktor wäre der Schlag bei
- * großen Reichen kaum sichtbar (4 % Fläche → 4 % Truppen); mit 6 wird er spürbar (~25 %).
+ * Truppen-Verlust einer Bombe (ADR-0019): Anteil getroffener Fläche × `BOMB_TROOP_KILL_FACTOR`,
+ * aber GEDECKELT bei `BOMB_TROOP_KILL_CAP`. Der Faktor macht den Schlag bei großen Reichen sichtbar
+ * (4 % Fläche → 16 %); der Deckel verhindert, dass EINE Bombe ein kleines Reich entvölkert (man
+ * bliebe sonst wehrlos) — eine Nation übersteht so mehrere Bomben, bevor sie wirklich bricht.
  */
-const BOMB_TROOP_KILL_FACTOR = 6
+const BOMB_TROOP_KILL_FACTOR = 4
+const BOMB_TROOP_KILL_CAP = 0.2
 /** Groll des Bombardierten gegen den Angreifer, je getroffenem eigenem Tile (massiv, ADR-0019). */
 const GRUDGE_PER_BOMB_TILE = 8
 /** „Angst"-Groll, den eine Bombardierung bei JEDER anderen (unbeteiligten) Nation auslöst. */
@@ -2185,7 +2187,10 @@ function applyBomb(state: GameState, center: TileRef, attackerId: number): void 
     const victim = players.get(victimId)
     if (victim === undefined) continue
     if (victim.tilesOwned > 0) {
-      const frac = Math.min(1, (hitCount / victim.tilesOwned) * BOMB_TROOP_KILL_FACTOR)
+      const frac = Math.min(
+        BOMB_TROOP_KILL_CAP,
+        (hitCount / victim.tilesOwned) * BOMB_TROOP_KILL_FACTOR,
+      )
       victim.troops = Math.max(0, victim.troops - Math.floor(victim.troops * frac))
     }
     if (victimId !== attackerId) {
