@@ -116,9 +116,11 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     `top: ${BASE_TOP.toString()}px`,
     'right: 12px',
     'width: 250px',
-    'background: rgba(0,0,0,0.42)',
-    'border: 1px solid rgba(255,255,255,0.1)',
+    // Deckende Box, damit die Einträge über jeder Karte gut lesbar sind.
+    'background: rgba(12,14,20,0.92)',
+    'border: 1px solid rgba(255,255,255,0.12)',
     'border-radius: 8px',
+    'box-shadow: 0 4px 16px rgba(0,0,0,0.4)',
     'padding: 6px',
     'display: flex',
     'flex-direction: column',
@@ -194,11 +196,12 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
       let opacity = 1
       if (age > FADE_START_TICKS) {
         const f = (age - FADE_START_TICKS) / (FADE_END_TICKS - FADE_START_TICKS)
-        opacity = Math.max(0.25, 1 - f)
+        opacity = Math.max(0.55, 1 - f) // höherer Boden → auch ältere Einträge bleiben lesbar
       }
       const accent = e.color === undefined ? '#bbb' : rgbaToCss(e.color)
+      // Kein eigener Hintergrund mehr (die Box deckt) — nur farbiger Rand links + dezente Trennung.
       html.push(
-        `<div style="opacity:${opacity.toFixed(2)}; background:rgba(0,0,0,0.5); padding:3px 8px; border-radius:4px; border-left:3px solid ${accent}; text-align:right">${escapeHtml(t(e.key, e.params))}</div>`,
+        `<div style="opacity:${opacity.toFixed(2)}; padding:3px 8px; border-left:3px solid ${accent}; background:rgba(255,255,255,0.04); border-radius:3px; text-align:right">${escapeHtml(t(e.key, e.params))}</div>`,
       )
     }
     list.innerHTML = html.join('')
