@@ -225,6 +225,8 @@ export const de: Record<string, string> = {
   'hud.troops': 'Truppen',
   'hud.gold': 'Gold',
   'hud.boat': 'Transportboot',
+  'hud.bomber': 'Bomber',
+  'hud.warship': 'Kriegsschiff',
   'hud.boatHintShort': 'Ziel auf anderer Insel',
   'hud.boatModeHint': 'Boot-Modus: Küsten-Ziel auf anderer Landmasse klicken · Esc beendet',
   'route.direct': 'direkt',

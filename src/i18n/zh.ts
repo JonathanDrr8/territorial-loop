@@ -186,6 +186,8 @@ export const zh: Record<string, string> = {
   'hud.troops': '兵力',
   'hud.gold': '金币',
   'hud.boat': '运输艇',
+  'hud.bomber': '轰炸机',
+  'hud.warship': '战舰',
   'hud.boatHintShort': '目标在其他岛屿',
   'hud.boatModeHint': '运输艇模式：点击另一块陆地上的沿海目标 · Esc 结束',
   'route.direct': '直飞',

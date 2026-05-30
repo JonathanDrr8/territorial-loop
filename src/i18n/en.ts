@@ -223,6 +223,8 @@ export const en: Record<string, string> = {
   'hud.troops': 'Troops',
   'hud.gold': 'Gold',
   'hud.boat': 'Transport boat',
+  'hud.bomber': 'Bomber',
+  'hud.warship': 'Warship',
   'hud.boatHintShort': 'target on another island',
   'hud.boatModeHint': 'Boat mode: click a coastal target on another landmass · Esc ends',
   'route.direct': 'direct',

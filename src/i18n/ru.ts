@@ -213,6 +213,8 @@ export const ru: Record<string, string> = {
   'hud.troops': 'Войска',
   'hud.gold': 'Золото',
   'hud.boat': 'Транспортная баржа',
+  'hud.bomber': 'Бомбардировщик',
+  'hud.warship': 'Корабль',
   'hud.boatHintShort': 'цель на другом острове',
   'hud.boatModeHint': 'Режим баржи: кликни прибрежную цель на другой суше · Esc завершает',
   'route.direct': 'напрямую',

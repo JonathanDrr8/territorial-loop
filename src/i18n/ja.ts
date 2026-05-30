@@ -188,6 +188,8 @@ export const ja: Record<string, string> = {
   'hud.troops': '兵力',
   'hud.gold': '金',
   'hud.boat': '輸送艇',
+  'hud.bomber': '爆撃機',
+  'hud.warship': '軍艦',
   'hud.boatHintShort': '別の島の目標',
   'hud.boatModeHint': '輸送艇モード：別の陸地の沿岸目標をクリック · Esc で終了',
   'route.direct': '直行',

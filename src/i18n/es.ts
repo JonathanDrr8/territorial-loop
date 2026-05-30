@@ -222,6 +222,8 @@ export const es: Record<string, string> = {
   'hud.troops': 'Tropas',
   'hud.gold': 'Oro',
   'hud.boat': 'Barco de transporte',
+  'hud.bomber': 'Bombardero',
+  'hud.warship': 'Buque',
   'hud.boatHintShort': 'objetivo en otra isla',
   'hud.boatModeHint':
     'Modo barco: haz clic en un objetivo costero de otra masa de tierra · Esc termina',

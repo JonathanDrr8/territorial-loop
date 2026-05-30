@@ -30,7 +30,7 @@ export const TRADE_GOLD_PER_TILE = 12
  * (Blockade), versenken feindliche Boote und bekämpfen feindliche Kriegsschiffe. */
 export const MAX_WARSHIPS_PER_PLAYER = 3
 export const WARSHIP_SPEED = 1.5
-export const WARSHIP_COST = 30_000
+export const WARSHIP_COST = 100_000
 /** Kriegsschiff-HP — klein gehalten (5 Treffer = versenkt), HP-Leiste gut ablesbar. */
 export const WARSHIP_HP = 5
 /** HP-Schaden eines einschlagenden Schusses (1 = 1 Treffer). */

@@ -339,6 +339,8 @@ function startMatch(
     onRequestNewMatch,
     (type) => inputHandler?.toggleBuildMode(type),
     () => inputHandler?.toggleBoatMode(),
+    () => inputHandler?.toggleBomberMode(),
+    () => inputHandler?.toggleWarshipMode(),
     (attackIndex) => submit({ type: 'cancel-attack', playerId: humanId, attackIndex }),
     (boatIndex) => submit({ type: 'boat-recall', playerId: humanId, boatIndex }),
     (warshipIndex) => submit({ type: 'recall-warship', playerId: humanId, warshipIndex }),

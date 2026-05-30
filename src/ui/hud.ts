@@ -24,7 +24,7 @@ import {
   FLAK_RANGE_PER_LEVEL,
   type BuildingType,
 } from '../core/buildings'
-import type { BomberRoute } from '../core/ships'
+import { BOMBER_COST, WARSHIP_COST, type BomberRoute } from '../core/ships'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
@@ -149,6 +149,8 @@ export function createHUD(
   onNewMatch: () => void,
   onBuildClick: (type: BuildingType) => void,
   onBoatClick: () => void,
+  onBomberClick: () => void,
+  onWarshipClick: () => void,
   onCancelAttack: (attackIndex: number) => void,
   onRecallBoat: (boatIndex: number) => void,
   onRecallWarship: (warshipIndex: number) => void,
@@ -698,29 +700,62 @@ export function createHUD(
   }
   actionBar.appendChild(buildRow)
 
-  // Boot-Knopf (Toggle): schaltet den Boot-Modus; Linksklick danach schickt ein Boot.
-  const boatBtn = document.createElement('button')
-  boatBtn.style.cssText = [
-    'margin-top: 6px',
-    'width: 100%',
-    'padding: 5px 8px',
-    'display: flex',
-    'align-items: center',
-    'justify-content: center',
-    'gap: 8px',
-    'background: rgba(255,255,255,0.06)',
-    'border: 1px solid rgba(255,255,255,0.15)',
-    'border-radius: 6px',
-    'color: white',
-    'font: inherit',
-    'font-size: 12px',
-    'cursor: pointer',
-  ].join(';')
-  boatBtn.innerHTML = `<span style="font-weight:bold">B</span> 🚢 ${t('hud.boat')} <span style="opacity:0.6;font-size:10px">${t('hud.boatHintShort')}</span>`
+  // Einheiten-Reihe (Toggle-Modi): Boot / Bomber / Kriegsschiff — jeweils mit Hotkey + Kosten.
+  // Klick schaltet den Modus, danach setzt ein Linksklick auf der Karte die Einheit ab.
+  const unitRow = document.createElement('div')
+  unitRow.style.cssText = 'display: flex; gap: 6px; margin-top: 6px'
+  const makeUnitBtn = (
+    hotkey: string,
+    label: string,
+    costText: string,
+  ): { btn: HTMLButtonElement; costEl: HTMLSpanElement } => {
+    const btn = document.createElement('button')
+    btn.style.cssText = [
+      'flex: 1',
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'gap: 1px',
+      'padding: 5px 4px',
+      'background: rgba(255,255,255,0.06)',
+      'border: 1px solid rgba(255,255,255,0.15)',
+      'border-radius: 6px',
+      'color: white',
+      'font: inherit',
+      'font-size: 11px',
+      'cursor: pointer',
+    ].join(';')
+    const top = document.createElement('span')
+    top.style.cssText = 'font-weight: bold'
+    top.innerHTML = `<span style="font-size:13px">${hotkey}</span> ${label}`
+    const costEl = document.createElement('span')
+    costEl.style.cssText = 'font-size: 11px; font-weight: bold; color: #5dd75d'
+    costEl.textContent = costText
+    btn.appendChild(top)
+    btn.appendChild(costEl)
+    unitRow.appendChild(btn)
+    return { btn, costEl }
+  }
+  // Boot kostet Truppen (kein Gold) → grauer Hinweis statt Gold-Kosten.
+  const boat = makeUnitBtn('B', t('hud.boat'), t('hud.troops'))
+  const boatBtn = boat.btn
+  boat.costEl.style.color = 'rgba(255,255,255,0.5)'
   boatBtn.addEventListener('click', () => {
     onBoatClick()
   })
-  actionBar.appendChild(boatBtn)
+  const bomber = makeUnitBtn('7', t('hud.bomber'), fmtCompact(BOMBER_COST))
+  const bomberBtn = bomber.btn
+  const bomberCostEl = bomber.costEl
+  bomberBtn.addEventListener('click', () => {
+    onBomberClick()
+  })
+  const warship = makeUnitBtn('8', t('hud.warship'), fmtCompact(WARSHIP_COST))
+  const warshipBtn = warship.btn
+  const warshipCostEl = warship.costEl
+  warshipBtn.addEventListener('click', () => {
+    onWarshipClick()
+  })
+  actionBar.appendChild(unitRow)
 
   // Hinweis-Banner während aktivem Boot-Modus.
   const boatHint = document.createElement('div')
@@ -961,6 +996,9 @@ export function createHUD(
         }
       }
     }
+    // Bomber- und Kriegsschiff-Kosten einfärben (bezahlbar grün, sonst rot). Boot kostet kein Gold.
+    bomberCostEl.style.color = human.gold >= BOMBER_COST ? '#5dd75d' : '#ef5350'
+    warshipCostEl.style.color = human.gold >= WARSHIP_COST ? '#5dd75d' : '#ef5350'
   }
 
   // Memoisiertes Panel-HTML: nur neu setzen, wenn sich der Inhalt wirklich ändert — sonst würde das
@@ -1216,6 +1254,9 @@ export function createHUD(
     },
     setBomberMode(on: boolean, route: BomberRoute): void {
       bomberHint.style.display = on ? 'block' : 'none'
+      bomberBtn.style.background = on ? 'rgba(232,136,74,0.85)' : 'rgba(255,255,255,0.06)'
+      bomberBtn.style.color = on ? '#241200' : 'white'
+      bomberBtn.style.borderColor = on ? '#e8884a' : 'rgba(255,255,255,0.15)'
       if (on) {
         const routeLabel = t(`route.${route}`)
         bomberHint.textContent = `${t('hud.bomberModeHint', { route: routeLabel })}`
@@ -1223,6 +1264,9 @@ export function createHUD(
     },
     setWarshipMode(on: boolean): void {
       warshipHint.style.display = on ? 'block' : 'none'
+      warshipBtn.style.background = on ? 'rgba(120,200,255,0.85)' : 'rgba(255,255,255,0.06)'
+      warshipBtn.style.color = on ? '#04223a' : 'white'
+      warshipBtn.style.borderColor = on ? '#78c8ff' : 'rgba(255,255,255,0.15)'
     },
     flashResync(): void {
       resyncTag.textContent = `⟳ ${t('hud.resync')}`
