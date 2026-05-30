@@ -383,4 +383,6 @@ export const es: Record<string, string> = {
   'prompt.accept': 'Aceptar',
   'prompt.decline': 'Rechazar',
   'prompt.ignore': 'Ignorar',
+  'field.rivers': 'Ríos',
+  'field.rivers.hint': 'solo continentes/islas, navegables',
 }

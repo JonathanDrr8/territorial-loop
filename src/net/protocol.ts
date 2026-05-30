@@ -60,6 +60,8 @@ export interface MatchSettings {
   readonly wildCount: number
   readonly victoryPct: number
   readonly difficulty: Difficulty
+  /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). */
+  readonly rivers: boolean
   /** Öffentlich = im Server-Browser (`/lobbies`) gelistet. Privat = nur per Code/Link beitretbar. */
   readonly public: boolean
 }

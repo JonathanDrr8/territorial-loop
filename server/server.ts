@@ -139,6 +139,7 @@ const DEFAULT_SETTINGS: MatchSettings = {
   wildCount: 2,
   victoryPct: 90,
   difficulty: 'normal',
+  rivers: false,
   public: true,
 }
 
@@ -163,6 +164,7 @@ function clampSettings(s: MatchSettings): MatchSettings {
     wildCount: clamp(s.wildCount, 0, 400),
     victoryPct: clamp(s.victoryPct, 1, 100),
     difficulty,
+    rivers: s.rivers === true,
     public: s.public !== false,
   }
 }
@@ -272,6 +274,7 @@ function buildConfig(room: Room): GameConfig {
     seed: s.seed.length > 0 ? s.seed : `room-${room.code}`,
     victoryPct: s.victoryPct,
     terrain: s.terrain,
+    rivers: s.rivers,
     players,
   }
 }

@@ -151,7 +151,103 @@ function percentile(sorted: Float32Array, p: number): number {
  * `flat` = alles Land, alles Ebene (Testmodus). `continents` ≈ 70% Land,
  * `islands` ≈ 35% Land — beide mit Höhen-Variation.
  */
-export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType): void {
+/**
+ * Carvt Flüsse als echtes Wasser in `terrain` (ADR-0015). Quellen liegen an Bergen
+ * (`heightNoise` hoch), der Pfad folgt dem steilsten Abstieg von `landNoise` (dessen Minima das
+ * Meer sind → Flüsse erreichen die Küste). Pro Pfadpunkt wird ein 2×2-Block gecarvt → der Fluss
+ * ist überall ≥2 Tiles breit und orthogonal 4-zusammenhängend (Schiffe bewegen sich nur über
+ * `neighbors4`, ein diagonal „treppender" 1-Tile-Fluss wäre für sie unverbunden). Deterministisch.
+ */
+function carveRivers(
+  terrain: Uint8Array,
+  prng: PRNG,
+  landNoise: Float32Array,
+  heightNoise: Float32Array,
+  sourceThr: number,
+  w: number,
+  h: number,
+): void {
+  const len = w * h
+  /** Wasser = Original-Meer ODER bereits gecarvter Fluss (beide: IS_LAND_BIT nicht gesetzt). */
+  const isWater = (i: number): boolean => ((terrain[i] ?? 0) & IS_LAND_BIT) === 0
+  const targetRivers = Math.max(3, Math.round(Math.sqrt(w * h) / 80))
+  const minSepSq = (Math.min(w, h) * 0.1) ** 2
+
+  // torus-quadrierte Distanz zwischen zwei Tiles
+  const dist2 = (ax: number, ay: number, bx: number, by: number): number => {
+    let dx = Math.abs(ax - bx)
+    let dy = Math.abs(ay - by)
+    if (dx > w / 2) dx = w - dx
+    if (dy > h / 2) dy = h - dy
+    return dx * dx + dy * dy
+  }
+
+  // 2×2-Block ab (cx,cy) zu Wasser machen.
+  const carveBlock = (cx: number, cy: number): void => {
+    for (let dy = 0; dy <= 1; dy++) {
+      for (let dx = 0; dx <= 1; dx++) {
+        terrain[(((cy + dy) % h) * w + ((cx + dx) % w)) | 0] = 0
+      }
+    }
+  }
+
+  // Quellen wählen: Land, hoch gelegen (heightNoise > sourceThr), mit Mindestabstand.
+  const sources: { i: number; x: number; y: number }[] = []
+  const maxAttempts = targetRivers * 300
+  for (let a = 0; a < maxAttempts && sources.length < targetRivers; a++) {
+    const i = prng.nextInt(0, len - 1)
+    if (isWater(i) || (heightNoise[i] ?? 0) < sourceThr) continue
+    const x = i % w
+    const y = (i - x) / w
+    let ok = true
+    for (const s of sources) {
+      if (dist2(x, y, s.x, s.y) < minSepSq) {
+        ok = false
+        break
+      }
+    }
+    if (ok) sources.push({ i, x, y })
+  }
+
+  const maxLen = w + h
+  for (const src of sources) {
+    const path: number[] = []
+    const visited = new Set<number>()
+    let cur = src.i
+    let reachedSea = false
+    for (let step = 0; step < maxLen; step++) {
+      if (isWater(cur)) {
+        reachedSea = true
+        break
+      }
+      if (visited.has(cur)) break
+      visited.add(cur)
+      path.push(cur)
+      const cx = cur % w
+      const cy = (cur - cx) / w
+      // Steilster Abstieg von landNoise (→ Richtung Meer) unter den 8 Torus-Nachbarn.
+      let best = -1
+      let bestN = landNoise[cur] ?? 0
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue
+          const ni = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) | 0
+          const nv = landNoise[ni] ?? 0
+          if (nv < bestN) {
+            bestN = nv
+            best = ni
+          }
+        }
+      }
+      if (best < 0) break // lokales Minimum vor dem Meer → Sackgasse
+      cur = best
+    }
+    if (!reachedSea) continue // nur Flüsse behalten, die das Meer erreichen
+    for (const p of path) carveBlock(p % w, (p - (p % w)) / w)
+  }
+}
+
+export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType, rivers = false): void {
   const w = map.width
   const h = map.height
   const len = w * h
@@ -215,4 +311,7 @@ export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType): vo
     else if (hv > hillThr) height = 15 // Hügel
     map.terrain[i] = IS_LAND_BIT | height
   }
+
+  // Flüsse (Opt-in, ADR-0015): Quellen an Bergen, Abstieg nach landNoise bis zum Meer.
+  if (rivers) carveRivers(map.terrain, prng, landNoise, heightNoise, mountainThr, w, h)
 }

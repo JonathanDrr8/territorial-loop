@@ -345,4 +345,6 @@ export const zh: Record<string, string> = {
   'prompt.accept': '接受',
   'prompt.decline': '拒绝',
   'prompt.ignore': '忽略',
+  'field.rivers': '河流',
+  'field.rivers.hint': '仅大陆/岛屿，可通航',
 }

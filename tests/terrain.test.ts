@@ -11,6 +11,7 @@ import {
   MOUNTAIN_MAG,
 } from '../src/world/terrain'
 import { createMap } from '../src/world/map'
+import { labelWaterComponents } from '../src/world/water-path'
 import { createPRNG } from '../src/core/random'
 
 describe('generateTerrain', () => {
@@ -148,5 +149,46 @@ describe('generateTerrain', () => {
     for (let i = 0; i < a.terrain.length; i++) {
       expect(a.terrain[i]).toBe(b.terrain[i])
     }
+  })
+
+  // ── Flüsse (ADR-0015) ───────────────────────────────────────────────────────
+  it('rivers: deterministisch (gleicher Seed → identisches Terrain)', () => {
+    const a = createMap(128, 128)
+    const b = createMap(128, 128)
+    generateTerrain(a, createPRNG('rivers-det'), 'continents', true)
+    generateTerrain(b, createPRNG('rivers-det'), 'continents', true)
+    for (let i = 0; i < a.terrain.length; i++) expect(a.terrain[i]).toBe(b.terrain[i])
+  })
+
+  it('rivers: carven zusätzliches Wasser ins Land (mehr Wasser als ohne)', () => {
+    const countWater = (m: ReturnType<typeof createMap>): number => {
+      let n = 0
+      for (let i = 0; i < m.terrain.length; i++) if (!isLand(m.terrain, i)) n++
+      return n
+    }
+    const without = createMap(128, 128)
+    const withR = createMap(128, 128)
+    generateTerrain(without, createPRNG('rivers-water'), 'continents', false)
+    generateTerrain(withR, createPRNG('rivers-water'), 'continents', true)
+    expect(countWater(withR)).toBeGreaterThan(countWater(without))
+  })
+
+  it('rivers: Fluss-Wasser ist ans Meer angebunden (kein Insel-Komponenten-Wildwuchs)', () => {
+    const map = createMap(128, 128)
+    generateTerrain(map, createPRNG('rivers-conn'), 'continents', true)
+    const comp = labelWaterComponents(map)
+    const sizes = new Map<number, number>()
+    for (let i = 0; i < comp.length; i++) {
+      const c = comp[i] ?? -1
+      if (c >= 0) sizes.set(c, (sizes.get(c) ?? 0) + 1)
+    }
+    let total = 0
+    let largest = 0
+    for (const s of sizes.values()) {
+      total += s
+      if (s > largest) largest = s
+    }
+    // Flüsse münden ins Meer → die größte Komponente deckt den Großteil des Wassers ab.
+    expect(largest / total).toBeGreaterThan(0.9)
   })
 })

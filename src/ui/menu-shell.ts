@@ -382,7 +382,11 @@ export function createMenuShell(
     difficulty: () => Difficulty
     terrain: () => TerrainChoice
   } | null = null
-  let settingsFields: { camera: () => CameraMode; sound: () => boolean } | null = null
+  let settingsFields: {
+    camera: () => CameraMode
+    sound: () => boolean
+    rivers: () => boolean
+  } | null = null
   let seedGetter: () => string = () => values.seed ?? ''
 
   function collect(): StartMenuValues {
@@ -399,7 +403,10 @@ export function createMenuShell(
       terrain: playFields?.terrain() ?? values.terrain,
       soundEnabled: settingsFields?.sound() ?? values.soundEnabled,
       cameraMode: settingsFields?.camera() ?? values.cameraMode,
-      experimental: { ...values.experimental },
+      experimental: {
+        ...values.experimental,
+        rivers: settingsFields?.rivers() ?? values.experimental.rivers ?? false,
+      },
       ...(seed.length > 0 && { seed }),
     }
     return out
@@ -587,13 +594,44 @@ export function createMenuShell(
     soundRow.appendChild(soundWrap)
     p.appendChild(soundRow)
 
-    settingsFields = { camera: camera.getValue, sound: () => soundCheck.checked }
-
     section(p, t('settings.experimental'))
     const expBody = document.createElement('div')
-    expBody.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px'
+    expBody.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px; margin-bottom: 11px'
     expBody.textContent = t('settings.experimental.body')
     p.appendChild(expBody)
+
+    // Flüsse (Opt-in, ADR-0015): navigierbares echtes Wasser, nur bei Kontinente/Inseln.
+    const riversRow = document.createElement('div')
+    riversRow.style.cssText =
+      'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
+    const riversLabel = document.createElement('label')
+    riversLabel.textContent = t('field.rivers')
+    const riversWrap = document.createElement('label')
+    riversWrap.style.cssText =
+      'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
+    const riversCheck = document.createElement('input')
+    riversCheck.type = 'checkbox'
+    riversCheck.checked = values.experimental.rivers ?? false
+    riversCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
+    const riversText = document.createElement('span')
+    const riversHint = (): string =>
+      (riversCheck.checked ? t('toggle.on') : t('toggle.off')) + ' · ' + t('field.rivers.hint')
+    riversText.style.cssText = 'opacity: 0.7; font-size: 12px'
+    riversText.textContent = riversHint()
+    riversCheck.addEventListener('change', () => {
+      riversText.textContent = riversHint()
+    })
+    riversWrap.appendChild(riversCheck)
+    riversWrap.appendChild(riversText)
+    riversRow.appendChild(riversLabel)
+    riversRow.appendChild(riversWrap)
+    p.appendChild(riversRow)
+
+    settingsFields = {
+      camera: camera.getValue,
+      sound: () => soundCheck.checked,
+      rivers: () => riversCheck.checked,
+    }
 
     return p
   }

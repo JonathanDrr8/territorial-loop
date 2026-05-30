@@ -386,6 +386,7 @@ export function createMultiplayerMenu(
     const checkboxRow = (
       label: string,
       value: boolean,
+      hint: (on: boolean) => string,
       apply: (v: boolean) => MatchSettings,
     ): void => {
       const row = document.createElement('div')
@@ -401,10 +402,9 @@ export function createMultiplayerMenu(
       cb.checked = value
       cb.disabled = !editable
       const txt = document.createElement('span')
-      const label2 = (on: boolean): string => (on ? t('mp.public') : t('mp.private'))
-      txt.textContent = label2(value)
+      txt.textContent = hint(value)
       cb.addEventListener('change', () => {
-        txt.textContent = label2(cb.checked)
+        txt.textContent = hint(cb.checked)
         push(apply(cb.checked))
       })
       wrap.appendChild(cb)
@@ -449,7 +449,18 @@ export function createMultiplayerMenu(
       ],
       (v) => ({ ...settings, difficulty: v as MatchSettings['difficulty'] }),
     )
-    checkboxRow(t('mp.visible'), s.public, (v) => ({ ...settings, public: v }))
+    checkboxRow(
+      t('field.rivers'),
+      s.rivers,
+      (on) => (on ? t('toggle.on') : t('toggle.off')),
+      (v) => ({ ...settings, rivers: v }),
+    )
+    checkboxRow(
+      t('mp.visible'),
+      s.public,
+      (on) => (on ? t('mp.public') : t('mp.private')),
+      (v) => ({ ...settings, public: v }),
+    )
 
     return box
   }

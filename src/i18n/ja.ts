@@ -348,4 +348,6 @@ export const ja: Record<string, string> = {
   'prompt.accept': '受諾',
   'prompt.decline': '拒否',
   'prompt.ignore': '無視',
+  'field.rivers': '川',
+  'field.rivers.hint': '大陸/島のみ・航行可',
 }

@@ -177,6 +177,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     terrain: menu.terrain,
+    rivers: menu.experimental.rivers ?? false,
     players,
   }
 }
@@ -760,6 +761,7 @@ function main(): void {
       wildCount: 2,
       victoryPct: initial.victoryPct,
       difficulty: initial.difficulty,
+      rivers: initial.experimental.rivers ?? false,
       public: true,
     }
     lobby = createMultiplayerMenu(container, {

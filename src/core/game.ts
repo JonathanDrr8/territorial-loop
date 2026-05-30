@@ -148,6 +148,8 @@ export interface GameConfig {
   readonly matchSpeed?: number
   /** Karten-Topographie. Default 'flat' (alles Land — wie bisher). */
   readonly terrain?: TerrainType
+  /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). Default false. */
+  readonly rivers?: boolean
   readonly players: readonly PlayerDef[]
 }
 
@@ -381,7 +383,7 @@ export function createGame(config: GameConfig): GameState {
   // Terrain wird vor allen Sim-relevanten PRNG-Zugriffen generiert; dafür gibt's
   // einen separaten PRNG damit terrain ↔ sim-Verlauf nicht miteinander verschränkt sind.
   const terrainRng = createPRNG(`terrain-${config.seed}`)
-  generateTerrain(map, terrainRng, config.terrain ?? 'flat')
+  generateTerrain(map, terrainRng, config.terrain ?? 'flat', config.rivers ?? false)
   const players = new Map<number, Player>()
 
   for (const def of config.players) {
