@@ -244,6 +244,49 @@ const ROCK_G = 66
 const ROCK_B = 62
 const BG_FILL = '#0a0a10'
 
+/** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
+function hash01(ix: number, iy: number): number {
+  let n = (ix * 374761393 + iy * 668265263) | 0
+  n = Math.imul(n ^ (n >>> 13), 1274126177)
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967295
+}
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+/**
+ * Torus-nahtloser Value-Noise [0,1] aus Welt-Koords — sanfte, großflächige Variation fürs Wasser
+ * („Biome"-/Strömungs-Flecken). Das Lattice wrappt bei `cellsX/cellsY`, daher kein Naht-Sprung.
+ */
+function wrapValueNoise(
+  wx: number,
+  wy: number,
+  w: number,
+  h: number,
+  cellsX: number,
+  cellsY: number,
+): number {
+  const gx = (wx / w) * cellsX
+  const gy = (wy / h) * cellsY
+  const x0 = Math.floor(gx)
+  const y0 = Math.floor(gy)
+  const fx = smoothstep(gx - x0)
+  const fy = smoothstep(gy - y0)
+  const x0m = ((x0 % cellsX) + cellsX) % cellsX
+  const y0m = ((y0 % cellsY) + cellsY) % cellsY
+  const x1m = (x0m + 1) % cellsX
+  const y1m = (y0m + 1) % cellsY
+  const a = hash01(x0m, y0m)
+  const b = hash01(x1m, y0m)
+  const c = hash01(x0m, y1m)
+  const d = hash01(x1m, y1m)
+  const top = a + (b - a) * fx
+  const bot = c + (d - c) * fx
+  return top + (bot - top) * fy
+}
+function clamp255(v: number): number {
+  return v < 0 ? 0 : v > 255 ? 255 : v | 0
+}
+
 const OWNER_MASK = 0x0fff
 
 const MARKER_DURATION_MS = 500
@@ -480,9 +523,25 @@ export function createRenderer(
         (nR & IS_LAND_BIT) !== 0 ||
         (nU & IS_LAND_BIT) !== 0 ||
         (nD & IS_LAND_BIT) !== 0
-      data[o] = coastal ? SHALLOW_R : WATER_R
-      data[o + 1] = coastal ? SHALLOW_G : WATER_G
-      data[o + 2] = coastal ? SHALLOW_B : WATER_B
+      // Biome-Blend: zwei Oktaven Value-Noise (großflächige „Strömungs-Flecken" + feinere
+      // Struktur) + per-Tile-Körnung → Wasser ist nicht mehr uniform, sondern lebt leicht.
+      const cx = Math.max(2, Math.round(w / 26))
+      const cy = Math.max(2, Math.round(h / 26))
+      const n =
+        wrapValueNoise(wx, wy, w, h, cx, cy) * 0.65 +
+        wrapValueNoise(wx, wy, w, h, cx * 2, cy * 2) * 0.35
+      const m = n - 0.5 // [-0.5, 0.5]
+      const grain = hash01(wx * 2 + 7, wy * 2 + 3) - 0.5
+      if (coastal) {
+        data[o] = clamp255(SHALLOW_R + m * 14 + grain * 6)
+        data[o + 1] = clamp255(SHALLOW_G + m * 16 + grain * 6)
+        data[o + 2] = clamp255(SHALLOW_B + m * 12 + grain * 6)
+      } else {
+        // Tiefsee variiert stärker in G/B → Flecken changieren zwischen dunklem Navy und Teal.
+        data[o] = clamp255(WATER_R + m * 12 + grain * 4)
+        data[o + 1] = clamp255(WATER_G + m * 24 + grain * 5)
+        data[o + 2] = clamp255(WATER_B + m * 30 + grain * 5)
+      }
       return
     }
     const height = t & HEIGHT_MASK
