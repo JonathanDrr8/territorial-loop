@@ -9,7 +9,19 @@
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type MatchTempo = 'fast' | 'normal' | 'siege'
-export type TerrainChoice = 'flat' | 'continents' | 'islands'
+/**
+ * Terrain-Auswahl: prozedural (`flat`/`continents`/`islands`) **oder** eine gebackene Geo-Karte
+ * (`world`/`europe`/`africa`/`australia`, ADR-0016). Bei Geo-Karten kommt das terrain als Asset
+ * (mapId), die Karten-Dimensionen werden beim Laden überschrieben.
+ */
+export type TerrainChoice =
+  | 'flat'
+  | 'continents'
+  | 'islands'
+  | 'world'
+  | 'europe'
+  | 'africa'
+  | 'australia'
 /**
  * Kamera-Darstellung der Torus-Welt:
  *  - `tiles`   → wie vorher: endloses Kacheln beim Rauszoomen (die Welt wiederholt sich).
@@ -64,6 +76,11 @@ export const TERRAIN_OPTIONS: ReadonlyArray<readonly [TerrainChoice, string]> = 
   ['flat', 'Offen (kein Wasser)'],
   ['continents', 'Kontinente'],
   ['islands', 'Inseln'],
+  // Geo-Karten (ADR-0016) — echte Küsten aus Geodaten, Dimensionen kommen aus dem Asset.
+  ['world', 'Welt (Geo)'],
+  ['europe', 'Europa (Geo)'],
+  ['africa', 'Afrika (Geo)'],
+  ['australia', 'Australien (Geo)'],
 ]
 
 export const DIFFICULTY_OPTIONS: ReadonlyArray<readonly [Difficulty, string]> = [

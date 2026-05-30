@@ -248,8 +248,10 @@ async function main(): Promise<void> {
     let land = 0
     for (const v of mask) if (v === 1) land++
     const terrain = buildTerrain(mask, m)
+    // gzip-Inhalt, aber Endung .bin (kein .gz) → kein Server setzt Content-Encoding: gzip; der
+    // Browser-Lader dekomprimiert immer selbst (server-unabhängig, siehe ui/geo-loader.ts).
     const asset = gzipSync(encodeGeoMap(m.width, m.height, terrain))
-    writeFileSync(join(OUT, `${m.id}.bin.gz`), asset)
+    writeFileSync(join(OUT, `${m.id}.bin`), asset)
     const pct = ((land / (m.width * m.height)) * 100).toFixed(0)
     process.stdout.write(
       `✓ ${m.id} ${m.width}×${m.height} — ${pct}% Land, ${(asset.length / 1024).toFixed(0)} KB\n`,
