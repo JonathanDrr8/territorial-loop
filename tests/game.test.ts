@@ -6,6 +6,7 @@ import {
   createGame,
   effectiveMaxTroops,
   estimateBomberFlakDamage,
+  FACTORY_FOREIGN_MULT,
   factoryYield,
   goldBreakdown,
   initializeAllFrontiers,
@@ -19,12 +20,11 @@ import {
   HUMAN_START_TROOPS,
   BOT_START_TROOPS,
   BASE_GOLD_PER_TICK,
-  FACTORY_GOLD_PER_DEST,
   ATTACK_CANCEL_TICKS,
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
-import { BOMBER_HP, planBomberRoute } from '../src/core/ships'
+import { BOMBER_HP, CART_GOLD_PER_LEVEL, planBomberRoute } from '../src/core/ships'
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
@@ -780,12 +780,18 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
   })
 
-  it('Fabrik verbindet sich auch mit FREMDER Fabrik (3× Gold beidseitig + Gunst)', () => {
-    const state = createGame(baseConfig({ terrain: 'flat' }))
+  it('Fabrik schickt eine Auslands-Fuhre zur fremden Fabrik (3× Gold + Gunst) (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
     const W = state.map.width
     const H = state.map.height
-    const myFactory = tileRef(20, 20, W, H) // Spieler 1
-    const theirFactory = tileRef(22, 20, W, H) // Spieler 2, in Reichweite
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const myFactory = T(20, 20)
+    const theirFactory = T(24, 20)
+    // Land-Band zwischen den Fabriken (p2 dazwischen) → über Land erreichbar.
+    setOwner(state.map, myFactory, 1)
+    for (let x = 21; x <= 23; x++) setOwner(state.map, T(x, 20), 2)
+    setOwner(state.map, theirFactory, 2)
     state.buildings.set(myFactory, {
       type: 'factory',
       ownerId: 1,
@@ -800,10 +806,18 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    // Beide Fabriken zählen sich gegenseitig als Auslands-Ziel (3× Gold).
-    expect(goldBreakdown(state, 1).factory).toBe(FACTORY_GOLD_PER_DEST * 3)
-    expect(goldBreakdown(state, 2).factory).toBe(FACTORY_GOLD_PER_DEST * 3)
-    // Gunst entsteht beidseitig.
+    initializeAllFrontiers(state)
+
+    tick(state, []) // recompute erzeugt die Auslands-Fuhren
+    // p1 schickt eine Fuhre von der eigenen zur fremden Fabrik mit 3×-Gold.
+    const cart = state.goldCarts.find(
+      (c) => c.ownerId === 1 && c.sourceTile === myFactory && c.factoryTile === theirFactory,
+    )
+    expect(cart).toBeDefined()
+    expect(cart?.gold).toBe(FACTORY_FOREIGN_MULT * CART_GOLD_PER_LEVEL)
+    // p2 spiegelbildlich (eigene Auslands-Fuhre zurück).
+    expect(state.goldCarts.some((c) => c.ownerId === 2 && c.sourceTile === theirFactory)).toBe(true)
+    // Gunst entsteht beidseitig (Fabrik-Nachbarschaft).
     for (let i = 0; i < 31; i++) tick(state, [])
     expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
   })
@@ -857,11 +871,14 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(goldBreakdown(state, 1).factory).toBeGreaterThan(goldBreakdown(state, 2).factory)
   })
 
-  it('Auslands-Verbindungen je Fabrik sind gedeckelt (kein unendliches Stapeln)', () => {
-    const state = createGame(baseConfig({ terrain: 'flat' }))
+  it('Auslands-Fuhren je Fabrik sind gedeckelt (kein unendliches Stapeln) (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
     const W = state.map.width
     const H = state.map.height
-    const factoryTile = tileRef(20, 20, W, H)
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const factoryTile = T(20, 20)
+    setOwner(state.map, factoryTile, 1)
     state.buildings.set(factoryTile, {
       type: 'factory',
       ownerId: 1,
@@ -869,13 +886,18 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    // 8 fremde Fabriken in Reichweite — mehr als der Deckel (ADR-0018: nur Fabriken zählen).
+    // 8 fremde Fabriken rundum in Reichweite, über Land erreichbar — mehr als der Deckel.
     for (let k = 0; k < 8; k++) {
-      const t = tileRef(20 + 1, 20 + k, W, H)
+      const t = T(21, 20 + k)
+      setOwner(state.map, t, 2)
       state.buildings.set(t, { type: 'factory', ownerId: 2, tile: t, level: 1, completesAtTick: 0 })
     }
-    const y = factoryYield(state, factoryTile)
-    expect(y?.dests).toBe(2) // FACTORY_FOREIGN_CAP — nicht 8
+    initializeAllFrontiers(state)
+    tick(state, []) // recompute erzeugt die Auslands-Fuhren
+    // Nur FACTORY_FOREIGN_CAP Fuhren gehen von der Fabrik aus — nicht 8.
+    const outbound = state.goldCarts.filter((c) => c.ownerId === 1 && c.sourceTile === factoryTile)
+    expect(outbound.length).toBe(2)
+    expect(factoryYield(state, factoryTile)?.dests).toBe(2)
   })
 
   it('Bündnis-Bildung bricht laufende Angriffe zwischen den Partnern ab', () => {

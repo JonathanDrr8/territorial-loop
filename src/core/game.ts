@@ -13,7 +13,12 @@
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { getGeoMap } from '../world/geo-map'
-import { computeOwnerComponents, findLandPath, sameOwnerComponent } from '../world/economy-net'
+import {
+  computeOwnerComponents,
+  findLandPath,
+  findTerrainPath,
+  sameOwnerComponent,
+} from '../world/economy-net'
 import {
   PLAINS_MAG,
   generateTerrain,
@@ -28,7 +33,6 @@ import {
   ATTACK_CANCEL_TICKS,
   BASE_GOLD_PER_TICK,
   BOT_START_TROOPS,
-  FACTORY_GOLD_PER_DEST,
   FACTORY_LINK_RANGE,
   HUMAN_START_TROOPS,
   attackerLossPerTile,
@@ -950,25 +954,15 @@ function decayGrudge(state: GameState): void {
 /** Gold-Produktionsfaktor wilder Nationen — halbe Produktion einer normalen Nation. */
 const WILD_GOLD_FACTOR = 0.5
 
-/** Gesamtes Auslands-Fabrik-Gold eines Spielers pro Tick (nur fremde Fabriken in Reichweite). */
-function foreignGold(state: GameState, playerId: number): number {
-  let gold = 0
-  for (const b of state.buildings.values()) {
-    if (b.ownerId !== playerId || b.type !== 'factory' || !isBuildingComplete(b, state.tick))
-      continue
-    gold += factoryForeignContribution(state, playerId, b.tile, b.level).gold
-  }
-  return gold
-}
-
 function generateGold(state: GameState): void {
-  // Flacher Start-Trickle (NICHT größen-abhängig) + Auslands-Fabrik-Gold. Das INLAND-Einkommen
-  // kommt separat über die Gold-Fuhren (advanceGoldCarts), nicht hier (ADR-0018). Wilde Nationen
-  // produzieren nur die Hälfte — kleiner Gold-Vorrat, den man beim Erobern erbeutet.
+  // Nur der flache Start-Trickle (NICHT größen-abhängig). ALLES Fabrik-Gold — Inland UND Ausland —
+  // kommt über die pendelnden Gold-Fuhren (advanceGoldCarts), nicht hier (ADR-0018/0019). Wilde
+  // Nationen produzieren nur die Hälfte — kleiner Gold-Vorrat, den man beim Erobern erbeutet.
   for (const player of state.players.values()) {
     if (!player.isAlive) continue
-    const raw = BASE_GOLD_PER_TICK + foreignGold(state, player.id)
-    const income = player.wild ? Math.floor(raw * WILD_GOLD_FACTOR) : raw
+    const income = player.wild
+      ? Math.floor(BASE_GOLD_PER_TICK * WILD_GOLD_FACTOR)
+      : BASE_GOLD_PER_TICK
     player.gold += income
     player.goldEarned += income
   }
@@ -987,40 +981,32 @@ export interface GoldBreakdown {
 }
 
 /**
- * Schlüsselt das stetige Gold-Einkommen eines Spielers auf (ADR-0018).
+ * Schlüsselt das stetige Gold-Einkommen eines Spielers auf (ADR-0018/0019).
  *
- * INLAND kommt aus den pendelnden Gold-Fuhren (Stadt/Hafen → Fabrik über Land); hier steht die
- * geglättete Rate (`estimatedCartIncome`) fürs HUD — das echte Gold wird lumpig bei jeder
- * Anlieferung gutgeschrieben (`advanceGoldCarts`). AUSLAND ist weiterhin abstrakt: jede fremde
- * (nicht embargoierte) Fabrik in Reichweite bringt 3× Gold.
+ * Alles Fabrik-Gold — INLAND (Stadt/Hafen → eigene Fabrik) UND AUSLAND (eigene → fremde Fabrik,
+ * 3×) — kommt aus den pendelnden Gold-Fuhren; hier steht die geglättete Rate
+ * (`estimatedCartIncome`) fürs HUD, das echte Gold wird lumpig bei jeder Anlieferung
+ * gutgeschrieben (`advanceGoldCarts`).
  */
 export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown {
-  const nodes: { tile: TileRef; isDest: boolean; isFactory: boolean; level: number }[] = []
   let factories = 0
   for (const b of state.buildings.values()) {
     if (b.ownerId !== playerId || !isBuildingComplete(b, state.tick)) continue
-    if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
-      const isFactory = b.type === 'factory'
-      if (isFactory) factories++
-      nodes.push({ tile: b.tile, isDest: !isFactory, isFactory, level: b.level })
-    }
+    if (b.type === 'factory') factories++
   }
-  if (nodes.length === 0) return { base: BASE_GOLD_PER_TICK, factory: 0, factories: 0, dests: 0 }
-
-  const foreign = foreignFactoryGold(state, playerId, nodes)
   const inland = estimatedCartIncome(state, playerId)
   let cartDests = 0
   for (const cart of state.goldCarts) if (cart.ownerId === playerId) cartDests++
   return {
     base: BASE_GOLD_PER_TICK,
-    factory: Math.floor(inland + foreign.gold),
+    factory: Math.floor(inland),
     factories,
-    dests: cartDests + foreign.dests,
+    dests: cartDests,
   }
 }
 
 /** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
-const FACTORY_FOREIGN_MULT = 3
+export const FACTORY_FOREIGN_MULT = 3
 /**
  * Max. ausländische Fabrik-Ziele je Fabrik (3× Gold each). Bewusst niedrig (2) — soll nicht zu
  * stark sein; 2 × 3× = die Leistung von 6 normalen Inland-Verbindungen. Exportiert, damit das
@@ -1029,64 +1015,10 @@ const FACTORY_FOREIGN_MULT = 3
 export const FACTORY_FOREIGN_CAP = 2
 
 /**
- * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht
- * embargoierte) fertige **Fabrik** in `FACTORY_LINK_RANGE` zählt als Ziel mit
- * `FACTORY_FOREIGN_MULT`× Gold (ADR-0018: ins Ausland nur noch Fabrik↔Fabrik, keine fremden
- * Städte/Häfen mehr). So lohnt es sich, Fabriken nah an die Fabriken anderer Nationen zu bauen
- * (Kooperation über Grenzen).
- */
-function factoryForeignContribution(
-  state: GameState,
-  ownerId: number,
-  factoryTile: TileRef,
-  factoryLevel: number,
-): { gold: number; dests: number } {
-  const { width, height } = state.map
-  const fx = factoryTile % width
-  const fy = Math.floor(factoryTile / width)
-  let dests = 0
-  for (const b of state.buildings.values()) {
-    if (dests >= FACTORY_FOREIGN_CAP) break // Deckel: nur die ersten N Auslands-Ziele zählen
-    if (b.ownerId === ownerId || b.ownerId <= 0) continue
-    // Ins Ausland verbindet eine Fabrik NUR noch mit anderen Fabriken (ADR-0018) — fremde
-    // Städte/Häfen zählen nicht mehr.
-    if (b.type !== 'factory') continue
-    if (!isBuildingComplete(b, state.tick)) continue
-    if (isTradeEmbargoed(state, ownerId, b.ownerId)) continue
-    const bx = b.tile % width
-    const by = Math.floor(b.tile / width)
-    if (torusDistance(fx, fy, bx, by, width, height) > FACTORY_LINK_RANGE) continue
-    // Nur wenn über LAND erreichbar (gleiche Land-Komponente) — kein Weg über offenes Wasser
-    // zählt (ADR-0018: alle Verbindungen brauchen einen Land-Weg, keine Luftlinie über Meer).
-    const lc = state.landComponents[factoryTile]
-    if (lc === undefined || lc < 0 || lc !== state.landComponents[b.tile]) continue
-    dests++
-  }
-  return { gold: FACTORY_GOLD_PER_DEST * FACTORY_FOREIGN_MULT * factoryLevel * dests, dests }
-}
-
-/** Summe der Auslands-Verbindungen über alle Fabrik-Knoten eines Spielers. */
-function foreignFactoryGold(
-  state: GameState,
-  playerId: number,
-  nodes: readonly { tile: TileRef; isFactory: boolean; level: number }[],
-): { gold: number; dests: number } {
-  let gold = 0
-  let dests = 0
-  for (const node of nodes) {
-    if (!node.isFactory) continue
-    const c = factoryForeignContribution(state, playerId, node.tile, node.level)
-    gold += c.gold
-    dests += c.dests
-  }
-  return { gold, dests }
-}
-
-/**
- * Live-Beitrag EINER Fabrik zum Gold/Tick (ADR-0018 Fuhren-Modell): die geglättete Rate aller
- * Gold-Fuhren, die genau zu DIESER Fabrik pendeln (nähere Quellen liefern öfter → mehr Rate),
- * plus ihre Auslands-Fabrik-Verbindungen (3× Gold). `null`, wenn das Tile keine fertige Fabrik ist.
- * Für den Hover-Tooltip (verstehen, was eine Fabrik konkret einbringt).
+ * Live-Beitrag EINER Fabrik zum Gold/Tick (ADR-0018/0019 Fuhren-Modell): die geglättete Rate aller
+ * Gold-Fuhren des Besitzers, die zu DIESER Fabrik pendeln (Inland: Quelle→Fabrik, kommen an) oder
+ * VON ihr ausgehen (Ausland: Fabrik→fremde Fabrik, 3×). Nähere Ziele liefern öfter → mehr Rate.
+ * `null`, wenn das Tile keine fertige Fabrik ist. Für den Hover-Tooltip.
  */
 export function factoryYield(
   state: GameState,
@@ -1095,22 +1027,18 @@ export function factoryYield(
   const self = state.buildings.get(tile)
   if (self === undefined || self.type !== 'factory' || !isBuildingComplete(self, state.tick))
     return null
-  // Inland: Summe der Fuhren-Raten dieser Fabrik (gleiche Formel wie `estimatedCartIncome`):
-  // Rate je Fuhre = gold / Rundreise-Dauer. Kürzerer Land-Weg = höhere Rate (emergenter Nähe-Bonus).
+  // Rate je Fuhre = gold / Rundreise-Dauer (kürzerer Weg = höhere Rate). Inland-Fuhren enden an
+  // dieser Fabrik (factoryTile), Auslands-Fuhren starten an ihr (sourceTile) — beide zählen.
   let goldPerTick = 0
   let dests = 0
   for (const cart of state.goldCarts) {
-    if (cart.factoryTile !== tile) continue
+    if (cart.ownerId !== self.ownerId) continue
+    if (cart.factoryTile !== tile && cart.sourceTile !== tile) continue
     const oneWay = Math.max(1, cart.path.length - 1)
     goldPerTick += (cart.gold * CART_SPEED) / (2 * oneWay)
     dests++
   }
-  // Auslands-Verbindungen dieser Fabrik (3× Gold) mitzählen.
-  const foreign = factoryForeignContribution(state, self.ownerId, tile, self.level)
-  return {
-    goldPerTick: goldPerTick + foreign.gold,
-    dests: dests + foreign.dests,
-  }
+  return { goldPerTick, dests }
 }
 
 /** Truppen-Cap-Bonus eines Spielers aus seinen Städten. */
@@ -2836,17 +2764,17 @@ function recomputeGoldRoutes(state: GameState): void {
     }
   }
 
-  // Phase 3: Fuhren bauen — gültige (gleiches Ziel + verbunden) behalten, sonst neuer Land-Pfad.
-  const cartBySource = new Map<TileRef, GoldCart>()
-  for (const cart of state.goldCarts) cartBySource.set(cart.sourceTile, cart)
+  // Bestehende Fuhren nach ihrer Route (Quelle→Ziel) indizieren, um sie wiederzuverwenden
+  // (kein erneutes Pathfinding, kein Progress-Sprung). Route-Key ist für In- UND Ausland eindeutig.
+  const cartByRoute = new Map<string, GoldCart>()
+  for (const cart of state.goldCarts)
+    cartByRoute.set(`${String(cart.sourceTile)}>${String(cart.factoryTile)}`, cart)
   const next: GoldCart[] = []
+
+  // Phase 3: INLAND-Fuhren (Stadt/Hafen → eigene Fabrik über eigenes Land).
   for (const a of kept) {
-    const existing = cartBySource.get(a.src)
-    if (
-      existing !== undefined &&
-      existing.factoryTile === a.fac &&
-      sameOwnerComponent(comp, a.src, a.fac)
-    ) {
+    const existing = cartByRoute.get(`${String(a.src)}>${String(a.fac)}`)
+    if (existing !== undefined && sameOwnerComponent(comp, a.src, a.fac)) {
       next.push(existing)
       continue
     }
@@ -2861,6 +2789,47 @@ function recomputeGoldRoutes(state: GameState): void {
       sourceTile: a.src,
       factoryTile: a.fac,
     })
+  }
+
+  // Phase 4: AUSLANDS-Fuhren (ADR-0019) — jede Fabrik schickt zu ihren bis zu FACTORY_FOREIGN_CAP
+  // nächsten fremden, nicht embargoierten Fabriken in Reichweite einen Karren über LAND (auch
+  // fremdes Gebiet, findTerrainPath) und liefert dort das FACTORY_FOREIGN_MULT×-Gold.
+  const lc = state.landComponents
+  for (const f of factories) {
+    const fcomp = lc[f.tile]
+    if (fcomp === undefined || fcomp < 0) continue
+    const fx = f.tile % width
+    const fy = Math.floor(f.tile / width)
+    const candidates: { tile: TileRef; dist: number }[] = []
+    for (const e of factories) {
+      if (e.owner === f.owner || e.owner <= 0) continue
+      if (lc[e.tile] !== fcomp) continue
+      if (isTradeEmbargoed(state, f.owner, e.owner)) continue
+      const d = torusDistance(fx, fy, e.tile % width, Math.floor(e.tile / width), width, height)
+      if (d > FACTORY_LINK_RANGE) continue
+      candidates.push({ tile: e.tile, dist: d })
+    }
+    candidates.sort((p, q) => p.dist - q.dist || p.tile - q.tile)
+    for (let i = 0; i < Math.min(FACTORY_FOREIGN_CAP, candidates.length); i++) {
+      const c = candidates[i]
+      if (c === undefined) continue
+      const existing = cartByRoute.get(`${String(f.tile)}>${String(c.tile)}`)
+      if (existing !== undefined && lc[c.tile] === fcomp) {
+        next.push(existing)
+        continue
+      }
+      const path = findTerrainPath(map, f.tile, c.tile, FACTORY_LINK_RANGE * 3)
+      if (path === null || path.length < 2) continue
+      next.push({
+        ownerId: f.owner,
+        path,
+        progress: 0,
+        dir: 1,
+        gold: FACTORY_FOREIGN_MULT * CART_GOLD_PER_LEVEL * f.level,
+        sourceTile: f.tile,
+        factoryTile: c.tile,
+      })
+    }
   }
   state.goldCarts = next
 }

@@ -53,6 +53,77 @@ function forEachLandNeighbor(
 }
 
 /**
+ * Wie `forEachLandNeighbor`, aber OHNE Besitzer-Schranke: besucht jedes über Land (inkl. Brücken
+ * ≤ BRIDGE_SPAN) erreichbare passierbare Tile, egal wem es gehört. Für Auslands-Wege (ADR-0019),
+ * die über fremdes Gebiet zur fremden Fabrik führen dürfen.
+ */
+function forEachTerrainNeighbor(
+  map: GameMap,
+  ref: number,
+  visit: (neighbor: number) => void,
+): void {
+  const { width, height, terrain } = map
+  const x = ref % width
+  const y = (ref - x) / width
+  for (const dir of DIRS) {
+    for (let s = 1; s <= BRIDGE_SPAN; s++) {
+      const nx = (((x + dir[0] * s) % width) + width) % width
+      const ny = (((y + dir[1] * s) % height) + height) % height
+      const j = ny * width + nx
+      if (!isLand(terrain, j)) continue // Wasser → Brücke möglich, weiter scannen
+      if (isPassable(terrain, j)) visit(j)
+      break // Land (passierbar/Berg) beendet den Scan in dieser Richtung
+    }
+  }
+}
+
+/**
+ * Kürzester Land-Pfad (in Schritten) von `start` zu `goal` über BELIEBIGES passierbares Land
+ * (inkl. Brücken), unabhängig vom Besitzer — für Auslands-Fuhren, die durch fremdes Gebiet zur
+ * fremden Fabrik pendeln. Begrenzt auf `maxSteps` (sonst null) → bleibt billig, weil Auslands-
+ * Ziele ohnehin nah liegen. Deterministisch (feste Nachbar-Reihenfolge, BFS).
+ */
+export function findTerrainPath(
+  map: GameMap,
+  start: number,
+  goal: number,
+  maxSteps: number,
+): number[] | null {
+  if (start === goal) return [start]
+  const cameFrom = new Map<number, number>()
+  const seen = new Set<number>([start])
+  const dist = new Map<number, number>([[start, 0]])
+  const queue: number[] = [start]
+  let head = 0
+  let found = false
+  while (head < queue.length && !found) {
+    const cur = queue[head++]
+    if (cur === undefined) break
+    const d = dist.get(cur) ?? 0
+    if (d >= maxSteps) continue
+    forEachTerrainNeighbor(map, cur, (j) => {
+      if (seen.has(j)) return
+      seen.add(j)
+      cameFrom.set(j, cur)
+      dist.set(j, d + 1)
+      if (j === goal) found = true
+      queue.push(j)
+    })
+  }
+  if (!seen.has(goal)) return null
+  const path: number[] = [goal]
+  let c = goal
+  while (c !== start) {
+    const prev = cameFrom.get(c)
+    if (prev === undefined) return null
+    path.push(prev)
+    c = prev
+  }
+  path.reverse()
+  return path
+}
+
+/**
  * Labelt jedes Tile mit der ID seiner Owner-Land-Komponente. Tiles ohne eigenen Besitzer
  * (Wasser, Berge, Niemandsland) bekommen -1. Zwei Tiles in derselben Komponente sind über Land
  * (inkl. Brücken) verbunden.

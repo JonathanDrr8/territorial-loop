@@ -15,14 +15,12 @@
 
 import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange, flakRange, isBuildingComplete } from '../core/buildings'
-import { FACTORY_LINK_RANGE } from '../core/config'
 import {
   BOMB_IMPACT_LIFETIME,
   canBuildAt,
   CAPTURE_FADE_TICKS,
   estimateBomberFlakDamage,
   FACTORY_CART_LIMIT,
-  FACTORY_FOREIGN_CAP,
   FLAK_SHOT_LIFETIME,
   GOLD_POP_LIFETIME,
   snapBuildTile,
@@ -1487,38 +1485,9 @@ export function createRenderer(
         }
       }
     }
-    // Auslands-Verbindungen (ADR-0018): graue Straße von jeder Fabrik zu fremden (nicht
-    // embargoierten) Fabriken in Reichweite, die ÜBER LAND erreichbar sind (gleiche Land-
-    // Komponente) — keine Luftlinie über Wasser. Bringen den 3×-Gold-Bonus.
-    const embargoed = (a: number, b: number): boolean =>
-      state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
-    const lc = state.landComponents
-    screenCtx.setLineDash([])
-    screenCtx.lineWidth = roadW
-    screenCtx.strokeStyle = 'rgba(150,150,150,0.3)'
-    for (const f of eco) {
-      if (!f.factory) continue
-      const fpx = f.tile % mapW
-      const fpy = Math.floor(f.tile / mapW)
-      const fcomp = lc[f.tile]
-      if (fcomp === undefined || fcomp < 0) continue
-      let drawn = 0
-      for (const e of eco) {
-        if (drawn >= FACTORY_FOREIGN_CAP) break
-        if (!e.factory || e.ownerId === f.ownerId || e.ownerId <= 0) continue
-        if (embargoed(f.ownerId, e.ownerId)) continue
-        const ex = e.tile % mapW
-        const ey = Math.floor(e.tile / mapW)
-        if (torusDistance(fpx, fpy, ex, ey, mapW, mapH) > FACTORY_LINK_RANGE) continue
-        if (fcomp !== lc[e.tile]) continue // nicht über Land erreichbar → keine Straße
-        const seg = nearestWrappedSegment(fpx + 0.5, fpy + 0.5, ex + 0.5, ey + 0.5)
-        screenCtx.beginPath()
-        screenCtx.moveTo(seg.fromSx, seg.fromSy)
-        screenCtx.lineTo(seg.toSx, seg.toSy)
-        screenCtx.stroke()
-        drawn++
-      }
-    }
+    // Auslands-Verbindungen (ADR-0019) sind jetzt echte Gold-Fuhren (eigene → fremde Fabrik über
+    // Land) und werden oben wie alle Karts als graue Straße + Karren-Sprite gezeichnet — keine
+    // separate (gerade) Luftlinie mehr.
     screenCtx.restore()
   }
 
