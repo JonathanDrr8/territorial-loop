@@ -84,3 +84,26 @@ nur bei sichtbarem Zoom und nur für sichtbare Gebäude berechnet (gecacht pro F
 
 - `BRIDGE_SPAN` und `ECONOMY_RECOMPUTE_INTERVAL` sind Balance-/Perf-Stellschrauben (justierbar).
 - Pfad-Rendering bei sehr großen Komponenten: nur sichtbare Gebäude, pro Frame begrenzt.
+
+## Nachtrag: Inland-Gold fährt physisch über Straßen (Fuhren)
+
+Statt der abstrakten Distanz-Formel (oben) wurde — auf Jonathans Wunsch — das Inland-Gold als
+**physische Gold-Fuhren** umgesetzt (analog zum Handelsschiff-System, aber über Land):
+
+- Pro eigener Stadt/Hafen, die über Land eine eigene Fabrik erreicht, **pendelt genau eine Fuhre**
+  (`GoldCart` in `core/ships.ts`) zwischen Quelle und Fabrik (Ping-Pong via `dir`). An der Fabrik
+  wird `gold` gutgeschrieben, dann kehrt sie um.
+- **Nähe-Vorteil emergent:** Langer Weg = lange Rundreise = weniger Anlieferungen/Zeit. Keine
+  künstliche Abfall-Formel nötig. `gold = CART_GOLD_PER_LEVEL × Fabrik-Level`, `CART_SPEED` fest.
+- **Verwaltung:** `recomputeGoldRoutes` (alle `ECONOMY_RECOMPUTE_INTERVAL` Ticks) berechnet die
+  Owner-Land-Komponenten und legt/entfernt Fuhren (gültige behalten ihren Pfad). `advanceGoldCarts`
+  bewegt sie jeden Tick. `findLandPath` liefert den Pfad (BFS über die Komponente, inkl. Brücken).
+- **Gold-Fluss:** `generateGold` gibt nur noch Sockel + Auslands-Gold (3× fremde Fabriken); das
+  Inland kommt lumpig aus den Fuhren-Anlieferungen. Das HUD zeigt die **geglättete** Rate
+  (`estimatedCartIncome = Σ gold / Rundreise-Dauer`).
+- **MP/Determinismus:** `goldCarts` serialisiert (Snapshots konsistent), `ownerComponents`
+  transient (nur Routing/Rendering). Bewegung über Integer-Tiles + feste `CART_SPEED`.
+- **Rendering:** `drawBuildingLinks` malt die echten Fuhr-Pfade als Straßen + die fahrenden Karren
+  (Gold-Kern); Auslands-Linien bleiben gestrichelte Luftlinien.
+
+Damit entfällt das geplante serialisierte `player.factoryGold`-Feld (die Fuhren SIND der State).

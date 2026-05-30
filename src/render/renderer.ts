@@ -1298,9 +1298,9 @@ export function createRenderer(
   }
 
   /**
-   * Zeichnet die Fabrik-Netzwerk-Verbindungen: von jeder Fabrik eine dezente Linie zu
-   * jedem eigenen Wirtschafts-Gebäude (Stadt/Hafen/Fabrik) in `FACTORY_LINK_RANGE`
-   * (Luftlinie). Fabrik-Fabrik-Linien nur einmal. Nur ab mittlerem Zoom (Anti-Clutter).
+   * Zeichnet das Wirtschafts-Wegenetz (ADR-0018): INLAND die echten Land-Pfade der Gold-Fuhren als
+   * Straßen samt fahrender Karren (Gold-Kern); AUSLAND eine gestrichelte amber Luftlinie von jeder
+   * Fabrik zu fremden Fabriken in Reichweite (3×-Gold-Bonus). Nur ab mittlerem Zoom (Anti-Clutter).
    */
   function drawBuildingLinks(): void {
     if (state.buildings.size === 0 || camera.zoom < 1.4) return
@@ -1314,40 +1314,66 @@ export function createRenderer(
         eco.push({ tile: b.tile, ownerId: b.ownerId, factory: b.type === 'factory' })
       }
     }
-    if (eco.length < 2) return
     screenCtx.save()
     screenCtx.lineWidth = 1.5
-    for (const f of eco) {
-      if (!f.factory) continue
-      const fx = (f.tile % mapW) + 0.5
-      const fy = Math.floor(f.tile / mapW) + 0.5
-      const player = state.players.get(f.ownerId)
-      const col = player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
-      for (const e of eco) {
-        if (e === f || e.ownerId !== f.ownerId) continue
-        if (e.factory && e.tile < f.tile) continue // Fabrik-Fabrik nur einmal
-        const ex = e.tile % mapW
-        const ey = Math.floor(e.tile / mapW)
-        if (
-          torusDistance(f.tile % mapW, Math.floor(f.tile / mapW), ex, ey, mapW, mapH) >
-          FACTORY_LINK_RANGE
+    // INLAND-Wege (ADR-0018): die echten Land-Pfade der Gold-Fuhren als Straßen (Brücken-Segmente
+    // springen gerade übers Wasser), darauf die fahrenden Karren mit Gold-Kern.
+    const cartColor = (ownerId: number): string => {
+      const player = state.players.get(ownerId)
+      return player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
+    }
+    for (const cart of state.goldCarts) {
+      if (cart.path.length < 2) continue
+      const col = cartColor(cart.ownerId)
+      for (let i = 0; i + 1 < cart.path.length; i++) {
+        const a = cart.path[i]
+        const b = cart.path[i + 1]
+        if (a === undefined || b === undefined) continue
+        const seg = nearestWrappedSegment(
+          (a % mapW) + 0.5,
+          Math.floor(a / mapW) + 0.5,
+          (b % mapW) + 0.5,
+          Math.floor(b / mapW) + 0.5,
         )
-          continue
-        const seg = nearestWrappedSegment(fx, fy, ex + 0.5, ey + 0.5)
-        // „Straßen"-Optik: breite gedämpfte Trasse + gestrichelte hellere Mittellinie (Besitzerfarbe).
         screenCtx.beginPath()
         screenCtx.moveTo(seg.fromSx, seg.fromSy)
         screenCtx.lineTo(seg.toSx, seg.toSy)
         screenCtx.lineWidth = 3
         screenCtx.setLineDash([])
-        screenCtx.strokeStyle = `rgba(${col},0.26)`
+        screenCtx.strokeStyle = `rgba(${col},0.22)`
         screenCtx.stroke()
         screenCtx.lineWidth = 1
         screenCtx.setLineDash([2, 5])
-        screenCtx.strokeStyle = `rgba(${col},0.6)`
+        screenCtx.strokeStyle = `rgba(${col},0.5)`
         screenCtx.stroke()
-        screenCtx.setLineDash([])
       }
+      screenCtx.setLineDash([])
+    }
+    // Karren auf ihrer interpolierten Position (Gold-Kern in Besitzerfarbe).
+    for (const cart of state.goldCarts) {
+      if (cart.path.length < 2) continue
+      const p = Math.max(0, Math.min(cart.path.length - 1, cart.progress))
+      const i0 = Math.floor(p)
+      const a = cart.path[i0]
+      const b = cart.path[Math.min(cart.path.length - 1, i0 + 1)]
+      if (a === undefined || b === undefined) continue
+      const seg = nearestWrappedSegment(
+        (a % mapW) + 0.5,
+        Math.floor(a / mapW) + 0.5,
+        (b % mapW) + 0.5,
+        Math.floor(b / mapW) + 0.5,
+      )
+      const frac = p - i0
+      const cx = seg.fromSx + (seg.toSx - seg.fromSx) * frac
+      const cy = seg.fromSy + (seg.toSy - seg.fromSy) * frac
+      screenCtx.beginPath()
+      screenCtx.arc(cx, cy, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2)
+      screenCtx.fillStyle = `rgba(${cartColor(cart.ownerId)},0.9)`
+      screenCtx.fill()
+      screenCtx.beginPath()
+      screenCtx.arc(cx, cy, Math.max(1, camera.zoom * 0.55), 0, Math.PI * 2)
+      screenCtx.fillStyle = 'rgba(255,224,120,0.95)'
+      screenCtx.fill()
     }
     // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
     // embargoierten) Wirtschaftsgebäuden (Stadt/Hafen/Fabrik) in Reichweite — die den 3×-Gold-
