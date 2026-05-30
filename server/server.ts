@@ -125,7 +125,17 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
     res.end()
     return
   }
-  res.writeHead(200, { 'content-type': MIME[extname(filePath)] ?? 'application/octet-stream' })
+  // Cache-Strategie: Vites Asset-Dateinamen tragen einen Content-Hash (`index-Dq2nIDPm.js`) → sie
+  // sind unveränderlich und dürfen ewig gecacht werden. ALLES andere (v. a. index.html, die auf das
+  // jeweils aktuelle Bundle zeigt) NIE cachen — sonst sieht der Spieler nach einem Deploy weiter die
+  // alte Version (gecachte index.html → altes JS). `no-store` erzwingt frisches Laden bei jedem Besuch.
+  const immutable = urlPath.startsWith('/assets/')
+  res.writeHead(200, {
+    'content-type': MIME[extname(filePath)] ?? 'application/octet-stream',
+    'cache-control': immutable
+      ? 'public, max-age=31536000, immutable'
+      : 'no-store, must-revalidate',
+  })
   createReadStream(filePath).pipe(res)
 }
 

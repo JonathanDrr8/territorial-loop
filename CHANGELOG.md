@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.3] – 2026-05-30
+
+### Behoben
+
+- **Nach einem Update siehst du sofort die neue Version.** Bisher konnte der Browser die alte
+  Seite „festhalten" (man sah die alte Versionsnummer, obwohl längst neu deployt war, bis man
+  manuell hart neu lud). Der Server liefert die Seite jetzt mit korrekten Cache-Regeln aus —
+  einmal noch hart neu laden (Strg+Shift+R), danach passiert es nicht mehr.
+
 ## [0.6.2] – 2026-05-30
 
 ### Behoben
