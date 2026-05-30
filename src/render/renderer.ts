@@ -241,9 +241,9 @@ const SHALLOW_G = 122
 const SHALLOW_B = 150
 // Unpassierbarer Extrem-Gipfel: helle, kalte Schnee-/Gletscherfläche — hebt sich unmissverständlich
 // gegen Braun (Land), Blau (Wasser) und Nationsfarben ab. Damit sieht man sofort, wo man nicht hoch.
-const ROCK_R = 188
-const ROCK_G = 198
-const ROCK_B = 214
+const ROCK_R = 156
+const ROCK_G = 166
+const ROCK_B = 182
 const BG_FILL = '#0a0a10'
 
 /** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
