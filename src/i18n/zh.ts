@@ -202,6 +202,8 @@ export const zh: Record<string, string> = {
   'hud.recallBoat': '召回运输艇',
   'hud.recallWarship': '召回战舰',
   'hud.defendTitle': '防御 —— 1:1 投入兵力（滑块加成）',
+  'hud.defendWith': '用 {troops} 兵力防御',
+  'hud.jumpToBattle': '跳转到战斗',
   'hud.attacks': '进攻',
   'hud.traitorTitle': '叛徒 —— 被通缉，防御被削弱（剩余 {time}）',
   'hud.alliedTitle': '同盟 · {time} 后到期',

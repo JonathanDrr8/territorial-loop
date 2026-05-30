@@ -234,6 +234,8 @@ export const pt: Record<string, string> = {
   'hud.recallBoat': 'Recolher o barco',
   'hud.recallWarship': 'Recolher o navio',
   'hud.defendTitle': 'Defender — empregar tropas 1:1 (impulso do cursor)',
+  'hud.defendWith': 'Defender com {troops} tropas',
+  'hud.jumpToBattle': 'Ir para o ataque',
   'hud.attacks': 'Ataques',
   'hud.traitorTitle': 'Traidor — fora da lei, defesa enfraquecida (faltam {time})',
   'hud.alliedTitle': 'Aliado · expira em {time}',

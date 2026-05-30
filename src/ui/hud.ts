@@ -898,15 +898,23 @@ export function createHUD(
       )
       warIdx++
     }
-    // Eingehende Angriffe — klickbar zum Abwehren (eigene Truppen 1:1 gegen die Reserve).
+    // Eingehende Angriffe: Name-Bereich = zum Angriff SPRINGEN (data-locate), Schild = ABWEHREN
+    // (data-defend, eigene Truppen 1:1 gegen die Reserve; Tooltip zeigt die aktuelle Slider-Menge).
     let incoming = 0
+    const defendTroops = Math.floor((human.troops * currentSliderPct) / 100)
     for (const p of state.players.values()) {
       if (p.id === human.id || !p.isAlive) continue
       for (const atk of p.attacks) {
         if (atk.targetPlayerId !== human.id) continue
         incoming++
         rows.push(
-          `<div data-defend="${String(p.id)}" title="${t('hud.defendTitle')}" style="${rowStyle}"><span style="color:#e84545">⚔←</span><span>${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, '🛡')}</div>`,
+          `<div style="${rowStyle}">` +
+            `<span data-locate="${String(atk.frontTile)}" title="${t('hud.jumpToBattle')}" style="cursor:pointer;display:flex;align-items:center;gap:6px;flex:1;min-width:0">` +
+            `<span style="color:#e84545">⚔←</span>` +
+            `<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>` +
+            `</span>` +
+            `<span data-defend="${String(p.id)}" title="${t('hud.defendWith', { troops: fmtCompact(defendTroops) })}" style="cursor:pointer;margin-left:8px;flex-shrink:0;font-size:15px">🛡</span>` +
+            `</div>`,
         )
       }
     }

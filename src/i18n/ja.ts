@@ -204,6 +204,8 @@ export const ja: Record<string, string> = {
   'hud.recallBoat': '輸送艇を呼び戻す',
   'hud.recallWarship': '軍艦を呼び戻す',
   'hud.defendTitle': '防衛 —— 兵を 1:1 で投入（スライダー強化）',
+  'hud.defendWith': '{troops} 兵で防衛',
+  'hud.jumpToBattle': '戦闘へ移動',
   'hud.attacks': '攻撃',
   'hud.traitorTitle': '裏切り者 —— 無法者、防御が弱体化（残り {time}）',
   'hud.alliedTitle': '同盟 · {time} 後に失効',

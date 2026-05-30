@@ -228,6 +228,8 @@ export const ru: Record<string, string> = {
   'hud.recallBoat': 'Отозвать баржу',
   'hud.recallWarship': 'Отозвать корабль',
   'hud.defendTitle': 'Защита — ввести войска 1:1 (рывок ползунка)',
+  'hud.defendWith': 'Оборона: {troops} войск',
+  'hud.jumpToBattle': 'Перейти к атаке',
   'hud.attacks': 'Атаки',
   'hud.traitorTitle': 'Предатель — вне закона, защита ослаблена (осталось {time})',
   'hud.alliedTitle': 'Союзник · истекает через {time}',

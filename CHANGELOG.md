@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.2] – 2026-05-30
+
+### Behoben
+
+- **Angriffe-Panel eindeutig bedienbar:** Klick auf den **Namen** springt jetzt zum Angriff
+  (Kamera), Klick aufs **Schild** wehrt ab. Vorher löste die ganze Zeile die Abwehr aus und das
+  Schild war kein eigener Knopf.
+
+### Geändert
+
+- Das Abwehr-Schild zeigt beim Drüberfahren **„Abwehren mit X Truppen"** (X = aktuelle
+  Slider-Menge), damit klar ist, wie viel ein Klick einsetzt.
+
 ## [0.6.1] – 2026-05-30
 
 ### Behoben
