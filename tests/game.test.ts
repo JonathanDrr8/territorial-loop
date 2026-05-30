@@ -603,6 +603,66 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.bombers.length).toBe(0) // Bomber nach Rückflug aufgelöst
   })
 
+  it('Bombe: Groll + Verrat bei Verbündeten + versenkt Schiffe im Radius (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+
+    const airport = T(10, 10)
+    setOwner(state.map, airport, 1)
+    state.buildings.set(airport, {
+      type: 'airport',
+      ownerId: 1,
+      tile: airport,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 1_000_000
+    p1.tilesOwned = 1
+
+    const target = T(40, 10)
+    let n = 0
+    for (let x = 37; x <= 43; x++)
+      for (let y = 7; y <= 13; y++) {
+        setOwner(state.map, T(x, y), 2)
+        n++
+      }
+    p2.tilesOwned = n
+    p2.troops = 4900
+    // p1 und p2 sind verbündet — die Bombe auf p2 ist damit Verrat.
+    state.alliances.add(pairKey(1, 2))
+    // Ein p2-Kriegsschiff genau am Zielpunkt (im Bomben-Radius).
+    state.warships.push({
+      ownerId: 2,
+      path: [target],
+      progress: 0,
+      dir: 1,
+      hp: 5,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    initializeAllFrontiers(state)
+    expect(areAllied(state.alliances, 1, 2)).toBe(true)
+
+    for (let i = 0; i < 40; i++)
+      tick(
+        state,
+        i === 0
+          ? [{ type: 'launch-bomber' as const, playerId: 1, targetTile: target, route: 'direct' }]
+          : [],
+      )
+
+    expect(state.grudge.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0) // Opfer grollt
+    expect(areAllied(state.alliances, 1, 2)).toBe(false) // Bombe auf Verbündeten = Verrat
+    expect(state.warships.length).toBe(0) // Kriegsschiff im Radius versenkt
+  })
+
   it('Flak: schießt einen durchfliegenden feindlichen Bomber ab (kein Einschlag) (ADR-0019)', () => {
     // Map breit genug, dass der direkte Weg (50) kürzer als der Torus-Wrap ist → Flugbahn quert x=35.
     const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 128, mapHeight: 128 }))

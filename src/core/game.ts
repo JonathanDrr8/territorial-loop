@@ -833,6 +833,10 @@ const GRUDGE_PER_TRADE_SUNK = 45
 const GRUDGE_PER_EMBARGO = 80
 /** Ab diesem Groll gilt ein Handelspartner im „Neutrale schonen"-Modus als verfeindet (→ angreifbar). */
 const NEUTRAL_BLOCKADE_GRUDGE = 60
+/** Groll des Bombardierten gegen den Angreifer, je getroffenem eigenem Tile (massiv, ADR-0019). */
+const GRUDGE_PER_BOMB_TILE = 8
+/** „Angst"-Groll, den eine Bombardierung bei JEDER anderen (unbeteiligten) Nation auslöst. */
+const GRUDGE_BOMB_FEAR = 40
 
 /** Erhöht den (abklingenden) Groll des Opfers gegen den Angreifer. Ignoriert Selbst/Besitzlos. */
 function addGrudge(state: GameState, attackerId: number, victimId: number, amount: number): void {
@@ -2127,7 +2131,7 @@ function advanceBombers(state: GameState): void {
       bomber.progress = last
       if (!bomber.dropped) {
         bomber.dropped = true
-        applyBomb(state, bomber.targetTile)
+        applyBomb(state, bomber.targetTile, bomber.ownerId)
       }
       bomber.dir = -1
     } else if (bomber.dir === -1 && bomber.progress <= 0) {
@@ -2139,38 +2143,77 @@ function advanceBombers(state: GameState): void {
 }
 
 /**
- * Bomben-Einschlag um `center` (Radius `BOMB_RADIUS`): zerstört JEDES Gebäude, schmilzt Truppen
- * anteilig zur Dichte und neutralisiert das getroffene Land (→ herrenlos). Niemand wird verschont
- * — auch eigenes und verbündetes Gebiet (ADR-0019).
+ * Bomben-Einschlag von `attackerId` um `center` (Radius `BOMB_RADIUS`, ADR-0019). Niemand wird
+ * verschont — auch eigenes und verbündetes Gebiet. Effekte:
+ *  - zerstört JEDES Gebäude im Radius;
+ *  - je getroffenem Spieler schmelzen Truppen um den Anteil seiner zerstörten Fläche
+ *    (getroffene Tiles / Gesamttiles × aktuelle Truppen) und das Land wird herrenlos;
+ *  - alle Schiffe (Kriegs-/Handels-/Transport) im Radius sinken;
+ *  - massiver Groll beim Bombardierten (je Tile) + „Angst"-Groll bei allen anderen Nationen;
+ *  - trifft die Bombe Gebiet eines Verbündeten, gilt das als Verrat (Allianzbruch + Ächtung).
  */
-function applyBomb(state: GameState, center: TileRef): void {
+function applyBomb(state: GameState, center: TileRef, attackerId: number): void {
   const { map, players } = state
   const { width, height } = map
   const cx = center % width
   const cy = Math.floor(center / width)
   const r = BOMB_RADIUS
   const r2 = r * r
+
+  // Phase 1: getroffene Tiles sammeln, Gebäude zerstören, Tiles je Besitzer zählen.
+  const hits: TileRef[] = []
+  const hitByOwner = new Map<number, number>()
   for (let oy = -r; oy <= r; oy++) {
     for (let ox = -r; ox <= r; ox++) {
       if (ox * ox + oy * oy > r2) continue
       const ref = tileRef(cx + ox, cy + oy, width, height)
-      // Gebäude zerstören (jedes) — VOR der Neutralisierung, sonst „überlebt" es als herrenlos.
       if (state.buildings.has(ref)) {
         state.buildings.delete(ref)
         state.dirtyTiles.push(ref)
       }
       const owner = getOwner(map, ref)
       if (owner > 0) {
-        const p = players.get(owner)
-        if (p !== undefined && p.tilesOwned > 0) {
-          // Dichte-Anteil dieses Tiles schmilzt aus dem Truppen-Pool (Land nimmt Bevölkerung mit).
-          const loss = Math.floor(p.troops / p.tilesOwned)
-          p.troops = Math.max(0, p.troops - loss)
-        }
-        captureTile(state, ref, 0) // Land → herrenlos (TerraNullius)
+        hits.push(ref)
+        hitByOwner.set(owner, (hitByOwner.get(owner) ?? 0) + 1)
       }
     }
   }
+
+  // Phase 2: je getroffenem Spieler Truppen anteilig zur zerstörten Fläche schmelzen + Groll/Verrat.
+  for (const [victimId, hitCount] of hitByOwner) {
+    const victim = players.get(victimId)
+    if (victim === undefined) continue
+    if (victim.tilesOwned > 0) {
+      const frac = Math.min(1, hitCount / victim.tilesOwned)
+      victim.troops = Math.max(0, victim.troops - Math.floor(victim.troops * frac))
+    }
+    if (victimId !== attackerId) {
+      addGrudge(state, attackerId, victimId, GRUDGE_PER_BOMB_TILE * hitCount)
+      // Verbündetes Gebiet bombardiert → Verrat (bricht das Bündnis, macht den Werfer zum Geächteten).
+      if (areAllied(state.alliances, attackerId, victimId)) {
+        betrayAlliance(state, attackerId, victimId)
+      }
+    }
+  }
+
+  // Phase 3: „Angst"-Groll bei jeder unbeteiligten lebenden echten Nation.
+  for (const p of players.values()) {
+    if (p.id === attackerId || !p.isAlive || p.wild === true || hitByOwner.has(p.id)) continue
+    addGrudge(state, attackerId, p.id, GRUDGE_BOMB_FEAR)
+  }
+
+  // Phase 4: Land neutralisieren (→ herrenlos).
+  for (const ref of hits) captureTile(state, ref, 0)
+
+  // Phase 5: alle Schiffe im Radius sinken (niemand verschont — auch eigene).
+  const inBlast = (ship: { path: readonly TileRef[]; progress: number }): boolean => {
+    const pos = shipWorldPos(ship, width, height)
+    return torusDistance(cx + 0.5, cy + 0.5, pos.wx, pos.wy, width, height) <= r
+  }
+  state.warships = state.warships.filter((w) => !inBlast(w))
+  state.boats = state.boats.filter((b) => !inBlast(b))
+  state.tradeShips = state.tradeShips.filter((t) => !inBlast(t))
+
   state.bombImpacts.push({ tile: center, atTick: state.tick })
 }
 
