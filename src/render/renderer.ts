@@ -239,11 +239,11 @@ const WATER_B = 92
 const SHALLOW_R = 64
 const SHALLOW_G = 122
 const SHALLOW_B = 150
-// Unpassierbarer Fels/Gletscher: kaltes, helleres Blaugrau (kontrastiert klar mit dem warmen
-// Braun begehbarer Berge) — damit man auf einen Blick sieht, wo man nicht hochkommt.
-const ROCK_R = 120
-const ROCK_G = 128
-const ROCK_B = 142
+// Unpassierbarer Extrem-Gipfel: helle, kalte Schnee-/Gletscherfläche — hebt sich unmissverständlich
+// gegen Braun (Land), Blau (Wasser) und Nationsfarben ab. Damit sieht man sofort, wo man nicht hoch.
+const ROCK_R = 188
+const ROCK_G = 198
+const ROCK_B = 214
 const BG_FILL = '#0a0a10'
 
 /** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
@@ -559,7 +559,7 @@ export function createRenderer(
       // „hier geht's nicht hoch" erkennbar (kontrastiert mit dem warmen Braun begehbarer Berge).
       const px = i % w
       const py = (i - px) / w
-      const speckle = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 46
+      const speckle = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 60
       tr = clamp255(ROCK_R + speckle)
       tg = clamp255(ROCK_G + speckle)
       tb = clamp255(ROCK_B + speckle)
