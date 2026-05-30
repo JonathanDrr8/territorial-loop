@@ -2468,6 +2468,7 @@ function recomputeGoldRoutes(state: GameState): void {
     if (!isBuildingComplete(b, state.tick)) continue
     const owner = getOwner(map, b.tile)
     if (owner <= 0) continue
+    if (state.players.get(owner)?.wild === true) continue // wilde betreiben keine Wirtschaft
     if (b.type === 'city' || b.type === 'port') sources.push({ tile: b.tile, owner })
     else if (b.type === 'factory') factories.push({ tile: b.tile, owner, level: b.level })
   }
@@ -3227,11 +3228,13 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   state.dirtyTiles.push(ref) // Owner-Wechsel → Renderer malt dieses Tile (+ Nachbarn) neu
   state.recentCaptures.set(ref, state.tick) // frisch erobert → kurzes Aufleuchten im Render
 
-  // Gebäude auf dem eroberten Tile: Verteidigungsposten werden zerstört, alle
-  // anderen (Stadt/Markt/Hafen) übernimmt der Eroberer mitsamt Level.
+  // Gebäude auf dem eroberten Tile: Verteidigungsposten werden zerstört, alle anderen
+  // (Stadt/Hafen/Fabrik) übernimmt der Eroberer mitsamt Level. AUSNAHME: Erobert eine WILDE
+  // Nation, wird ALLES zerstört — wilde betreiben keine Wirtschaft/Verteidigung.
   const captured = state.buildings.get(ref)
   if (captured !== undefined) {
-    if (captured.type === 'defense') state.buildings.delete(ref)
+    if (captured.type === 'defense' || players.get(attackerId)?.wild === true)
+      state.buildings.delete(ref)
     else state.buildings.set(ref, { ...captured, ownerId: attackerId })
   }
 
