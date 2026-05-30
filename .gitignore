@@ -47,3 +47,4 @@ Thumbs.db
 # Playwright/MCP screenshot artifacts (Test-Output, kein Repo-Inhalt)
 /*.png
 .playwright-mcp/
+scripts/.cache/

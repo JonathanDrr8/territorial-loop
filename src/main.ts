@@ -34,6 +34,7 @@ import { createAlliancePrompt } from './ui/alliance-prompt'
 import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
+import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
@@ -170,15 +171,20 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     })
   }
 
+  // Geo-Karte (ADR-0016): terrain kommt als Asset über die mapId; die Dimensionen wurden vor
+  // startMatch aus dem geladenen Asset in menu.mapWidth/mapHeight übernommen. `terrain` bleibt
+  // gesetzt (von createGame ignoriert, wenn mapId vorliegt), damit der Typ stimmt.
+  const geoId = isGeoMapId(menu.terrain) ? menu.terrain : undefined
   return {
     mapWidth: menu.mapWidth,
     mapHeight: menu.mapHeight,
     seed,
     victoryPct: menu.victoryPct,
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
-    terrain: menu.terrain,
+    terrain: isGeoMapId(menu.terrain) ? 'continents' : menu.terrain,
     rivers: menu.experimental.rivers ?? false,
     players,
+    ...(geoId !== undefined ? { mapId: geoId } : {}),
   }
 }
 
@@ -213,7 +219,9 @@ function startMatch(
   // Reconnect lädt den Server-Snapshot direkt als State; sonst frisch generieren.
   const state = net?.initialState ?? createGame(config)
   const renderer = createRenderer(container, state, localHumanId)
-  renderer.setCameraMode(menu.cameraMode)
+  // Geo-Karten (ADR-0016) sind meer-umrandete Kontinent-Ausschnitte → fest „Box (fest)" (eine
+  // Welt-Kopie + harte Ränder), damit sie nicht kacheln/wrappen. Prozedural: Menü-Wahl.
+  renderer.setCameraMode(config.mapId !== undefined ? 'fixed' : menu.cameraMode)
   // Kamera nach dem Generieren exakt auf das eigene Spawn zentrieren — sonst weiß
   // man auf großen Karten nicht, wo man ist. (Erneut im ersten Render-Frame, falls
   // das Canvas hier noch nicht final dimensioniert ist.)
@@ -755,7 +763,8 @@ function main(): void {
     const settings: MatchSettings = {
       mapWidth: 256,
       mapHeight: 256,
-      terrain: initial.terrain,
+      // Geo-Karten sind im Mehrspieler noch nicht unterstützt (Server lädt kein Asset) → prozedural.
+      terrain: isGeoMapId(initial.terrain) ? 'continents' : initial.terrain,
       seed: '',
       aiCount: 2,
       wildCount: 2,
@@ -803,15 +812,30 @@ function main(): void {
           // Große Karten: Gen + Komponenten-Labeling kosten Zeit. Overlay zeigen und
           // den schweren Start auf den übernächsten Frame schieben, damit es sichtbar ist.
           const removeLoading = showLoadingOverlay(container)
-          requestAnimationFrame(() => {
+          const proceed = (startValues: StartMenuValues): void => {
             requestAnimationFrame(() => {
-              try {
-                session = startMatch(container, values, backToMenu, spectator)
-              } finally {
-                removeLoading()
-              }
+              requestAnimationFrame(() => {
+                try {
+                  session = startMatch(container, startValues, backToMenu, spectator)
+                } finally {
+                  removeLoading()
+                }
+              })
             })
-          })
+          }
+          // Geo-Karte (ADR-0016): erst das Asset laden/registrieren, dann mit dessen Dimensionen
+          // starten. Prozedurale Karten starten direkt.
+          if (isGeoMapId(values.terrain)) {
+            loadGeoMapAsset(values.terrain)
+              .then((m) => proceed({ ...values, mapWidth: m.width, mapHeight: m.height }))
+              .catch((err: unknown) => {
+                removeLoading()
+                console.error('Geo-Karte konnte nicht geladen werden', err)
+                backToMenu()
+              })
+          } else {
+            proceed(values)
+          }
         },
         onMultiplayer: (values) => {
           saveMenuPrefs(values)

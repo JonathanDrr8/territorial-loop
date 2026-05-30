@@ -12,6 +12,7 @@
  */
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
+import { getGeoMap } from '../world/geo-map'
 import {
   PLAINS_MAG,
   generateTerrain,
@@ -150,6 +151,13 @@ export interface GameConfig {
   readonly terrain?: TerrainType
   /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). Default false. */
   readonly rivers?: boolean
+  /**
+   * Gebackene Geo-Karte (ADR-0016): ist dies gesetzt, lädt `createGame` das Terrain aus der
+   * Geo-Map-Registry (per `mapId`) statt es prozedural zu generieren. `mapWidth`/`mapHeight`
+   * müssen zu den Asset-Dimensionen passen (setzt der Aufrufer beim Laden). Die Karte muss vorher
+   * registriert sein (Browser/Server laden das Asset async und rufen `registerGeoMap`).
+   */
+  readonly mapId?: string
   readonly players: readonly PlayerDef[]
 }
 
@@ -383,7 +391,23 @@ export function createGame(config: GameConfig): GameState {
   // Terrain wird vor allen Sim-relevanten PRNG-Zugriffen generiert; dafür gibt's
   // einen separaten PRNG damit terrain ↔ sim-Verlauf nicht miteinander verschränkt sind.
   const terrainRng = createPRNG(`terrain-${config.seed}`)
-  generateTerrain(map, terrainRng, config.terrain ?? 'flat', config.rivers ?? false)
+  if (config.mapId !== undefined) {
+    // Gebackene Geo-Karte (ADR-0016): Terrain aus der Registry statt prozedural.
+    const geo = getGeoMap(config.mapId)
+    if (geo === undefined) {
+      throw new Error(
+        `createGame: Geo-Karte '${config.mapId}' nicht geladen (registerGeoMap fehlt)`,
+      )
+    }
+    if (geo.width !== map.width || geo.height !== map.height) {
+      throw new Error(
+        `createGame: Geo-Karte '${config.mapId}' ${geo.width}×${geo.height} ≠ Config ${map.width}×${map.height}`,
+      )
+    }
+    map.terrain.set(geo.terrain)
+  } else {
+    generateTerrain(map, terrainRng, config.terrain ?? 'flat', config.rivers ?? false)
+  }
   const players = new Map<number, Player>()
 
   for (const def of config.players) {

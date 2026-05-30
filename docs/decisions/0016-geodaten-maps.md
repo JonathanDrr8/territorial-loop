@@ -2,8 +2,16 @@
 
 ## Status
 
-**Proposed (Plan, noch nichts umgesetzt).** Alternative/Ergänzung zur prozeduralen Generierung
-(ADR-0003/0015). Auf Jonathans Wunsch (2026-05-30): „Maps aus Geodaten ableiten wie OpenFront."
+**Phase 1 umgesetzt (Branch `feature/geo-maps`, lokal spielbar — noch nicht auf `main`/Server).**
+Alternative/Ergänzung zur prozeduralen Generierung (ADR-0003/0015). Auf Jonathans Wunsch
+(2026-05-30): „Maps aus Geodaten ableiten wie OpenFront."
+
+Stand: Offline-Bake (`scripts/bake-map.ts`) rastert Natural-Earth-Land-Polygone → `public/maps/<id>.bin`
+(gzip-Inhalt, Endung `.bin` damit kein Server doppelt dekomprimiert); Browser-Lader
+(`src/ui/geo-loader.ts`) lädt/dekomprimiert/registriert, `createGame` liest über `mapId` aus der
+Registry. Vier Karten (Welt/Europa/Afrika/Australien) im Terrain-Dropdown wählbar, i18n in 9 Sprachen.
+Playwright-verifiziert: echte Küsten, Nationen spawnen normal. **Offen:** MP-Support (Server lädt
+Asset per `mapId`), Phase 2 (Flüsse aus Vektordaten), Phase 3 (Auswahl-UI/mehr Karten).
 
 ## Kontext & Ziel
 
