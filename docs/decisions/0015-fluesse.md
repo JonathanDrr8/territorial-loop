@@ -2,7 +2,9 @@
 
 ## Status
 
-In Arbeit (erste Version). Opt-in im Experimentell-Panel.
+Umgesetzt (erste Version). Opt-in im Experimentell-Panel (Single-Player) + Lobby-Settings (MP-Host).
+Verifiziert: Flüsse münden ins Meer, Fluss-Wasser liegt in derselben Wasser-Komponente wie das
+offene Meer (navigierbar); Tests für Determinismus / Mehr-Wasser / Meer-Anbindung.
 
 ## Datum
 
