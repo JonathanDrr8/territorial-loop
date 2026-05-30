@@ -9,9 +9,12 @@ adaptiver Input-Delay (ping/pong) ✅, **Mid-Match-Resync** ✅ (`loadSnapshotIn
 Korrektur-Snapshots IN-PLACE in den laufenden State, `renderer.invalidate()` + transienter
 `hud.flashResync()`-Hinweis — abgedrifteter Client schnappt zurück statt still weiterzudriften;
 Unit-Test bit-genau), **pfad-basierte Einladungslinks** ✅ (`/r/CODE`, `?room=` als Fallback,
-SPA-Fallback des Servers liefert beliebige Pfade). **Verbleibend (Proposed):** periodische
-server-seitige Snapshots (proaktiv statt nur auf Desync), Lasttests mit vielen Slots,
-gehostetes Deployment-Härten.
+SPA-Fallback des Servers liefert beliebige Pfade), **Snapshot-Effizienz** ✅ (`snapshot()` pro
+Turn memoisiert + Desync-Snapshot-Cooldown von 30 Turns pro Socket gegen „Snapshot-Sturm").
+_Bewusst NICHT umgesetzt:_ proaktiv periodische Full-State-Broadcasts — reiner Overhead, da
+In-Sync-Clients sie nicht brauchen und Reconnect/Desync/Zuschauer ohnehin den aktuellen Snapshot
+on-demand bekommen. **Verbleibend (Proposed):** Lasttests mit vielen Slots, gehostetes
+Deployment-Härten.
 
 ## Datum
 
@@ -170,8 +173,9 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
    laufen über 1000+ Ticks in identischem Hash.
 6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** ✅ Adaptiver
    Input-Delay (ping/pong → `inputDelay`), ✅ **Mid-Match-Resync** (`loadSnapshotInto` in-place +
-   `renderer.invalidate()` + transienter `hud.flashResync()`), ✅ **pfad-Einladungslinks** `/r/CODE`.
-   **Offen:** proaktive periodische Server-Snapshots, Last-Tests mit vielen Slots, Deployment-Härten.
+   `renderer.invalidate()` + transienter `hud.flashResync()`), ✅ **pfad-Einladungslinks** `/r/CODE`,
+   ✅ **Snapshot-Effizienz** (pro-Turn-Memoisierung + Desync-Cooldown; proaktive periodische
+   Broadcasts bewusst verworfen — reiner Overhead). **Offen:** Last-Tests, Deployment-Härten.
 
 Phasen 1–4 sind **umgesetzt** (Stand 2026-05-29) — Sim-Naht, Determinismus-Fundament (Snapshot/
 PRNG/Freeze/det-math), Replay und der simulierende Server stehen und sind getestet. Phase 5
