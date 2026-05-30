@@ -140,6 +140,12 @@ const TRADE_SPRITE: SpriteDef = {
   palette: { w: '#6b5230', g: '#e8c14a', s: '#a98a52' },
 }
 
+/** Gold-Fuhre: brauner Wagenkasten mit goldener Ladung und zwei Rädern. */
+const CART_SPRITE: SpriteDef = {
+  rows: ['........', '..gggg..', '.wwwwww.', '.wwwwww.', '.o....o.', '........'],
+  palette: { w: '#7a5638', g: '#ffe078', o: '#241910' },
+}
+
 /** Packed RGBA → CSS rgb() (lokal, um render→ui Cross-Layer-Import zu vermeiden). */
 function rgbaToCssLocal(rgba: number): string {
   const r = (rgba >>> 24) & 0xff
@@ -1300,6 +1306,11 @@ export function createRenderer(
     if (tradeSpriteCache === undefined) tradeSpriteCache = renderSpriteCanvas(TRADE_SPRITE)
     return tradeSpriteCache
   }
+  let cartSpriteCache: HTMLCanvasElement | null | undefined
+  function getCartSprite(): HTMLCanvasElement | null {
+    if (cartSpriteCache === undefined) cartSpriteCache = renderSpriteCanvas(CART_SPRITE)
+    return cartSpriteCache
+  }
 
   /**
    * Zeichnet das Wirtschafts-Wegenetz (ADR-0018): INLAND die echten Land-Pfade der Gold-Fuhren als
@@ -1319,16 +1330,27 @@ export function createRenderer(
       }
     }
     screenCtx.save()
-    screenCtx.lineWidth = 1.5
-    // INLAND-Wege (ADR-0018): die echten Land-Pfade der Gold-Fuhren als Straßen (Brücken-Segmente
-    // springen gerade übers Wasser), darauf die fahrenden Karren mit Gold-Kern.
+    // INLAND-Wege (ADR-0018): die Land-Pfade der Gold-Fuhren als angemalte Straßen-Tiles (Brücken
+    // überspannen Wasser als Linie), darauf die Karren-Sprites. HOVER-FOKUS: liegt der Cursor auf
+    // einer Fabrik, werden NUR ihre Fuhren hell gezeichnet, alle anderen stark gedimmt.
     const cartColor = (ownerId: number): string => {
       const player = state.players.get(ownerId)
       return player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
     }
+    let focusFactory = -1
+    if (hoverTile !== null) {
+      const ht = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+      if (state.buildings.get(ht)?.type === 'factory') focusFactory = ht
+    }
+    const tileSx = (t: number): { sx: number; sy: number } =>
+      nearestWrappedScreenPos((t % mapW) + 0.5, Math.floor(t / mapW) + 0.5)
+    const roadW = Math.max(3, camera.zoom * 0.95)
     for (const cart of state.goldCarts) {
       if (cart.path.length < 2) continue
+      const focused = focusFactory < 0 || cart.factoryTile === focusFactory
       const col = cartColor(cart.ownerId)
+      const aRoad = focused ? 0.42 : 0.08
+      // Durchgehende Verbindungslinie (deckt auch Brücken über Wasser ab).
       for (let i = 0; i + 1 < cart.path.length; i++) {
         const a = cart.path[i]
         const b = cart.path[i + 1]
@@ -1342,20 +1364,24 @@ export function createRenderer(
         screenCtx.beginPath()
         screenCtx.moveTo(seg.fromSx, seg.fromSy)
         screenCtx.lineTo(seg.toSx, seg.toSy)
-        screenCtx.lineWidth = 3
-        screenCtx.setLineDash([])
-        screenCtx.strokeStyle = `rgba(${col},0.22)`
-        screenCtx.stroke()
-        screenCtx.lineWidth = 1
-        screenCtx.setLineDash([2, 5])
-        screenCtx.strokeStyle = `rgba(${col},0.5)`
+        screenCtx.lineWidth = roadW
+        screenCtx.strokeStyle = `rgba(${col},${(aRoad * 0.6).toString()})`
         screenCtx.stroke()
       }
-      screenCtx.setLineDash([])
+      // Straßen-Tiles als kleine Quadrate (Tile angemalt).
+      screenCtx.fillStyle = `rgba(${col},${aRoad.toString()})`
+      for (const t of cart.path) {
+        if (t === undefined) continue
+        const { sx, sy } = tileSx(t)
+        screenCtx.fillRect(sx - roadW / 2, sy - roadW / 2, roadW, roadW)
+      }
     }
-    // Karren auf ihrer interpolierten Position (Gold-Kern in Besitzerfarbe).
+    // Karren-Sprites auf ihrer interpolierten Position.
+    const cartSprite = getCartSprite()
+    const cartSize = Math.max(7, camera.zoom * 3.2)
     for (const cart of state.goldCarts) {
       if (cart.path.length < 2) continue
+      const focused = focusFactory < 0 || cart.factoryTile === focusFactory
       const p = Math.max(0, Math.min(cart.path.length - 1, cart.progress))
       const i0 = Math.floor(p)
       const a = cart.path[i0]
@@ -1370,14 +1396,17 @@ export function createRenderer(
       const frac = p - i0
       const cx = seg.fromSx + (seg.toSx - seg.fromSx) * frac
       const cy = seg.fromSy + (seg.toSy - seg.fromSy) * frac
-      screenCtx.beginPath()
-      screenCtx.arc(cx, cy, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2)
-      screenCtx.fillStyle = `rgba(${cartColor(cart.ownerId)},0.9)`
-      screenCtx.fill()
-      screenCtx.beginPath()
-      screenCtx.arc(cx, cy, Math.max(1, camera.zoom * 0.55), 0, Math.PI * 2)
-      screenCtx.fillStyle = 'rgba(255,224,120,0.95)'
-      screenCtx.fill()
+      screenCtx.globalAlpha = focused ? 1 : 0.25
+      if (cartSprite !== null) {
+        screenCtx.imageSmoothingEnabled = false
+        screenCtx.drawImage(cartSprite, cx - cartSize / 2, cy - cartSize / 2, cartSize, cartSize)
+      } else {
+        screenCtx.beginPath()
+        screenCtx.arc(cx, cy, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2)
+        screenCtx.fillStyle = 'rgba(255,224,120,0.95)'
+        screenCtx.fill()
+      }
+      screenCtx.globalAlpha = 1
     }
     // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
     // embargoierten) Wirtschaftsgebäuden (Stadt/Hafen/Fabrik) in Reichweite — die den 3×-Gold-
@@ -1937,13 +1966,9 @@ export function createRenderer(
         const sx = worldToScreenX(tx + dx * mapW)
         const sy = worldToScreenY(ty + dy * mapH)
         if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
-        // Verteidigungs-Reichweite bzw. Fabrik-Verbindungsradius als gestrichelten Ring andeuten.
-        const previewRadiusTiles =
-          buildPreviewType === 'defense'
-            ? defenseRange(1)
-            : buildPreviewType === 'factory'
-              ? FACTORY_LINK_RANGE
-              : 0
+        // Nur die Verteidigungs-Reichweite andeuten. Fabriken haben keinen Inland-Radius mehr
+        // (Verbindung läuft über Land-Wege, ADR-0018) → kein Ring beim Fabrik-Bau.
+        const previewRadiusTiles = buildPreviewType === 'defense' ? defenseRange(1) : 0
         if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
           screenCtx.arc(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)

@@ -605,7 +605,7 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       state.buildings.set(t, { type: 'factory', ownerId: 2, tile: t, level: 1, completesAtTick: 0 })
     }
     const y = factoryYield(state, factoryTile)
-    expect(y?.dests).toBe(4) // FACTORY_FOREIGN_CAP — nicht 8
+    expect(y?.dests).toBe(2) // FACTORY_FOREIGN_CAP — nicht 8
   })
 
   it('Bündnis-Bildung bricht laufende Angriffe zwischen den Partnern ab', () => {
