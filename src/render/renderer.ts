@@ -35,6 +35,7 @@ import {
 } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { neighbors4, tileRef, torusDistance } from '../world/torus'
+import { t } from '../i18n'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -1141,7 +1142,9 @@ export function createRenderer(
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
-      const name = (traitor ? '⚠ ' : '') + p.name
+      // Wilde Nationen tragen KEINEN Eigennamen (verwirrt — sähe aus wie eine echte Nation),
+      // sondern überall nur das lokalisierte „wild".
+      const name = (traitor ? '⚠ ' : '') + (p.wild ? t('nation.wild') : p.name)
       const troopsLabel = fmtCompactRender(p.troops)
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1

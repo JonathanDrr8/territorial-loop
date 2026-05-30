@@ -190,8 +190,8 @@ export const ru: Record<string, string> = {
   'event.victory': '{p} победил в матче!',
   'event.loot': '{p} захватывает {amount} золота у {from}',
   'event.lootWild': '{p} захватывает {amount} золота в дикой земле',
-  'event.annex': '{p} окружает {wild} и присоединяет её',
-  'event.annexLoot': '{p} окружает {wild} и присоединяет её (+{amount} золота)',
+  'event.annex': '{p} окружает дикую нацию и присоединяет её',
+  'event.annexLoot': '{p} окружает дикую нацию и присоединяет её (+{amount} золота)',
   'event.annexFragment': '{p} поглощает окружённую территорию {victim}',
   'event.annexFragmentLoot': '{p} поглощает окружённую территорию {victim} (+{amount} золота)',
 

@@ -195,8 +195,8 @@ export const pt: Record<string, string> = {
   'event.victory': '{p} venceu a partida!',
   'event.loot': '{p} saqueia {amount} de ouro de {from}',
   'event.lootWild': '{p} saqueia {amount} de ouro do ermo',
-  'event.annex': '{p} cerca {wild} e a anexa',
-  'event.annexLoot': '{p} cerca {wild} e a anexa (+{amount} de ouro)',
+  'event.annex': '{p} cerca uma nação selvagem e a anexa',
+  'event.annexLoot': '{p} cerca uma nação selvagem e a anexa (+{amount} de ouro)',
   'event.annexFragment': '{p} engole o território cercado de {victim}',
   'event.annexFragmentLoot': '{p} engole o território cercado de {victim} (+{amount} de ouro)',
 

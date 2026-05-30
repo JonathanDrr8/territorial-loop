@@ -202,8 +202,8 @@ export const de: Record<string, string> = {
   'event.victory': '{p} hat das Match gewonnen!',
   'event.loot': '{p} erbeutet {amount} Gold von {from}',
   'event.lootWild': '{p} erbeutet {amount} Gold aus der Wildnis',
-  'event.annex': '{p} schließt {wild} ein und annektiert sie',
-  'event.annexLoot': '{p} schließt {wild} ein und annektiert sie (+{amount} Gold)',
+  'event.annex': '{p} schließt eine wilde Nation ein und annektiert sie',
+  'event.annexLoot': '{p} schließt eine wilde Nation ein und annektiert sie (+{amount} Gold)',
   'event.annexFragment': '{p} schluckt eingeschlossenes Gebiet von {victim}',
   'event.annexFragmentLoot': '{p} schluckt eingeschlossenes Gebiet von {victim} (+{amount} Gold)',
 

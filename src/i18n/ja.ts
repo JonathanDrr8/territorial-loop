@@ -167,8 +167,8 @@ export const ja: Record<string, string> = {
   'event.victory': '{p} が対戦に勝利しました！',
   'event.loot': '{p} が {from} から金 {amount} を奪取',
   'event.lootWild': '{p} が荒野から金 {amount} を奪取',
-  'event.annex': '{p} が {wild} を包囲して併合',
-  'event.annexLoot': '{p} が {wild} を包囲して併合（+{amount} 金）',
+  'event.annex': '{p} が野生の国を包囲して併合',
+  'event.annexLoot': '{p} が野生の国を包囲して併合（+{amount} 金）',
   'event.annexFragment': '{p} が {victim} の包囲された領土を併合',
   'event.annexFragmentLoot': '{p} が {victim} の包囲された領土を併合（+{amount} 金）',
 

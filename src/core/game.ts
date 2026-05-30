@@ -2564,7 +2564,9 @@ function checkEliminations(state: GameState): void {
   for (const player of state.players.values()) {
     if (player.isAlive && player.tilesOwned === 0) {
       player.isAlive = false
-      emitEvent(state, 'event.eliminated', { p: player.name }, player.color)
+      // Wilde Nationen werden still eliminiert — kein Eigenname (verwirrt), und bei vielen Wilden
+      // würde jede eroberte Wildnis den Log fluten.
+      if (!player.wild) emitEvent(state, 'event.eliminated', { p: player.name }, player.color)
       // Eventuell laufende Angriffe sind durch tilesOwned=0 implizit gestoppt;
       // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
       player.attacks = []
@@ -3016,14 +3018,9 @@ function annexWild(state: GameState, w: Player, p: Player): void {
   }
   if (p.isHuman) {
     if (loot > 0) {
-      emitEvent(
-        state,
-        'event.annexLoot',
-        { p: p.name, wild: w.name, amount: fmtCompactGold(loot) },
-        p.color,
-      )
+      emitEvent(state, 'event.annexLoot', { p: p.name, amount: fmtCompactGold(loot) }, p.color)
     } else {
-      emitEvent(state, 'event.annex', { p: p.name, wild: w.name }, p.color)
+      emitEvent(state, 'event.annex', { p: p.name }, p.color)
     }
   }
 }
