@@ -28,11 +28,14 @@ KI-gesteuerte Spieler. Generieren Intents wie menschliche Spieler, nicht mehr un
 
 ```ts
 interface AI {
-  /** Pro Sim-Tick aufgerufen, liefert 0 oder 1 Intents. */
+  /** Pro Sim-Tick aufgerufen, liefert 0..n Intents. */
   decide(state: GameState): readonly Intent[]
 }
 
-function createAI(playerId: number, gameSeed: string): AI
+type Difficulty = 'beginner' | 'easy' | 'standard' | 'advanced' | 'expert'
+const DIFFICULTIES: readonly Difficulty[] // aufsteigende Stärke
+
+function createAI(playerId, gameSeed, difficulty = 'standard', wild = false): AI
 ```
 
 **Verhalten:**
@@ -40,8 +43,29 @@ function createAI(playerId: number, gameSeed: string): AI
 - Pro KI eigene PRNG-Instanz, Seed = `ai-{playerId}-{gameSeed}`. Damit ist die
   KI deterministisch, aber **unabhängig** vom Sim-PRNG — sie verschiebt nicht
   den Zufalls-Verlauf der Simulation.
-- Cooldown zwischen Entscheidungen: 30–100 Ticks (3–10 s bei 10 Hz), jittered.
-- Zielwahl: bei Bevölkerung >= 60% des Caps bevorzugt Gegner-Tiles, sonst neutrales
-  Land. Es werden nur Tiles direkt an der eigenen Frontier betrachtet — keine
-  Sprung-Angriffe.
-- Truppen-Einsatz: festes 30% der aktuellen Bevölkerung pro Angriff.
+- Pro Entscheidung kann die KI mehrere Aktionen anstoßen: Militär (Land-Angriff,
+  Krater-Heilung, Boot), Bau (Wirtschaft, Flak, Flughafen, Verteidigung), Bomber,
+  Kriegsschiffe, Diplomatie — alles **capability-gated** (`isBuildingAllowed` +
+  Infrastruktur/Gold), passt sich also an deaktivierte Gebäude an.
+
+### 5-Stufen-Leiter (ADR-0020)
+
+`PROFILES` staffelt Aggression + Fähigkeiten je Stufe (capability-gated):
+
+| Stufe    | Fähigkeiten zusätzlich zur vorigen                          |
+| -------- | ----------------------------------------------------------- |
+| beginner | nur Expansion (kein Bau)                                    |
+| easy     | + Wirtschaft                                                |
+| standard | + Diplomatie, Kriegsschiffe, defensive Flak, Krater-Heilung |
+| advanced | + offensive Bomber                                          |
+| expert   | alles, Aggression am Optimum (~42% Truppen-Einsatz)         |
+
+**Sweet Spot Aggression ≈ 42%** — mehr macht die KI nachweislich schwächer (Truppen
+zerfasern). Die Stufen sind über die Arena ELO-kalibriert.
+
+### `arena.ts` / `elo.ts` — Selbstläufer-Arena (Messung)
+
+Headless KI-gegen-KI (`runMatch`) → Territorium + Nutzungs-Statistik; `computeElo`
+liefert ELO pro Profil (Anker frei wählbar). **Kein Machine-Learning** — misst nur die
+handgetunte Heuristik, damit Tuning-Schritte überprüfbar sind. Runner: `npm run ai-arena`.
+Siehe `docs/decisions/0020-ki-rework-arena.md` + `docs/ki-arena-report.md`.
