@@ -11,6 +11,7 @@
 import type { GameConfig } from '../core/game'
 import { NetworkTransport } from '../net/transport'
 import type { MatchSettings, PeerInfo } from '../net/protocol'
+import { t } from '../i18n'
 
 const ACCENT = '#7cc4ff'
 type LobbyPeer = PeerInfo & { ready: boolean }
@@ -139,11 +140,11 @@ export function createMultiplayerMenu(
   /* ── Formular-Ansicht ───────────────────────────────────────────────────── */
   function showForm(error?: string): void {
     panel.textContent = ''
-    panel.appendChild(title('Mehrspieler — territorial-loop'))
+    panel.appendChild(title(t('mp.formTitle')))
 
     const urlInput = labeledInput('Server', opts.defaultServerUrl, 'ws://host:8787')
-    const nameInput = labeledInput('Name', opts.defaultName, 'Du')
-    const roomInput = labeledInput('Raum', '', 'leer = neuen Raum')
+    const nameInput = labeledInput(t('header.name'), opts.defaultName, t('mp.namePlaceholder'))
+    const roomInput = labeledInput(t('mp.room'), '', t('mp.roomPlaceholder'))
 
     if (error !== undefined) {
       const e = document.createElement('div')
@@ -152,12 +153,12 @@ export function createMultiplayerMenu(
       panel.appendChild(e)
     }
 
-    const connectBtn = button('Verbinden', true)
+    const connectBtn = button(t('mp.connect'), true)
     connectBtn.addEventListener('click', () => {
       const url = urlInput.value.trim()
       const name = nameInput.value.trim() || 'Du'
       if (url.length === 0) {
-        showForm('Bitte eine Server-URL angeben.')
+        showForm(t('mp.noUrl'))
         return
       }
       opts.saveServerUrl?.(url)
@@ -165,14 +166,14 @@ export function createMultiplayerMenu(
     })
     panel.appendChild(connectBtn)
 
-    const backBtn = button('Zurück', false)
+    const backBtn = button(t('mp.back'), false)
     backBtn.addEventListener('click', () => opts.onBack())
     panel.appendChild(backBtn)
   }
 
   function showConnecting(url: string): void {
     panel.textContent = ''
-    panel.appendChild(title('Verbinde …'))
+    panel.appendChild(title(t('mp.connecting')))
     const info = document.createElement('div')
     info.textContent = url
     info.style.cssText = 'font-size:12px;opacity:0.7;margin-bottom:8px;word-break:break-all'
@@ -203,15 +204,15 @@ export function createMultiplayerMenu(
       },
       onStart: (config) => {
         started = true
-        const t = transport
-        if (t === null) return
+        const tr = transport
+        if (tr === null) return
         // Sitzung merken (für „Wieder verbinden" nach Abbruch) und ans Match übergeben.
         opts.saveActiveSession?.({
           serverUrl: connectedUrl,
           room: currentRoom,
           name: connectedName,
         })
-        opts.onMatchStart(config, t, myId)
+        opts.onMatchStart(config, tr, myId)
       },
     })
     // Verbindungsfehler/Abbruch vor dem Join → zurück zum Formular (Timeout-basiert, da der
@@ -219,9 +220,7 @@ export function createMultiplayerMenu(
     window.setTimeout(() => {
       if (!joined && !started) {
         teardownTransport()
-        showForm(
-          'Keine Verbindung (Timeout). Läuft der Dev-Server (npm run dev) bzw. npm run server?',
-        )
+        showForm(t('mp.timeout'))
       }
     }, 6000)
   }
@@ -232,10 +231,10 @@ export function createMultiplayerMenu(
   function renderLobby(room: string, peers: readonly LobbyPeer[], s: MatchSettings): void {
     currentRoom = room
     panel.textContent = ''
-    panel.appendChild(title('Lobby'))
+    panel.appendChild(title(t('mp.lobbyTitle')))
 
     const code = document.createElement('div')
-    code.innerHTML = `Raum-Code: <b style="color:${ACCENT};letter-spacing:2px">${room}</b>`
+    code.innerHTML = `${t('mp.roomCode')}: <b style="color:${ACCENT};letter-spacing:2px">${room}</b>`
     code.style.cssText = 'font-size:14px;margin-bottom:8px'
     panel.appendChild(code)
 
@@ -249,7 +248,7 @@ export function createMultiplayerMenu(
     inviteField.value = inviteUrl
     inviteField.style.cssText = INPUT_STYLE + ';font-size:11px;opacity:0.85'
     const copyBtn = document.createElement('button')
-    copyBtn.textContent = '🔗 Kopieren'
+    copyBtn.textContent = `🔗 ${t('mp.copy')}`
     copyBtn.style.cssText = [
       'flex:none',
       'padding:7px 9px',
@@ -264,8 +263,8 @@ export function createMultiplayerMenu(
     copyBtn.addEventListener('click', () => {
       void navigator.clipboard?.writeText(inviteUrl).then(
         () => {
-          copyBtn.textContent = '✓ Kopiert'
-          setTimeout(() => (copyBtn.textContent = '🔗 Kopieren'), 1500)
+          copyBtn.textContent = `✓ ${t('mp.copied')}`
+          setTimeout(() => (copyBtn.textContent = `🔗 ${t('mp.copy')}`), 1500)
         },
         () => {
           inviteField.select() // Fallback: markieren zum manuellen Kopieren
@@ -283,11 +282,15 @@ export function createMultiplayerMenu(
       const row = document.createElement('div')
       row.style.cssText = 'display:flex;justify-content:space-between;font-size:13px;padding:3px 0'
       const left = document.createElement('span')
-      const you = p.playerId === myId ? ' (du)' : ''
+      const you = p.playerId === myId ? ` (${t('mp.you')})` : ''
       const host = p.playerId === hostId ? ' ★' : ''
       left.textContent = `• ${p.name}${you}${host}`
       const right = document.createElement('span')
-      right.textContent = p.connected ? (p.ready ? 'bereit ✓' : 'wartet …') : 'getrennt'
+      right.textContent = p.connected
+        ? p.ready
+          ? `${t('mp.ready')} ✓`
+          : t('mp.waiting')
+        : t('mp.disconnected')
       right.style.cssText = `opacity:0.8;color:${p.ready ? '#7cffa0' : 'white'}`
       row.appendChild(left)
       row.appendChild(right)
@@ -295,7 +298,7 @@ export function createMultiplayerMenu(
     }
     if (peers.length === 0) {
       const hint = document.createElement('div')
-      hint.textContent = 'Warte auf Teilnehmer …'
+      hint.textContent = t('mp.waitingPeers')
       hint.style.cssText = 'font-size:12px;opacity:0.6'
       list.appendChild(hint)
     }
@@ -304,11 +307,11 @@ export function createMultiplayerMenu(
     // Match-Settings (Host editierbar, sonst nur Anzeige)
     panel.appendChild(renderSettings(s, myId === hostId && peers.length > 0))
 
-    const readyBtn = button('Bereit ✓', true)
+    const readyBtn = button(`${t('mp.readyBtn')} ✓`, true)
     readyBtn.addEventListener('click', () => transport?.setReady(true))
     panel.appendChild(readyBtn)
 
-    const leaveBtn = button('Verlassen', false)
+    const leaveBtn = button(t('confirm.leave'), false)
     leaveBtn.addEventListener('click', () => {
       teardownTransport()
       opts.onBack()
@@ -322,7 +325,7 @@ export function createMultiplayerMenu(
     box.style.cssText =
       'border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-bottom:6px'
     const head = document.createElement('div')
-    head.textContent = editable ? 'Match (du bist Host)' : 'Match (vom Host gesetzt)'
+    head.textContent = editable ? t('mp.matchHost') : t('mp.matchGuest')
     head.style.cssText = 'font-size:12px;opacity:0.6;margin-bottom:8px'
     box.appendChild(head)
 
@@ -393,8 +396,7 @@ export function createMultiplayerMenu(
       cb.checked = value
       cb.disabled = !editable
       const txt = document.createElement('span')
-      const label2 = (on: boolean): string =>
-        on ? 'im Server-Browser gelistet' : 'privat (nur per Code/Link)'
+      const label2 = (on: boolean): string => (on ? t('mp.public') : t('mp.private'))
       txt.textContent = label2(value)
       cb.addEventListener('change', () => {
         txt.textContent = label2(cb.checked)
@@ -408,7 +410,7 @@ export function createMultiplayerMenu(
     }
 
     selectRow(
-      'Karte',
+      t('mp.map'),
       String(s.mapWidth),
       [
         ['128', '128²'],
@@ -420,29 +422,29 @@ export function createMultiplayerMenu(
       (v) => ({ ...settings, mapWidth: Number(v), mapHeight: Number(v) }),
     )
     selectRow(
-      'Terrain',
+      t('mp.terrain'),
       s.terrain,
       [
-        ['flat', 'Offen'],
-        ['continents', 'Kontinente'],
-        ['islands', 'Inseln'],
+        ['flat', t('mp.terrainFlat')],
+        ['continents', t('terrain.continents')],
+        ['islands', t('terrain.islands')],
       ],
       (v) => ({ ...settings, terrain: v as MatchSettings['terrain'] }),
     )
-    numRow('KI', s.aiCount, (v) => ({ ...settings, aiCount: v }))
-    numRow('Wilde', s.wildCount, (v) => ({ ...settings, wildCount: v }))
-    numRow('Sieg %', s.victoryPct, (v) => ({ ...settings, victoryPct: v }))
+    numRow(t('mp.ai'), s.aiCount, (v) => ({ ...settings, aiCount: v }))
+    numRow(t('mp.wild'), s.wildCount, (v) => ({ ...settings, wildCount: v }))
+    numRow(t('field.victory'), s.victoryPct, (v) => ({ ...settings, victoryPct: v }))
     selectRow(
-      'KI-Stärke',
+      t('mp.difficulty'),
       s.difficulty,
       [
-        ['easy', 'Einfach'],
-        ['normal', 'Normal'],
-        ['hard', 'Schwer'],
+        ['easy', t('difficulty.easy')],
+        ['normal', t('difficulty.normal')],
+        ['hard', t('difficulty.hard')],
       ],
       (v) => ({ ...settings, difficulty: v as MatchSettings['difficulty'] }),
     )
-    checkboxRow('Sichtbar', s.public, (v) => ({ ...settings, public: v }))
+    checkboxRow(t('mp.visible'), s.public, (v) => ({ ...settings, public: v }))
 
     return box
   }

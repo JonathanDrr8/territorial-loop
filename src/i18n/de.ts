@@ -321,4 +321,61 @@ export const de: Record<string, string> = {
   'tip.favor': 'Gunst {n}',
   'tip.traitor': 'Verräter — geächtet (verteidigt geschwächt)',
   'tip.loot': 'Beute bei Eroberung ~{gold}',
+
+  // ── Dialoge ──────────────────────────────────────────────────────────────────
+  'confirm.leave': 'Verlassen',
+  'confirm.keepPlaying': 'Weiterspielen',
+  'confirm.leaveRound': 'Laufende Runde verlassen?',
+  'confirm.treason':
+    '{ally} ist mit dir verbündet. Ein Angriff ist VERRAT: das Bündnis bricht, du wirst geächtet und nimmst eine Zeit lang 1,5× Schaden von allen. Trotzdem angreifen?',
+  'loading.map': 'Karte wird generiert …',
+
+  // ── Feedback-Dialog ──────────────────────────────────────────────────────────
+  'feedback.triggerTitle': 'Feedback geben oder einen Bug melden',
+  'feedback.title': 'Feedback / Bug melden',
+  'feedback.kindFeedback': 'Feedback',
+  'feedback.kindBug': 'Bug',
+  'feedback.placeholder': 'Was möchtest du loswerden? (Idee, Lob, Bug …)',
+  'feedback.send': 'Senden',
+  'feedback.cancel': 'Abbrechen',
+  'feedback.empty': 'Bitte etwas eintippen.',
+  'feedback.sending': 'Senden …',
+  'feedback.thanks': 'Danke!',
+  'feedback.error': 'Konnte nicht senden (Server erreichbar?).',
+
+  // ── Mehrspieler-Lobby ────────────────────────────────────────────────────────
+  'mp.formTitle': 'Mehrspieler — territorial-loop',
+  'mp.namePlaceholder': 'Du',
+  'mp.room': 'Raum',
+  'mp.roomPlaceholder': 'leer = neuen Raum',
+  'mp.connect': 'Verbinden',
+  'mp.noUrl': 'Bitte eine Server-URL angeben.',
+  'mp.back': 'Zurück',
+  'mp.connecting': 'Verbinde …',
+  'mp.timeout':
+    'Keine Verbindung (Timeout). Läuft der Dev-Server (npm run dev) bzw. npm run server?',
+  'mp.lobbyTitle': 'Lobby',
+  'mp.roomCode': 'Raum-Code',
+  'mp.copy': 'Kopieren',
+  'mp.copied': 'Kopiert',
+  'mp.you': 'du',
+  'mp.ready': 'bereit',
+  'mp.waiting': 'wartet …',
+  'mp.disconnected': 'getrennt',
+  'mp.waitingPeers': 'Warte auf Teilnehmer …',
+  'mp.readyBtn': 'Bereit',
+  'mp.matchHost': 'Match (du bist Host)',
+  'mp.matchGuest': 'Match (vom Host gesetzt)',
+  'mp.public': 'im Server-Browser gelistet',
+  'mp.private': 'privat (nur per Code/Link)',
+  'mp.map': 'Karte',
+  'mp.terrain': 'Terrain',
+  'mp.terrainFlat': 'Offen',
+  'mp.ai': 'KI',
+  'mp.wild': 'Wilde',
+  'mp.difficulty': 'KI-Stärke',
+  'mp.visible': 'Sichtbar',
+
+  // ── UI-Größen-Slider ─────────────────────────────────────────────────────────
+  'uiscale.title': 'UI-Größe',
 }

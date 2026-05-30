@@ -8,6 +8,8 @@
  * `clearScalables()` zu Match-Start leert die Registry (alte, zerstörte Panels fallen raus).
  */
 
+import { t } from '../i18n'
+
 const STORAGE_KEY = 'territorial-loop:ui-scale:v1'
 export const UI_SCALE_MIN = 0.8
 export const UI_SCALE_MAX = 1.6
@@ -82,7 +84,7 @@ export function createUiScaleSlider(container: HTMLElement): { destroy(): void }
   slider.max = String(UI_SCALE_MAX)
   slider.step = '0.05'
   slider.value = String(scale)
-  slider.title = 'UI-Größe'
+  slider.title = t('uiscale.title')
   slider.style.width = '92px'
   slider.style.accentColor = '#46d9e6'
   slider.style.cursor = 'pointer'

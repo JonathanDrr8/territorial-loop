@@ -23,6 +23,7 @@ import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
 import { LocalTransport, NetworkTransport, type IntentTransport } from './net/transport'
+import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
@@ -297,11 +298,7 @@ function startMatch(
   const submit = (intent: Intent): void => {
     const allyName = treasonAllyName(intent)
     if (allyName !== null) {
-      confirmDialog.open(
-        `${allyName} ist mit dir verbündet. Ein Angriff ist VERRAT: das Bündnis bricht, ` +
-          `du wirst geächtet und nimmst eine Zeit lang 1,5× Schaden von allen. Trotzdem angreifen?`,
-        () => rawSubmit(intent),
-      )
+      confirmDialog.open(t('confirm.treason', { ally: allyName }), () => rawSubmit(intent))
       return
     }
     rawSubmit(intent)
@@ -459,7 +456,7 @@ function startMatch(
           return
         }
         // Nicht sofort raus — erst nachfragen (versehentliches Runden-Ende vermeiden).
-        confirmDialog.open('Laufende Runde verlassen?', onRequestNewMatch)
+        confirmDialog.open(t('confirm.leaveRound'), onRequestNewMatch)
       },
     },
   })
@@ -555,7 +552,7 @@ function showLoadingOverlay(container: HTMLElement): () => void {
     'font-size: 18px',
     'z-index: 50',
   ].join(';')
-  el.textContent = 'Karte wird generiert …'
+  el.textContent = t('loading.map')
   container.appendChild(el)
   return () => {
     el.remove()

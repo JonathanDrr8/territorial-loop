@@ -8,6 +8,8 @@
  * `destroy()`.
  */
 
+import { t } from '../i18n'
+
 const ACCENT = '#7cc4ff'
 
 export interface FeedbackUiApi {
@@ -21,8 +23,8 @@ export function createFeedbackUi(
   opts: { endpoint: string; version: string },
 ): FeedbackUiApi {
   const trigger = document.createElement('button')
-  trigger.textContent = 'Feedback'
-  trigger.title = 'Feedback geben oder einen Bug melden'
+  trigger.textContent = t('footer.feedback')
+  trigger.title = t('feedback.triggerTitle')
   trigger.style.cssText = [
     'position: absolute',
     'left: 10px',
@@ -75,7 +77,7 @@ export function createFeedbackUi(
     ].join(';')
 
     const h = document.createElement('div')
-    h.textContent = 'Feedback / Bug melden'
+    h.textContent = t('feedback.title')
     h.style.cssText = 'font-size:16px;font-weight:700;margin-bottom:12px'
     panel.appendChild(h)
 
@@ -110,13 +112,13 @@ export function createFeedbackUi(
     }
     const kindButtons: (() => void)[] = []
     const refreshAll = (): void => kindButtons.forEach((f) => f())
-    kindRow.appendChild(mkKind('feedback', 'Feedback'))
-    kindRow.appendChild(mkKind('bug', 'Bug'))
+    kindRow.appendChild(mkKind('feedback', t('feedback.kindFeedback')))
+    kindRow.appendChild(mkKind('bug', t('feedback.kindBug')))
     panel.appendChild(kindRow)
     refreshAll()
 
     const textarea = document.createElement('textarea')
-    textarea.placeholder = 'Was möchtest du loswerden? (Idee, Lob, Bug …)'
+    textarea.placeholder = t('feedback.placeholder')
     textarea.maxLength = 2000
     textarea.style.cssText = [
       'width:100%',
@@ -140,7 +142,7 @@ export function createFeedbackUi(
     const btnRow = document.createElement('div')
     btnRow.style.cssText = 'display:flex;gap:8px;margin-top:8px'
     const sendBtn = document.createElement('button')
-    sendBtn.textContent = 'Senden'
+    sendBtn.textContent = t('feedback.send')
     sendBtn.style.cssText = [
       'flex:1',
       'padding:10px',
@@ -154,7 +156,7 @@ export function createFeedbackUi(
       'cursor:pointer',
     ].join(';')
     const cancelBtn = document.createElement('button')
-    cancelBtn.textContent = 'Abbrechen'
+    cancelBtn.textContent = t('feedback.cancel')
     cancelBtn.style.cssText = [
       'padding:10px 14px',
       'background:transparent',
@@ -169,11 +171,11 @@ export function createFeedbackUi(
     sendBtn.addEventListener('click', () => {
       const text = textarea.value.trim()
       if (text.length === 0) {
-        status.textContent = 'Bitte etwas eintippen.'
+        status.textContent = t('feedback.empty')
         return
       }
       sendBtn.disabled = true
-      status.textContent = 'Senden …'
+      status.textContent = t('feedback.sending')
       // text/plain → kein CORS-Preflight; Body ist JSON-String.
       fetch(`${opts.endpoint}/feedback`, {
         method: 'POST',
@@ -183,13 +185,13 @@ export function createFeedbackUi(
         .then((r) => {
           if (!r.ok && r.status !== 204) throw new Error(String(r.status))
           status.style.color = '#7cffa0'
-          status.textContent = 'Danke!'
+          status.textContent = t('feedback.thanks')
           setTimeout(close, 900)
         })
         .catch(() => {
           sendBtn.disabled = false
           status.style.color = '#ff8080'
-          status.textContent = 'Konnte nicht senden (Server erreichbar?).'
+          status.textContent = t('feedback.error')
         })
     })
     btnRow.appendChild(sendBtn)

@@ -4,6 +4,8 @@
  * Button, Klick daneben oder Esc.
  */
 
+import { t } from '../i18n'
+
 export interface ConfirmDialogApi {
   /** Öffnet den Dialog mit `message`; `onConfirm` läuft bei Bestätigung. */
   open(message: string, onConfirm: () => void): void
@@ -48,7 +50,7 @@ export function createConfirmDialog(container: HTMLElement): ConfirmDialogApi {
   btnRow.style.cssText = 'display: flex; gap: 10px; justify-content: center'
 
   const confirmBtn = document.createElement('button')
-  confirmBtn.textContent = 'Verlassen'
+  confirmBtn.textContent = t('confirm.leave')
   confirmBtn.style.cssText = [
     'font: inherit',
     'cursor: pointer',
@@ -60,7 +62,7 @@ export function createConfirmDialog(container: HTMLElement): ConfirmDialogApi {
   ].join(';')
 
   const cancelBtn = document.createElement('button')
-  cancelBtn.textContent = 'Weiterspielen'
+  cancelBtn.textContent = t('confirm.keepPlaying')
   cancelBtn.style.cssText = [
     'font: inherit',
     'cursor: pointer',
