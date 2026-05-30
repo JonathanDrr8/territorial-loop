@@ -214,7 +214,7 @@ export const pt: Record<string, string> = {
   'hud.tooltip.flak': 'Antiaérea — abate bombardeiros inimigos num raio de {range} (+{per}/nível).',
   'hud.controls': 'Controlos',
   'hud.controlsBody':
-    'Clique esquerdo: ataque · B: modo barco (alvo noutra ilha) · 7: modo bombardeiro<br/>Clique direito: menu (construir/ataque/barco/navio/diplomacia)<br/>Arrastar (esq./dir.) ou WASD: câmara · Roda: zoom<br/>1–6: edifícios (cidade/defesa/porto/fábrica/aeroporto/antiaérea) · R: alcances dos navios · Espaço: pausa<br/>, / . : velocidade · Esc: menu<br/>Clica no painel de ataque: cancelar / barco · navio de volta',
+    'Clique esquerdo: ataque · B: modo barco (alvo noutra ilha) · 7: modo bombardeiro · 8: navio de guerra<br/>Clique direito: menu (construir/ataque/barco/navio/diplomacia)<br/>Arrastar (esq./dir.) ou WASD: câmara · Roda: zoom<br/>1–6: edifícios (cidade/defesa/porto/fábrica/aeroporto/antiaérea) · R: alcances dos navios · Espaço: pausa<br/>, / . : velocidade · Esc: menu<br/>Clica no painel de ataque: cancelar / barco · navio de volta',
   'hud.rank': 'Classificação',
   'hud.troops': 'Tropas',
   'hud.gold': 'Ouro',
@@ -227,6 +227,8 @@ export const pt: Record<string, string> = {
   'hud.bomberModeHint':
     'Modo bombardeiro · Rota: {route} · Shift+roda alterna · Clique = alvo · Esc termina',
   'hud.bomberWarnShot': 'Será abatido!',
+  'hud.warshipModeHint':
+    'Modo navio de guerra: clica num alvo na água (precisa de porto + ouro) · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nova partida',
   'hud.pauseOverlay': 'PAUSA',

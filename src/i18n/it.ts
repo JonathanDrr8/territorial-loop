@@ -215,7 +215,7 @@ export const it: Record<string, string> = {
     'Contraerea — abbatte i bombardieri nemici nel raggio di {range} (+{per}/livello).',
   'hud.controls': 'Comandi',
   'hud.controlsBody':
-    'Clic sinistro: attacco · B: modalità barca (obiettivo su un’altra isola) · 7: modalità bombardiere<br/>Clic destro: menu (costruisci/attacco/barca/nave/diplomazia)<br/>Trascina (sin./des.) o WASD: telecamera · Rotella: zoom<br/>1–6: edifici (città/difesa/porto/fabbrica/aeroporto/contraerea) · R: portate delle navi · Spazio: pausa<br/>, / . : velocità · Esc: menu<br/>Clic sul pannello attacchi: annulla / barca · nave indietro',
+    'Clic sinistro: attacco · B: modalità barca (obiettivo su un’altra isola) · 7: modalità bombardiere · 8: nave da guerra<br/>Clic destro: menu (costruisci/attacco/barca/nave/diplomazia)<br/>Trascina (sin./des.) o WASD: telecamera · Rotella: zoom<br/>1–6: edifici (città/difesa/porto/fabbrica/aeroporto/contraerea) · R: portate delle navi · Spazio: pausa<br/>, / . : velocità · Esc: menu<br/>Clic sul pannello attacchi: annulla / barca · nave indietro',
   'hud.rank': 'Classifica',
   'hud.troops': 'Truppe',
   'hud.gold': 'Oro',
@@ -229,6 +229,8 @@ export const it: Record<string, string> = {
   'hud.bomberModeHint':
     'Modalità bombardiere · Rotta: {route} · Shift+rotella cambia · Clic = obiettivo · Esc termina',
   'hud.bomberWarnShot': 'Sarà abbattuto!',
+  'hud.warshipModeHint':
+    'Modalità nave da guerra: clicca un obiettivo sull’acqua (serve un porto + oro) · Esc termina',
   'hud.attack': 'Attacco: {pct}%',
   'hud.newMatch': 'Nuova partita',
   'hud.pauseOverlay': 'PAUSA',

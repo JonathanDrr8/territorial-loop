@@ -183,7 +183,7 @@ export const ja: Record<string, string> = {
   'hud.tooltip.flak': '対空 —— 範囲 {range}（レベルごとに +{per}）内の敵爆撃機を撃墜します。',
   'hud.controls': '操作',
   'hud.controlsBody':
-    '左クリック：攻撃 · B：輸送艇モード（別の島の目標）· 7：爆撃機モード<br/>右クリック：メニュー（建設/攻撃/輸送艇/軍艦/外交）<br/>ドラッグ（左/右）または WASD：カメラ · ホイール：ズーム<br/>1–6：建物（都市/防衛/港/工場/空港/対空）· R：船の範囲 · スペース：一時停止<br/>, / . ：速度 · Esc：メニュー<br/>攻撃パネルをクリック：中止 / 輸送艇 · 船を呼び戻す',
+    '左クリック：攻撃 · B：輸送艇モード（別の島の目標）· 7：爆撃機モード · 8：軍艦<br/>右クリック：メニュー（建設/攻撃/輸送艇/軍艦/外交）<br/>ドラッグ（左/右）または WASD：カメラ · ホイール：ズーム<br/>1–6：建物（都市/防衛/港/工場/空港/対空）· R：船の範囲 · スペース：一時停止<br/>, / . ：速度 · Esc：メニュー<br/>攻撃パネルをクリック：中止 / 輸送艇 · 船を呼び戻す',
   'hud.rank': 'ランキング',
   'hud.troops': '兵力',
   'hud.gold': '金',
@@ -196,6 +196,7 @@ export const ja: Record<string, string> = {
   'hud.bomberModeHint':
     '爆撃機モード · ルート：{route} · Shift+ホイールで切替 · クリック = 目標 · Esc で終了',
   'hud.bomberWarnShot': '撃墜されます！',
+  'hud.warshipModeHint': '軍艦モード：水上の目標をクリック（港 + 金が必要）· Esc で終了',
   'hud.attack': '攻撃：{pct}%',
   'hud.newMatch': '新しい対戦',
   'hud.pauseOverlay': '一時停止',

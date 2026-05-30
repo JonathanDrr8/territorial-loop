@@ -247,6 +247,8 @@ export interface Renderer {
   setBuildPreview(type: BuildingType | null): void
   /** Bomber-Ziel-Vorschau (Flugroute + Einschlagsradius am Cursor); null = aus. */
   setBomberPreview(route: BomberRoute | null): void
+  /** Kriegsschiff-Ziel-Vorschau (Reichweiten-Ring am Wasser-Ziel + Linie vom Hafen). */
+  setWarshipPreview(on: boolean): void
   /** Schaltet die Reichweiten-Ringe der eigenen Kriegsschiffe um; gibt den neuen Zustand zurück. */
   toggleShipRanges(): boolean
   /** Setzt die Auswahl-Box (Screen-CSS) für die Anzeige während des Ziehens; null = aus. */
@@ -953,6 +955,8 @@ export function createRenderer(
   let buildPreviewType: BuildingType | null = null
   // Bomber-Ziel-Vorschau: aktive Route (null = kein Bomber-Modus).
   let bomberPreviewRoute: BomberRoute | null = null
+  // Kriegsschiff-Ziel-Vorschau aktiv (Taste 8)?
+  let warshipPreview = false
   // Reichweiten-Ringe der eigenen Kriegsschiffe anzeigen (Toggle).
   let shipRangesVisible = false
   // Box-Select: ausgewählte eigene Kriegsschiffe + aktuelle Auswahl-Box (Screen-CSS).
@@ -2401,6 +2405,78 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /**
+   * Kriegsschiff-Ziel-Vorschau (ADR-0019): im Kriegsschiff-Modus eine Linie vom nächsten eigenen
+   * Hafen zum Cursor + den Angriffs-Reichweitenring (NAVAL_RANGE) am Ziel. Blau bei gültigem Ziel
+   * (Wasser + eigener Hafen vorhanden), rot bei ungültigem.
+   */
+  function drawWarshipPreview(): void {
+    if (!warshipPreview || hoverTile === null || lutHumanId < 0) return
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const z = camera.zoom
+    const target = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
+    const isWater = ((state.map.terrain[target] ?? 0) & IS_LAND_BIT) === 0
+    // Nächsten eigenen, fertigen Hafen finden (= Startpunkt).
+    let from = -1
+    let bestDist = Infinity
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'port' || b.ownerId !== lutHumanId || !isBuildingComplete(b, state.tick))
+        continue
+      const d = torusDistance(
+        hoverTile.x,
+        hoverTile.y,
+        b.tile % mapW,
+        Math.floor(b.tile / mapW),
+        mapW,
+        mapH,
+      )
+      if (d < bestDist) {
+        bestDist = d
+        from = b.tile
+      }
+    }
+    const valid = isWater && from >= 0
+    const col = valid ? 'rgba(120,200,255,0.85)' : 'rgba(232,90,90,0.85)'
+    screenCtx.save()
+    // Linie vom Hafen zum Ziel (gepunktete Andeutung; bricht bei Torus-Wrap-Sprung).
+    if (from >= 0) {
+      const fp = nearestWrappedScreenPos((from % mapW) + 0.5, Math.floor(from / mapW) + 0.5)
+      const tp = nearestWrappedScreenPos(hoverTile.x + 0.5, hoverTile.y + 0.5)
+      if (Math.hypot(tp.sx - fp.sx, tp.sy - fp.sy) < Math.max(cssW, cssH)) {
+        screenCtx.strokeStyle = col
+        screenCtx.lineWidth = 2
+        screenCtx.setLineDash([6, 5])
+        screenCtx.beginPath()
+        screenCtx.moveTo(fp.sx, fp.sy)
+        screenCtx.lineTo(tp.sx, tp.sy)
+        screenCtx.stroke()
+        screenCtx.setLineDash([])
+      }
+    }
+    // Angriffs-Reichweitenring am Ziel.
+    const rr = NAVAL_RANGE * z
+    const tx = hoverTile.x + 0.5
+    const ty = hoverTile.y + 0.5
+    screenCtx.strokeStyle = col
+    screenCtx.fillStyle = valid ? 'rgba(120,200,255,0.12)' : 'rgba(232,90,90,0.1)'
+    screenCtx.lineWidth = 1.5
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const sx = worldToScreenX(tx + dx * mapW)
+        const sy = worldToScreenY(ty + dy * mapH)
+        if (sx < -rr || sx > cssW + rr || sy < -rr || sy > cssH + rr) continue
+        screenCtx.beginPath()
+        screenCtx.arc(sx, sy, rr, 0, Math.PI * 2)
+        screenCtx.fill()
+        screenCtx.stroke()
+      }
+    }
+    screenCtx.restore()
+  }
+
   function render(): void {
     if (state.tick !== lastBitmapTick) {
       // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
@@ -2451,6 +2527,7 @@ export function createRenderer(
     drawAllOwnDefenseRanges()
     drawBuildPreview()
     drawBomberPreview()
+    drawWarshipPreview()
     drawMarkers()
     drawLabels()
     drawFlakShots()
@@ -2550,6 +2627,9 @@ export function createRenderer(
     },
     setBomberPreview(route: BomberRoute | null): void {
       bomberPreviewRoute = route
+    },
+    setWarshipPreview(on: boolean): void {
+      warshipPreview = on
     },
     toggleShipRanges(): boolean {
       shipRangesVisible = !shipRangesVisible

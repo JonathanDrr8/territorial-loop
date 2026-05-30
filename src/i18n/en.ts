@@ -218,7 +218,7 @@ export const en: Record<string, string> = {
   'hud.tooltip.flak': 'Anti-air — shoots down enemy bombers within range {range} (+{per}/level).',
   'hud.controls': 'Controls',
   'hud.controlsBody':
-    'Left click: attack · B: boat mode (target on another island) · 7: bomber mode<br/>Right click: menu (build/attack/boat/warship/diplomacy)<br/>Drag (left/right) or WASD: camera · Wheel: zoom<br/>1–6: buildings (city/defense/port/factory/airport/anti-air) · R: ship ranges · Space: pause<br/>, / . : speed · Esc: menu<br/>Click attack panel: cancel / boat · ship back',
+    'Left click: attack · B: boat mode (target on another island) · 7: bomber mode · 8: warship<br/>Right click: menu (build/attack/boat/warship/diplomacy)<br/>Drag (left/right) or WASD: camera · Wheel: zoom<br/>1–6: buildings (city/defense/port/factory/airport/anti-air) · R: ship ranges · Space: pause<br/>, / . : speed · Esc: menu<br/>Click attack panel: cancel / boat · ship back',
   'hud.rank': 'Ranking',
   'hud.troops': 'Troops',
   'hud.gold': 'Gold',
@@ -231,6 +231,7 @@ export const en: Record<string, string> = {
   'hud.bomberModeHint':
     'Bomber mode · Route: {route} · Shift+wheel switches · Click = target · Esc ends',
   'hud.bomberWarnShot': 'Will be shot down!',
+  'hud.warshipModeHint': 'Warship mode: click a water target (needs a port + gold) · Esc ends',
   'hud.attack': 'Attack: {pct}%',
   'hud.newMatch': 'New match',
   'hud.pauseOverlay': 'PAUSED',

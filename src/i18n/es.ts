@@ -217,7 +217,7 @@ export const es: Record<string, string> = {
     'Antiaéreo — derriba bombarderos enemigos en un radio de {range} (+{per}/nivel).',
   'hud.controls': 'Controles',
   'hud.controlsBody':
-    'Clic izquierdo: atacar · B: modo barco (objetivo en otra isla) · 7: modo bombardero<br/>Clic derecho: menú (construir/atacar/barco/buque/diplomacia)<br/>Arrastrar (izq./der.) o WASD: cámara · Rueda: zoom<br/>1–6: edificios (ciudad/defensa/puerto/fábrica/aeropuerto/antiaéreo) · R: alcances de barcos · Espacio: pausa<br/>, / . : velocidad · Esc: menú<br/>Clic en el panel de ataque: cancelar / barco · volver',
+    'Clic izquierdo: atacar · B: modo barco (objetivo en otra isla) · 7: modo bombardero · 8: buque<br/>Clic derecho: menú (construir/atacar/barco/buque/diplomacia)<br/>Arrastrar (izq./der.) o WASD: cámara · Rueda: zoom<br/>1–6: edificios (ciudad/defensa/puerto/fábrica/aeropuerto/antiaéreo) · R: alcances de barcos · Espacio: pausa<br/>, / . : velocidad · Esc: menú<br/>Clic en el panel de ataque: cancelar / barco · volver',
   'hud.rank': 'Clasificación',
   'hud.troops': 'Tropas',
   'hud.gold': 'Oro',
@@ -231,6 +231,8 @@ export const es: Record<string, string> = {
   'hud.bomberModeHint':
     'Modo bombardero · Ruta: {route} · Shift+rueda cambia · Clic = objetivo · Esc termina',
   'hud.bomberWarnShot': '¡Será derribado!',
+  'hud.warshipModeHint':
+    'Modo buque: haz clic en un objetivo en el agua (necesita puerto + oro) · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nueva partida',
   'hud.pauseOverlay': 'PAUSA',

@@ -458,6 +458,10 @@ function startMatch(
       hud.setBomberMode(on, route)
       renderer.setBomberPreview(on ? route : null)
     },
+    onWarshipModeChange: (on) => {
+      hud.setWarshipMode(on)
+      renderer.setWarshipPreview(on)
+    },
     onToggleShipRanges: () => renderer.toggleShipRanges(),
     onSelectionBox: (box) => renderer.setSelectionBox(box),
     onBoxSelect: (box) => renderer.selectWarshipsInBox(box),

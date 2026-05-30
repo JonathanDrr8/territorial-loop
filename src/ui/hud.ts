@@ -29,6 +29,7 @@ import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
   buildCostFor,
+  countBuildingsOfType,
   effectiveMaxTroops,
   goldBreakdown,
   isBuildingAllowed,
@@ -106,6 +107,8 @@ export interface HUDApi {
   setBoatMode(on: boolean): void
   /** Zeigt/aktualisiert den Bomber-Modus-Hinweis (mit aktiver Route). */
   setBomberMode(on: boolean, route: BomberRoute): void
+  /** Zeigt/versteckt den Kriegsschiff-Modus-Hinweis. */
+  setWarshipMode(on: boolean): void
   /** Setzt den Angriffs-Slider extern (z.B. Shift+Mausrad) — bewegt Regler + Label. */
   setSliderPct(pct: number): void
   /** Blitzt kurz einen „Resync…"-Hinweis auf (Server-Korrektur-Snapshot eingespielt). */
@@ -637,9 +640,11 @@ export function createHUD(
   buildRow.style.cssText = 'display: flex; gap: 6px'
   const buildButtons = new Map<BuildingType, HTMLButtonElement>()
   const buildCostEls = new Map<BuildingType, HTMLSpanElement>()
+  const buildCountEls = new Map<BuildingType, HTMLSpanElement>()
   for (const type of BUILDING_TYPES) {
     const btn = document.createElement('button')
     btn.style.cssText = [
+      'position: relative',
       'flex: 1',
       'display: flex',
       'flex-direction: column',
@@ -660,8 +665,21 @@ export function createHUD(
     // Name steht im Tooltip + Radialmenü → hier nur Hotkey+Glyph + Kosten (kompakter Chip).
     const cost = document.createElement('span')
     cost.style.cssText = 'color: #5dd75d; font-size: 12px; font-weight: bold'
+    // Kleines Badge oben rechts: wie viele dieses Gebäudes man aktuell besitzt (0 = versteckt).
+    const count = document.createElement('span')
+    count.style.cssText = [
+      'position: absolute',
+      'top: 2px',
+      'right: 3px',
+      'font-size: 9px',
+      'font-weight: bold',
+      'color: rgba(255,255,255,0.55)',
+      'line-height: 1',
+    ].join(';')
     btn.appendChild(top)
     btn.appendChild(cost)
+    btn.appendChild(count)
+    buildCountEls.set(type, count)
     btn.addEventListener('click', () => {
       onBuildClick(type)
     })
@@ -734,6 +752,22 @@ export function createHUD(
     'text-align: center',
   ].join(';')
   actionBar.appendChild(bomberHint)
+
+  // Hinweis-Banner während aktivem Kriegsschiff-Modus.
+  const warshipHint = document.createElement('div')
+  warshipHint.style.cssText = [
+    'margin-top: 6px',
+    'padding: 5px 8px',
+    'display: none',
+    'background: rgba(120,200,255,0.15)',
+    'border: 1px solid rgba(120,200,255,0.6)',
+    'border-radius: 6px',
+    'color: #bfe0ff',
+    'font-size: 11px',
+    'text-align: center',
+  ].join(';')
+  warshipHint.textContent = t('hud.warshipModeHint')
+  actionBar.appendChild(warshipHint)
 
   container.appendChild(actionBar)
   registerScalable(actionBar)
@@ -905,6 +939,12 @@ export function createHUD(
       // Im Match deaktivierte Gebäudetypen ganz ausblenden (Setup-Toggle / MP-Settings).
       if (btnEl !== undefined) {
         btnEl.style.display = isBuildingAllowed(state.config, type) ? '' : 'none'
+      }
+      // Anzahl-Badge: wie viele dieses Gebäudes der Spieler aktuell besitzt (0 = leer).
+      const countEl = buildCountEls.get(type)
+      if (countEl !== undefined) {
+        const n = countBuildingsOfType(state, human.id, type)
+        countEl.textContent = n > 0 ? String(n) : ''
       }
       const costEl = buildCostEls.get(type)
       if (costEl !== undefined) {
@@ -1180,6 +1220,9 @@ export function createHUD(
         const routeLabel = t(`route.${route}`)
         bomberHint.textContent = `${t('hud.bomberModeHint', { route: routeLabel })}`
       }
+    },
+    setWarshipMode(on: boolean): void {
+      warshipHint.style.display = on ? 'block' : 'none'
     },
     flashResync(): void {
       resyncTag.textContent = `⟳ ${t('hud.resync')}`

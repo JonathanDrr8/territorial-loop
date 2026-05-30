@@ -220,7 +220,7 @@ export const de: Record<string, string> = {
     'Flugabwehr — schießt feindliche Bomber im Umkreis {range} (+{per}/Stufe) ab.',
   'hud.controls': 'Steuerung',
   'hud.controlsBody':
-    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel) · 7: Bomber-Modus<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–6: Gebäude (Stadt/Verteidigung/Hafen/Fabrik/Flughafen/Flugabwehr) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück',
+    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel) · 7: Bomber-Modus · 8: Kriegsschiff<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–6: Gebäude (Stadt/Verteidigung/Hafen/Fabrik/Flughafen/Flugabwehr) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück',
   'hud.rank': 'Rangliste',
   'hud.troops': 'Truppen',
   'hud.gold': 'Gold',
@@ -233,6 +233,8 @@ export const de: Record<string, string> = {
   'hud.bomberModeHint':
     'Bomber-Modus · Route: {route} · Shift+Mausrad wechselt · Klick = Ziel · Esc beendet',
   'hud.bomberWarnShot': 'Wird abgeschossen!',
+  'hud.warshipModeHint':
+    'Kriegsschiff-Modus: Wasser-Ziel anklicken (braucht Hafen + Gold) · Esc beendet',
   'hud.attack': 'Angriff: {pct}%',
   'hud.newMatch': 'Neues Match',
   'hud.pauseOverlay': 'PAUSE',
