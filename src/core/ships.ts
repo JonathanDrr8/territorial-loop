@@ -10,7 +10,7 @@
  */
 
 import type { GameMap } from '../world/map'
-import { torusDistance, type TileRef } from '../world/torus'
+import { tileRef, torusDistance, type TileRef } from '../world/torus'
 import { adjacentWaterByComponent, findWaterPath, sameWaterComponent } from '../world/water-path'
 
 /** Maximale Anzahl gleichzeitiger Transport-Boote pro Spieler. */
@@ -146,6 +146,87 @@ export interface Projectile {
   travel: number
   /** Flug-Ticks bis zum Einschlag (= round(Distanz / PROJECTILE_SPEED), bei Abschuss berechnet). */
   readonly impactAt: number
+}
+
+// ── Bomber & Bomben (ADR-0019) ──────────────────────────────────────────────
+/** Bomber-Geschwindigkeit (Tiles/Tick) — schneller als Schiffe (fliegt über alles). */
+export const BOMBER_SPEED = 2
+/** Bomber-HP (Flak-Treffer bis zum Abschuss). */
+export const BOMBER_HP = 4
+/** Gold-Kosten je Bomber-Start (Munition — die offensive Gold-Senke). */
+export const BOMBER_COST = 40_000
+/** Bomben-Wirkradius (Tiles) am Einschlagpunkt — großzügig, die Fläche soll spürbar sein. */
+export const BOMB_RADIUS = 6
+
+/** Flugroute eines Bombers: gerade Linie oder Parabel-Bogen nach links/rechts (ADR-0019). */
+export type BomberRoute = 'direct' | 'arc-left' | 'arc-right'
+
+/**
+ * Ein fliegender Bomber. Anders als die Schiffe ist er **sim-relevant** (sein Einschlag ändert
+ * Gebiet/Truppen/Gebäude) und wird daher serialisiert. Fliegt `path` ab (über alles), wirft am
+ * Ziel die Bombe ab und kehrt um (`dir` -1) zum Flughafen, wo er sich auflöst.
+ */
+export interface Bomber {
+  readonly ownerId: number
+  /** Flugpfad Flughafen→Ziel (Tiles, Terrain egal). */
+  readonly path: readonly TileRef[]
+  progress: number
+  /** +1 = zum Ziel, -1 = zurück zum Flughafen (nach dem Abwurf). */
+  dir: 1 | -1
+  hp: number
+  /** Bombe schon abgeworfen? (verhindert Doppel-Einschlag, markiert den Rückflug). */
+  dropped: boolean
+  /** Einschlag-Ziel (= letztes Vorwärts-path-Tile). */
+  readonly targetTile: TileRef
+}
+
+/**
+ * Konstruiert den Flugpfad eines Bombers vom Flughafen zum Ziel über die geradlinige Torus-
+ * Kürzeste, optional als Parabel-Bogen seitlich versetzt (`arc-left`/`arc-right`, um Flak zu
+ * umfliegen). Voll deterministisch (nur exakte IEEE-Ops: sqrt/Division/Multiplikation/round) —
+ * der Bogen ist eine quadratische Parabel `4·t·(1−t)` statt sin, daher kein det-math nötig.
+ */
+export function planBomberRoute(
+  mapW: number,
+  mapH: number,
+  fromTile: TileRef,
+  toTile: TileRef,
+  route: BomberRoute,
+): TileRef[] {
+  const fx = fromTile % mapW
+  const fy = Math.floor(fromTile / mapW)
+  const txr = toTile % mapW
+  const tyr = Math.floor(toTile / mapW)
+  // Kürzeste Torus-Verschiebung (über die nähere Wrap-Richtung).
+  let dx = txr - fx
+  let dy = tyr - fy
+  if (dx > mapW / 2) dx -= mapW
+  else if (dx < -mapW / 2) dx += mapW
+  if (dy > mapH / 2) dy -= mapH
+  else if (dy < -mapH / 2) dy += mapH
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  const steps = Math.max(1, Math.round(dist))
+  const len = dist > 0 ? dist : 1
+  // Einheitsnormale zur Flugrichtung (für den seitlichen Parabel-Versatz).
+  const nx = -dy / len
+  const ny = dx / len
+  const amp = route === 'direct' ? 0 : dist * 0.35 * (route === 'arc-left' ? 1 : -1)
+  const path: TileRef[] = []
+  let prev = -1
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const bow = amp * 4 * t * (1 - t)
+    const wx = fx + dx * t + nx * bow
+    const wy = fy + dy * t + ny * bow
+    const ref = tileRef(Math.round(wx), Math.round(wy), mapW, mapH)
+    if (ref !== prev) {
+      path.push(ref)
+      prev = ref
+    }
+  }
+  if (path.length === 0) path.push(fromTile)
+  if (path[path.length - 1] !== toTile) path.push(toTile)
+  return path
 }
 
 /** Struktureller Typ für die Bewegungs-/Positions-Helfer (Boot/Handel/Kriegsschiff). */

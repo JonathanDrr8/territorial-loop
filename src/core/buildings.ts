@@ -39,6 +39,11 @@ export interface Building {
    * Alt-Snapshots/Tests ohne Feld fallen auf die typ-Basiskosten zurück (= bisheriges Verhalten).
    */
   readonly buildPrice?: number
+  /**
+   * Nur Flughafen (ADR-0019): Tick, bis zu dem kein weiterer Bomber gestartet werden kann
+   * (Start-Cooldown, Level senkt ihn). `undefined`/0 = startbereit. Mutiert beim Start.
+   */
+  cooldownUntilTick?: number
 }
 
 export const MAX_BUILDING_LEVEL = 3

@@ -32,7 +32,7 @@ import {
   type Player,
 } from './game'
 import { createPRNG, type PRNGState } from './random'
-import type { Boat, GoldCart, TradeShip, Warship } from './ships'
+import type { Boat, Bomber, GoldCart, TradeShip, Warship } from './ships'
 import { createMap } from '../world/map'
 import { labelLandComponents, labelWaterComponents } from '../world/water-path'
 import type { TileRef } from '../world/torus'
@@ -59,6 +59,7 @@ export interface SerializedGameState {
   readonly tradeShips: readonly TradeShip[]
   readonly goldCarts: readonly GoldCart[]
   readonly warships: readonly Warship[]
+  readonly bombers: readonly Bomber[]
   readonly alliances: readonly number[]
   readonly allianceExpiry: readonly (readonly [number, number])[]
   readonly allianceRequests: readonly number[]
@@ -101,6 +102,7 @@ export function serializeState(state: GameState): SerializedGameState {
     tradeShips: state.tradeShips.map((t) => ({ ...t, path: [...t.path] })),
     goldCarts: state.goldCarts.map((c) => ({ ...c, path: [...c.path] })),
     warships: state.warships.map((w) => ({ ...w, path: [...w.path] })),
+    bombers: state.bombers.map((b) => ({ ...b, path: [...b.path] })),
     alliances: [...state.alliances],
     allianceExpiry: [...state.allianceExpiry.entries()],
     allianceRequests: [...state.allianceRequests],
@@ -149,6 +151,8 @@ export function deserializeState(data: SerializedGameState): GameState {
     goldPops: [],
     warships: data.warships.map((w) => ({ ...w, path: [...w.path] })),
     projectiles: [],
+    bombers: data.bombers.map((b) => ({ ...b, path: [...b.path] })),
+    bombImpacts: [],
     alliances: new Set(data.alliances),
     allianceExpiry: new Map(data.allianceExpiry.map(([k, v]) => [k, v])),
     allianceRequests: new Set(data.allianceRequests),

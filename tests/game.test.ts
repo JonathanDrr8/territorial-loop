@@ -7,6 +7,7 @@ import {
   effectiveMaxTroops,
   factoryYield,
   goldBreakdown,
+  initializeAllFrontiers,
   isBuildingAllowed,
   snapBuildTile,
   tick,
@@ -538,6 +539,66 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     // Bauen klappt.
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'airport' }])
     expect(state.buildings.get(tile)?.type).toBe('airport')
+  })
+
+  it('Bombe: neutralisiert Gebiet, zerstört Gebäude und schmilzt Truppen (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+
+    // p1: ein fertiger Flughafen + reichlich Gold.
+    const airport = T(10, 10)
+    setOwner(state.map, airport, 1)
+    state.buildings.set(airport, {
+      type: 'airport',
+      ownerId: 1,
+      tile: airport,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 1_000_000
+    p1.tilesOwned = 1
+
+    // p2: ein 7×7-Block um (40,10) mit einer Stadt im Zentrum.
+    const target = T(40, 10)
+    let n = 0
+    for (let x = 37; x <= 43; x++)
+      for (let y = 7; y <= 13; y++) {
+        setOwner(state.map, T(x, y), 2)
+        n++
+      }
+    state.buildings.set(target, {
+      type: 'city',
+      ownerId: 2,
+      tile: target,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p2.tilesOwned = n
+    p2.troops = 4900
+    initializeAllFrontiers(state)
+    const troopsBefore = p2.troops
+
+    // Bomber starten (direkte Route) und genug Ticks bis Einschlag + Rückflug.
+    for (let i = 0; i < 40; i++)
+      tick(
+        state,
+        i === 0
+          ? [{ type: 'launch-bomber' as const, playerId: 1, targetTile: target, route: 'direct' }]
+          : [],
+      )
+
+    expect(p1.gold).toBeLessThan(1_000_000) // Start wurde bezahlt (Munition)
+    expect(getOwner(state.map, target)).toBe(0) // Zentrum neutralisiert
+    expect(state.buildings.has(target)).toBe(false) // Stadt zerstört
+    expect(p2.troops).toBeLessThan(troopsBefore) // Truppen geschmolzen
+    expect(p2.tilesOwned).toBeLessThan(n) // Gebiet verloren
+    expect(state.bombers.length).toBe(0) // Bomber nach Rückflug aufgelöst
   })
 
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {

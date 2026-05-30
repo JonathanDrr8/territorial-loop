@@ -46,6 +46,7 @@ import {
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
   PORT_WATER_RANGE,
+  airportCooldown,
   buildCost,
   defenseRange,
   isBuildingComplete,
@@ -58,6 +59,7 @@ import type {
   BoatRecallIntent,
   BreakAllianceIntent,
   LaunchWarshipIntent,
+  LaunchBomberIntent,
   RecallWarshipIntent,
   ToggleWarshipModeIntent,
   MoveWarshipIntent,
@@ -88,6 +90,11 @@ import {
 import {
   type Boat,
   BOAT_SPEED,
+  type Bomber,
+  BOMB_RADIUS,
+  BOMBER_COST,
+  BOMBER_HP,
+  BOMBER_SPEED,
   CART_GOLD_PER_LEVEL,
   CART_SPEED,
   type GoldCart,
@@ -108,6 +115,7 @@ import {
   WARSHIP_SPEED,
   PROJECTILE_SPEED,
   planBoatLaunch,
+  planBomberRoute,
   planWaterRoute,
   shipArrived,
   shipTile,
@@ -311,6 +319,16 @@ export interface GameState {
   goldPops: { tile: TileRef; amount: number; ownerId: number; atTick: number }[]
   /** Fliegende Kriegsschiff-Projektile (verzögerter Schaden; verpuffen, wenn der Schütze stirbt). */
   projectiles: Projectile[]
+  /**
+   * Fliegende Bomber (ADR-0019). Sim-relevant (Einschlag ändert Gebiet/Truppen/Gebäude) → werden
+   * serialisiert. Deterministischer Flug, nicht gehasht (wie die Schiffe; der Effekt ist gehasht).
+   */
+  bombers: Bomber[]
+  /**
+   * Flüchtige Bomben-Einschläge (Zentrum + Tick) fürs Render der Explosion — rein darstellend,
+   * NICHT gehasht/serialisiert (wie goldPops), nach kurzer Zeit verworfen.
+   */
+  bombImpacts: { tile: TileRef; atTick: number }[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
   readonly alliances: Set<number>
   /** Ablauf-Tick je Allianz ([[pairKey]] → Tick) — Allianzen laufen automatisch aus. */
@@ -491,6 +509,8 @@ export function createGame(config: GameConfig): GameState {
     goldPops: [],
     warships: [],
     projectiles: [],
+    bombers: [],
+    bombImpacts: [],
     alliances: new Set<number>(),
     allianceExpiry: new Map<number, number>(),
     allianceRequests: new Set<number>(),
@@ -764,6 +784,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   advanceBoats(state)
   advanceWarships(state)
   resolveNavalCombat(state)
+  advanceBombers(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
   if (state.tick % ECONOMY_RECOMPUTE_INTERVAL === 0) recomputeGoldRoutes(state)
@@ -1141,6 +1162,9 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
         break
       case 'launch-warship':
         applyLaunchWarshipIntent(state, intent)
+        break
+      case 'launch-bomber':
+        applyLaunchBomberIntent(state, intent)
         break
       case 'recall-warship':
         applyRecallWarshipIntent(state, intent)
@@ -1927,6 +1951,121 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
     returning: false,
   })
   emitEvent(state, 'event.warshipSent', { p: player.name }, player.color)
+}
+
+/** Lebensdauer eines Bomben-Einschlag-Funkens (Ticks) — rein darstellend. */
+const BOMB_IMPACT_LIFETIME = 20
+
+/**
+ * Startet einen Bomber vom nächstgelegenen eigenen, fertigen, startbereiten Flughafen Richtung
+ * Ziel (ADR-0019). Kostet `BOMBER_COST` Gold und löst den Flughafen-Cooldown aus. Ohne passenden
+ * Flughafen / zu wenig Gold passiert nichts (stiller Fehlschlag — Feedback macht das UI).
+ */
+function applyLaunchBomberIntent(state: GameState, intent: LaunchBomberIntent): void {
+  const player = state.players.get(intent.playerId)
+  if (player === undefined || !player.isAlive) return
+  const target = intent.targetTile
+  if (target < 0 || target >= state.map.state.length) return
+  if (player.gold < BOMBER_COST) return
+  const { map } = state
+  const { width, height } = map
+  const tx = target % width
+  const ty = Math.floor(target / width)
+  // Nächsten eigenen, fertigen, startbereiten Flughafen wählen (deterministisch: kürzeste Distanz).
+  let chosen: Building | undefined
+  let bestDist = Infinity
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'airport' || b.ownerId !== player.id) continue
+    if (!isBuildingComplete(b, state.tick)) continue
+    if ((b.cooldownUntilTick ?? 0) > state.tick) continue
+    const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+    if (d < bestDist) {
+      bestDist = d
+      chosen = b
+    }
+  }
+  if (chosen === undefined) return
+  const path = planBomberRoute(width, height, chosen.tile, target, intent.route)
+  if (path.length < 2) return
+  player.gold -= BOMBER_COST
+  chosen.cooldownUntilTick = state.tick + airportCooldown(chosen.level)
+  state.bombers.push({
+    ownerId: player.id,
+    path,
+    progress: 0,
+    dir: 1,
+    hp: BOMBER_HP,
+    dropped: false,
+    targetTile: target,
+  })
+}
+
+/**
+ * Bewegt die Bomber pro Tick. Am Ziel (Vorwärts-Ende des Pfads) wird einmal die Bombe abgeworfen,
+ * dann kehrt der Bomber um und löst sich am Flughafen auf. Ein per Flak abgeschossener Bomber
+ * (`hp <= 0`) wird ohne Einschlag verworfen.
+ */
+function advanceBombers(state: GameState): void {
+  // Abgelaufene Einschlag-Funken verwerfen (rein darstellend).
+  if (state.bombImpacts.length > 0)
+    state.bombImpacts = state.bombImpacts.filter(
+      (b) => state.tick - b.atTick < BOMB_IMPACT_LIFETIME,
+    )
+  if (state.bombers.length === 0) return
+  const next: Bomber[] = []
+  for (const bomber of state.bombers) {
+    if (bomber.hp <= 0) continue // abgeschossen → kein Einschlag
+    bomber.progress += BOMBER_SPEED * bomber.dir
+    const last = bomber.path.length - 1
+    if (bomber.dir === 1 && bomber.progress >= last) {
+      bomber.progress = last
+      if (!bomber.dropped) {
+        bomber.dropped = true
+        applyBomb(state, bomber.targetTile)
+      }
+      bomber.dir = -1
+    } else if (bomber.dir === -1 && bomber.progress <= 0) {
+      continue // am Flughafen angekommen → aufgelöst
+    }
+    next.push(bomber)
+  }
+  state.bombers = next
+}
+
+/**
+ * Bomben-Einschlag um `center` (Radius `BOMB_RADIUS`): zerstört JEDES Gebäude, schmilzt Truppen
+ * anteilig zur Dichte und neutralisiert das getroffene Land (→ herrenlos). Niemand wird verschont
+ * — auch eigenes und verbündetes Gebiet (ADR-0019).
+ */
+function applyBomb(state: GameState, center: TileRef): void {
+  const { map, players } = state
+  const { width, height } = map
+  const cx = center % width
+  const cy = Math.floor(center / width)
+  const r = BOMB_RADIUS
+  const r2 = r * r
+  for (let oy = -r; oy <= r; oy++) {
+    for (let ox = -r; ox <= r; ox++) {
+      if (ox * ox + oy * oy > r2) continue
+      const ref = tileRef(cx + ox, cy + oy, width, height)
+      // Gebäude zerstören (jedes) — VOR der Neutralisierung, sonst „überlebt" es als herrenlos.
+      if (state.buildings.has(ref)) {
+        state.buildings.delete(ref)
+        state.dirtyTiles.push(ref)
+      }
+      const owner = getOwner(map, ref)
+      if (owner > 0) {
+        const p = players.get(owner)
+        if (p !== undefined && p.tilesOwned > 0) {
+          // Dichte-Anteil dieses Tiles schmilzt aus dem Truppen-Pool (Land nimmt Bevölkerung mit).
+          const loss = Math.floor(p.troops / p.tilesOwned)
+          p.troops = Math.max(0, p.troops - loss)
+        }
+        captureTile(state, ref, 0) // Land → herrenlos (TerraNullius)
+      }
+    }
+  }
+  state.bombImpacts.push({ tile: center, atTick: state.tick })
 }
 
 /** Ruft das `warshipIndex`-te eigene Kriegsschiff zurück (fährt zur Küste, löst sich auf). */
@@ -3320,9 +3459,12 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
       oldPlayer.tilesOwned--
       oldPlayer.weightedTiles = Math.max(0, oldPlayer.weightedTiles - weight)
     }
-    // „Groll" des Bestohlenen gegen den Angreifer erhöhen (abklingend, → roter Rand).
-    const key = directedKey(attackerId, oldOwner)
-    state.grudge.set(key, (state.grudge.get(key) ?? 0) + weight)
+    // „Groll" des Bestohlenen gegen den Angreifer erhöhen (abklingend, → roter Rand). Nur bei
+    // echten Angreifern — eine Bomben-Neutralisierung (attackerId 0 = TerraNullius) erzeugt keinen.
+    if (attackerId > 0) {
+      const key = directedKey(attackerId, oldOwner)
+      state.grudge.set(key, (state.grudge.get(key) ?? 0) + weight)
+    }
   }
 
   updateFrontierAfterCapture(state, ref, oldOwner, attackerId)

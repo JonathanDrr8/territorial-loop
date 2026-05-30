@@ -11,12 +11,14 @@
 
 import type { TileRef } from '../world/torus'
 import type { BuildingType } from './buildings'
+import type { BomberRoute } from './ships'
 
 export type Intent =
   | AttackIntent
   | BoatIntent
   | BoatRecallIntent
   | LaunchWarshipIntent
+  | LaunchBomberIntent
   | RecallWarshipIntent
   | ToggleWarshipModeIntent
   | MoveWarshipIntent
@@ -103,6 +105,18 @@ export interface LaunchWarshipIntent {
   readonly type: 'launch-warship'
   readonly playerId: number
   readonly targetTile: TileRef
+}
+
+/**
+ * Spieler startet einen Bomber vom nächstgelegenen eigenen, startbereiten Flughafen Richtung
+ * `targetTile` (ADR-0019). Kostet Gold, löst den Flughafen-Cooldown aus. `route` bestimmt die
+ * Flugbahn (gerade oder Parabel-Bogen, um Flak zu umfliegen).
+ */
+export interface LaunchBomberIntent {
+  readonly type: 'launch-bomber'
+  readonly playerId: number
+  readonly targetTile: TileRef
+  readonly route: BomberRoute
 }
 
 /** Spieler ruft sein `warshipIndex`-tes Kriegsschiff zurück (fährt zur Küste, löst sich auf). */
