@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.4.0] – 2026-05-30
+
+### Neu
+
+- **Das ganze Spiel spricht jetzt 9 Sprachen** — nicht mehr nur das Menü, sondern alles im Match:
+  das HUD (Truppen, Gold mit Wirtschafts-Aufschlüsselung, Rangliste, Zeit, Steuerungs-Hilfe,
+  Sieg-Bildschirm), das Rechtsklick-Radialmenü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie/Handel),
+  die Gebäude- und Nationen-Tooltips, das Ereignislog, die Bestätigungs- und Feedback-Dialoge und
+  die Mehrspieler-Lobby. Umschaltbar oben rechts im Startmenü (Deutsch, Englisch, Spanisch,
+  Französisch, Italienisch, Portugiesisch, Russisch, Chinesisch, Japanisch).
+
 ## [0.3.0] – 2026-05-30
 
 ### Neu
