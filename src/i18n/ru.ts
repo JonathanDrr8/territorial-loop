@@ -220,6 +220,7 @@ export const ru: Record<string, string> = {
   'route.arc-right': 'дуга вправо',
   'hud.bomberModeHint':
     'Режим бомбардировщика · Маршрут: {route} · Shift+колесо меняет · Клик = цель · Esc завершает',
+  'hud.bomberWarnShot': 'Будет сбит!',
   'hud.attack': 'Атака: {pct}%',
   'hud.newMatch': 'Новый матч',
   'hud.pauseOverlay': 'ПАУЗА',

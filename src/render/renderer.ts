@@ -20,6 +20,7 @@ import {
   BOMB_IMPACT_LIFETIME,
   canBuildAt,
   CAPTURE_FADE_TICKS,
+  estimateBomberFlakDamage,
   FACTORY_CART_LIMIT,
   FACTORY_FOREIGN_CAP,
   FLAK_SHOT_LIFETIME,
@@ -2336,11 +2337,14 @@ export function createRenderer(
         from = b.tile
       }
     }
+    // Führt die Route bei aktueller Luftabdeckung in den sicheren Abschuss? → rote Warnung.
+    let doomed = false
     screenCtx.save()
-    // Flugroute als gepunktete orange Linie (Segment bricht bei Torus-Wrap-Sprüngen).
+    // Flugroute als gepunktete Linie (Segment bricht bei Torus-Wrap-Sprüngen). Rot, wenn tödlich.
     if (from >= 0) {
       const path = planBomberRoute(mapW, mapH, from, target, bomberPreviewRoute)
-      screenCtx.strokeStyle = 'rgba(232,136,74,0.85)'
+      doomed = estimateBomberFlakDamage(state, lutHumanId, path) >= BOMBER_HP
+      screenCtx.strokeStyle = doomed ? 'rgba(232,70,70,0.9)' : 'rgba(232,136,74,0.85)'
       screenCtx.lineWidth = 2
       screenCtx.setLineDash([6, 5])
       const jumpLimit = Math.max(cssW, cssH)
@@ -2359,13 +2363,15 @@ export function createRenderer(
       }
       screenCtx.setLineDash([])
     }
-    // Einschlagsradius am Ziel (oranger Ring + leichte Füllung).
+    // Einschlagsradius am Ziel (Ring + leichte Füllung; rot getönt, wenn die Route tödlich ist).
     const rr = BOMB_RADIUS * z
     const tx = hoverTile.x + 0.5
     const ty = hoverTile.y + 0.5
-    screenCtx.strokeStyle = 'rgba(232,115,42,0.8)'
-    screenCtx.fillStyle = 'rgba(232,115,42,0.12)'
+    screenCtx.strokeStyle = doomed ? 'rgba(232,70,70,0.85)' : 'rgba(232,115,42,0.8)'
+    screenCtx.fillStyle = doomed ? 'rgba(232,70,70,0.12)' : 'rgba(232,115,42,0.12)'
     screenCtx.lineWidth = 1.5
+    let targetSx = -1
+    let targetSy = -1
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const sx = worldToScreenX(tx + dx * mapW)
@@ -2375,7 +2381,22 @@ export function createRenderer(
         screenCtx.arc(sx, sy, rr, 0, Math.PI * 2)
         screenCtx.fill()
         screenCtx.stroke()
+        targetSx = sx
+        targetSy = sy
       }
+    }
+    // Warntext über dem Ziel, wenn die Route sicher abgeschossen wird.
+    if (doomed && targetSx >= 0) {
+      const label = t('hud.bomberWarnShot')
+      screenCtx.font = `bold ${String(Math.max(11, Math.round(11 + z * 0.4)))}px system-ui, sans-serif`
+      screenCtx.textAlign = 'center'
+      screenCtx.textBaseline = 'bottom'
+      const wy2 = targetSy - rr - 4
+      screenCtx.lineWidth = 3
+      screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
+      screenCtx.strokeText(label, targetSx, wy2)
+      screenCtx.fillStyle = '#ff6a6a'
+      screenCtx.fillText(label, targetSx, wy2)
     }
     screenCtx.restore()
   }

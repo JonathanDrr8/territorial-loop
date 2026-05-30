@@ -228,6 +228,7 @@ export const it: Record<string, string> = {
   'route.arc-right': 'arco a destra',
   'hud.bomberModeHint':
     'Modalità bombardiere · Rotta: {route} · Shift+rotella cambia · Clic = obiettivo · Esc termina',
+  'hud.bomberWarnShot': 'Sarà abbattuto!',
   'hud.attack': 'Attacco: {pct}%',
   'hud.newMatch': 'Nuova partita',
   'hud.pauseOverlay': 'PAUSA',

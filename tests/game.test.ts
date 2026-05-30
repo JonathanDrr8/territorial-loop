@@ -5,6 +5,7 @@ import {
   canBuildAt,
   createGame,
   effectiveMaxTroops,
+  estimateBomberFlakDamage,
   factoryYield,
   goldBreakdown,
   initializeAllFrontiers,
@@ -23,6 +24,7 @@ import {
   troopIncreaseRate,
   maxTroops,
 } from '../src/core/config'
+import { BOMBER_HP, planBomberRoute } from '../src/core/ships'
 import { getOwner, setOwner } from '../src/world/map'
 import { IS_LAND_BIT, isPassable, terrainMagnitude } from '../src/world/terrain'
 import { tileRef, neighbors4 } from '../src/world/torus'
@@ -663,6 +665,28 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.bombers.length).toBe(0) // abgeschossen + entfernt
     expect(state.buildings.has(targetCity)).toBe(true) // kein Einschlag → Stadt steht
     expect(getOwner(state.map, targetCity)).toBe(2) // Gebiet unversehrt
+  })
+
+  it('estimateBomberFlakDamage: Flak-Wand auf der Route übersteigt Bomber-HP (Warnung) (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 128, mapHeight: 128 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    // Gegnerische Flak-Wand bei x=35.
+    for (let y = 6; y <= 14; y += 2) {
+      const ft = T(35, y)
+      setOwner(state.map, ft, 2)
+      state.buildings.set(ft, { type: 'flak', ownerId: 2, tile: ft, level: 1, completesAtTick: 0 })
+    }
+    // Route quer durch die Wand → geschätzter Schaden übersteigt die Bomber-HP (Warnung greift).
+    const deadly = planBomberRoute(W, H, T(10, 10), T(60, 10), 'direct')
+    expect(estimateBomberFlakDamage(state, 1, deadly)).toBeGreaterThanOrEqual(BOMBER_HP)
+    // Route weit weg von jeder Flak → kein Schaden.
+    const safe = planBomberRoute(W, H, T(10, 100), T(60, 100), 'direct')
+    expect(estimateBomberFlakDamage(state, 1, safe)).toBe(0)
+    // Eigene Flak zählt nicht gegen den eigenen Bomber.
+    expect(estimateBomberFlakDamage(state, 2, deadly)).toBe(0)
   })
 
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {

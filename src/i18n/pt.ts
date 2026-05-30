@@ -226,6 +226,7 @@ export const pt: Record<string, string> = {
   'route.arc-right': 'arco à direita',
   'hud.bomberModeHint':
     'Modo bombardeiro · Rota: {route} · Shift+roda alterna · Clique = alvo · Esc termina',
+  'hud.bomberWarnShot': 'Será abatido!',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nova partida',
   'hud.pauseOverlay': 'PAUSA',

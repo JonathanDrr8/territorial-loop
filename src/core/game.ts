@@ -2069,6 +2069,42 @@ function resolveFlak(state: GameState): void {
 }
 
 /**
+ * Schätzt den Flak-Schaden, den ein Bomber des Besitzers `ownerId` auf seinem HINWEG entlang
+ * `path` von der bei aktueller Luftabdeckung sichtbaren FEINDLICHEN Flugabwehr kassiert (für die
+ * Routen-Warnung in der Ziel-Vorschau, ADR-0019). Pro feindlicher Flak: wie viele Pfad-Tiles in
+ * Reichweite → Zeit in Reichweite → Schuss-Gelegenheiten × Schaden. Übersteigt das `BOMBER_HP`,
+ * überlebt der Bomber die Route nicht. Reine Schätzung (keine Cooldown-Phasen) — nicht sim-relevant.
+ */
+export function estimateBomberFlakDamage(
+  state: GameState,
+  ownerId: number,
+  path: readonly TileRef[],
+): number {
+  const { map } = state
+  const { width, height } = map
+  let total = 0
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'flak' || !isBuildingComplete(b, state.tick)) continue
+    if (b.ownerId === ownerId || areAllied(state.alliances, b.ownerId, ownerId)) continue
+    const fx = (b.tile % width) + 0.5
+    const fy = Math.floor(b.tile / width) + 0.5
+    const range = flakRange(b.level)
+    let tilesInRange = 0
+    for (const ref of path) {
+      const px = (ref % width) + 0.5
+      const py = Math.floor(ref / width) + 0.5
+      if (torusDistance(fx, fy, px, py, width, height) <= range) tilesInRange++
+    }
+    if (tilesInRange === 0) continue
+    // Ticks in Reichweite (Bomber legt BOMBER_SPEED Tiles/Tick zurück) → Schuss-Gelegenheiten.
+    const ticksInRange = tilesInRange / BOMBER_SPEED
+    const shots = Math.floor(ticksInRange / FLAK_SHOT_COOLDOWN) + 1
+    total += shots * FLAK_DAMAGE
+  }
+  return total
+}
+
+/**
  * Bewegt die Bomber pro Tick. Am Ziel (Vorwärts-Ende des Pfads) wird einmal die Bombe abgeworfen,
  * dann kehrt der Bomber um und löst sich am Flughafen auf. Ein per Flak abgeschossener Bomber
  * (`hp <= 0`) wird ohne Einschlag verworfen.

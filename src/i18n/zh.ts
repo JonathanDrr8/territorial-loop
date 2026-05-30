@@ -192,6 +192,7 @@ export const zh: Record<string, string> = {
   'route.arc-left': '向左绕飞',
   'route.arc-right': '向右绕飞',
   'hud.bomberModeHint': '轰炸机模式 · 航线：{route} · Shift+滚轮切换 · 点击 = 目标 · Esc 结束',
+  'hud.bomberWarnShot': '将被击落！',
   'hud.attack': '进攻：{pct}%',
   'hud.newMatch': '新对局',
   'hud.pauseOverlay': '暂停',

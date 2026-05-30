@@ -195,6 +195,7 @@ export const ja: Record<string, string> = {
   'route.arc-right': '右に迂回',
   'hud.bomberModeHint':
     '爆撃機モード · ルート：{route} · Shift+ホイールで切替 · クリック = 目標 · Esc で終了',
+  'hud.bomberWarnShot': '撃墜されます！',
   'hud.attack': '攻撃：{pct}%',
   'hud.newMatch': '新しい対戦',
   'hud.pauseOverlay': '一時停止',
