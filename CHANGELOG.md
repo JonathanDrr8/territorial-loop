@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.6] – 2026-05-30
+
+### Geändert
+
+- **Eingeschlossene Gebiete fallen dir zu:** Umzingelst du ein abgetrenntes Stück einer Nation
+  komplett (kein Fluchtweg, nur du ringsum), verschluckst du es samt anteiliger Gold-Beute. Das
+  **Kerngebiet** (größtes Stück) fällt aber nur bei massiver Übermacht (25× Truppen-Kapazität) —
+  gut entwickelte Nationen mit Städten bleiben praktisch unschluckbar, und **Verbündete** sind
+  ausgenommen. Hält die Karte sauberer und belohnt echtes Einkesseln.
+
 ## [0.6.5] – 2026-05-30
 
 ### Behoben
