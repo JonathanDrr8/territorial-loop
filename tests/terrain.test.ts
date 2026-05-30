@@ -11,7 +11,7 @@ import {
   MOUNTAIN_MAG,
 } from '../src/world/terrain'
 import { createMap } from '../src/world/map'
-import { labelWaterComponents } from '../src/world/water-path'
+import { labelWaterComponents, findWaterPath } from '../src/world/water-path'
 import { createPRNG } from '../src/core/random'
 
 describe('generateTerrain', () => {
@@ -190,5 +190,48 @@ describe('generateTerrain', () => {
     }
     // Flüsse münden ins Meer → die größte Komponente deckt den Großteil des Wassers ab.
     expect(largest / total).toBeGreaterThan(0.9)
+  })
+
+  it('rivers: Schiff-Pathfinding findet einen Weg vom offenen Meer in einen Fluss-Kanal', () => {
+    const map = createMap(160, 160)
+    generateTerrain(map, createPRNG('rivers-nav'), 'continents', true)
+    const comp = labelWaterComponents(map)
+    const { width: w, height: h } = map
+    const isW = (i: number): boolean => !isLand(map.terrain, i)
+    const isL = (i: number): boolean => isLand(map.terrain, i)
+    // größte Wasser-Komponente (= offenes Meer)
+    const sizes = new Map<number, number>()
+    for (let i = 0; i < comp.length; i++) {
+      const c = comp[i] ?? -1
+      if (c >= 0) sizes.set(c, (sizes.get(c) ?? 0) + 1)
+    }
+    let seaComp = -1
+    let mx = 0
+    for (const [c, s] of sizes) {
+      if (s > mx) {
+        mx = s
+        seaComp = c
+      }
+    }
+    // Fluss-Kanal-Tile (Land beidseitig) + offenes-Meer-Tile (alle 4 Nachbarn Wasser), beide im Meer.
+    let river = -1
+    let openSea = -1
+    for (let y = 2; y < h - 2; y++) {
+      for (let x = 2; x < w - 2; x++) {
+        const i = y * w + x
+        if (!isW(i) || comp[i] !== seaComp) continue
+        if (river < 0 && ((isL(i - 3) && isL(i + 3)) || (isL(i - 3 * w) && isL(i + 3 * w))))
+          river = i
+        if (openSea < 0 && isW(i - 1) && isW(i + 1) && isW(i - w) && isW(i + w)) openSea = i
+        if (river >= 0 && openSea >= 0) break
+      }
+      if (river >= 0 && openSea >= 0) break
+    }
+    expect(river).toBeGreaterThanOrEqual(0)
+    expect(openSea).toBeGreaterThanOrEqual(0)
+    // Schiffe nutzen genau dieses findWaterPath → ein Pfad beweist: Flüsse sind befahrbar.
+    const path = findWaterPath(map, openSea, river, comp)
+    expect(path).not.toBeNull()
+    expect((path ?? []).length).toBeGreaterThan(1)
   })
 })
