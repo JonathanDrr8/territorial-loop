@@ -22,12 +22,13 @@ import {
   countBuildingsOfType,
   effectiveMaxTroops,
   isBuildingAllowed,
+  warshipCapacity,
   type GameState,
   type Player,
 } from '../core/game'
 import { defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
-import { MAX_WARSHIPS_PER_PLAYER, NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
+import { NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -460,7 +461,8 @@ export function createAI(
   function planWarship(state: GameState, player: Player): Intent | null {
     if (player.gold < WARSHIP_COST) return null
     const active = state.warships.reduce((n, w) => (w.ownerId === player.id ? n + 1 : n), 0)
-    if (active >= MAX_WARSHIPS_PER_PLAYER) return null
+    // Kapazität = Summe der Hafen-Level (wie beim Menschen), nicht mehr ein globales Limit.
+    if (active >= warshipCapacity(state, player.id)) return null
     let hasPort = false
     for (const b of state.buildings.values()) {
       if (b.type === 'port' && b.ownerId === player.id && isBuildingComplete(b, state.tick)) {

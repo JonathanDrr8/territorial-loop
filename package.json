@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:server": "tsx watch server/server.ts",
     "server": "tsx server/server.ts",
+    "ai-arena": "tsx scripts/ai-arena.ts",
     "deploy": "bash scripts/deploy.sh",
     "feedback": "bash scripts/feedback.sh",
     "build": "tsc -b && vite build",

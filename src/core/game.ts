@@ -1875,7 +1875,7 @@ function planWarshipRoute(
 
 /** Entsendet ein Kriegsschiff zu einem Wasser-Ziel (von einem eigenen Hafen, gegen Gold). */
 /** Kriegsschiff-Kapazität eines Spielers = Summe der Level seiner fertigen Häfen (ADR-0019-Nachtrag). */
-function warshipCapacity(state: GameState, playerId: number): number {
+export function warshipCapacity(state: GameState, playerId: number): number {
   let cap = 0
   for (const b of state.buildings.values()) {
     if (b.type === 'port' && b.ownerId === playerId && isBuildingComplete(b, state.tick))
