@@ -15,6 +15,7 @@ import { getLocale, LOCALES, onLocaleChange, setLocale, t, type Locale } from '.
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
+import { APP_VERSION } from 'virtual:app-version'
 import {
   ACCENT,
   BUTTON_STYLE,
@@ -210,7 +211,7 @@ export function createMenuShell(
     title.innerHTML = `territorial-<span style="color:${ACCENT}">loop</span>`
     title.style.cssText = 'font-size: 24px; font-weight: bold; letter-spacing: 0.5px'
     const version = document.createElement('div')
-    version.textContent = `v${__APP_VERSION__}`
+    version.textContent = `v${APP_VERSION}`
     version.style.cssText = 'font-size: 13px; opacity: 0.5'
     brand.appendChild(title)
     brand.appendChild(version)
@@ -317,7 +318,7 @@ export function createMenuShell(
     footer.appendChild(left)
 
     const right = document.createElement('div')
-    right.textContent = `v${__APP_VERSION__} · 2026`
+    right.textContent = `v${APP_VERSION} · 2026`
     footer.appendChild(right)
     return footer
   }

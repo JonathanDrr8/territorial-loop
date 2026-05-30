@@ -22,6 +22,7 @@ import { getOwner } from './world/map'
 import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
+import { APP_VERSION } from 'virtual:app-version'
 import { LocalTransport, NetworkTransport, type IntentTransport } from './net/transport'
 import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
@@ -612,7 +613,7 @@ function main(): void {
   // Knopf hinter dem Menü-Overlay liegt) — schreibt an den Server (JSONL).
   const feedbackUi = createFeedbackUi(container, {
     endpoint: feedbackEndpoint(),
-    version: __APP_VERSION__,
+    version: APP_VERSION,
   })
   // UI-Größen-Slider (unten links über dem Feedback-Knopf) — skaliert das ganze In-Game-HUD.
   createUiScaleSlider(container)
