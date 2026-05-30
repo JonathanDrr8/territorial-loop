@@ -1449,3 +1449,119 @@ describe('attack resolution — end-to-end victory', () => {
     expect(ticks).toBeLessThan(MAX_TICKS)
   })
 })
+
+describe('Anti-Zersplitterung: eingeschlossene Fragmente (ADR-0017)', () => {
+  const W = 64
+  const Hgt = 64
+  const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+
+  /**
+   * Flache Welt: p1 umschließt das p2-Tile (5,5) im 3×3-Block bis auf das Wildnis-Loch (5,6),
+   * an das p1 über (4,6)/(6,6) grenzt. Ein p1-Angriff auf (5,6) schließt (5,5) dann ein.
+   */
+  function setupEnclosed(opts: {
+    p1Troops: number // aktuelle Truppen, nur damit p1 das Loch erobern kann
+    p1Weighted?: number // weightedTiles → effektiver Cap (Regel-2-Vergleich)
+    p2Weighted?: number
+    extraP2?: ReadonlyArray<readonly [number, number]>
+    allied?: boolean
+    thirdEncloser?: boolean
+  }): GameState {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+      p.gold = 0
+    }
+    const claim = (x: number, y: number, id: number): void => {
+      const p = state.players.get(id)
+      if (p === undefined) throw new Error(`player ${String(id)} missing`)
+      setOwner(state.map, T(x, y), id)
+      p.tilesOwned++
+      p.frontier.add(T(x, y))
+    }
+    // p1-Rahmen: 3×3 um (5,5) außer center (5,5) und Loch (5,6). Optional (6,5) als p3.
+    claim(4, 4, 1)
+    claim(5, 4, 1)
+    claim(6, 4, 1)
+    claim(4, 5, 1)
+    claim(6, 5, opts.thirdEncloser === true ? 3 : 1)
+    claim(4, 6, 1)
+    claim(6, 6, 1)
+    claim(5, 5, 2) // eingeschlossenes Ziel-Fragment
+    for (const [x, y] of opts.extraP2 ?? []) claim(x, y, 2)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    p1.troops = opts.p1Troops
+    // weightedTiles bestimmt den effektiven Cap (= Regel-2-Metrik); claim setzt nur tilesOwned.
+    if (opts.p1Weighted !== undefined) p1.weightedTiles = opts.p1Weighted
+    if (opts.p2Weighted !== undefined) p2.weightedTiles = opts.p2Weighted
+    if (opts.allied === true) state.alliances.add(pairKey(1, 2))
+    return state
+  }
+
+  /** p1 greift das Loch (5,6) an, bis es erobert ist (löst den Fragment-Check aus). */
+  function captureHole(state: GameState, troops: number): void {
+    for (let i = 0; i < 25 && getOwner(state.map, T(5, 6)) !== 1; i++)
+      tick(state, [{ type: 'attack', playerId: 1, targetTile: T(5, 6), troops }])
+    tick(state, []) // Nachlauf
+    expect(getOwner(state.map, T(5, 6))).toBe(1) // Trigger lief tatsächlich
+  }
+
+  it('Regel 1: ein NICHT größtes (abgesprengtes) Fragment fällt sofort — Truppen egal', () => {
+    // p2 hat ein großes freies Stück (4 Tiles) → (5,5) ist nur ein kleiner Fetzen. p2 hat sogar
+    // klar mehr Truppen, trotzdem fällt der Fetzen (Regel 1 kennt keine Truppen-Schwelle).
+    const state = setupEnclosed({
+      p1Troops: 5000,
+      extraP2: [
+        [20, 20],
+        [21, 20],
+        [22, 20],
+        [23, 20],
+      ],
+    })
+    captureHole(state, 4000)
+    expect(getOwner(state.map, T(5, 5))).toBe(1) // geschluckt
+    expect(getOwner(state.map, T(20, 20))).toBe(2) // großes Stück bleibt
+    expect(state.players.get(2)?.tilesOwned).toBe(4)
+    assertTileCountConsistency(state)
+  })
+
+  it('Regel 2: das Kerngebiet bleibt ohne 25× Kapazitäts-Übermacht', () => {
+    // (5,5) ist das einzige (= größte) Stück → Kerngebiet. p1 hat nur leicht mehr Cap (kein 25×).
+    const state = setupEnclosed({ p1Troops: 15_000, p1Weighted: 50, p2Weighted: 1 })
+    captureHole(state, 7000)
+    expect(getOwner(state.map, T(5, 5))).toBe(2) // geschützt
+    expect(state.players.get(2)?.isAlive).toBe(true)
+  })
+
+  it('Regel 2: das Kerngebiet fällt mit 25× Kapazitäts-Übermacht (Nation ausgelöscht)', () => {
+    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1 })
+    captureHole(state, 8000)
+    expect(getOwner(state.map, T(5, 5))).toBe(1) // geschluckt
+    expect(state.players.get(2)?.tilesOwned).toBe(0)
+    expect(state.players.get(2)?.isAlive).toBe(false) // checkEliminations
+  })
+
+  it('Verbündete werden nicht geschluckt', () => {
+    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1, allied: true })
+    captureHole(state, 8000)
+    expect(getOwner(state.map, T(5, 5))).toBe(2) // Allianz schützt
+  })
+
+  it('zwei verschiedene Umschließer → kein Schlucken', () => {
+    // (6,5) gehört p3 → (5,5) ist nicht von GENAU EINEM Spieler umschlossen.
+    const state = setupEnclosed({
+      p1Troops: 60_000,
+      p1Weighted: 3000,
+      p2Weighted: 1,
+      thirdEncloser: true,
+    })
+    captureHole(state, 8000)
+    expect(getOwner(state.map, T(5, 5))).toBe(2) // gemischte Umschließung
+  })
+})

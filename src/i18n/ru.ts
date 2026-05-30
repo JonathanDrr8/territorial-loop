@@ -192,6 +192,8 @@ export const ru: Record<string, string> = {
   'event.lootWild': '{p} захватывает {amount} золота в дикой земле',
   'event.annex': '{p} окружает {wild} и присоединяет её',
   'event.annexLoot': '{p} окружает {wild} и присоединяет её (+{amount} золота)',
+  'event.annexFragment': '{p} поглощает окружённую территорию {victim}',
+  'event.annexFragmentLoot': '{p} поглощает окружённую территорию {victim} (+{amount} золота)',
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   'hud.tooltip.city': 'Город — +{cap} к лимиту войск за уровень.',

@@ -169,6 +169,8 @@ export const ja: Record<string, string> = {
   'event.lootWild': '{p} が荒野から金 {amount} を奪取',
   'event.annex': '{p} が {wild} を包囲して併合',
   'event.annexLoot': '{p} が {wild} を包囲して併合（+{amount} 金）',
+  'event.annexFragment': '{p} が {victim} の包囲された領土を併合',
+  'event.annexFragmentLoot': '{p} が {victim} の包囲された領土を併合（+{amount} 金）',
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   'hud.tooltip.city': '都市 —— 1 段階ごとに兵力上限 +{cap}。',

@@ -197,6 +197,8 @@ export const pt: Record<string, string> = {
   'event.lootWild': '{p} saqueia {amount} de ouro do ermo',
   'event.annex': '{p} cerca {wild} e a anexa',
   'event.annexLoot': '{p} cerca {wild} e a anexa (+{amount} de ouro)',
+  'event.annexFragment': '{p} engole o território cercado de {victim}',
+  'event.annexFragmentLoot': '{p} engole o território cercado de {victim} (+{amount} de ouro)',
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   'hud.tooltip.city': 'Cidade — +{cap} de tropas máximas por nível.',

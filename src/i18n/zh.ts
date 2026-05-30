@@ -168,6 +168,8 @@ export const zh: Record<string, string> = {
   'event.lootWild': '{p} 从荒野掠夺了 {amount} 金币',
   'event.annex': '{p} 包围并吞并了 {wild}',
   'event.annexLoot': '{p} 包围并吞并了 {wild}（+{amount} 金币）',
+  'event.annexFragment': '{p} 吞并了 {victim} 的被包围领土',
+  'event.annexFragmentLoot': '{p} 吞并了 {victim} 的被包围领土（+{amount} 金币）',
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   'hud.tooltip.city': '城市 —— 每级 +{cap} 兵力上限。',

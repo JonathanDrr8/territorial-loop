@@ -329,6 +329,15 @@ const SPAWN_TARGET_TILES = 100
 const WILD_SPAWN_TILES = 48
 /** Alle wie viele Ticks geprüft wird, ob eine wilde Nation eingeschlossen wurde (→ Annexion). */
 const WILD_ENCIRCLE_INTERVAL = 12
+/**
+ * Anti-Zersplitterung (Regel 2): Ein KOMPLETT umzingeltes Fragment, das zugleich das flächen-
+ * größte Stück der Nation ist (also ihr Kerngebiet), fällt nur, wenn der Umschließer mindestens
+ * so viel Übermacht hat — Truppen-KAPAZITÄT (effektiver Cap aus Land + Städten) ≥
+ * FRAGMENT_CORE_TROOP_RATIO × Kapazität der eingeschlossenen Nation. Kapazität statt aktueller
+ * Truppen, weil sie die „Größe des Landes" stabil abbildet (nicht den volatilen Kampfzustand).
+ * Kleinere abgesprengte Fetzen (nicht das größte Stück) fallen dagegen sofort (Regel 1).
+ */
+const FRAGMENT_CORE_TROOP_RATIO = 25
 
 /**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
@@ -2747,7 +2756,12 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
 
   // Eingeschlossene Taschen schließen: vom Angreifer rundum umzingelte fremde/neutrale
   // Tiles fallen frei (keine „Blasen" hinter einer durchbrochenen Front).
-  if (capturedTiles.length > 0) fillEnclosedPockets(state, attacker, capturedTiles)
+  if (capturedTiles.length > 0) {
+    fillEnclosedPockets(state, attacker, capturedTiles)
+    // Anti-Zersplitterung (ADR-0017): rundum vom Angreifer umzingelte Fragmente FREMDER Nationen
+    // verschlucken — kleine Fetzen sofort (Regel 1), das Kerngebiet nur bei 20× Übermacht (Regel 2).
+    annexEnclosedFragments(state, attacker, capturedTiles)
+  }
 
   if (captured > 0) {
     const mx = (((anchorX + Math.round(sumDx / captured)) % fw) + fw) % fw
@@ -2783,7 +2797,15 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
     for (const ref of frontier) {
       for (const n of neighbors4(ref, width, height)) {
         if (!isPassable(map.terrain, n)) continue
-        if (getOwner(map, n) === attacker.id) continue
+        const o = getOwner(map, n)
+        if (o === attacker.id) continue
+        // Echte (nicht-wilde) fremde Nationen NICHT hier schlucken — dafür gibt es
+        // annexEnclosedFragments (mit Regeln zu Kerngebiet/Allianz/Übermacht). Nur Wildnis und
+        // wilde Taschen weiter sofort füllen („keine Blasen hinter der durchbrochenen Front").
+        if (o > 0) {
+          const owner = state.players.get(o)
+          if (owner !== undefined && !owner.wild) continue
+        }
         if (isEnclosedByAttacker(n)) {
           captureTile(state, n, attacker.id)
           next.push(n)
@@ -2915,6 +2937,199 @@ function annexWild(state: GameState, w: Player, p: Player): void {
       )
     } else {
       emitEvent(state, 'event.annex', { p: p.name, wild: w.name }, p.color)
+    }
+  }
+}
+
+/**
+ * Anti-Zersplitterung (ADR-0017). Nach einer Angriffs-Eroberung prüfen, ob dadurch ein
+ * zusammenhängendes Stück einer FREMDEN, nicht verbündeten, nicht-wilden Nation rundum nur noch
+ * vom Angreifer (plus Wasser/Berg als Wände) umschlossen ist — kein Fluchtweg in freie Wildnis,
+ * keine dritte Nation angrenzend. Solche Fragmente verschluckt der Angreifer:
+ *   - Regel 1: ist es NICHT das flächengrößte Stück der Nation (ein abgesprengter Fetzen), fällt
+ *     es sofort.
+ *   - Regel 2: ist es das Kerngebiet (größtes Stück), fällt es nur bei massiver Übermacht
+ *     (Truppen des Angreifers ≥ FRAGMENT_CORE_TROOP_RATIO × Truppen der Nation).
+ * Verbündete sind ausgenommen. Wilde Nationen laufen weiter über [[annexEncircledWilds]] (ganze
+ * Nation, ohne Truppen-Schwelle). Kettenreaktionen (ein Schluck schließt das nächste Fragment ein)
+ * werden in einer begrenzten Schleife aufgelöst.
+ */
+function annexEnclosedFragments(
+  state: GameState,
+  attacker: Player,
+  capturedTiles: readonly TileRef[],
+): void {
+  const { map, players } = state
+  const { width, height } = map
+  let seeds: readonly TileRef[] = capturedTiles
+  let guard = 0
+  while (seeds.length > 0 && guard < 16) {
+    guard++
+    // Eintritts-Tiles in angrenzende fremde Fragmente: Nachbarn der frischen Tiles, die einer
+    // anderen lebenden, nicht-wilden, nicht verbündeten Nation gehören. Deterministisch sortiert.
+    const entrySeeds: TileRef[] = []
+    const seenEntry = new Set<TileRef>()
+    for (const ref of seeds) {
+      for (const n of neighbors4(ref, width, height)) {
+        const o = getOwner(map, n)
+        if (o <= 0 || o === attacker.id || seenEntry.has(n)) continue
+        const victim = players.get(o)
+        if (victim === undefined || !victim.isAlive || victim.wild) continue
+        if (areAllied(state.alliances, attacker.id, o)) continue
+        seenEntry.add(n)
+        entrySeeds.push(n)
+      }
+    }
+    entrySeeds.sort((a, b) => a - b) // Determinismus (Set-Reihenfolge nicht verlassen)
+
+    const swallowed: TileRef[] = []
+    const handled = new Set<TileRef>() // in diesem Durchlauf schon gefloodete Fragment-Tiles
+    for (const seed of entrySeeds) {
+      if (handled.has(seed)) continue
+      const victimId = getOwner(map, seed)
+      const victim = players.get(victimId)
+      if (victim === undefined || !victim.isAlive || victim.wild) continue
+      const frag = floodEnclosedFragment(state, seed, victimId, attacker.id)
+      for (const tref of frag.tiles) handled.add(tref)
+      if (!frag.enclosed) continue
+      const fragSize = frag.tiles.length
+      const isCore = isLargestFragment(state, victim, frag.tiles, fragSize)
+      // Regel 2 schützt das Kerngebiet, außer der Angreifer hat 20× Übermacht — gemessen an der
+      // Truppen-KAPAZITÄT (effektiver Cap aus Land + Städten), nicht an den volatilen aktuellen
+      // Truppen: eine gerade angegriffene Nation soll nicht zufällig „schwach" wirken, und der
+      // Cap bildet die eigentliche „Größe des Landes" ab (genau Jonathans 20k-vs-500k-Gedanke).
+      if (
+        isCore &&
+        effectiveMaxTroops(state, attacker.id) <
+          FRAGMENT_CORE_TROOP_RATIO * effectiveMaxTroops(state, victim.id)
+      )
+        continue
+      annexFragment(state, victim, attacker, frag.tiles)
+      swallowed.push(...frag.tiles)
+    }
+    seeds = swallowed // Kettenreaktion: geschluckte Tiles können das nächste Fragment einschließen
+  }
+}
+
+/**
+ * Flutet ab `seed` das zusammenhängende Tile-Stück der Nation `victimId` (4-connected) und prüft
+ * dabei, ob es rundum NUR von `encloserId` (plus Wasser/Berg als Wände) umgeben ist. Bricht früh
+ * ab, sobald ein Fluchtweg auftaucht (freie Wildnis, dritte Nation oder zweiter Umschließer) — dann
+ * ist das Stück nicht eingeschlossen und der teure Voll-Flood entfällt.
+ */
+function floodEnclosedFragment(
+  state: GameState,
+  seed: TileRef,
+  victimId: number,
+  encloserId: number,
+): { readonly tiles: TileRef[]; readonly enclosed: boolean } {
+  const { map } = state
+  const { width, height } = map
+  const tiles: TileRef[] = []
+  const seen = new Set<TileRef>([seed])
+  const queue: TileRef[] = [seed]
+  let enclosed = true
+  while (queue.length > 0) {
+    const ref = queue.pop()
+    if (ref === undefined) break
+    tiles.push(ref)
+    for (const n of neighbors4(ref, width, height)) {
+      const o = getOwner(map, n)
+      if (o === victimId) {
+        if (!seen.has(n)) {
+          seen.add(n)
+          queue.push(n)
+        }
+      } else if (isPassable(map.terrain, n) && (o === 0 || o !== encloserId)) {
+        enclosed = false // passabler Nachbar = Wildnis / dritte Nation / zweiter Umschließer
+      }
+    }
+    if (!enclosed) break // Fluchtweg gefunden → kein weiteres Fluten nötig
+  }
+  return { tiles, enclosed }
+}
+
+/**
+ * Ist `fragTiles` (Größe `fragSize`) das flächengrößte zusammenhängende Stück der Nation `victim`?
+ * Schnell-Pfad: ist es schon mehr als der halbe Besitz, kann kein anderes Stück größer sein. Sonst
+ * die übrigen Stücke ab den Frontier-Tiles fluten und früh abbrechen, sobald eines `fragSize`
+ * übersteigt (dann ist `fragTiles` NICHT das größte → Regel 1 statt Regel 2).
+ */
+function isLargestFragment(
+  state: GameState,
+  victim: Player,
+  fragTiles: readonly TileRef[],
+  fragSize: number,
+): boolean {
+  const restTiles = victim.tilesOwned - fragSize
+  if (fragSize > restTiles) return true // Mehrheit der Fläche → sicher das größte Stück
+  const { map } = state
+  const { width, height } = map
+  const seen = new Set<TileRef>(fragTiles)
+  for (const start of victim.frontier) {
+    if (seen.has(start) || getOwner(map, start) !== victim.id) continue
+    let size = 0
+    let bigger = false
+    const queue: TileRef[] = [start]
+    seen.add(start)
+    while (queue.length > 0) {
+      const ref = queue.pop()
+      if (ref === undefined) break
+      size++
+      if (size > fragSize) {
+        bigger = true
+        break
+      }
+      for (const n of neighbors4(ref, width, height)) {
+        if (!seen.has(n) && getOwner(map, n) === victim.id) {
+          seen.add(n)
+          queue.push(n)
+        }
+      }
+    }
+    if (bigger) return false
+  }
+  return true
+}
+
+/**
+ * Verschluckt das Fragment `tiles` der Nation `victim` für `encloser`: anteilige Gold-Beute
+ * (Fragment-Anteil am Gold-Vorrat), dann alle Tiles übergeben. Stirbt die Nation dadurch aus,
+ * erledigt [[checkEliminations]] die Markierung. Ein Event wird nur geloggt, wenn ein Mensch
+ * beteiligt ist (Bot-zu-Bot bleibt bei vielen Nationen ungeloggt — ADR-0012).
+ */
+function annexFragment(
+  state: GameState,
+  victim: Player,
+  encloser: Player,
+  tiles: readonly TileRef[],
+): void {
+  // Anteilige Gold-Beute EINMAL berechnen, solange tilesOwned noch den vollen Stand hat.
+  let loot = 0
+  if (victim.gold > 0 && victim.tilesOwned > 0) {
+    loot = Math.floor((victim.gold * tiles.length) / victim.tilesOwned)
+    if (loot > 0) {
+      victim.gold -= loot
+      encloser.gold += loot
+      encloser.goldEarned += loot
+    }
+  }
+  for (const ref of tiles) captureTile(state, ref, encloser.id)
+  if (encloser.isHuman || victim.isHuman) {
+    if (loot > 0) {
+      emitEvent(
+        state,
+        'event.annexFragmentLoot',
+        { p: encloser.name, victim: victim.name, amount: fmtCompactGold(loot) },
+        encloser.color,
+      )
+    } else {
+      emitEvent(
+        state,
+        'event.annexFragment',
+        { p: encloser.name, victim: victim.name },
+        encloser.color,
+      )
     }
   }
 }
