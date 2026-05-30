@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed (Plan — Teile bereits umgesetzt, der Layout-Umbau wartet auf Freigabe)
+**Abgeschlossen (2026-05-30).** Umgesetzt: Schritt 1 (Abbrechen/Abwehr ans untere Aktions-Panel),
+Schritt 4 (kompakte Bau-Chips), Schritt 5 (Ereignislog als deckendes Feld + Filter), plus
+Attack-ins-Slider-Label und Economy-Popover; dazu der Truppen-Badge als Nodge oben. **Schritt 2
+(Zahl ÜBER den Balken) und Schritt 3 (/s-Labels) bewusst verworfen** — die Truppen-Zahl bleibt
+zentriert AUF dem Balken (so will es Jonathan). HUD gilt als fertig.
 
 ## Datum
 
