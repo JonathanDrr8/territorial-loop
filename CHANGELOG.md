@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.4] – 2026-05-30
+
+### Behoben
+
+- **Das Angriffs-Panel reagiert wieder zuverlässig** — Schild (Abwehren), Name (zum Angriff
+  springen) und die Hover-Tooltips funktionieren jetzt. Vorher wurde das Panel ~60×/Sekunde neu
+  gezeichnet, wodurch Klicks ins Leere gingen und Tooltips nie auftauchten.
+
 ## [0.6.3] – 2026-05-30
 
 ### Behoben

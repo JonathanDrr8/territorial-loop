@@ -272,8 +272,11 @@ export function createHUD(
     'pointer-events: auto',
     'display: none',
   ].join(';')
-  // Delegierter Klick: ausgehende Angriffe abbrechen / eigene Boote & Kriegsschiffe zurückrufen.
-  attackPanel.addEventListener('click', (e) => {
+  // Delegierte Aktion auf `mousedown` (NICHT `click`!): das Panel re-rendert sein innerHTML laufend,
+  // sodass ein `click` (= mousedown+mouseup am selben Element) oft ins Leere geht, weil das Element
+  // dazwischen ersetzt wurde. `mousedown` feuert atomar beim Drücken → zuverlässig. Nur linke Taste.
+  attackPanel.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
     const el = (e.target as HTMLElement | null)?.closest(
       '[data-locate],[data-cancel],[data-recall],[data-recall-warship],[data-defend]',
     )
@@ -841,6 +844,9 @@ export function createHUD(
     }
   }
 
+  // Memoisiertes Panel-HTML: nur neu setzen, wenn sich der Inhalt wirklich ändert — sonst würde das
+  // 60×/s-Re-Rendern die interaktiven Elemente ständig zerstören (Klick/Hover gehen verloren).
+  let lastAttackHtml = ''
   /** Übersicht eigener (ausgehender) und eingehender Angriffe mit Dauer. */
   function updateAttackPanel(): void {
     const human = findHuman()
@@ -931,7 +937,11 @@ export function createHUD(
       return
     }
     attackPanel.style.display = 'block'
-    attackPanel.innerHTML = `<div style="opacity:0.65;margin-bottom:2px">${t('hud.attacks')}</div>${rows.join('')}`
+    const html = `<div style="opacity:0.65;margin-bottom:2px">${t('hud.attacks')}</div>${rows.join('')}`
+    if (html !== lastAttackHtml) {
+      attackPanel.innerHTML = html
+      lastAttackHtml = html
+    }
   }
 
   /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
