@@ -124,4 +124,16 @@ describe('ServerMatch — autoritative Sim (ADR-0009 Phase 4)', () => {
     const restored = deserializeState(JSON.parse(JSON.stringify(snap.state)))
     expect(hashState(restored)).toBe(lastHash)
   })
+
+  it('snapshot() ist pro Turn memoisiert (gleiche Referenz) und verfällt beim nächsten Turn', () => {
+    const server = new ServerMatch(cfg({ seed: 'cache' }))
+    for (let t = 0; t < 5; t++) server.advanceTurn()
+    const a = server.snapshot()
+    const b = server.snapshot()
+    expect(b).toBe(a) // selber Turn → derselbe gecachte Blob (kein zweites serializeState)
+    server.advanceTurn()
+    const c = server.snapshot()
+    expect(c).not.toBe(a) // Turn fortgeschritten → frisch serialisiert
+    expect(c.turn).toBe(a.turn + 1)
+  })
 })

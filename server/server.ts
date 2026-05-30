@@ -40,6 +40,14 @@ const PORT = Number(process.env.PORT ?? 8787)
 /** Turn-Takt in ms (entspricht SIM_BASE_INTERVAL_MS des Clients). */
 const TURN_MS = 100
 
+/**
+ * Entzerrt Desync-Korrektur-Snapshots pro Socket: ein Client, der mehrere Turns in Folge einen
+ * abweichenden Hash meldet (bis der eingespielte Snapshot greift), bekommt höchstens alle
+ * ~3 s (= 30 Turns) einen neuen vollen Snapshot — verhindert einen „Snapshot-Sturm".
+ */
+const DESYNC_SNAPSHOT_COOLDOWN_TURNS = 30
+const lastDesyncSnapshotTurn = new WeakMap<WebSocket, number>()
+
 /** Verzeichnis der gebauten Client-App (Production). Default `dist/` relativ zum CWD. */
 const STATIC_DIR = resolve(process.env.STATIC_DIR ?? 'dist')
 
@@ -192,6 +200,20 @@ function send(socket: WebSocket, msg: ServerMessage): void {
   if (socket.readyState === WebSocket.OPEN) socket.send(encode(msg))
 }
 
+/**
+ * Schickt bei bestätigtem Desync einen Korrektur-Snapshot an genau diesen Socket — aber
+ * höchstens alle {@link DESYNC_SNAPSHOT_COOLDOWN_TURNS} Turns (Snapshot-Sturm-Schutz). Der
+ * Snapshot selbst ist in {@link ServerMatch.snapshot} pro Turn gecacht.
+ */
+function sendDesyncSnapshot(socket: WebSocket, room: Room): void {
+  const snap = room.match?.snapshot()
+  if (snap === undefined) return
+  const last = lastDesyncSnapshotTurn.get(socket)
+  if (last !== undefined && snap.turn - last < DESYNC_SNAPSHOT_COOLDOWN_TURNS) return
+  lastDesyncSnapshotTurn.set(socket, snap.turn)
+  send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
+}
+
 function broadcast(room: Room, msg: ServerMessage): void {
   for (const m of room.members.values()) if (m.socket !== null) send(m.socket, msg)
   for (const s of room.spectators) send(s, msg)
@@ -301,12 +323,7 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
       room.match?.submitIntents(msg.turn, msg.intents, member.playerId)
       break
     case 'state-hash': {
-      const verdict = room.match?.verifyHash(msg.turn, msg.hash)
-      if (verdict === false) {
-        const snap = room.match?.snapshot()
-        if (snap !== undefined)
-          send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
-      }
+      if (room.match?.verifyHash(msg.turn, msg.hash) === false) sendDesyncSnapshot(socket, room)
       break
     }
     case 'resync-request': {
@@ -324,10 +341,7 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
  */
 function handleSpectatorMessage(socket: WebSocket, room: Room, msg: ClientMessage): void {
   if (msg.kind === 'state-hash') {
-    if (room.match?.verifyHash(msg.turn, msg.hash) === false) {
-      const snap = room.match.snapshot()
-      send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
-    }
+    if (room.match?.verifyHash(msg.turn, msg.hash) === false) sendDesyncSnapshot(socket, room)
   } else if (msg.kind === 'resync-request') {
     const snap = room.match?.snapshot()
     if (snap !== undefined) send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })

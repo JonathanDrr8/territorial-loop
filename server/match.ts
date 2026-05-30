@@ -36,6 +36,8 @@ export class ServerMatch {
   private readonly hashes = new Map<number, number>()
   /** Nächster zu committeter Turn (State spiegelt die Turns [0, turn) wider). */
   private nextTurn = 0
+  /** Memoisierter Snapshot des aktuellen Turns (serializeState ist O(Kartengröße)). */
+  private snapshotCache: { turn: number; state: SerializedGameState } | null = null
 
   constructor(config: GameConfig, difficulty: Difficulty = 'normal') {
     this.config = config
@@ -105,8 +107,16 @@ export class ServerMatch {
     return serverHash === clientHash
   }
 
-  /** Voller Snapshot zum aktuellen Stand (für Resync/Reconnect). */
+  /**
+   * Voller Snapshot zum aktuellen Stand (für Resync/Reconnect). **Pro Turn memoisiert:** fragen
+   * mehrere Clients im selben Turn (z.B. ein Cross-Engine-Desync-Schub), wird der State nur EINMAL
+   * serialisiert und der gecachte Blob geteilt. Der Cache verfällt automatisch beim nächsten
+   * `commit()` (nextTurn ändert sich).
+   */
   snapshot(): { turn: number; state: SerializedGameState } {
-    return { turn: this.nextTurn, state: serializeState(this.state) }
+    if (this.snapshotCache?.turn !== this.nextTurn) {
+      this.snapshotCache = { turn: this.nextTurn, state: serializeState(this.state) }
+    }
+    return this.snapshotCache
   }
 }
