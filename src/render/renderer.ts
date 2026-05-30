@@ -155,14 +155,6 @@ function rgbaToCssLocal(rgba: number): string {
   return `rgb(${r},${g},${b})`
 }
 
-/** Packed RGBA → "r,g,b"-Triplet (für rgba(...) mit eigenem Alpha). */
-function rgbaTripletLocal(rgba: number): string {
-  const r = (rgba >>> 24) & 0xff
-  const g = (rgba >>> 16) & 0xff
-  const b = (rgba >>> 8) & 0xff
-  return `${String(r)},${String(g)},${String(b)}`
-}
-
 export interface Camera {
   /** Welt-Koord die am Screen-Center erscheint. */
   x: number
@@ -1334,10 +1326,6 @@ export function createRenderer(
     // INLAND-Wege (ADR-0018): die Land-Pfade der Gold-Fuhren als angemalte Straßen-Tiles (Brücken
     // überspannen Wasser als Linie), darauf die Karren-Sprites. HOVER-FOKUS: liegt der Cursor auf
     // einer Fabrik, werden NUR ihre Fuhren hell gezeichnet, alle anderen stark gedimmt.
-    const cartColor = (ownerId: number): string => {
-      const player = state.players.get(ownerId)
-      return player === undefined ? '200,200,200' : rgbaTripletLocal(player.color)
-    }
     let focusFactory = -1
     if (hoverTile !== null) {
       const ht = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
@@ -1346,10 +1334,10 @@ export function createRenderer(
     const tileSx = (t: number): { sx: number; sy: number } =>
       nearestWrappedScreenPos((t % mapW) + 0.5, Math.floor(t / mapW) + 0.5)
     const roadW = Math.max(3, camera.zoom * 0.95)
+    const col = '150,150,150' // neutrale graue Straße (Besitzer steckt im Karren/Hover-Fokus)
     for (const cart of state.goldCarts) {
       if (cart.path.length < 2) continue
       const focused = focusFactory < 0 || cart.factoryTile === focusFactory
-      const col = cartColor(cart.ownerId)
       const aRoad = focused ? 0.42 : 0.08
       // Durchgehende Verbindungslinie (deckt auch Brücken über Wasser ab).
       for (let i = 0; i + 1 < cart.path.length; i++) {
@@ -1475,7 +1463,7 @@ export function createRenderer(
     screenCtx.save()
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
-    screenCtx.font = `bold ${Math.max(11, Math.round(camera.zoom * 5)).toString()}px ui-monospace, monospace`
+    screenCtx.font = `bold ${Math.max(9, Math.round(camera.zoom * 3.4)).toString()}px ui-monospace, monospace`
     for (const pop of state.goldPops) {
       if (pop.ownerId !== humanId) continue
       const age = state.tick - pop.atTick
