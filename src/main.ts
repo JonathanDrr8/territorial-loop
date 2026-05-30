@@ -190,6 +190,8 @@ interface NetSession {
   transport: NetworkTransport
   config: GameConfig
   humanId: number
+  /** Ob dieser Client der Host ist — nur der Host darf das Match pausieren. */
+  isHost: boolean
   /** Bei Reconnect: bereits aus dem Server-Snapshot deserialisierter State (statt createGame). */
   initialState?: GameState
 }
@@ -349,6 +351,13 @@ function startMatch(
   // HUD am Debug-Hook erreichbar (z.B. `__TL__.hud.flashResync()` zum Desync-UI-Testen).
   ;(window as unknown as { __TL__: { hud?: unknown } }).__TL__.hud = hud
 
+  // MP-Host-Pause: der Server broadcastet den autoritativen Pause-Zustand. Während Pause kommen
+  // keine Commits → der Sim steht ohnehin still; hier nur die Anzeige (PAUSE-Overlay) nachziehen.
+  net?.transport.setPauseHandler((p) => {
+    paused = p
+    hud.setSpeed(p ? 0 : speed)
+  })
+
   const minimap = createMinimap({
     container,
     state,
@@ -447,11 +456,18 @@ function startMatch(
     snapBuildTarget: (tile, type) => snapBuildTile(state, humanId, tile, type),
     events: {
       pause(): void {
+        if (net !== undefined) {
+          // MP: nur der Host darf pausieren — echt über den Server (Uhr hält an, alle sehen es).
+          // Der lokale Zustand/HUD wird über den server-broadcasteten `match-paused` nachgezogen.
+          if (net.isHost) net.transport.requestPause(!paused)
+          return
+        }
         paused = !paused
         transport.setRunning(!paused)
         hud.setSpeed(paused ? 0 : speed)
       },
       cycleSpeed(dir): void {
+        if (net !== undefined) return // MP: festes Standard-Tempo, kein Tempo-Wechsel
         const levels: readonly (1 | 2 | 5)[] = [1, 2, 5]
         const idx = levels.indexOf(speed)
         const next = levels[Math.max(0, Math.min(levels.length - 1, idx + dir))]
@@ -615,6 +631,7 @@ function main(): void {
     transport: NetworkTransport,
     config: GameConfig,
     humanId: number,
+    isHost: boolean,
     initialState?: GameState,
   ): void {
     transport.onDisconnect(() => {
@@ -628,6 +645,7 @@ function main(): void {
       transport,
       config,
       humanId,
+      isHost,
       ...(initialState !== undefined ? { initialState } : {}),
     })
   }
@@ -648,7 +666,8 @@ function main(): void {
       built = true
       window.clearTimeout(failTimer)
       removeLoading()
-      startNetSession(initial, transport, cfg, myId, snapState)
+      // Reconnect kennt den Host-Status nicht (kein Lobby-Abo) → konservativ kein Host-Recht.
+      startNetSession(initial, transport, cfg, myId, false, snapState)
     }
     const transport = new NetworkTransport({
       url: sess.serverUrl,
@@ -701,6 +720,7 @@ function main(): void {
         transport,
         config: cfg,
         humanId: -1,
+        isHost: false, // Zuschauer pausieren nie
         initialState: snapState,
       })
     }
@@ -754,11 +774,11 @@ function main(): void {
         lobby = null
         showMenu()
       },
-      onMatchStart: (config, transport, humanId) => {
+      onMatchStart: (config, transport, humanId, isHost) => {
         lobby?.destroy()
         lobby = null
         // NetworkTransport puffert frühe Commits → synchroner Start ist sicher.
-        startNetSession(initial, transport, config, humanId)
+        startNetSession(initial, transport, config, humanId, isHost)
       },
     })
   }

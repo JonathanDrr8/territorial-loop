@@ -184,6 +184,8 @@ interface Room {
   settings: MatchSettings
   match: ServerMatch | null
   clock: ReturnType<typeof setInterval> | null
+  /** Host-Pause: solange `true`, rückt der Server die Turn-Uhr NICHT vor (kein Commit). */
+  paused: boolean
 }
 
 const rooms = new Map<string, Room>()
@@ -287,7 +289,7 @@ function startMatch(room: Room): void {
   broadcast(room, { kind: 'start', config })
   room.clock = setInterval(() => {
     const match = room.match
-    if (match === null) return
+    if (match === null || room.paused) return // Host-Pause: Uhr steht still
     const commit = match.advanceTurn()
     broadcast(room, { kind: 'commit', turn: commit.turn, intents: commit.intents })
   }, TURN_MS)
@@ -329,6 +331,14 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
     case 'resync-request': {
       const snap = room.match?.snapshot()
       if (snap !== undefined) send(socket, { kind: 'snapshot', turn: snap.turn, state: snap.state })
+      break
+    }
+    case 'set-pause': {
+      // Nur der Host darf pausieren; im laufenden Match. Server-Uhr hält an → echte Pause für alle.
+      if (member.playerId === room.hostId && room.match !== null && room.paused !== msg.paused) {
+        room.paused = msg.paused
+        broadcast(room, { kind: 'match-paused', paused: msg.paused })
+      }
       break
     }
   }
@@ -514,6 +524,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
             settings: DEFAULT_SETTINGS,
             match: null,
             clock: null,
+            paused: false,
           }
           rooms.set(code, r)
         }

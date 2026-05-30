@@ -112,6 +112,12 @@ export interface PingMsg {
   readonly t: number
 }
 
+/** Host pausiert/setzt das Match fort (nur vom Host akzeptiert; der Server hält seine Turn-Uhr an). */
+export interface SetPauseMsg {
+  readonly kind: 'set-pause'
+  readonly paused: boolean
+}
+
 export type ClientMessage =
   | JoinMsg
   | SubmitIntentsMsg
@@ -120,6 +126,7 @@ export type ClientMessage =
   | ResyncRequestMsg
   | ConfigureMsg
   | PingMsg
+  | SetPauseMsg
 
 /* ── Server → Client ──────────────────────────────────────────────────────── */
 
@@ -164,7 +171,20 @@ export interface PongMsg {
   readonly t: number
 }
 
-export type ServerMessage = JoinedMsg | LobbyMsg | StartMsg | CommitMsg | SnapshotMsg | PongMsg
+/** Match wurde vom Host pausiert/fortgesetzt — der Server tickt nicht weiter, solange `paused`. */
+export interface MatchPausedMsg {
+  readonly kind: 'match-paused'
+  readonly paused: boolean
+}
+
+export type ServerMessage =
+  | JoinedMsg
+  | LobbyMsg
+  | StartMsg
+  | CommitMsg
+  | SnapshotMsg
+  | PongMsg
+  | MatchPausedMsg
 
 /** Serialisiert eine Nachricht für den Wire (JSON). */
 export function encode(msg: ClientMessage | ServerMessage): string {

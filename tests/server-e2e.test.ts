@@ -89,4 +89,80 @@ describe('Lockstep-Server end-to-end (ADR-0009 Phase 4)', () => {
     expect(lobbies[0].players).toBe(1)
     ws.close()
   }, 10000)
+
+  it('Host pausiert das Match (Server-Uhr hält an); Nicht-Host wird ignoriert', async () => {
+    interface Client {
+      ws: WebSocket
+      commits: () => number
+      send: (m: Parameters<typeof encode>[0]) => void
+      paused: () => boolean
+    }
+    const mkClient = (name: string): Promise<Client> =>
+      new Promise((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${String(server.port)}`)
+        let commits = 0
+        let readied = false
+        let paused = false
+        let started = false
+        ws.on('open', () => ws.send(encode({ kind: 'join', room: 'PAUSE', name })))
+        ws.on('message', (d: Buffer) => {
+          const m = decodeServer(d.toString())
+          if (m.kind === 'lobby' && !readied && m.peers.length >= 2) {
+            readied = true
+            ws.send(encode({ kind: 'ready', ready: true }))
+          } else if (m.kind === 'start') {
+            started = true
+            resolve({
+              ws,
+              commits: () => commits,
+              send: (msg) => ws.send(encode(msg)),
+              paused: () => paused,
+            })
+          } else if (m.kind === 'commit') {
+            commits++
+          } else if (m.kind === 'match-paused') {
+            paused = m.paused
+          }
+        })
+        ws.on('error', reject)
+        setTimeout(() => {
+          if (!started) reject(new Error(`start timeout (${name})`))
+        }, 6000)
+      })
+
+    // Beide PARALLEL verbinden — Start braucht beide „ready", also nicht sequenziell awaiten.
+    const hostP = mkClient('Host')
+    await new Promise((r) => setTimeout(r, 60)) // Host erstellt den Raum zuerst
+    const guestP = mkClient('Guest')
+    const [host, guest] = await Promise.all([hostP, guestP])
+
+    // Match läuft an → ein paar Commits abwarten.
+    await new Promise((r) => setTimeout(r, 400))
+    expect(host.commits()).toBeGreaterThan(0)
+
+    // Nicht-Host (Gast) versucht zu pausieren → muss ignoriert werden (Commits laufen weiter).
+    const beforeGuestPause = host.commits()
+    guest.send({ kind: 'set-pause', paused: true })
+    await new Promise((r) => setTimeout(r, 300))
+    expect(host.paused()).toBe(false)
+    expect(host.commits()).toBeGreaterThan(beforeGuestPause)
+
+    // Host pausiert → Server-Uhr hält an, beide sehen `paused`, keine weiteren Commits.
+    host.send({ kind: 'set-pause', paused: true })
+    await new Promise((r) => setTimeout(r, 200))
+    expect(host.paused()).toBe(true)
+    expect(guest.paused()).toBe(true)
+    const atPause = host.commits()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(host.commits()).toBe(atPause) // keine Commits während Pause
+
+    // Host setzt fort → Commits laufen wieder.
+    host.send({ kind: 'set-pause', paused: false })
+    await new Promise((r) => setTimeout(r, 300))
+    expect(host.paused()).toBe(false)
+    expect(host.commits()).toBeGreaterThan(atPause)
+
+    host.ws.close()
+    guest.ws.close()
+  }, 15000)
 })

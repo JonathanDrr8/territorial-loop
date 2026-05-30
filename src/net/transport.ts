@@ -230,6 +230,8 @@ export class NetworkTransport implements IntentTransport {
   private handler: CommitHandler | null = null
   /** Mid-Match-Snapshot-Handler (ADR-0009 Phase 6) — getrennt von `opts.onSnapshot` (Lobby-Build). */
   private snapshotHandler: ((turn: number, state: SerializedGameState) => void) | null = null
+  /** Match-Pause-Zustand vom Server (Host hat pausiert/fortgesetzt). */
+  private pauseHandler: ((paused: boolean) => void) | null = null
   /** Commits, die vor dem Registrieren von `onCommitted` eintrafen (Start-Rennen abfangen). */
   private pending: { turn: number; intents: readonly Intent[] }[] = []
   /** Zuletzt committeter Turn vom Server (−1 = noch keiner). */
@@ -337,6 +339,16 @@ export class NetworkTransport implements IntentTransport {
     this.sendMsg({ kind: 'resync-request' })
   }
 
+  /** Host-Pause an den Server schicken (nur der Host wird serverseitig akzeptiert). */
+  requestPause(paused: boolean): void {
+    this.sendMsg({ kind: 'set-pause', paused })
+  }
+
+  /** Registriert den Handler für den (server-broadcasteten) Match-Pause-Zustand. */
+  setPauseHandler(cb: (paused: boolean) => void): void {
+    this.pauseHandler = cb
+  }
+
   destroy(): void {
     this.destroyed = true
     this.handler = null
@@ -388,6 +400,9 @@ export class NetworkTransport implements IntentTransport {
         break
       case 'pong':
         this.updateLatency(globalThis.performance.now() - msg.t)
+        break
+      case 'match-paused':
+        this.pauseHandler?.(msg.paused)
         break
     }
   }

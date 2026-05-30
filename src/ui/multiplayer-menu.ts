@@ -20,8 +20,13 @@ export interface MultiplayerMenuOptions {
   defaultServerUrl: string
   defaultName: string
   defaultSettings: MatchSettings
-  /** Match startet (Server `start`): der Transport + eigene Spieler-ID werden übergeben. */
-  onMatchStart: (config: GameConfig, transport: NetworkTransport, humanId: number) => void
+  /** Match startet (Server `start`): Transport, eigene Spieler-ID und ob man Host ist. */
+  onMatchStart: (
+    config: GameConfig,
+    transport: NetworkTransport,
+    humanId: number,
+    isHost: boolean,
+  ) => void
   /** Zurück zum Start-Menü (Lobby verlassen). */
   onBack: () => void
   /** Persistiert die zuletzt genutzte Server-URL. */
@@ -212,7 +217,7 @@ export function createMultiplayerMenu(
           room: currentRoom,
           name: connectedName,
         })
-        opts.onMatchStart(config, tr, myId)
+        opts.onMatchStart(config, tr, myId, myId === hostId)
       },
     })
     // Verbindungsfehler/Abbruch vor dem Join → zurück zum Formular (Timeout-basiert, da der
