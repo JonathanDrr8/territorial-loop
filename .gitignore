@@ -40,9 +40,9 @@ Thumbs.db
 # Vite
 .vite/
 
-# Claude (lokale Overrides)
-.claude/settings.local.json
-.claude/cache/
+# Claude (komplett lokal — nicht ins öffentliche Repo)
+.claude/
+CLAUDE.md
 
 # Playwright/MCP screenshot artifacts (Test-Output, kein Repo-Inhalt)
 /*.png
