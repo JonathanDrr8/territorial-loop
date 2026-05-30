@@ -4,6 +4,31 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.7] – 2026-05-30
+
+### Geändert
+
+- **Wirtschaft fährt jetzt physisch:** Gold kommt nicht mehr aus Luftlinien-Clustern, sondern aus
+  **Gold-Fuhren**, die über graue Straßen zwischen deinen Städten/Häfen und der nächsten Fabrik
+  pendeln. Jede Fabrik bedient ihre drei nächsten über Land erreichbaren eigenen Gebäude und
+  routet um, wenn ein näheres dazukommt. **Näher = mehr Gold pro Zeit** — kompakte Wirtschaften
+  lohnen sich von selbst. Bei jeder Anlieferung (Fabrik & Hafen) ploppt kurz das verdiente Gold auf.
+- **Mindestabstand zwischen Fabrik und Stadt/Hafen**, damit man sie nicht direkt aufeinander stapelt.
+- **Auslands-Verbindungen nur noch Fabrik↔Fabrik** und nur über gemeinsames Land (als graue Straße,
+  kein Luftlinien-Strich mehr).
+- **Wilde Nationen heißen überall nur noch „wild"** — kein Eigenname mehr (das verwirrte), raus aus
+  Rangliste und Ereignislog. Sie betreiben **keine Wirtschaft** und **zerstören Gebäude**, wenn sie
+  ein Feld erobern.
+- **Viel mehr KI-Namen** (chemische Elemente + Wissenschaftler), damit seltener generische
+  „Nation N"-Namen auftauchen.
+
+### Neu
+
+- **Gebäude-Schalter im Match-Setup:** Stadt, Verteidigung, Hafen und Fabrik lassen sich pro Match
+  einzeln an-/abschalten — ein deaktivierter Typ kann von niemandem gebaut werden, auch nicht von
+  der KI. Im Mehrspieler stellt der Host das für alle ein.
+- **Flüsse sind ein reguläres Welt-Toggle** (vorher nur im Experimentell-Panel).
+
 ## [0.6.6] – 2026-05-30
 
 ### Geändert
