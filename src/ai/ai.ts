@@ -18,9 +18,11 @@
  */
 
 import {
+  bomberLaunchInfo,
   buildCostFor,
   countBuildingsOfType,
   effectiveMaxTroops,
+  estimateBomberFlakDamage,
   isBuildingAllowed,
   warshipCapacity,
   type GameState,
@@ -28,7 +30,14 @@ import {
 } from '../core/game'
 import { defenseRange, flakRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
-import { NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
+import {
+  BOMBER_HP,
+  NAVAL_RANGE,
+  planBomberRoute,
+  shipTile,
+  WARSHIP_COST,
+  type BomberRoute,
+} from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -61,6 +70,8 @@ interface DifficultyProfile {
   readonly usesAirDefense: boolean
   /** Nutzt die KI offensive Bomber (Flughafen bauen, Bomben werfen). ADR-0020 Stufe 2. */
   readonly usesBombers: boolean
+  /** Wahrscheinlichkeit pro Entscheidung einen Bomber zu starten (wenn startbar). ADR-0020 Stufe 2. */
+  readonly bomberChance: number
 }
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
@@ -76,6 +87,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     betrayLeadRatio: 2.0,
     usesAirDefense: false,
     usesBombers: false,
+    bomberChance: 0,
   },
   normal: {
     attackPct: 30,
@@ -89,6 +101,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     betrayLeadRatio: 1.6,
     usesAirDefense: true,
     usesBombers: false,
+    bomberChance: 0,
   },
   hard: {
     attackPct: 42,
@@ -102,6 +115,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     betrayLeadRatio: 1.3,
     usesAirDefense: true,
     usesBombers: true,
+    bomberChance: 0.15,
   },
 }
 
@@ -123,6 +137,7 @@ const WILD_PROFILE: DifficultyProfile = {
   betrayLeadRatio: Infinity,
   usesAirDefense: false,
   usesBombers: false,
+  bomberChance: 0,
 }
 
 export interface AI {
@@ -351,6 +366,16 @@ export function createAI(
     return out
   }
 
+  /** Lebt ein nicht-verbündeter Gegner? (lohnt überhaupt eine offensive Investition?) */
+  function hasLivingEnemy(state: GameState, player: Player): boolean {
+    for (const p of state.players.values()) {
+      if (p.id === player.id || !p.isAlive) continue
+      if (areAllied(state.alliances, player.id, p.id)) continue
+      return true
+    }
+    return false
+  }
+
   /** Besitzt ein nicht-verbündeter Gegner einen Flughafen? (gibt es überhaupt eine Luftbedrohung?) */
   function enemyHasAirport(state: GameState, player: Player): boolean {
     for (const b of state.buildings.values()) {
@@ -435,6 +460,50 @@ export function createAI(
     return bestScore > 0 ? best : -1
   }
 
+  /**
+   * Ein eigenes, unbebautes Tile tief im Reich (für Flughäfen — möglichst nicht an der Grenze,
+   * damit es nicht sofort miterobert wird). BFS von der Frontier nach innen; bevorzugt Tiefe ~3
+   * mit vielen eigenen Nachbarn. Fallback: irgendein Frontier-Tile.
+   */
+  function pickInteriorTile(state: GameState, player: Player): number {
+    const { width, height } = state.map
+    const depth = new Map<number, number>()
+    const queue: number[] = []
+    for (const f of player.frontier) {
+      depth.set(f, 0)
+      queue.push(f)
+    }
+    const MAX_VISIT = 4000
+    let head = 0
+    let best = -1
+    let bestScore = -Infinity
+    while (head < queue.length && head < MAX_VISIT) {
+      const cur = queue[head++]
+      if (cur === undefined) break
+      const d = depth.get(cur) ?? 0
+      if (d >= 2 && !state.buildings.has(cur)) {
+        let own = 0
+        for (const n of neighbors4(cur, width, height)) {
+          if (getOwner(state.map, n) === player.id) own++
+        }
+        const score = own - Math.abs(d - 3)
+        if (score > bestScore || (score === bestScore && (best < 0 || cur < best))) {
+          bestScore = score
+          best = cur
+        }
+      }
+      if (d < 5) {
+        for (const n of neighbors4(cur, width, height)) {
+          if (depth.has(n)) continue
+          if (getOwner(state.map, n) !== player.id) continue
+          depth.set(n, d + 1)
+          queue.push(n)
+        }
+      }
+    }
+    return best >= 0 ? best : pickOwnTile(state, player, false)
+  }
+
   /** Plant einen Bau nach einfachen Prioritäten (Luftabwehr-Notfall → Stadt → Hafen → Verteidigung). */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
@@ -507,6 +576,21 @@ export function createAI(
       if (valuable >= 2 && flakCount < Math.ceil(valuable / 2)) {
         const tile = pickFlakTile(state, player, [])
         if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'flak' }
+      }
+    }
+
+    // 2d. Luftwaffe: einen Flughafen (bei großem Reich zwei) bauen, wenn die KI offensiv fliegt
+    //     und es Gegner gibt. Tief im Reich platzieren (Capture-Schutz).
+    if (
+      profile.usesBombers &&
+      isBuildingAllowed(state.config, 'airport') &&
+      gold >= costOf('airport')
+    ) {
+      const airports = countBuildingsOfType(state, player.id, 'airport')
+      const cap = player.tilesOwned > 200 ? 2 : 1
+      if (airports < cap && hasLivingEnemy(state, player)) {
+        const tile = pickInteriorTile(state, player)
+        if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'airport' }
       }
     }
 
@@ -688,6 +772,90 @@ export function createAI(
     return moves
   }
 
+  /**
+   * Startet einen Bomber auf das wertvollste erreichbare Feind-Infrastruktur-Ziel. Bewertet
+   * Gebäude-Wert + Groll, wählt die flak-ärmste der drei Routen (direct/arc-left/arc-right) und
+   * überspringt Ziele, die der Bomber wegen Flak nicht überlebt (Schaden ≥ BOMBER_HP). Verbündete
+   * und starke Gunst-Partner werden verschont. (ADR-0020 Stufe 2)
+   */
+  function planBomber(state: GameState, player: Player): Intent | null {
+    if (!profile.usesBombers) return null
+    if (!isBuildingAllowed(state.config, 'airport')) return null
+    const info = bomberLaunchInfo(state, player.id)
+    if (!info.available || player.gold < info.cost) return null
+    const { width, height } = state.map
+
+    // Bombenwert je Gebäudetyp (Flughafen/Flak hoch → bricht die feindliche Luftmacht).
+    const bombValue = (t: BuildingType): number => {
+      switch (t) {
+        case 'airport':
+          return 6
+        case 'flak':
+          return 5
+        case 'factory':
+          return 4
+        case 'city':
+          return 3
+        case 'port':
+          return 2
+        case 'defense':
+          return 1
+      }
+    }
+
+    // Nächster eigener fertiger Flughafen zu einem Ziel (für Routen-/Flak-Schätzung).
+    const nearestAirport = (target: number): number => {
+      const tx = target % width
+      const ty = Math.floor(target / width)
+      let best = -1
+      let bestD = Infinity
+      for (const b of state.buildings.values()) {
+        if (b.type !== 'airport' || b.ownerId !== player.id || !isBuildingComplete(b, state.tick))
+          continue
+        const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+        if (d < bestD) {
+          bestD = d
+          best = b.tile
+        }
+      }
+      return best
+    }
+
+    const routes: BomberRoute[] = ['direct', 'arc-left', 'arc-right']
+    let bestTarget = -1
+    let bestRoute: BomberRoute = 'direct'
+    let bestScore = -Infinity
+    for (const [tile, b] of state.buildings) {
+      const owner = b.ownerId
+      if (owner === player.id || owner <= 0) continue
+      if (areAllied(state.alliances, player.id, owner)) continue
+      const grudge = state.grudge.get(directedKey(owner, player.id)) ?? 0
+      const goodwill = state.goodwill.get(directedKey(owner, player.id)) ?? 0
+      if (goodwill - grudge > FRIEND_SPARE_THRESHOLD) continue // Gunst-Partner verschonen
+      const airport = nearestAirport(tile)
+      if (airport < 0) continue
+      let routeDmg = Infinity
+      let route: BomberRoute = 'direct'
+      for (const r of routes) {
+        const path = planBomberRoute(width, height, airport, tile, r)
+        const dmg = estimateBomberFlakDamage(state, player.id, path)
+        if (dmg < routeDmg) {
+          routeDmg = dmg
+          route = r
+        }
+      }
+      if (routeDmg >= BOMBER_HP) continue // würde abgeschossen → Ziel überspringen
+      const score = bombValue(b.type) + Math.min(grudge / 30, 5) - routeDmg
+      if (score > bestScore || (score === bestScore && (bestTarget < 0 || tile < bestTarget))) {
+        bestScore = score
+        bestTarget = tile
+        bestRoute = route
+      }
+    }
+    if (bestTarget < 0) return null
+    return { type: 'launch-bomber', playerId: player.id, targetTile: bestTarget, route: bestRoute }
+  }
+
   return {
     decide(state: GameState): readonly Intent[] {
       const player = state.players.get(playerId)
@@ -709,6 +877,12 @@ export function createAI(
 
       // Vorhandene Kriegsschiffe aktiv auf feindliche Handels-Routen lenken (Abfangen).
       for (const m of planWarshipHunts(state, player)) intents.push(m)
+
+      // Gelegentlich einen Bomber auf Feind-Infrastruktur werfen (Gold offensiv nutzen).
+      if (rng.next() < profile.bomberChance) {
+        const bomber = planBomber(state, player)
+        if (bomber !== null) intents.push(bomber)
+      }
 
       // Wirtschaft/Bau.
       if (rng.next() < profile.buildChance) {
