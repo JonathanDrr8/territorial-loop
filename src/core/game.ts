@@ -2478,7 +2478,7 @@ const ECONOMY_RECOMPUTE_INTERVAL = 20
 export const GOLD_POP_LIFETIME = 14
 
 /** Wie viele Quellen (Städte/Häfen) eine Fabrik höchstens bedient — ihre nächsten Nachbarn. */
-const FACTORY_CART_LIMIT = 3
+export const FACTORY_CART_LIMIT = 3
 
 /**
  * Aktualisiert die Owner-Land-Komponenten und das Gold-Fuhren-Netz (ADR-0018). FABRIK-ZENTRIERT:

@@ -19,6 +19,7 @@ import { FACTORY_LINK_RANGE } from '../core/config'
 import {
   canBuildAt,
   CAPTURE_FADE_TICKS,
+  FACTORY_CART_LIMIT,
   FACTORY_FOREIGN_CAP,
   GOLD_POP_LIFETIME,
   snapBuildTile,
@@ -1408,10 +1409,34 @@ export function createRenderer(
       }
       screenCtx.globalAlpha = 1
     }
+    // Auslastung je EIGENER Fabrik: FACTORY_CART_LIMIT Slot-Punkte über der Fabrik (gefüllt =
+    // belegte Fuhre) — auf einen Blick erkennbar, welche Fabrik wie ausgelastet ist.
+    const loadHumanId = lutHumanId
+    if (loadHumanId >= 0) {
+      const loadByFactory = new Map<number, number>()
+      for (const cart of state.goldCarts) {
+        if (cart.ownerId !== loadHumanId) continue
+        loadByFactory.set(cart.factoryTile, (loadByFactory.get(cart.factoryTile) ?? 0) + 1)
+      }
+      const r = Math.max(1.5, camera.zoom * 0.55)
+      const gap = r * 2.3
+      for (const e of eco) {
+        if (!e.factory || e.ownerId !== loadHumanId) continue
+        const load = loadByFactory.get(e.tile) ?? 0
+        const { sx, sy } = tileSx(e.tile)
+        const py = sy - Math.max(7, camera.zoom * 3.5)
+        const x0 = sx - gap
+        for (let s = 0; s < FACTORY_CART_LIMIT; s++) {
+          screenCtx.beginPath()
+          screenCtx.arc(x0 + s * gap, py, r, 0, Math.PI * 2)
+          screenCtx.fillStyle = s < load ? 'rgba(255,224,120,0.95)' : 'rgba(255,255,255,0.22)'
+          screenCtx.fill()
+        }
+      }
+    }
     // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
-    // embargoierten) Wirtschaftsgebäuden (Stadt/Hafen/Fabrik) in Reichweite — die den 3×-Gold-
-    // Bonus bringen (gespiegelt am FACTORY_FOREIGN_CAP). Zeigt, dass Fabriken auch über Grenzen
-    // „verbinden".
+    // embargoierten) Fabriken in Reichweite — die den 3×-Gold-Bonus bringen (gespiegelt am
+    // FACTORY_FOREIGN_CAP). Zeigt, dass Fabriken auch über Grenzen „verbinden".
     const embargoed = (a: number, b: number): boolean =>
       state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
     screenCtx.lineWidth = 1.5
