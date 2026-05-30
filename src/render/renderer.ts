@@ -239,11 +239,6 @@ const WATER_B = 92
 const SHALLOW_R = 64
 const SHALLOW_G = 122
 const SHALLOW_B = 150
-// Unpassierbarer Extrem-Gipfel: helle, kalte Schnee-/Gletscherfläche — hebt sich unmissverständlich
-// gegen Braun (Land), Blau (Wasser) und Nationsfarben ab. Damit sieht man sofort, wo man nicht hoch.
-const ROCK_R = 156
-const ROCK_G = 166
-const ROCK_B = 182
 const BG_FILL = '#0a0a10'
 
 /** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
@@ -287,6 +282,30 @@ function wrapValueNoise(
 }
 function clamp255(v: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v | 0
+}
+
+// Fels/Schnee-Farben für unpassierbare Gipfel: dunkler Fels (Schatten/Senken) ↔ helle Schneekappe
+// (Grate/Sonnseite). Das Höhenrelief wird synthetisch erzeugt (Terrain hat keine Sub-Höhe).
+const DARK_ROCK_R = 70
+const DARK_ROCK_G = 74
+const DARK_ROCK_B = 86
+const SNOW_R = 206
+const SNOW_G = 214
+const SNOW_B = 228
+
+/**
+ * Pseudo-Höhenfeld [0,1] für unpassierbaren Fels (3 Oktaven, torus-nahtlos). Daraus leiten wir
+ * gerichtetes Relief + Schnee/Fels-Verteilung ab, damit ein Gipfel-Massiv entsteht statt einer
+ * flachen Fläche.
+ */
+function rockElevation(wx: number, wy: number, w: number, h: number): number {
+  const cx = Math.max(3, Math.round(w / 13))
+  const cy = Math.max(3, Math.round(h / 13))
+  return (
+    wrapValueNoise(wx, wy, w, h, cx, cy) * 0.6 +
+    wrapValueNoise(wx, wy, w, h, cx * 2, cy * 2) * 0.3 +
+    wrapValueNoise(wx, wy, w, h, cx * 4, cy * 4) * 0.1
+  )
 }
 
 const OWNER_MASK = 0x0fff
@@ -555,14 +574,30 @@ export function createRenderer(
     let tg: number
     let tb: number
     if (height === IMPASSABLE_HEIGHT) {
-      // Unpassierbarer Fels/Gletscher: kalter, hellerer Grauton mit grober Körnung — klar als
-      // „hier geht's nicht hoch" erkennbar (kontrastiert mit dem warmen Braun begehbarer Berge).
+      // Unpassierbares Gipfel-Massiv: synthetisches Höhenfeld → gerichtetes NW-Relief (Sonn-/
+      // Schattseite) + Schnee auf Graten/Höhen, dunkler Fels in Senken/Schatten. So entsteht
+      // räumliche Bergstruktur statt einer flachen Eisfläche.
       const px = i % w
       const py = (i - px) / w
-      const speckle = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 60
-      tr = clamp255(ROCK_R + speckle)
-      tg = clamp255(ROCK_G + speckle)
-      tb = clamp255(ROCK_B + speckle)
+      const xl = px === 0 ? w - 1 : px - 1
+      const xr = px === w - 1 ? 0 : px + 1
+      const yu = py === 0 ? h - 1 : py - 1
+      const yd = py === h - 1 ? 0 : py + 1
+      const e = rockElevation(px, py, w, h)
+      const slope =
+        rockElevation(xl, py, w, h) +
+        rockElevation(px, yu, w, h) -
+        rockElevation(xr, py, w, h) -
+        rockElevation(px, yd, w, h)
+      // Grat-Highlight (Schnee sammelt sich auf Kämmen) + Höhen-Schneeanteil.
+      const ridge = 1 - Math.abs(2 * e - 1)
+      const snowAmt = e * 0.55 + ridge * 0.4
+      const sa = snowAmt < 0 ? 0 : snowAmt > 1 ? 1 : snowAmt
+      const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 12
+      const light = 1 + slope * 4.5 // NW-Hangschattierung (kräftig, da das Feld glatt ist)
+      tr = clamp255((DARK_ROCK_R + (SNOW_R - DARK_ROCK_R) * sa) * light + grain)
+      tg = clamp255((DARK_ROCK_G + (SNOW_G - DARK_ROCK_G) * sa) * light + grain)
+      tb = clamp255((DARK_ROCK_B + (SNOW_B - DARK_ROCK_B) * sa) * light + grain)
     } else if (tier === 0) {
       tr = 26
       tg = 32
