@@ -343,16 +343,19 @@ describe('tick — grudge (Groll)', () => {
 })
 
 describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
-  it('Fabrik produziert Gold je verbundener Stadt/Hafen; isolierte Fabrik nur Sockel', () => {
+  it('Gold-Fuhre pendelt Stadt→Fabrik über Land und liefert Gold (ADR-0018)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
     const H = state.map.height
     const p1 = state.players.get(1)
     if (p1 === undefined) throw new Error('player missing')
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
 
-    // Fabrik + Stadt nah beieinander (in Reichweite) für Spieler 1.
+    // Stadt + Fabrik auf benachbartem Eigenland (eine Land-Komponente → verbunden).
     const cityTile = tileRef(20, 20, W, H)
     const factoryTile = tileRef(21, 20, W, H)
+    setOwner(state.map, cityTile, 1)
+    setOwner(state.map, factoryTile, 1)
     state.buildings.set(cityTile, {
       type: 'city',
       ownerId: 1,
@@ -367,10 +370,14 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
+
+    tick(state, []) // recompute (tick 0) erzeugt die Fuhre
+    expect(state.goldCarts.some((c) => c.ownerId === 1)).toBe(true)
+
+    // Über genug Ticks pendelt die Fuhre zur Fabrik und liefert wiederholt Gold (mehr als Sockel).
     p1.gold = 0
-    tick(state, [])
-    // Sockel + 1 verbundene Stadt × Level 1.
-    expect(p1.gold).toBe(BASE_GOLD_PER_TICK + FACTORY_GOLD_PER_DEST)
+    for (let i = 0; i < 40; i++) tick(state, [])
+    expect(p1.gold).toBeGreaterThan(BASE_GOLD_PER_TICK * 40)
   })
 
   it('isolierte Fabrik ohne verbundene Ziele bringt nur den Sockel', () => {
@@ -392,13 +399,17 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p1.gold).toBe(BASE_GOLD_PER_TICK)
   })
 
-  it('goldBreakdown schlüsselt Sockel + Fabrik-Netz auf und zählt verbundene Ziele', () => {
+  it('goldBreakdown zeigt Fuhren-Einkommen + zählt Quellen als Ziele (ADR-0018)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
     const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
     const cityTile = tileRef(20, 20, W, H)
     const portTile = tileRef(20, 22, W, H)
     const factoryTile = tileRef(21, 20, W, H)
+    // Zusammenhängendes Eigenland, das Stadt, Hafen und Fabrik verbindet.
+    for (const t of [cityTile, portTile, factoryTile, tileRef(20, 21, W, H)])
+      setOwner(state.map, t, 1)
     for (const [tile, type] of [
       [cityTile, 'city'],
       [portTile, 'port'],
@@ -406,18 +417,12 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     ] as const) {
       state.buildings.set(tile, { type, ownerId: 1, tile, level: 1, completesAtTick: 0 })
     }
+    tick(state, []) // recompute erzeugt die Fuhren (Stadt + Hafen → Fabrik)
     const gb = goldBreakdown(state, 1)
     expect(gb.base).toBe(BASE_GOLD_PER_TICK)
-    // Eine Fabrik (Level 1) verbunden mit Stadt + Hafen (2 Ziele).
     expect(gb.factories).toBe(1)
-    expect(gb.dests).toBe(2)
-    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 2)
-    // Summe von base + factory entspricht dem tatsächlichen Tick-Einkommen.
-    const p1 = state.players.get(1)
-    if (p1 === undefined) throw new Error('player missing')
-    p1.gold = 0
-    tick(state, [])
-    expect(p1.gold).toBe(gb.base + gb.factory)
+    expect(gb.dests).toBe(2) // zwei pendelnde Fuhren (Stadt + Hafen)
+    expect(gb.factory).toBeGreaterThan(0) // geschätzte Fuhren-Rate
   })
 
   it('factoryYield gibt den Live-Beitrag EINER Fabrik (Ziele × Level)', () => {
@@ -533,25 +538,53 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
   })
 
-  it('Eigene Ziele je Fabrik sind gedeckelt (kein Cluster-Quadrat)', () => {
-    const state = createGame(baseConfig({ terrain: 'flat' }))
+  it('Nähe-Vorteil: eine nahe Stadt bringt mehr Fuhren-Gold/Zeit als eine ferne (ADR-0018)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
     const W = state.map.width
     const H = state.map.height
-    const factoryTile = tileRef(20, 20, W, H)
-    state.buildings.set(factoryTile, {
-      type: 'factory',
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+
+    // p1: Stadt direkt neben der Fabrik (kurzer Pendel-Weg).
+    setOwner(state.map, T(10, 10), 1)
+    setOwner(state.map, T(11, 10), 1)
+    state.buildings.set(T(10, 10), {
+      type: 'city',
       ownerId: 1,
-      tile: factoryTile,
+      tile: T(10, 10),
       level: 1,
       completesAtTick: 0,
     })
-    // 6 EIGENE Städte im Cluster — mehr als der Deckel (4).
-    for (let k = 0; k < 6; k++) {
-      const t = tileRef(20 + 1, 20 + k, W, H)
-      state.buildings.set(t, { type: 'city', ownerId: 1, tile: t, level: 1, completesAtTick: 0 })
-    }
-    const gb = goldBreakdown(state, 1)
-    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 4) // gedeckelt bei 4, nicht 6
+    state.buildings.set(T(11, 10), {
+      type: 'factory',
+      ownerId: 1,
+      tile: T(11, 10),
+      level: 1,
+      completesAtTick: 0,
+    })
+
+    // p2: Stadt weit von der Fabrik, über ein langes Land-Band verbunden (langer Pendel-Weg).
+    for (let x = 10; x <= 24; x++) setOwner(state.map, T(x, 30), 2)
+    state.buildings.set(T(10, 30), {
+      type: 'city',
+      ownerId: 2,
+      tile: T(10, 30),
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(T(24, 30), {
+      type: 'factory',
+      ownerId: 2,
+      tile: T(24, 30),
+      level: 1,
+      completesAtTick: 0,
+    })
+
+    tick(state, []) // recompute erzeugt beide Fuhren
+    expect(state.goldCarts.some((c) => c.ownerId === 1)).toBe(true)
+    expect(state.goldCarts.some((c) => c.ownerId === 2)).toBe(true)
+    // Gleiche Gebäude, nur Distanz unterschiedlich → die nahe Quelle liefert mehr Gold/Zeit.
+    expect(goldBreakdown(state, 1).factory).toBeGreaterThan(goldBreakdown(state, 2).factory)
   })
 
   it('Auslands-Verbindungen je Fabrik sind gedeckelt (kein unendliches Stapeln)', () => {

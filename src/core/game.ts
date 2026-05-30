@@ -13,6 +13,7 @@
 
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { getGeoMap } from '../world/geo-map'
+import { computeOwnerComponents, findLandPath, sameOwnerComponent } from '../world/economy-net'
 import {
   PLAINS_MAG,
   generateTerrain,
@@ -87,6 +88,9 @@ import {
 import {
   type Boat,
   BOAT_SPEED,
+  CART_GOLD_PER_LEVEL,
+  CART_SPEED,
+  type GoldCart,
   MAX_BOATS_PER_PLAYER,
   MAX_WARSHIPS_PER_PLAYER,
   NAVAL_RANGE,
@@ -283,8 +287,16 @@ export interface GameState {
   boats: Boat[]
   /** Aktive Handelsschiffe. */
   tradeShips: TradeShip[]
+  /** Aktive Gold-Fuhren (pendeln Stadt/Hafen ↔ Fabrik über Land, ADR-0018). */
+  goldCarts: GoldCart[]
   /** Aktive Kriegsschiffe. */
   warships: Warship[]
+  /**
+   * Owner-Land-Komponenten (Index pro Tile, -1 = kein eigenes Land) für das Wirtschafts-Wegenetz.
+   * Periodisch (alle ECONOMY_RECOMPUTE_INTERVAL Ticks) neu berechnet; transient (nicht
+   * serialisiert) — nur Zwischenschritt fürs Routing der Fuhren und fürs Rendering.
+   */
+  ownerComponents: Int32Array | null
   /** Fliegende Kriegsschiff-Projektile (verzögerter Schaden; verpuffen, wenn der Schütze stirbt). */
   projectiles: Projectile[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
@@ -462,6 +474,8 @@ export function createGame(config: GameConfig): GameState {
     passableLandCount: countPassableLand(map),
     boats: [],
     tradeShips: [],
+    goldCarts: [],
+    ownerComponents: null,
     warships: [],
     projectiles: [],
     alliances: new Set<number>(),
@@ -739,6 +753,8 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   resolveNavalCombat(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
+  if (state.tick % ECONOMY_RECOMPUTE_INTERVAL === 0) recomputeGoldRoutes(state)
+  advanceGoldCarts(state)
   applyFactoryDiplomacy(state)
   decayGrudge(state)
   decayGoodwill(state)
@@ -879,14 +895,24 @@ function decayGrudge(state: GameState): void {
 /** Gold-Produktionsfaktor wilder Nationen — halbe Produktion einer normalen Nation. */
 const WILD_GOLD_FACTOR = 0.5
 
+/** Gesamtes Auslands-Fabrik-Gold eines Spielers pro Tick (nur fremde Fabriken in Reichweite). */
+function foreignGold(state: GameState, playerId: number): number {
+  let gold = 0
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== playerId || b.type !== 'factory' || !isBuildingComplete(b, state.tick))
+      continue
+    gold += factoryForeignContribution(state, playerId, b.tile, b.level).gold
+  }
+  return gold
+}
+
 function generateGold(state: GameState): void {
-  // Flacher Start-Trickle (NICHT größen-abhängig) + Fabrik-Netzwerk-Einkommen
-  // (+ Handelsschiff-Gold beim Eintreffen, separat). Wilde Nationen produzieren nur die
-  // Hälfte — so haben sie einen kleinen Gold-Vorrat, den man beim Erobern erbeutet.
+  // Flacher Start-Trickle (NICHT größen-abhängig) + Auslands-Fabrik-Gold. Das INLAND-Einkommen
+  // kommt separat über die Gold-Fuhren (advanceGoldCarts), nicht hier (ADR-0018). Wilde Nationen
+  // produzieren nur die Hälfte — kleiner Gold-Vorrat, den man beim Erobern erbeutet.
   for (const player of state.players.values()) {
     if (!player.isAlive) continue
-    const gb = goldBreakdown(state, player.id)
-    const raw = gb.base + gb.factory
+    const raw = BASE_GOLD_PER_TICK + foreignGold(state, player.id)
     const income = player.wild ? Math.floor(raw * WILD_GOLD_FACTOR) : raw
     player.gold += income
     player.goldEarned += income
@@ -906,90 +932,36 @@ export interface GoldBreakdown {
 }
 
 /**
- * Schlüsselt das stetige Gold-Einkommen eines Spielers auf. Eigene fertige Städte/Häfen/
- * Fabriken werden per Luftlinie (`FACTORY_LINK_RANGE`) transitiv zu Clustern verbunden
- * (Union-Find). Jede Fabrik produziert `FACTORY_GOLD_PER_DEST` × (Städte+Häfen im selben
- * Cluster) × Fabrik-Level. Isolierte Fabriken ohne verbundene Ziele = 0.
+ * Schlüsselt das stetige Gold-Einkommen eines Spielers auf (ADR-0018).
+ *
+ * INLAND kommt aus den pendelnden Gold-Fuhren (Stadt/Hafen → Fabrik über Land); hier steht die
+ * geglättete Rate (`estimatedCartIncome`) fürs HUD — das echte Gold wird lumpig bei jeder
+ * Anlieferung gutgeschrieben (`advanceGoldCarts`). AUSLAND ist weiterhin abstrakt: jede fremde
+ * (nicht embargoierte) Fabrik in Reichweite bringt 3× Gold.
  */
 export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown {
   const nodes: { tile: TileRef; isDest: boolean; isFactory: boolean; level: number }[] = []
+  let factories = 0
   for (const b of state.buildings.values()) {
     if (b.ownerId !== playerId || !isBuildingComplete(b, state.tick)) continue
     if (b.type === 'city' || b.type === 'port' || b.type === 'factory') {
-      nodes.push({
-        tile: b.tile,
-        isDest: b.type === 'city' || b.type === 'port',
-        isFactory: b.type === 'factory',
-        level: b.level,
-      })
+      const isFactory = b.type === 'factory'
+      if (isFactory) factories++
+      nodes.push({ tile: b.tile, isDest: !isFactory, isFactory, level: b.level })
     }
   }
-  const n = nodes.length
-  if (n === 0) return { base: BASE_GOLD_PER_TICK, factory: 0, factories: 0, dests: 0 }
+  if (nodes.length === 0) return { base: BASE_GOLD_PER_TICK, factory: 0, factories: 0, dests: 0 }
 
-  // Union-Find über Reichweiten-Kanten (Torus-Luftlinie).
-  const parent = Array.from({ length: n }, (_, i) => i)
-  const find = (i: number): number => {
-    let r = i
-    while (parent[r] !== r) r = parent[r] ?? r
-    let c = i
-    while (parent[c] !== c) {
-      const next = parent[c] ?? c
-      parent[c] = r
-      c = next
-    }
-    return r
-  }
-  const { width, height } = state.map
-  for (let i = 0; i < n; i++) {
-    const a = nodes[i]
-    if (a === undefined) continue
-    const ax = a.tile % width
-    const ay = Math.floor(a.tile / width)
-    for (let j = i + 1; j < n; j++) {
-      const b = nodes[j]
-      if (b === undefined) continue
-      const bx = b.tile % width
-      const by = Math.floor(b.tile / width)
-      if (torusDistance(ax, ay, bx, by, width, height) <= FACTORY_LINK_RANGE) {
-        parent[find(i)] = find(j)
-      }
-    }
-  }
-
-  // Ziele (Stadt/Hafen) und Fabrik-Präsenz pro Cluster, dann Beiträge summieren.
-  const destPerCluster = new Map<number, number>()
-  const factoryClusters = new Set<number>()
-  let factories = 0
-  for (let i = 0; i < n; i++) {
-    const node = nodes[i]
-    if (node === undefined) continue
-    const root = find(i)
-    if (node.isDest) destPerCluster.set(root, (destPerCluster.get(root) ?? 0) + 1)
-    if (node.isFactory) {
-      factories++
-      factoryClusters.add(root)
-    }
-  }
-  let gold = 0
-  for (let i = 0; i < n; i++) {
-    const node = nodes[i]
-    if (node?.isFactory !== true) continue
-    // Eigene Ziele je Fabrik gedeckelt (FACTORY_OWN_CAP) → linear statt quadratisch.
-    const own = Math.min(destPerCluster.get(find(i)) ?? 0, FACTORY_OWN_CAP)
-    gold += FACTORY_GOLD_PER_DEST * own * node.level
-  }
-  // Verbundene Ziele = Städte/Häfen in einem Cluster mit mindestens einer Fabrik.
-  let dests = 0
-  for (const [root, count] of destPerCluster) {
-    if (factoryClusters.has(root)) dests += count
-  }
-  // Auslands-Verbindungen: jede FREMDE (nicht embargoierte) FABRIK in Fabrik-Reichweite bringt
-  // 3× Gold (ADR-0018: nur noch Fabrik↔Fabrik; Gunst separat via applyFactoryDiplomacy).
   const foreign = foreignFactoryGold(state, playerId, nodes)
-  gold += foreign.gold
-  dests += foreign.dests
-  return { base: BASE_GOLD_PER_TICK, factory: Math.floor(gold), factories, dests }
+  const inland = estimatedCartIncome(state, playerId)
+  let cartDests = 0
+  for (const cart of state.goldCarts) if (cart.ownerId === playerId) cartDests++
+  return {
+    base: BASE_GOLD_PER_TICK,
+    factory: Math.floor(inland + foreign.gold),
+    factories,
+    dests: cartDests + foreign.dests,
+  }
 }
 
 /** Gold-Multiplikator für Auslands-Verbindungen einer Fabrik (fremde Stadt/Hafen in Reichweite). */
@@ -2473,6 +2445,119 @@ function advanceTradeShips(state: GameState): void {
     }
   }
   state.tradeShips = survivors
+}
+
+/** Alle wie viele Ticks das Wirtschafts-Wegenetz (Land-Komponenten + Fuhren-Routen) neu berechnet wird. */
+const ECONOMY_RECOMPUTE_INTERVAL = 20
+
+/**
+ * Aktualisiert die Owner-Land-Komponenten und das Gold-Fuhren-Netz (ADR-0018). Periodisch, weil die
+ * Komponenten-Flood teuer ist. Pro eigener Stadt/Hafen, die über Land eine eigene Fabrik erreicht,
+ * pendelt genau EINE Fuhre; nicht mehr verbundene Fuhren fallen weg, neue Quellen bekommen eine.
+ * Bestehende, weiter gültige Fuhren behalten ihren Pfad (kein erneutes Pathfinding pro Intervall).
+ */
+function recomputeGoldRoutes(state: GameState): void {
+  const { map } = state
+  const { width, height } = map
+  const comp = computeOwnerComponents(map)
+  state.ownerComponents = comp
+
+  const sources: { tile: TileRef; owner: number }[] = []
+  const factories: { tile: TileRef; owner: number; level: number }[] = []
+  for (const b of state.buildings.values()) {
+    if (!isBuildingComplete(b, state.tick)) continue
+    const owner = getOwner(map, b.tile)
+    if (owner <= 0) continue
+    if (b.type === 'city' || b.type === 'port') sources.push({ tile: b.tile, owner })
+    else if (b.type === 'factory') factories.push({ tile: b.tile, owner, level: b.level })
+  }
+  sources.sort((a, b) => a.tile - b.tile)
+  factories.sort((a, b) => a.tile - b.tile)
+
+  const cartBySource = new Map<TileRef, GoldCart>()
+  for (const cart of state.goldCarts) cartBySource.set(cart.sourceTile, cart)
+
+  const next: GoldCart[] = []
+  for (const src of sources) {
+    const existing = cartBySource.get(src.tile)
+    // Gültige Fuhre behalten: Ziel noch eigene Fabrik UND in derselben Land-Komponente.
+    if (
+      existing !== undefined &&
+      getOwner(map, existing.factoryTile) === src.owner &&
+      state.buildings.get(existing.factoryTile)?.type === 'factory' &&
+      sameOwnerComponent(comp, src.tile, existing.factoryTile)
+    ) {
+      next.push(existing)
+      continue
+    }
+    // Nächste erreichbare eigene Fabrik suchen (Luftlinie vorsortiert, dann Land-Pfad).
+    const sx = src.tile % width
+    const sy = Math.floor(src.tile / width)
+    let bestTile = -1
+    let bestLevel = 0
+    let bestDist = Infinity
+    for (const f of factories) {
+      if (f.owner !== src.owner || !sameOwnerComponent(comp, src.tile, f.tile)) continue
+      const d = torusDistance(sx, sy, f.tile % width, Math.floor(f.tile / width), width, height)
+      if (d < bestDist || (d === bestDist && f.tile < bestTile)) {
+        bestDist = d
+        bestTile = f.tile
+        bestLevel = f.level
+      }
+    }
+    if (bestTile < 0) continue
+    const path = findLandPath(map, comp, src.tile, bestTile)
+    if (path === null || path.length < 2) continue
+    next.push({
+      ownerId: src.owner,
+      path,
+      progress: 0,
+      dir: 1,
+      gold: CART_GOLD_PER_LEVEL * bestLevel,
+      sourceTile: src.tile,
+      factoryTile: bestTile,
+    })
+  }
+  state.goldCarts = next
+}
+
+/**
+ * Bewegt die Gold-Fuhren entlang ihres Land-Pfads (Ping-Pong). An der Fabrik wird `gold`
+ * gutgeschrieben und die Fuhre kehrt um; an der Quelle lädt sie neu und fährt wieder los.
+ */
+function advanceGoldCarts(state: GameState): void {
+  if (state.goldCarts.length === 0) return
+  for (const cart of state.goldCarts) {
+    cart.progress += CART_SPEED * cart.dir
+    const last = cart.path.length - 1
+    if (cart.dir === 1 && cart.progress >= last) {
+      cart.progress = last
+      cart.dir = -1
+      const owner = state.players.get(cart.ownerId)
+      if (owner !== undefined && owner.isAlive) {
+        const amount = owner.wild ? Math.floor(cart.gold * WILD_GOLD_FACTOR) : cart.gold
+        owner.gold += amount
+        owner.goldEarned += amount
+      }
+    } else if (cart.dir === -1 && cart.progress <= 0) {
+      cart.progress = 0
+      cart.dir = 1
+    }
+  }
+}
+
+/**
+ * Geschätzte Inland-Gold-Rate pro Tick aus den Fuhren eines Spielers (für die geglättete HUD-
+ * Anzeige; das echte Gold kommt lumpig bei jeder Anlieferung). Rate = Σ gold / Rundreise-Dauer.
+ */
+function estimatedCartIncome(state: GameState, playerId: number): number {
+  let rate = 0
+  for (const cart of state.goldCarts) {
+    if (cart.ownerId !== playerId) continue
+    const oneWay = Math.max(1, cart.path.length - 1)
+    rate += (cart.gold * CART_SPEED) / (2 * oneWay)
+  }
+  return rate
 }
 
 function checkEliminations(state: GameState): void {

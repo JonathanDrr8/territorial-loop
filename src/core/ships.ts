@@ -65,6 +65,36 @@ export interface Boat {
   returning: boolean
 }
 
+/**
+ * Geschwindigkeit der Gold-Fuhren (Tiles/Tick entlang des Land-Pfads) — langsamer als Schiffe,
+ * damit das Pendeln gut sichtbar ist.
+ */
+export const CART_SPEED = 0.5
+/**
+ * Gold je Anlieferung an der Fabrik, pro Fabrik-Level. Fest pro Fuhre — der Gold-DURCHSATZ
+ * (pro Zeit) ergibt sich aus der Rundreise-Dauer: nahe Quellen pendeln öfter → mehr Gold/Zeit,
+ * ferne weniger. So entsteht der Cluster-Anreiz (ADR-0018) emergent, ohne Distanz-Formel.
+ */
+export const CART_GOLD_PER_LEVEL = 150
+
+/**
+ * Eine Gold-Fuhre, die zwischen einer Quelle (eigene Stadt/Hafen) und der verbundenen Fabrik über
+ * Land pendelt. An der Fabrik wird `gold` gutgeschrieben, dann kehrt sie um (Ping-Pong via `dir`).
+ */
+export interface GoldCart {
+  readonly ownerId: number
+  /** Land-Pfad Quelle→Fabrik (Tile-Liste; Brücken springen über Wasser). */
+  readonly path: readonly TileRef[]
+  /** Fortschritt entlang `path` (Float, ± CART_SPEED pro Tick je nach `dir`). */
+  progress: number
+  /** +1 = zur Fabrik (lädt dort Gold ab), -1 = zurück zur Quelle. */
+  dir: 1 | -1
+  /** Gold je Anlieferung an der Fabrik. */
+  readonly gold: number
+  readonly sourceTile: TileRef
+  readonly factoryTile: TileRef
+}
+
 /** Ein Handelsschiff zwischen zwei Häfen. */
 export interface TradeShip {
   readonly fromOwnerId: number
