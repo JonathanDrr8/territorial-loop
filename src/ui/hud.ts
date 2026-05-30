@@ -31,6 +31,7 @@ import {
   type GameState,
   type Player,
 } from '../core/game'
+import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { registerScalable } from './ui-scale'
 
@@ -52,12 +53,22 @@ const BUILDING_HOTKEY: Record<BuildingType, string> = {
   port: '3',
   factory: '4',
 }
-const BUILDING_TOOLTIP: Record<BuildingType, string> = {
-  city: `Stadt — +${fmtCompact(CITY_CAP_BONUS)} Truppen-Maximum je Stufe.`,
-  defense: `Verteidigungsposten — im Umkreis ${DEFENSE_BASE_RANGE.toString()} (+${DEFENSE_RANGE_PER_LEVEL.toString()}/Stufe) wird Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer.`,
-  port: 'Hafen — nötig für Transport- & Handelsschiffe (nur am Wasser baubar).',
-  factory:
-    'Fabrik — verbindet sich per Luftlinie mit eigenen Städten/Häfen/Fabriken und produziert Gold je verbundener Stadt/Hafen.',
+/** Gebäude-Tooltip (übersetzt zur Aufruf-Zeit). */
+function buildingTooltip(type: BuildingType): string {
+  switch (type) {
+    case 'city':
+      return t('hud.tooltip.city', { cap: fmtCompact(CITY_CAP_BONUS) })
+    case 'defense':
+      return t('hud.tooltip.defense', {
+        range: DEFENSE_BASE_RANGE,
+        per: DEFENSE_RANGE_PER_LEVEL,
+        mult: DEFENSE_MAG_MULTIPLIER,
+      })
+    case 'port':
+      return t('hud.tooltip.port')
+    case 'factory':
+      return t('hud.tooltip.factory')
+  }
 }
 
 type RankSort = 'troops' | 'gold'
@@ -159,13 +170,12 @@ export function createHUD(
   const helpDetails = document.createElement('details')
   helpDetails.style.cssText = 'margin-top: 4px; font-size: 11px; opacity: 0.75'
   const helpSummary = document.createElement('summary')
-  helpSummary.textContent = 'Steuerung'
+  helpSummary.textContent = t('hud.controls')
   helpSummary.style.cssText = 'cursor: pointer; opacity: 0.8'
   helpDetails.appendChild(helpSummary)
   const helpBody = document.createElement('div')
   helpBody.style.cssText = 'margin-top: 4px; line-height: 1.5'
-  helpBody.innerHTML =
-    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–4: Gebäude (Stadt/Verteidigung/Hafen/Fabrik) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück'
+  helpBody.innerHTML = t('hud.controlsBody')
   helpDetails.appendChild(helpBody)
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
@@ -280,7 +290,7 @@ export function createHUD(
   rankHead.style.cssText =
     'display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px'
   const rankTitle = document.createElement('span')
-  rankTitle.textContent = 'Rangliste'
+  rankTitle.textContent = t('hud.rank')
   rankTitle.style.cssText = 'flex: 1; opacity: 0.7'
   const sortTroopsBtn = document.createElement('button')
   const sortGoldBtn = document.createElement('button')
@@ -297,8 +307,8 @@ export function createHUD(
       active ? 'font-weight: bold' : 'font-weight: normal',
     ].join(';')
   }
-  sortTroopsBtn.textContent = 'Truppen'
-  sortGoldBtn.textContent = 'Gold'
+  sortTroopsBtn.textContent = t('hud.troops')
+  sortGoldBtn.textContent = t('hud.gold')
   sortTroopsBtn.addEventListener('click', () => {
     rankSort = 'troops'
     refreshSortButtons()
@@ -471,7 +481,7 @@ export function createHUD(
   const sliderWrap = document.createElement('div')
   sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px'
   const sliderLabel = document.createElement('span')
-  sliderLabel.textContent = `Angriff: ${DEFAULT_SLIDER_PCT}%`
+  sliderLabel.textContent = t('hud.attack', { pct: DEFAULT_SLIDER_PCT })
   sliderLabel.style.minWidth = '150px'
   const slider = document.createElement('input')
   slider.type = 'range'
@@ -483,7 +493,7 @@ export function createHUD(
   slider.addEventListener('input', () => {
     const pct = Number(slider.value)
     currentSliderPct = pct
-    sliderLabel.textContent = `Angriff: ${pct}%`
+    sliderLabel.textContent = t('hud.attack', { pct })
     onSliderChange(pct)
   })
   sliderWrap.appendChild(sliderLabel)
@@ -569,7 +579,7 @@ export function createHUD(
     })
     btn.addEventListener('mouseenter', () => {
       if (btn.dataset.active !== '1') btn.style.background = 'rgba(255,255,255,0.14)'
-      buildTooltip.textContent = BUILDING_TOOLTIP[type]
+      buildTooltip.textContent = buildingTooltip(type)
       buildTooltip.style.display = 'block'
     })
     btn.addEventListener('mouseleave', () => {
@@ -600,8 +610,7 @@ export function createHUD(
     'font-size: 12px',
     'cursor: pointer',
   ].join(';')
-  boatBtn.innerHTML =
-    '<span style="font-weight:bold">B</span> 🚢 Transportboot <span style="opacity:0.6;font-size:10px">Ziel auf anderer Insel</span>'
+  boatBtn.innerHTML = `<span style="font-weight:bold">B</span> 🚢 ${t('hud.boat')} <span style="opacity:0.6;font-size:10px">${t('hud.boatHintShort')}</span>`
   boatBtn.addEventListener('click', () => {
     onBoatClick()
   })
@@ -620,7 +629,7 @@ export function createHUD(
     'font-size: 11px',
     'text-align: center',
   ].join(';')
-  boatHint.textContent = '🚢 Boot-Modus: Küsten-Ziel auf anderer Landmasse klicken · Esc beendet'
+  boatHint.textContent = `🚢 ${t('hud.boatModeHint')}`
   actionBar.appendChild(boatHint)
 
   container.appendChild(actionBar)
@@ -647,7 +656,7 @@ export function createHUD(
   const bannerText = document.createElement('div')
   banner.appendChild(bannerText)
   const newMatchBtn = document.createElement('button')
-  newMatchBtn.textContent = 'Neues Match'
+  newMatchBtn.textContent = t('hud.newMatch')
   newMatchBtn.style.cssText = [
     'margin-top: 12px',
     'padding: 8px 18px',
@@ -690,7 +699,7 @@ export function createHUD(
     'z-index: 15',
     'user-select: none',
   ].join(';')
-  pauseOverlay.textContent = 'PAUSE'
+  pauseOverlay.textContent = t('hud.pauseOverlay')
   container.appendChild(pauseOverlay)
 
   /** Findet den menschlichen Spieler (falls vorhanden und lebend). */
@@ -734,12 +743,12 @@ export function createHUD(
     const frac = total / cap
     const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
     const pct = Math.round(frac * 100)
-    barCaption.innerHTML = `Truppen <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
+    barCaption.innerHTML = `${t('hud.troops')} <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
     // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
     // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
-    sliderLabel.textContent = `Angriff: ${currentSliderPct.toString()}% · ≈${fmtCompact(attackAmt)}`
+    sliderLabel.textContent = `${t('hud.attack', { pct: currentSliderPct })} · ≈${fmtCompact(attackAmt)}`
     if (combat > 0) {
-      barLegend.innerHTML = `<span style="opacity:0.85">▨ im Kampf ${fmtCompact(combat)}</span>`
+      barLegend.innerHTML = `<span style="opacity:0.85">▨ ${t('hud.inCombat', { n: fmtCompact(combat) })}</span>`
       barLegend.style.display = 'block'
     } else {
       barLegend.style.display = 'none'
@@ -769,7 +778,7 @@ export function createHUD(
       lastGoldSampleValue = human.goldEarned
     }
     const caret = economyOpen ? '▾' : '▸'
-    goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> Gold <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span> <span style="opacity:0.55">${caret}</span>`
+    goldEl.innerHTML = `<b>${fmtCompact(human.gold)}</b> ${t('hud.gold')} <span style="opacity:0.7">≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</span> <span style="opacity:0.55">${caret}</span>`
     if (economyOpen) {
       const gb = goldBreakdown(state, human.id)
       const baseSec = gb.base * SIM_TICKS_PER_SECOND
@@ -777,15 +786,15 @@ export function createHUD(
       const tradeSec = Math.max(0, Math.round(goldRatePerSec - baseSec - factorySec))
       const factoryNote =
         gb.factories > 0
-          ? ` <span style="opacity:0.6">(${String(gb.factories)} Fabrik${gb.factories === 1 ? '' : 'en'} · ${String(gb.dests)} Ziele)</span>`
+          ? ` <span style="opacity:0.6">(${t('hud.ecoNote', { factories: gb.factories, dests: gb.dests })})</span>`
           : ''
       const line = (label: string, perSec: number, note = ''): string =>
         `<div style="display:flex;justify-content:space-between;gap:10px"><span>${label}${note}</span><span>+${fmtCompact(perSec)}/s</span></div>`
       goldDetail.innerHTML =
-        line('Grund-Gold', baseSec) +
-        line('Fabrik-Netz', factorySec, factoryNote) +
-        line('Handel', tradeSec) +
-        `<div style="border-top:1px solid rgba(255,255,255,0.18);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;gap:10px"><span><b>Summe</b></span><span><b>≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</b></span></div>`
+        line(t('hud.ecoBase'), baseSec) +
+        line(t('hud.ecoFactory'), factorySec, factoryNote) +
+        line(t('hud.ecoTrade'), tradeSec) +
+        `<div style="border-top:1px solid rgba(255,255,255,0.18);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;gap:10px"><span><b>${t('hud.ecoSum')}</b></span><span><b>≈ +${fmtCompact(Math.max(0, goldRatePerSec))}/s</b></span></div>`
     }
 
     for (const type of BUILDING_TYPES) {
@@ -829,10 +838,14 @@ export function createHUD(
     // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve fließt über ~2.5s zurück).
     human.attacks.forEach((atk, i) => {
       const target =
-        atk.targetPlayerId === 0 ? 'Wildnis' : (state.players.get(atk.targetPlayerId)?.name ?? '?')
+        atk.targetPlayerId === 0
+          ? t('hud.wilderness')
+          : (state.players.get(atk.targetPlayerId)?.name ?? '?')
       const cancelling = atk.cancelStartTick !== undefined
-      const actionHtml = cancelling ? `<span style="color:#e8b84a">bricht ab…</span>` : '✕'
-      const title = cancelling ? 'Sofort abbrechen' : 'Angriff abbrechen (~2.5s Rückzug)'
+      const actionHtml = cancelling
+        ? `<span style="color:#e8b84a">${t('hud.cancelling')}</span>`
+        : '✕'
+      const title = cancelling ? t('hud.cancelNow') : t('hud.cancelAttack')
       rows.push(
         `<div data-cancel="${String(i)}" title="${title}" style="${rowStyle}"><span style="color:#5dd75d">⚔→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
       )
@@ -841,9 +854,9 @@ export function createHUD(
     let boatIdx = 0
     for (const boat of state.boats) {
       if (boat.ownerId !== human.id) continue
-      const label = boat.returning ? 'kehrt um' : 'unterwegs'
+      const label = boat.returning ? t('hud.returning') : t('hud.enRoute')
       rows.push(
-        `<div data-recall="${String(boatIdx)}" title="Boot zurückrufen" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
+        `<div data-recall="${String(boatIdx)}" title="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
       )
       boatIdx++
     }
@@ -851,9 +864,11 @@ export function createHUD(
     let warIdx = 0
     for (const ws of state.warships) {
       if (ws.ownerId !== human.id) continue
-      const label = ws.returning ? 'kehrt um' : `${String(Math.max(0, Math.round(ws.hp)))} HP`
+      const label = ws.returning
+        ? t('hud.returning')
+        : `${String(Math.max(0, Math.round(ws.hp)))} HP`
       rows.push(
-        `<div data-recall-warship="${String(warIdx)}" title="Kriegsschiff zurückrufen" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
+        `<div data-recall-warship="${String(warIdx)}" title="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
       )
       warIdx++
     }
@@ -865,7 +880,7 @@ export function createHUD(
         if (atk.targetPlayerId !== human.id) continue
         incoming++
         rows.push(
-          `<div data-defend="${String(p.id)}" title="Abwehren — Truppen 1:1 einsetzen (Slider-Schub)" style="${rowStyle}"><span style="color:#e84545">⚔←</span><span>${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, '🛡')}</div>`,
+          `<div data-defend="${String(p.id)}" title="${t('hud.defendTitle')}" style="${rowStyle}"><span style="color:#e84545">⚔←</span><span>${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, '🛡')}</div>`,
         )
       }
     }
@@ -882,7 +897,7 @@ export function createHUD(
       return
     }
     attackPanel.style.display = 'block'
-    attackPanel.innerHTML = `<div style="opacity:0.65;margin-bottom:2px">Angriffe</div>${rows.join('')}`
+    attackPanel.innerHTML = `<div style="opacity:0.65;margin-bottom:2px">${t('hud.attacks')}</div>${rows.join('')}`
   }
 
   /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
@@ -918,12 +933,12 @@ export function createHUD(
       let title = ''
       if (traitor) {
         const remain = Math.max(0, (p.traitorUntil - state.tick) / SIM_TICKS_PER_SECOND)
-        title = ` title="Verräter — geächtet, verteidigt geschwächt (noch ${fmtDuration(remain)})"`
+        title = ` title="${t('hud.traitorTitle', { time: fmtDuration(remain) })}"`
       } else if (allied) {
         const expiry = state.allianceExpiry.get(pairKey(human.id, p.id))
         const remain =
           expiry !== undefined ? Math.max(0, (expiry - state.tick) / SIM_TICKS_PER_SECOND) : 0
-        title = ` title="Verbündet · läuft in ${fmtDuration(remain)} aus"`
+        title = ` title="${t('hud.alliedTitle', { time: fmtDuration(remain) })}"`
       }
       const tag = traitor ? '⚠ ' : allied ? '🤝 ' : ''
       rows.push(
@@ -940,18 +955,20 @@ export function createHUD(
     const hidden = players.length - visible.length
     rankToggle.style.display = players.length > RANK_COLLAPSED ? 'block' : 'none'
     rankToggle.textContent = rankExpanded
-      ? 'Weniger ▴'
-      : `Alle ${players.length.toString()} anzeigen ▾ (+${Math.max(0, hidden).toString()})`
+      ? t('hud.less')
+      : t('hud.showAll', { n: players.length, hidden: Math.max(0, hidden) })
   }
 
   function update(): void {
     const gameSeconds = state.tick / SIM_TICKS_PER_SECOND
-    const speedLabel = currentSpeed === 0 ? '⏸ Pause' : `${String(currentSpeed)}×`
+    const speedLabel = currentSpeed === 0 ? `⏸ ${t('hud.pause')}` : `${String(currentSpeed)}×`
     const phaseLine =
       state.phase === 'running'
-        ? 'läuft'
-        : `beendet · Sieger ${state.winner !== null ? (state.players.get(state.winner)?.name ?? '?') : '?'}`
-    infoLine.innerHTML = `Zeit ${fmtDuration(gameSeconds)} · ${speedLabel} · ${phaseLine}`
+        ? t('hud.running')
+        : t('hud.ended', {
+            winner: state.winner !== null ? (state.players.get(state.winner)?.name ?? '?') : '?',
+          })
+    infoLine.innerHTML = `${t('hud.time')} ${fmtDuration(gameSeconds)} · ${speedLabel} · ${phaseLine}`
 
     updateRankList()
     updateActionBar()
@@ -961,7 +978,7 @@ export function createHUD(
     const me = findHuman()
     if (me !== undefined && me.traitorUntil > state.tick) {
       const remain = Math.max(0, (me.traitorUntil - state.tick) / SIM_TICKS_PER_SECOND)
-      traitorBanner.textContent = `⚠ Du bist geächtet — alle fügen dir 1,5× Schaden zu (noch ${fmtDuration(remain)})`
+      traitorBanner.textContent = `⚠ ${t('hud.traitorBanner', { time: fmtDuration(remain) })}`
       traitorBanner.style.display = 'block'
     } else {
       traitorBanner.style.display = 'none'
@@ -992,10 +1009,10 @@ export function createHUD(
         const matchTime = fmtDuration(state.tick / SIM_TICKS_PER_SECOND)
         bannerText.innerHTML =
           `<div style="font-size: 22px; margin-bottom: 4px">` +
-          `Sieg: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
+          `${t('hud.victory')}: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
           `</div>` +
-          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px">Dauer ${matchTime} · Match läuft weiter</div>` +
-          `<table style="font-size: 12px; margin: 0 auto; border-collapse: collapse"><thead><tr style="opacity: 0.6"><th style="font-weight: normal; padding-right: 12px; text-align: left">Spieler</th><th style="font-weight: normal; padding-right: 12px; text-align: right">Peak %</th><th style="font-weight: normal; text-align: right">Peak Truppen</th></tr></thead><tbody>${statsRows}</tbody></table>` +
+          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px">${t('hud.matchDuration', { time: matchTime })}</div>` +
+          `<table style="font-size: 12px; margin: 0 auto; border-collapse: collapse"><thead><tr style="opacity: 0.6"><th style="font-weight: normal; padding-right: 12px; text-align: left">${t('hud.colPlayer')}</th><th style="font-weight: normal; padding-right: 12px; text-align: right">${t('hud.colPeakPct')}</th><th style="font-weight: normal; text-align: right">${t('hud.colPeakTroops')}</th></tr></thead><tbody>${statsRows}</tbody></table>` +
           `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px; font-family: ui-monospace">Seed: ${escapeHtml(state.seed)}</div>`
       }
     } else {
@@ -1022,7 +1039,7 @@ export function createHUD(
       const v = Math.max(0, Math.min(100, Math.round(pct)))
       currentSliderPct = v
       slider.value = String(v)
-      sliderLabel.textContent = `Angriff: ${String(v)}%`
+      sliderLabel.textContent = t('hud.attack', { pct: v })
     },
     setBoatMode(on: boolean): void {
       boatHint.style.display = on ? 'block' : 'none'
