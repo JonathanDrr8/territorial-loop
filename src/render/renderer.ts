@@ -1365,8 +1365,8 @@ export function createRenderer(
       let drawn = 0
       for (const e of eco) {
         if (drawn >= FACTORY_FOREIGN_CAP) break
-        // Fremde (nicht eigene) Wirtschaftsgebäude: Stadt/Hafen/Fabrik — wie der Gold-Bonus.
-        if (e.ownerId === f.ownerId || e.ownerId <= 0) continue
+        // Ins Ausland nur noch Fabrik↔Fabrik (ADR-0018) — wie der Gold-Bonus.
+        if (!e.factory || e.ownerId === f.ownerId || e.ownerId <= 0) continue
         if (embargoed(f.ownerId, e.ownerId)) continue
         const ex = e.tile % mapW
         const ey = Math.floor(e.tile / mapW)

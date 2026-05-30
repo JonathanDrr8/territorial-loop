@@ -984,8 +984,8 @@ export function goldBreakdown(state: GameState, playerId: number): GoldBreakdown
   for (const [root, count] of destPerCluster) {
     if (factoryClusters.has(root)) dests += count
   }
-  // Auslands-Verbindungen: jede FREMDE (nicht embargoierte) Stadt/Hafen in Fabrik-Reichweite
-  // bringt 3× Gold (Kooperation über Grenzen lohnt sich; Gunst separat via applyFactoryDiplomacy).
+  // Auslands-Verbindungen: jede FREMDE (nicht embargoierte) FABRIK in Fabrik-Reichweite bringt
+  // 3× Gold (ADR-0018: nur noch Fabrik↔Fabrik; Gunst separat via applyFactoryDiplomacy).
   const foreign = foreignFactoryGold(state, playerId, nodes)
   gold += foreign.gold
   dests += foreign.dests
@@ -1005,11 +1005,11 @@ const FACTORY_OWN_CAP = 4
 export const FACTORY_FOREIGN_CAP = 4
 
 /**
- * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jedes FREMDE (nicht
- * embargoierte) fertige Wirtschaftsgebäude (Stadt/Hafen/**Fabrik**) in `FACTORY_LINK_RANGE`
- * zählt als Ziel mit `FACTORY_FOREIGN_MULT`× Gold — genau wie eine Fabrik sich im eigenen Netz
- * mit Städten/Häfen/Fabriken verbindet. So lohnt es sich, Fabriken nah an andere Nationen zu
- * bauen (Kooperation über Grenzen).
+ * Gold + Ziel-Anzahl aus den Auslands-Verbindungen EINER Fabrik: jede FREMDE (nicht
+ * embargoierte) fertige **Fabrik** in `FACTORY_LINK_RANGE` zählt als Ziel mit
+ * `FACTORY_FOREIGN_MULT`× Gold (ADR-0018: ins Ausland nur noch Fabrik↔Fabrik, keine fremden
+ * Städte/Häfen mehr). So lohnt es sich, Fabriken nah an die Fabriken anderer Nationen zu bauen
+ * (Kooperation über Grenzen).
  */
 function factoryForeignContribution(
   state: GameState,
@@ -1024,7 +1024,9 @@ function factoryForeignContribution(
   for (const b of state.buildings.values()) {
     if (dests >= FACTORY_FOREIGN_CAP) break // Deckel: nur die ersten N Auslands-Ziele zählen
     if (b.ownerId === ownerId || b.ownerId <= 0) continue
-    if (b.type !== 'city' && b.type !== 'port' && b.type !== 'factory') continue
+    // Ins Ausland verbindet eine Fabrik NUR noch mit anderen Fabriken (ADR-0018) — fremde
+    // Städte/Häfen zählen nicht mehr.
+    if (b.type !== 'factory') continue
     if (!isBuildingComplete(b, state.tick)) continue
     if (isTradeEmbargoed(state, ownerId, b.ownerId)) continue
     const bx = b.tile % width

@@ -474,7 +474,7 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
   })
 
-  it('Fabrik mit Auslands-Verbindung: 3× Gold + Gunst mit der Nachbar-Nation', () => {
+  it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
     const H = state.map.height
@@ -494,13 +494,12 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    // Fabrik-Einkommen des Besitzers (Spieler 1): die fremde Stadt zählt als Ziel mit 3× Gold.
+    // ADR-0018: eine fremde STADT zählt NICHT mehr fürs Auslands-Gold (nur fremde Fabriken).
     const gb = goldBreakdown(state, 1)
-    expect(gb.dests).toBe(1) // die fremde Stadt
-    expect(gb.factory).toBe(FACTORY_GOLD_PER_DEST * 3) // 3× pro Auslands-Ziel (Level 1)
-    // factoryYield (Tooltip) zeigt denselben Beitrag.
-    expect(factoryYield(state, factoryTile)?.goldPerTick).toBe(FACTORY_GOLD_PER_DEST * 3)
-    // Gunst entsteht (beim nächsten Fabrik-Diplomatie-Intervall).
+    expect(gb.dests).toBe(0)
+    expect(gb.factory).toBe(0)
+    expect(factoryYield(state, factoryTile)?.goldPerTick).toBe(0)
+    // Gunst aus Fabrik-Nachbarschaft bleibt (separates Beziehungs-Feature, ADR-0013).
     for (let i = 0; i < 31; i++) tick(state, [])
     expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
     expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBeGreaterThan(0)
@@ -567,10 +566,10 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
       level: 1,
       completesAtTick: 0,
     })
-    // 8 fremde Städte in Reichweite — mehr als der Deckel.
+    // 8 fremde Fabriken in Reichweite — mehr als der Deckel (ADR-0018: nur Fabriken zählen).
     for (let k = 0; k < 8; k++) {
       const t = tileRef(20 + 1, 20 + k, W, H)
-      state.buildings.set(t, { type: 'city', ownerId: 2, tile: t, level: 1, completesAtTick: 0 })
+      state.buildings.set(t, { type: 'factory', ownerId: 2, tile: t, level: 1, completesAtTick: 0 })
     }
     const y = factoryYield(state, factoryTile)
     expect(y?.dests).toBe(4) // FACTORY_FOREIGN_CAP — nicht 8
