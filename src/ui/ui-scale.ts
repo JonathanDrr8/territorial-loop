@@ -10,9 +10,12 @@
 
 import { t } from '../i18n'
 
-const STORAGE_KEY = 'territorial-loop:ui-scale:v1'
-export const UI_SCALE_MIN = 0.8
-export const UI_SCALE_MAX = 1.6
+// v2: neuer, größerer Default (1.3) — alte gespeicherte „1.0"-Werte sollen NICHT kleben bleiben.
+const STORAGE_KEY = 'territorial-loop:ui-scale:v2'
+export const UI_SCALE_MIN = 0.9
+export const UI_SCALE_MAX = 2.2
+/** Standard-Größe für neue Spieler (HUD ist sonst auf hochauflösenden Monitoren zu winzig). */
+export const UI_SCALE_DEFAULT = 1.3
 
 const elements = new Set<HTMLElement>()
 
@@ -23,7 +26,7 @@ function load(): number {
   } catch {
     /* ignore */
   }
-  return 1
+  return UI_SCALE_DEFAULT
 }
 
 let scale = load()

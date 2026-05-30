@@ -366,4 +366,11 @@ export const ru: Record<string, string> = {
   'uiscale.title': 'Размер интерфейса',
   'nation.wild': 'дикая',
   'hud.resync': 'Ресинхронизация …',
+  'log.diplomacy': 'Дипломатия',
+  'log.war': 'Война',
+  'log.economy': 'Экономика',
+  'prompt.offersAlliance': 'предлагает союз',
+  'prompt.accept': 'Принять',
+  'prompt.decline': 'Отклонить',
+  'prompt.ignore': 'Игнорировать',
 }

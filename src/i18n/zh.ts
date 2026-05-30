@@ -338,4 +338,11 @@ export const zh: Record<string, string> = {
   'uiscale.title': '界面大小',
   'nation.wild': '野生',
   'hud.resync': '重新同步 …',
+  'log.diplomacy': '外交',
+  'log.war': '战争',
+  'log.economy': '经济',
+  'prompt.offersAlliance': '提议结盟',
+  'prompt.accept': '接受',
+  'prompt.decline': '拒绝',
+  'prompt.ignore': '忽略',
 }

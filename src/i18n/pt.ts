@@ -373,4 +373,11 @@ export const pt: Record<string, string> = {
   'uiscale.title': 'Tamanho da interface',
   'nation.wild': 'selvagem',
   'hud.resync': 'Ressincronizando …',
+  'log.diplomacy': 'Diplomacia',
+  'log.war': 'Guerra',
+  'log.economy': 'Economia',
+  'prompt.offersAlliance': 'oferece uma aliança',
+  'prompt.accept': 'Aceitar',
+  'prompt.decline': 'Recusar',
+  'prompt.ignore': 'Ignorar',
 }

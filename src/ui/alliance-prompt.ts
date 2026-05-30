@@ -14,6 +14,7 @@
  */
 
 import type { GameState } from '../core/game'
+import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { registerScalable } from './ui-scale'
 
@@ -132,10 +133,10 @@ export function createAlliancePrompt(
     const btn = (act: string, label: string, bg: string): string =>
       `<button data-act="${act}" data-req="${String(from)}" style="pointer-events:auto;cursor:pointer;font:inherit;border:none;border-radius:4px;padding:3px 8px;color:#fff;background:${bg}">${label}</button>`
     row.innerHTML =
-      `<span><b style="color:${color}">${escapeHtml(name)}</b> bietet ein Bündnis</span>` +
-      btn('accept', 'Akzeptieren', '#2f7d4f') +
-      btn('decline', 'Ablehnen', '#8a3a3a') +
-      btn('ignore', 'Ignorieren', '#3a3f4a')
+      `<span><b style="color:${color}">${escapeHtml(name)}</b> ${t('prompt.offersAlliance')}</span>` +
+      btn('accept', t('prompt.accept'), '#2f7d4f') +
+      btn('decline', t('prompt.decline'), '#8a3a3a') +
+      btn('ignore', t('prompt.ignore'), '#3a3f4a')
     return row
   }
 

@@ -380,4 +380,11 @@ export const de: Record<string, string> = {
   'uiscale.title': 'UI-Größe',
   'nation.wild': 'wild',
   'hud.resync': 'Resync …',
+  'log.diplomacy': 'Diplomatie',
+  'log.war': 'Krieg',
+  'log.economy': 'Wirtschaft',
+  'prompt.offersAlliance': 'bietet ein Bündnis',
+  'prompt.accept': 'Akzeptieren',
+  'prompt.decline': 'Ablehnen',
+  'prompt.ignore': 'Ignorieren',
 }

@@ -415,17 +415,18 @@ export function createHUD(
   const troopBadge = document.createElement('div')
   troopBadge.style.cssText = [
     'position: absolute',
-    'top: 12px',
+    'top: 0',
     'left: 50%',
     'transform: translateX(-50%)',
     'background: rgba(0,0,0,0.86)',
     'color: white',
-    'padding: 7px 14px',
+    'padding: 10px 20px 11px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-    'font-size: 13px',
-    'border-radius: 10px',
+    'font-size: 15px',
+    // Nodge: hängt bündig vom oberen Rand rein — oben eckig, nur unten abgerundet.
+    'border-radius: 0 0 14px 14px',
     'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
-    'min-width: 320px',
+    'min-width: 400px',
     'pointer-events: auto',
     'z-index: 11',
     'display: flex',
@@ -442,7 +443,7 @@ export function createHUD(
     'display: flex',
     'align-items: center',
     'justify-content: center',
-    'font-size: 11px',
+    'font-size: 13px',
     'font-weight: bold',
     'white-space: nowrap',
     'text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.9)',
@@ -453,7 +454,7 @@ export function createHUD(
   const barWrap = document.createElement('div')
   barWrap.style.cssText = [
     'position: relative',
-    'height: 22px',
+    'height: 28px',
     'background: rgba(255,255,255,0.08)',
     'border: 1px solid rgba(255,255,255,0.15)',
     'border-radius: 4px',
@@ -486,9 +487,9 @@ export function createHUD(
   barRow.style.cssText = 'display: flex; align-items: center; gap: 8px'
   const troopRateEl = document.createElement('div')
   troopRateEl.style.cssText = [
-    'flex: 0 0 64px',
+    'flex: 0 0 74px',
     'text-align: right',
-    'font-size: 12px',
+    'font-size: 14px',
     'font-weight: bold',
     'font-variant-numeric: tabular-nums',
   ].join(';')
@@ -498,7 +499,7 @@ export function createHUD(
   troopBadge.appendChild(barRow)
 
   const barLegend = document.createElement('div')
-  barLegend.style.cssText = 'font-size: 10px; opacity: 0.75; margin-top: 2px; min-height: 12px'
+  barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; margin-top: 3px; min-height: 13px'
   troopBadge.appendChild(barLegend)
   container.appendChild(troopBadge)
   registerScalable(troopBadge)

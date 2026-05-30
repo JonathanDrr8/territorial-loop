@@ -341,4 +341,11 @@ export const ja: Record<string, string> = {
   'uiscale.title': 'UI サイズ',
   'nation.wild': '野生',
   'hud.resync': '再同期 …',
+  'log.diplomacy': '外交',
+  'log.war': '戦争',
+  'log.economy': '経済',
+  'prompt.offersAlliance': '同盟を提案',
+  'prompt.accept': '受諾',
+  'prompt.decline': '拒否',
+  'prompt.ignore': '無視',
 }
