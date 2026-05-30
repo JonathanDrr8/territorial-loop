@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { createMap, setOwner, type GameMap } from '../src/world/map'
 import { IS_LAND_BIT, IMPASSABLE_HEIGHT } from '../src/world/terrain'
-import { computeOwnerComponents, sameOwnerComponent, BRIDGE_SPAN } from '../src/world/economy-net'
+import {
+  computeOwnerComponents,
+  sameOwnerComponent,
+  findLandPath,
+  BRIDGE_SPAN,
+} from '../src/world/economy-net'
 import { tileRef } from '../src/world/torus'
 
 /**
@@ -77,6 +82,34 @@ describe('computeOwnerComponents (ADR-0018)', () => {
     const w = map.width
     const comp = computeOwnerComponents(map)
     expect(sameOwnerComponent(comp, tileRef(1, 1, w, 3), tileRef(3, 1, w, 3))).toBe(false)
+  })
+
+  it('findLandPath: Pfad über zusammenhängendes Eigenland', () => {
+    const map = mapFromAscii(['#####', '#111#', '#####'])
+    const w = map.width
+    const comp = computeOwnerComponents(map)
+    const path = findLandPath(map, comp, tileRef(1, 1, w, 3), tileRef(3, 1, w, 3))
+    expect(path).not.toBeNull()
+    expect(path?.[0]).toBe(tileRef(1, 1, w, 3))
+    expect(path?.[path.length - 1]).toBe(tileRef(3, 1, w, 3))
+    expect(path?.length).toBe(3) // (1,1)-(2,1)-(3,1)
+  })
+
+  it('findLandPath: null über getrenntes Land', () => {
+    const map = mapFromAscii(['##########', '#1.....1##', '##########'])
+    const w = map.width
+    const comp = computeOwnerComponents(map)
+    expect(findLandPath(map, comp, tileRef(1, 1, w, 3), tileRef(7, 1, w, 3))).toBeNull()
+  })
+
+  it('findLandPath: Pfad nutzt eine Brücke über schmales Wasser', () => {
+    const map = mapFromAscii(['#######', '#1..1##', '#######'])
+    const w = map.width
+    const comp = computeOwnerComponents(map)
+    const path = findLandPath(map, comp, tileRef(1, 1, w, 3), tileRef(4, 1, w, 3))
+    expect(path).not.toBeNull()
+    // Brücke = ein Schritt über das Wasser: (1,1) → (4,1).
+    expect(path).toEqual([tileRef(1, 1, w, 3), tileRef(4, 1, w, 3)])
   })
 
   it('Wasser/Berg/Niemandsland bekommen keine Komponente (-1)', () => {

@@ -26,6 +26,33 @@ const DIRS: ReadonlyArray<readonly [number, number]> = [
 ]
 
 /**
+ * Ruft `visit` für jeden über Land erreichbaren Nachbarn von `ref` auf, der `owner` gehört:
+ * direkter 4-Nachbar oder das erste eigene Land-Tile hinter einer Brücke (≤ BRIDGE_SPAN Wasser
+ * geradeaus). Das erste Land-Tile in einer Richtung beendet den Scan (fremdes Land/Berg blockt).
+ * Gemeinsame Kanten-Definition für Komponenten-Labeling UND Pfadsuche → identische Topologie.
+ */
+function forEachLandNeighbor(
+  map: GameMap,
+  ref: number,
+  owner: number,
+  visit: (neighbor: number) => void,
+): void {
+  const { width, height, terrain } = map
+  const x = ref % width
+  const y = (ref - x) / width
+  for (const dir of DIRS) {
+    for (let s = 1; s <= BRIDGE_SPAN; s++) {
+      const nx = (((x + dir[0] * s) % width) + width) % width
+      const ny = (((y + dir[1] * s) % height) + height) % height
+      const j = ny * width + nx
+      if (!isLand(terrain, j)) continue // Wasser → Brücke möglich, weiter scannen
+      if (isPassable(terrain, j) && getOwner(map, j) === owner) visit(j)
+      break // Land (eigenes/fremdes/Berg) beendet den Scan in dieser Richtung
+    }
+  }
+}
+
+/**
  * Labelt jedes Tile mit der ID seiner Owner-Land-Komponente. Tiles ohne eigenen Besitzer
  * (Wasser, Berge, Niemandsland) bekommen -1. Zwei Tiles in derselben Komponente sind über Land
  * (inkl. Brücken) verbunden.
@@ -58,22 +85,7 @@ export function computeOwnerComponents(map: GameMap): Int32Array {
     if (!isPassable(terrain, i)) continue
     const owner = getOwner(map, i)
     if (owner <= 0) continue
-    const x = i % width
-    const y = (i - x) / width
-    for (const dir of DIRS) {
-      const dx = dir[0]
-      const dy = dir[1]
-      // Vom Tile aus geradeaus: das ERSTE Land-Tile beendet den Scan. Ist es eigenes passierbares
-      // Land (direkt benachbart oder über ≤ BRIDGE_SPAN-1 Wasser-Tiles = Brücke), wird verbunden.
-      for (let s = 1; s <= BRIDGE_SPAN; s++) {
-        const nx = (((x + dx * s) % width) + width) % width
-        const ny = (((y + dy * s) % height) + height) % height
-        const j = ny * width + nx
-        if (!isLand(terrain, j)) continue // Wasser → Brücke möglich, weiter scannen
-        if (isPassable(terrain, j) && getOwner(map, j) === owner) union(i, j)
-        break // Land (eigenes/fremdes/Berg) beendet den Scan in dieser Richtung
-      }
-    }
+    forEachLandNeighbor(map, i, owner, (j) => union(i, j))
   }
 
   const comp = new Int32Array(n).fill(-1)
@@ -87,4 +99,48 @@ export function computeOwnerComponents(map: GameMap): Int32Array {
 export function sameOwnerComponent(comp: Int32Array, a: number, b: number): boolean {
   const ca = comp[a]
   return ca !== undefined && ca >= 0 && ca === comp[b]
+}
+
+/**
+ * Kürzester Land-Pfad (in Schritten) von `start` zu `goal` über eigenes Land inklusive Brücken,
+ * als Tile-Liste mit Start und Ziel. `null`, wenn beide nicht in derselben Owner-Land-Komponente
+ * liegen. BFS über dieselbe Topologie wie `computeOwnerComponents` (jede Kante = ein Schritt, eine
+ * Brücke springt über das Wasser). Deterministisch (feste Nachbar-Reihenfolge).
+ */
+export function findLandPath(
+  map: GameMap,
+  comp: Int32Array,
+  start: number,
+  goal: number,
+): number[] | null {
+  if (!sameOwnerComponent(comp, start, goal)) return null
+  if (start === goal) return [start]
+  const owner = getOwner(map, start)
+  const cameFrom = new Map<number, number>()
+  const seen = new Set<number>([start])
+  const queue: number[] = [start]
+  let head = 0
+  let found = false
+  while (head < queue.length && !found) {
+    const cur = queue[head++]
+    if (cur === undefined) break
+    forEachLandNeighbor(map, cur, owner, (j) => {
+      if (seen.has(j)) return
+      seen.add(j)
+      cameFrom.set(j, cur)
+      if (j === goal) found = true
+      queue.push(j)
+    })
+  }
+  if (!seen.has(goal)) return null
+  const path: number[] = [goal]
+  let c = goal
+  while (c !== start) {
+    const prev = cameFrom.get(c)
+    if (prev === undefined) return null
+    path.push(prev)
+    c = prev
+  }
+  path.reverse()
+  return path
 }
