@@ -157,6 +157,10 @@ export const BOMBER_HP = 4
 export const BOMBER_COST = 40_000
 /** Bomben-Wirkradius (Tiles) am Einschlagpunkt — großzügig, die Fläche soll spürbar sein. */
 export const BOMB_RADIUS = 6
+/** Schuss-Cooldown eines Flak-Turms (Ticks) — bewusst schnell, knabbert die Bomber-HP runter. */
+export const FLAK_SHOT_COOLDOWN = 3
+/** HP-Schaden eines Flak-Treffers (1 = ein Treffer). Eine Flak schwächt, mehrere = sicherer Abschuss. */
+export const FLAK_DAMAGE = 1
 
 /** Flugroute eines Bombers: gerade Linie oder Parabel-Bogen nach links/rechts (ADR-0019). */
 export type BomberRoute = 'direct' | 'arc-left' | 'arc-right'

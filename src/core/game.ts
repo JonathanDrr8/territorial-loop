@@ -49,6 +49,7 @@ import {
   airportCooldown,
   buildCost,
   defenseRange,
+  flakRange,
   isBuildingComplete,
   upgradeCost,
 } from './buildings'
@@ -95,6 +96,8 @@ import {
   BOMBER_COST,
   BOMBER_HP,
   BOMBER_SPEED,
+  FLAK_DAMAGE,
+  FLAK_SHOT_COOLDOWN,
   CART_GOLD_PER_LEVEL,
   CART_SPEED,
   type GoldCart,
@@ -329,6 +332,18 @@ export interface GameState {
    * NICHT gehasht/serialisiert (wie goldPops), nach kurzer Zeit verworfen.
    */
   bombImpacts: { tile: TileRef; atTick: number }[]
+  /**
+   * Flüchtige Flak-Schüsse (Leuchtspur Flak→Bomber) fürs Render — rein darstellend (der Schaden
+   * ist beim Abfeuern bereits deterministisch angewandt), NICHT gehasht/serialisiert.
+   */
+  flakShots: {
+    fromX: number
+    fromY: number
+    toX: number
+    toY: number
+    atTick: number
+    ownerId: number
+  }[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
   readonly alliances: Set<number>
   /** Ablauf-Tick je Allianz ([[pairKey]] → Tick) — Allianzen laufen automatisch aus. */
@@ -511,6 +526,7 @@ export function createGame(config: GameConfig): GameState {
     projectiles: [],
     bombers: [],
     bombImpacts: [],
+    flakShots: [],
     alliances: new Set<number>(),
     allianceExpiry: new Map<number, number>(),
     allianceRequests: new Set<number>(),
@@ -784,6 +800,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   advanceBoats(state)
   advanceWarships(state)
   resolveNavalCombat(state)
+  resolveFlak(state)
   advanceBombers(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
@@ -1955,6 +1972,8 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
 
 /** Lebensdauer eines Bomben-Einschlag-Funkens (Ticks) — rein darstellend (Render-Animation). */
 export const BOMB_IMPACT_LIFETIME = 20
+/** Lebensdauer einer Flak-Leuchtspur (Ticks) — kurz, nur ein Aufblitzen. */
+export const FLAK_SHOT_LIFETIME = 6
 
 /**
  * Startet einen Bomber vom nächstgelegenen eigenen, fertigen, startbereiten Flughafen Richtung
@@ -2001,16 +2020,67 @@ function applyLaunchBomberIntent(state: GameState, intent: LaunchBomberIntent): 
 }
 
 /**
+ * Flak-Türme feuern (ADR-0019): jeder fertige, schussbereite Flak-Turm trifft den nächsten
+ * FEINDLICHEN Bomber in Reichweite (nicht eigener, nicht verbündeter Besitzer) für `FLAK_DAMAGE`
+ * HP. Der Schaden ist sofort und deterministisch; die Leuchtspur (`flakShots`) ist rein
+ * darstellend. Mehrere Flaks holen einen Bomber sicher runter — `advanceBombers` verwirft ihn dann
+ * ohne Einschlag. Läuft VOR `advanceBombers`, damit ein Abschuss den Einschlag im selben Tick
+ * verhindern kann.
+ */
+function resolveFlak(state: GameState): void {
+  if (state.bombers.length === 0) return
+  const { map } = state
+  const { width, height } = map
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'flak' || !isBuildingComplete(b, state.tick)) continue
+    if ((b.cooldownUntilTick ?? 0) > state.tick) continue
+    const fx = (b.tile % width) + 0.5
+    const fy = Math.floor(b.tile / width) + 0.5
+    const range = flakRange(b.level)
+    // Nächsten feindlichen, noch lebenden Bomber in Reichweite finden.
+    let target: Bomber | undefined
+    let targetX = 0
+    let targetY = 0
+    let bestDist = Infinity
+    for (const bomber of state.bombers) {
+      if (bomber.hp <= 0 || bomber.ownerId === b.ownerId) continue
+      if (areAllied(state.alliances, b.ownerId, bomber.ownerId)) continue
+      const pos = shipWorldPos(bomber, width, height)
+      const d = torusDistance(fx, fy, pos.wx, pos.wy, width, height)
+      if (d <= range && d < bestDist) {
+        bestDist = d
+        target = bomber
+        targetX = pos.wx
+        targetY = pos.wy
+      }
+    }
+    if (target === undefined) continue
+    target.hp -= FLAK_DAMAGE
+    b.cooldownUntilTick = state.tick + FLAK_SHOT_COOLDOWN
+    state.flakShots.push({
+      fromX: fx,
+      fromY: fy,
+      toX: targetX,
+      toY: targetY,
+      atTick: state.tick,
+      ownerId: b.ownerId,
+    })
+  }
+}
+
+/**
  * Bewegt die Bomber pro Tick. Am Ziel (Vorwärts-Ende des Pfads) wird einmal die Bombe abgeworfen,
  * dann kehrt der Bomber um und löst sich am Flughafen auf. Ein per Flak abgeschossener Bomber
  * (`hp <= 0`) wird ohne Einschlag verworfen.
  */
 function advanceBombers(state: GameState): void {
-  // Abgelaufene Einschlag-Funken verwerfen (rein darstellend).
+  // Abgelaufene Einschlag-Funken + Flak-Spuren verwerfen (rein darstellend).
   if (state.bombImpacts.length > 0)
     state.bombImpacts = state.bombImpacts.filter(
       (b) => state.tick - b.atTick < BOMB_IMPACT_LIFETIME,
     )
+  if (state.flakShots.length > 0)
+    state.flakShots = state.flakShots.filter((s) => state.tick - s.atTick < FLAK_SHOT_LIFETIME)
   if (state.bombers.length === 0) return
   const next: Bomber[] = []
   for (const bomber of state.bombers) {

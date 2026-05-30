@@ -153,6 +153,7 @@ export function deserializeState(data: SerializedGameState): GameState {
     projectiles: [],
     bombers: data.bombers.map((b) => ({ ...b, path: [...b.path] })),
     bombImpacts: [],
+    flakShots: [],
     alliances: new Set(data.alliances),
     allianceExpiry: new Map(data.allianceExpiry.map(([k, v]) => [k, v])),
     allianceRequests: new Set(data.allianceRequests),

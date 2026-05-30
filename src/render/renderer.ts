@@ -14,7 +14,7 @@
  */
 
 import type { BuildingType } from '../core/buildings'
-import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
+import { BUILD_TIME_TICKS, defenseRange, flakRange, isBuildingComplete } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import {
   BOMB_IMPACT_LIFETIME,
@@ -22,6 +22,7 @@ import {
   CAPTURE_FADE_TICKS,
   FACTORY_CART_LIMIT,
   FACTORY_FOREIGN_CAP,
+  FLAK_SHOT_LIFETIME,
   GOLD_POP_LIFETIME,
   snapBuildTile,
   type GameState,
@@ -1894,6 +1895,36 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /** Zeichnet Flak-Schüsse als kurze helle Leuchtspur (Flak→Bomber, in Besitzerfarbe). */
+  function drawFlakShots(): void {
+    if (state.flakShots.length === 0) return
+    const z = camera.zoom
+    screenCtx.save()
+    screenCtx.lineCap = 'round'
+    for (const s of state.flakShots) {
+      const frac = Math.min(1, (state.tick - s.atTick) / FLAK_SHOT_LIFETIME)
+      // Spur fliegt von der Flak zum (eingefrorenen) Bomber-Zielpunkt und blendet aus.
+      const wx = s.fromX + (s.toX - s.fromX) * frac
+      const wy = s.fromY + (s.toY - s.fromY) * frac
+      const head = nearestWrappedScreenPos(wx, wy)
+      const tail = nearestWrappedScreenPos(
+        s.fromX + (s.toX - s.fromX) * Math.max(0, frac - 0.25),
+        s.fromY + (s.toY - s.fromY) * Math.max(0, frac - 0.25),
+      )
+      const owner = state.players.get(s.ownerId)
+      const col = owner === undefined ? '#cfe8ff' : rgbaToCssLocal(owner.color)
+      screenCtx.globalAlpha = (1 - frac) * 0.85
+      screenCtx.strokeStyle = col
+      screenCtx.lineWidth = Math.max(1.5, z * 0.22)
+      screenCtx.beginPath()
+      screenCtx.moveTo(tail.sx, tail.sy)
+      screenCtx.lineTo(head.sx, head.sy)
+      screenCtx.stroke()
+    }
+    screenCtx.globalAlpha = 1
+    screenCtx.restore()
+  }
+
   /** Zeichnet die Auswahl-Box (Box-Select) während des Ziehens. */
   function drawSelectionBox(): void {
     if (selectionBox === null) return
@@ -2113,7 +2144,12 @@ export function createRenderer(
         if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
         // Nur die Verteidigungs-Reichweite andeuten. Fabriken haben keinen Inland-Radius mehr
         // (Verbindung läuft über Land-Wege, ADR-0018) → kein Ring beim Fabrik-Bau.
-        const previewRadiusTiles = buildPreviewType === 'defense' ? defenseRange(1) : 0
+        const previewRadiusTiles =
+          buildPreviewType === 'defense'
+            ? defenseRange(1)
+            : buildPreviewType === 'flak'
+              ? flakRange(1)
+              : 0
         if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
           screenCtx.arc(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)
@@ -2192,15 +2228,17 @@ export function createRenderer(
     const mapH = state.map.height
     const ref = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
     const b = state.buildings.get(ref)
-    if (b === undefined || b.type !== 'defense' || !isBuildingComplete(b, state.tick)) return
+    if (b === undefined || !isBuildingComplete(b, state.tick)) return
+    if (b.type !== 'defense' && b.type !== 'flak') return
     const z = camera.zoom
-    const r = defenseRange(b.level) * z
+    const r = (b.type === 'flak' ? flakRange(b.level) : defenseRange(b.level)) * z
     const tx = hoverTile.x + 0.5
     const ty = hoverTile.y + 0.5
     const cssW = container.clientWidth
     const cssH = container.clientHeight
     screenCtx.save()
-    screenCtx.strokeStyle = 'rgba(232,180,74,0.7)'
+    // Flak in einem Luftabwehr-Blau, Verteidigung im gewohnten Amber.
+    screenCtx.strokeStyle = b.type === 'flak' ? 'rgba(120,200,255,0.75)' : 'rgba(232,180,74,0.7)'
     screenCtx.lineWidth = 1.5
     screenCtx.setLineDash([5, 4])
     for (let dx = -1; dx <= 1; dx++) {
@@ -2222,21 +2260,26 @@ export function createRenderer(
    * eigenen fertigen Verteidigungsposten zeigen — so sieht man die Abdeckung und Lücken.
    */
   function drawAllOwnDefenseRanges(): void {
-    if (buildPreviewType !== 'defense' || lutHumanId < 0) return
+    if ((buildPreviewType !== 'defense' && buildPreviewType !== 'flak') || lutHumanId < 0) return
     const mapW = state.map.width
     const mapH = state.map.height
     const z = camera.zoom
     const cssW = container.clientWidth
     const cssH = container.clientHeight
+    const isFlak = buildPreviewType === 'flak'
     screenCtx.save()
-    screenCtx.strokeStyle = 'rgba(232,180,74,0.55)'
-    screenCtx.fillStyle = 'rgba(232,180,74,0.07)'
+    screenCtx.strokeStyle = isFlak ? 'rgba(120,200,255,0.6)' : 'rgba(232,180,74,0.55)'
+    screenCtx.fillStyle = isFlak ? 'rgba(120,200,255,0.07)' : 'rgba(232,180,74,0.07)'
     screenCtx.lineWidth = 1.5
     screenCtx.setLineDash([5, 4])
     for (const b of state.buildings.values()) {
-      if (b.ownerId !== lutHumanId || b.type !== 'defense' || !isBuildingComplete(b, state.tick))
+      if (
+        b.ownerId !== lutHumanId ||
+        b.type !== buildPreviewType ||
+        !isBuildingComplete(b, state.tick)
+      )
         continue
-      const r = defenseRange(b.level) * z
+      const r = (isFlak ? flakRange(b.level) : defenseRange(b.level)) * z
       const tx = (b.tile % mapW) + 0.5
       const ty = Math.floor(b.tile / mapW) + 0.5
       for (let dx = -1; dx <= 1; dx++) {
@@ -2306,6 +2349,7 @@ export function createRenderer(
     drawBuildPreview()
     drawMarkers()
     drawLabels()
+    drawFlakShots()
     drawBombers() // Bomber fliegen über allem
     drawBombImpacts()
     drawGoldPops()

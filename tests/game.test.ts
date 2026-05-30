@@ -601,6 +601,70 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(state.bombers.length).toBe(0) // Bomber nach Rückflug aufgelöst
   })
 
+  it('Flak: schießt einen durchfliegenden feindlichen Bomber ab (kein Einschlag) (ADR-0019)', () => {
+    // Map breit genug, dass der direkte Weg (50) kürzer als der Torus-Wrap ist → Flugbahn quert x=35.
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 128, mapHeight: 128 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+
+    // p1: Flughafen bei (10,10).
+    const airport = T(10, 10)
+    setOwner(state.map, airport, 1)
+    state.buildings.set(airport, {
+      type: 'airport',
+      ownerId: 1,
+      tile: airport,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p1.gold = 1_000_000
+    p1.tilesOwned = 1
+
+    // p2: Ziel-Stadt weit hinten + eine Flak-Wand quer über den direkten Flugweg (y≈10).
+    const targetCity = T(60, 10)
+    setOwner(state.map, targetCity, 2)
+    state.buildings.set(targetCity, {
+      type: 'city',
+      ownerId: 2,
+      tile: targetCity,
+      level: 1,
+      completesAtTick: 0,
+    })
+    p2.tilesOwned = 1
+    p2.troops = 1000
+    // Fünf Flak-Türme bei x=35 → ein 4-HP-Bomber wird sicher runtergeholt.
+    for (let y = 6; y <= 14; y += 2) {
+      const ft = T(35, y)
+      setOwner(state.map, ft, 2)
+      state.buildings.set(ft, { type: 'flak', ownerId: 2, tile: ft, level: 1, completesAtTick: 0 })
+    }
+    initializeAllFrontiers(state)
+
+    for (let i = 0; i < 40; i++)
+      tick(
+        state,
+        i === 0
+          ? [
+              {
+                type: 'launch-bomber' as const,
+                playerId: 1,
+                targetTile: targetCity,
+                route: 'direct',
+              },
+            ]
+          : [],
+      )
+
+    expect(state.bombers.length).toBe(0) // abgeschossen + entfernt
+    expect(state.buildings.has(targetCity)).toBe(true) // kein Einschlag → Stadt steht
+    expect(getOwner(state.map, targetCity)).toBe(2) // Gebiet unversehrt
+  })
+
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
