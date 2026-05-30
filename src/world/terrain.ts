@@ -170,9 +170,13 @@ function carveRivers(
 ): void {
   const len = w * h
   const isWater = (i: number): boolean => ((terrain[i] ?? 0) & IS_LAND_BIT) === 0
-  const minSepSq = (Math.min(w, h) * 0.1) ** 2
+  const minSepSq = (Math.min(w, h) * 0.12) ** 2
   const maxLen = w + h
   const minRiverLen = Math.max(14, Math.round(Math.min(w, h) * 0.08))
+  // Gemeinsamer Mindestabstand ALLER Flussquellen (Typ A + B) → kein „Klumpen" dicht beieinander.
+  const placed: { x: number; y: number }[] = []
+  const farEnough = (x: number, y: number): boolean =>
+    placed.every((p) => dist2(x, y, p.x, p.y) >= minSepSq)
 
   const dist2 = (ax: number, ay: number, bx: number, by: number): number => {
     let dx = Math.abs(ax - bx)
@@ -205,7 +209,7 @@ function carveRivers(
   // Fraktale Mäander-Kurve (Midpoint-Displacement): Polylinie Start→Ziel rekursiv unterteilen, jeden
   // Mittelpunkt zufällig QUER zum Segment auslenken. ROUGH steuert die Windung, ITER die Feinheit.
   const ITER = 6
-  const ROUGH = 0.42
+  const ROUGH = 0.36
   const fractalCarve = (sx: number, sy: number, dx: number, dy: number): void => {
     let pts: { x: number; y: number }[] = [
       { x: sx, y: sy },
@@ -250,14 +254,17 @@ function carveRivers(
   // ── Typ B: Berg → Meer ───────────────────────────────────────────────────────
   // Abstieg auf landNoise findet die Mündung (Sea-Tile). Der sichtbare Fluss ist dann die fraktale
   // Kurve von Quelle zu Mündung.
-  const targetB = Math.max(2, Math.round(Math.sqrt(w * h) / 110))
+  const targetB = Math.max(2, Math.round(Math.sqrt(w * h) / 85))
   const sources: { x: number; y: number }[] = []
   for (let a = 0; a < targetB * 300 && sources.length < targetB; a++) {
     const i = prng.nextInt(0, len - 1)
     if (isWater(i) || (heightNoise[i] ?? 0) < sourceThr) continue
     const x = i % w
     const y = (i - x) / w
-    if (sources.every((s) => dist2(x, y, s.x, s.y) >= minSepSq)) sources.push({ x, y })
+    if (farEnough(x, y)) {
+      sources.push({ x, y })
+      placed.push({ x, y })
+    }
   }
   for (const src of sources) {
     let cur = src.y * w + src.x
@@ -307,13 +314,14 @@ function carveRivers(
       isWater((((y - 1 + h) % h) * w + x) | 0)
     )
   }
-  const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 150))
+  const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 110))
   let madeA = 0
   for (let a = 0; a < targetA * 400 && madeA < targetA; a++) {
     const start = prng.nextInt(0, len - 1)
     if (!isCoastLand(start)) continue
     const sx = start % w
     const sy = (start - sx) / w
+    if (!farEnough(sx, sy)) continue // Mindestabstand zu anderen Flüssen → kein Klumpen
     const ang = prng.nextFloat(0, Math.PI * 2)
     const stepx = detCos(ang)
     const stepy = detSin(ang)
@@ -332,6 +340,7 @@ function carveRivers(
     if (mx < 0) continue
     const [dx, dy] = torusDelta(sx, sy, mx, my)
     fractalCarve(sx, sy, dx, dy)
+    placed.push({ x: sx, y: sy })
     madeA++
   }
 }
