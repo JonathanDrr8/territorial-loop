@@ -451,7 +451,7 @@ export function createBuildMenu(
             run: () => {},
           })
         } else {
-          const cost = upgradeCost(existing.type, existing.level)
+          const cost = upgradeCost(existing)
           actions.push({
             glyph: BUILDING_GLYPH[existing.type],
             label: t('menu.upgrade', { level: existing.level + 1 }),

@@ -261,7 +261,7 @@ export function createHoverTooltip(
       if (isOwn && complete) {
         const benefit = upgradeBenefit(state, building)
         if (benefit !== null) {
-          const cost = upgradeCost(building.type, building.level)
+          const cost = upgradeCost(building)
           upgradeLine = `<br><span style="color:#7fd0ff">↑ ${t('tip.lvl')} ${String(building.level + 1)}: ${benefit} <span style="opacity:0.7">· ${fmtCompact(cost)} ${t('hud.gold')}</span></span>`
         }
       }

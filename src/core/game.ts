@@ -1326,7 +1326,7 @@ export function canBuildAt(
     // Bauen auf eigenem gleichem Gebäude = Upgrade (wenn nicht max + leistbar).
     if (existing.ownerId !== playerId || existing.type !== type) return false
     if (existing.level >= MAX_BUILDING_LEVEL) return false
-    return player.gold >= upgradeCost(type, existing.level)
+    return player.gold >= upgradeCost(existing)
   }
   if (type === 'port' && !nearWater(state, tile)) return false
   const cost = buildCostFor(state, playerId, type)
@@ -1341,7 +1341,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
   // Bauen auf eigenem gleichem Gebäude → Upgrade statt Neubau (von canBuildAt garantiert).
   const existing = state.buildings.get(intent.tile)
   if (existing !== undefined) {
-    player.gold -= upgradeCost(existing.type, existing.level)
+    player.gold -= upgradeCost(existing)
     existing.level++
     return
   }
@@ -1354,6 +1354,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
     tile: intent.tile,
     level: 1,
     completesAtTick: state.tick + BUILD_TIME_TICKS,
+    buildPrice: cost, // Upgrade-Kosten skalieren hieran (siehe upgradeCost)
   })
 }
 
@@ -1366,7 +1367,7 @@ function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
   // Tile könnte zwischenzeitlich verloren sein
   if (getOwner(state.map, intent.tile) !== player.id) return
 
-  const cost = upgradeCost(b.type, b.level)
+  const cost = upgradeCost(b)
   if (player.gold < cost) return
   player.gold -= cost
   b.level++

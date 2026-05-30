@@ -26,6 +26,12 @@ export interface Building {
   level: number
   /** Tick, ab dem das Gebäude fertig ist und wirkt. Bis dahin „im Bau". */
   completesAtTick: number
+  /**
+   * Tatsächliche (eskalierte) Baukosten dieses Gebäudes zum Bauzeitpunkt. Upgrade-Kosten
+   * skalieren daran (teure Max-Cost-Fabrik → teures Upgrade, siehe [[upgradeCost]]). Optional:
+   * Alt-Snapshots/Tests ohne Feld fallen auf die typ-Basiskosten zurück (= bisheriges Verhalten).
+   */
+  readonly buildPrice?: number
 }
 
 export const MAX_BUILDING_LEVEL = 3
@@ -93,9 +99,15 @@ export function buildCost(type: BuildingType, existingCountInGroup: number): num
   return Math.min(cost, BUILD_COST_CAP)
 }
 
-/** Upgrade-Kosten von `currentLevel` auf das nächste (linear in der Stufe). */
-export function upgradeCost(type: BuildingType, currentLevel: number): number {
-  return Math.round(BASE_BUILD_COST[type] * (currentLevel + 1))
+/**
+ * Upgrade-Kosten aufs nächste Level. Skaliert am **tatsächlichen Baupreis** des Gebäudes
+ * (`buildPrice`) statt an den Typ-Basiskosten → eine teure (eskalierte) Max-Cost-Fabrik kostet
+ * auch entsprechend mehr zum Upgraden, eine erste/billige unverändert (buildPrice = Basis → identisch
+ * zur früheren `BASE × (level+1)`-Formel). Fehlt `buildPrice` (Alt-Snapshot/Test), gilt die Basis.
+ */
+export function upgradeCost(b: Pick<Building, 'type' | 'level' | 'buildPrice'>): number {
+  const base = b.buildPrice ?? BASE_BUILD_COST[b.type]
+  return Math.round(base * (b.level + 1))
 }
 
 // Effekt-Konstanten
