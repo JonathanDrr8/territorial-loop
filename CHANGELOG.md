@@ -4,6 +4,28 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-05-30
+
+### Neu
+
+- **Flüsse im Terrain** (an, im Experimentell-Panel abschaltbar) — echtes, **befahrbares** Wasser:
+  Quellen an Bergen fließen zum Meer, dazu Ströme, die quer durchs Land zwei Meere verbinden.
+  Schiffe/Boote können flussaufwärts, Binnen-Küsten werden per Boot erreichbar.
+- **Mehrspieler: echte Host-Pause** — nur der Host kann pausieren (hält die Server-Uhr wirklich an,
+  alle sehen es); das Tempo ist im Mehrspieler fest auf Standard.
+- **Einladungslinks als `…/r/CODE`** (hübscher teilbar) und automatische **Resync-Korrektur**, falls
+  ein Client mal aus dem Takt gerät.
+- **Wasser** changiert jetzt leicht (Strömungs-Flecken) statt uniform; **unpassierbare Gipfel** sind
+  als helle Schnee-/Felsfläche klar erkennbar.
+
+### Geändert
+
+- **HUD aufgeräumt:** Truppen-Anzeige als größere Nodge bündig am oberen Rand; **UI standardmäßig
+  größer** (130 %, Slider bis 220 %).
+- **Ereignislog** ist ein eigenes Feld mit **Filter** (Diplomatie/Krieg/Wirtschaft) und zeigt das
+  **Neueste oben**.
+- Nationen-Namen sind jetzt sprach-neutral (auch die wilden — mit „(wild)"-Kürzel).
+
 ## [0.4.0] – 2026-05-30
 
 ### Neu

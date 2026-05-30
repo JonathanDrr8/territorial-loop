@@ -302,8 +302,8 @@ function rockElevation(wx: number, wy: number, w: number, h: number): number {
   // EINE niederfrequente Oktave → sehr glattes Feld. Wichtig: das Relief nutzt die ABLEITUNG
   // (Slope) dieses Felds; eine zweite (höhere) Oktave würde die Slope alle paar Tiles kippen und
   // ergäbe ein Schwarz/Weiß-Pixelrauschen. Ein Feld = glatte, großflächige Schattierung.
-  const cx = Math.max(2, Math.round(w / 10))
-  const cy = Math.max(2, Math.round(h / 10))
+  const cx = Math.max(2, Math.round(w / 32))
+  const cy = Math.max(2, Math.round(h / 32))
   return wrapValueNoise(wx, wy, w, h, cx, cy)
 }
 
@@ -590,11 +590,12 @@ export function createRenderer(
         rockElevation(px, yu, w, h) -
         rockElevation(xr, py, w, h) -
         rockElevation(px, yd, w, h)
-      // Schneeanteil aus der glatten Höhe, aber KOMPRIMIERT auf [0.35,0.75] → enges, helles
-      // Kalt-Grau (Fels/Schnee) mit nur sanfter Variation statt hartem Schwarz↔Weiß.
-      const sa = 0.35 + (e < 0 ? 0 : e > 1 ? 1 : e) * 0.4
-      const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 4 // nur dezente Textur, kein Rauschen
-      const light = 1 + slope * 1.3 // sanfte NW-Hangschattierung
+      // Sehr enger Schneeanteil [0.48,0.62] → fast uniformes helles Kalt-Grau; die räumliche Form
+      // kommt aus der sanften NW-Schattierung, NICHT aus Farb-Wolken (sonst „Marmor"-Look).
+      const sa = 0.48 + (e < 0 ? 0 : e > 1 ? 1 : e) * 0.14
+      const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 2 // kaum Korn
+      // Hart geklemmtes Licht: garantiert KEIN Schwarz/Weiß, nur sanfte Hell-/Dunkelseite.
+      const light = Math.max(0.84, Math.min(1.16, 1 + slope * 2.4))
       tr = clamp255((DARK_ROCK_R + (SNOW_R - DARK_ROCK_R) * sa) * light + grain)
       tg = clamp255((DARK_ROCK_G + (SNOW_G - DARK_ROCK_G) * sa) * light + grain)
       tb = clamp255((DARK_ROCK_B + (SNOW_B - DARK_ROCK_B) * sa) * light + grain)

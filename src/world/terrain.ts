@@ -210,6 +210,8 @@ function carveRivers(
     if (sources.every((s) => dist2(x, y, s.x, s.y) >= minSepSq)) sources.push({ i, x, y })
   }
   const WANDER_B = 0.025 // Mäander-Stärke: wählt unter den ABWÄRTS-Nachbarn einen verschobenen
+  // Mindestlänge: ein Berg direkt an der Küste ergäbe sonst einen 3-Tile-Stummel — verwerfen.
+  const minRiverLen = Math.max(14, Math.round(Math.min(w, h) * 0.08))
   for (const src of sources) {
     const path: number[] = []
     const visited = new Set<number>()
@@ -243,7 +245,7 @@ function carveRivers(
       if (best < 0) break // lokales Minimum vor dem Meer → Sackgasse, verwerfen
       cur = best
     }
-    if (mouth >= 0) carve(path, mouth)
+    if (mouth >= 0 && path.length >= minRiverLen) carve(path, mouth) // zu kurze Stummel verwerfen
   }
 
   // ── Typ A: Meer → Meer, quer durchs Land ─────────────────────────────────────
@@ -273,7 +275,7 @@ function carveRivers(
     return [dx, dy]
   }
   const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 150))
-  const minCross = Math.round(Math.min(w, h) * 0.05)
+  const minCross = minRiverLen
   const reach = Math.round(Math.min(w, h) * 0.4) // wie weit das Ziel quer überm Land liegt
   const WANDER_A = 0.85 // seitliche Mäander-Stärke (Anteil quer zur Zielrichtung)
   let madeA = 0
