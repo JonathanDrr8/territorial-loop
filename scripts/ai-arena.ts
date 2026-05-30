@@ -34,7 +34,7 @@ const map = Number(flag('map') ?? '96')
 const ticks = Number(flag('ticks') ?? '4000')
 const terrain = (flag('terrain') ?? 'continents') as TerrainType
 const rivers = flag('rivers') !== undefined
-const anchor = (flag('anchor') ?? 'normal') as Difficulty
+const anchor = (flag('anchor') ?? 'standard') as Difficulty
 const asJson = flag('json') !== undefined
 
 const rosterRaw = flag('roster')
@@ -42,15 +42,16 @@ const roster: Difficulty[] =
   rosterRaw !== undefined && rosterRaw.length > 0
     ? (rosterRaw.split(',') as Difficulty[])
     : ([
+        'beginner',
+        'beginner',
         'easy',
         'easy',
-        'easy',
-        'normal',
-        'normal',
-        'normal',
-        'hard',
-        'hard',
-        'hard',
+        'standard',
+        'standard',
+        'advanced',
+        'advanced',
+        'expert',
+        'expert',
       ] as Difficulty[])
 
 const t0 = Date.now()

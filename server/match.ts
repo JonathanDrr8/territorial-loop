@@ -39,7 +39,7 @@ export class ServerMatch {
   /** Memoisierter Snapshot des aktuellen Turns (serializeState ist O(Kartengröße)). */
   private snapshotCache: { turn: number; state: SerializedGameState } | null = null
 
-  constructor(config: GameConfig, difficulty: Difficulty = 'normal') {
+  constructor(config: GameConfig, difficulty: Difficulty = 'standard') {
     this.config = config
     this.state = createGame(config)
     this.ais = []

@@ -144,7 +144,7 @@ export function runMatch(opts: MatchOptions): MatchResult {
   const ais: { id: number; ai: AI }[] = []
   let idx = 0
   for (const p of state.players.values()) {
-    const diff = opts.roster[idx] ?? 'normal'
+    const diff = opts.roster[idx] ?? 'standard'
     diffById.set(p.id, diff)
     usageById.set(p.id, new Map())
     ais.push({ id: p.id, ai: createAI(p.id, state.seed, diff, p.wild) })
@@ -179,7 +179,7 @@ export function runMatch(opts: MatchOptions): MatchResult {
     for (const [k, v] of usageMap) usage[k] = v
     results.push({
       id: p.id,
-      difficulty: diffById.get(p.id) ?? 'normal',
+      difficulty: diffById.get(p.id) ?? 'standard',
       tilesOwned: p.tilesOwned,
       troops: p.troops,
       gold: p.gold,

@@ -17,10 +17,11 @@ import type {
   StartMenuValues,
   TerrainChoice,
 } from './start-menu'
+import { DIFFICULTIES as AI_DIFFICULTIES } from '../ai/ai'
 
 const STORAGE_KEY = 'territorial-loop:menu-prefs:v1'
 
-const DIFFICULTIES: ReadonlySet<Difficulty> = new Set<Difficulty>(['easy', 'normal', 'hard'])
+const DIFFICULTIES: ReadonlySet<Difficulty> = new Set<Difficulty>(AI_DIFFICULTIES)
 const TEMPOS: ReadonlySet<MatchTempo> = new Set<MatchTempo>(['fast', 'normal', 'siege'])
 const TERRAINS: ReadonlySet<TerrainChoice> = new Set<TerrainChoice>([
   'flat',

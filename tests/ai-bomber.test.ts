@@ -94,14 +94,14 @@ function setupOffense(diff: Difficulty, enemyFlak: boolean): { decideBomb: () =>
 
 describe('KI-Bomber-Offensive (ADR-0020 Stufe 2)', () => {
   it('hard wirft eine Bombe auf eine ungeschützte Feind-Fabrik', () => {
-    expect(setupOffense('hard', false).decideBomb()).toBe(true)
+    expect(setupOffense('advanced', false).decideBomb()).toBe(true)
   })
 
   it('hard verschont ein Ziel hinter dichter Flak (sicherer Abschuss)', () => {
-    expect(setupOffense('hard', true).decideBomb()).toBe(false)
+    expect(setupOffense('advanced', true).decideBomb()).toBe(false)
   })
 
   it('normal nutzt keine offensiven Bomber', () => {
-    expect(setupOffense('normal', false).decideBomb()).toBe(false)
+    expect(setupOffense('standard', false).decideBomb()).toBe(false)
   })
 })

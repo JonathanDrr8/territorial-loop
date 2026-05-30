@@ -70,10 +70,10 @@ function setupCrater(diff: Difficulty): { healsCrater: () => boolean } {
 
 describe('KI-Krater-Heilung (ADR-0020 Stufe 3)', () => {
   it('normal erobert das umschlossene Innen-Loch zurück', () => {
-    expect(setupCrater('normal').healsCrater()).toBe(true)
+    expect(setupCrater('standard').healsCrater()).toBe(true)
   })
 
   it('hard erobert das umschlossene Innen-Loch zurück', () => {
-    expect(setupCrater('hard').healsCrater()).toBe(true)
+    expect(setupCrater('advanced').healsCrater()).toBe(true)
   })
 })

@@ -85,11 +85,11 @@ function setupThreat(diff: Difficulty): { decideFlak: () => boolean } {
 
 describe('KI-Luftabwehr (ADR-0020 Stufe 1)', () => {
   it('normal baut Flak gegen einen eingehenden Bomber', () => {
-    expect(setupThreat('normal').decideFlak()).toBe(true)
+    expect(setupThreat('standard').decideFlak()).toBe(true)
   })
 
   it('hard baut Flak gegen einen eingehenden Bomber', () => {
-    expect(setupThreat('hard').decideFlak()).toBe(true)
+    expect(setupThreat('advanced').decideFlak()).toBe(true)
   })
 
   it('easy ignoriert die Luftbedrohung (keine Flak)', () => {

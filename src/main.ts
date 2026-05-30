@@ -100,7 +100,7 @@ const DEFAULT_MENU: StartMenuValues = {
   aiCount: 3,
   wildCount: 2,
   victoryPct: 90,
-  difficulty: 'normal',
+  difficulty: 'standard',
   tempo: 'normal',
   terrain: 'continents',
   soundEnabled: true,

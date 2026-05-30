@@ -32,9 +32,11 @@ export const zh: Record<string, string> = {
   'terrain.europe': '欧洲（地理）',
   'terrain.africa': '非洲（地理）',
   'terrain.australia': '澳大利亚（地理）',
+  'difficulty.beginner': '初学者',
   'difficulty.easy': '简单',
-  'difficulty.normal': '普通',
-  'difficulty.hard': '困难',
+  'difficulty.standard': '标准',
+  'difficulty.advanced': '进阶',
+  'difficulty.expert': '专家',
   'play.start': '开始对局',
   'play.spectate': '观战',
 

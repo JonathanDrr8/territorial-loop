@@ -21,7 +21,7 @@ import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
 
 import { ServerMatch } from './match'
-import type { Difficulty } from '../src/ai/ai'
+import { DIFFICULTIES, type Difficulty } from '../src/ai/ai'
 import type { BuildingType } from '../src/core/buildings'
 import type { GameConfig, PlayerDef } from '../src/core/game'
 import type { TerrainType } from '../src/world/terrain'
@@ -149,7 +149,7 @@ const DEFAULT_SETTINGS: MatchSettings = {
   aiCount: 2,
   wildCount: 2,
   victoryPct: 90,
-  difficulty: 'normal',
+  difficulty: 'standard',
   rivers: false,
   public: true,
 }
@@ -162,10 +162,7 @@ function clampSettings(s: MatchSettings): MatchSettings {
     s.terrain === 'flat' || s.terrain === 'continents' || s.terrain === 'islands'
       ? s.terrain
       : 'continents'
-  const difficulty: Difficulty =
-    s.difficulty === 'easy' || s.difficulty === 'normal' || s.difficulty === 'hard'
-      ? s.difficulty
-      : 'normal'
+  const difficulty: Difficulty = DIFFICULTIES.includes(s.difficulty) ? s.difficulty : 'standard'
   return {
     mapWidth: clamp(s.mapWidth, 64, 2048),
     mapHeight: clamp(s.mapHeight, 64, 2048),

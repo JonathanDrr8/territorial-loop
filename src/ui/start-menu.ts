@@ -8,8 +8,10 @@
  */
 
 import type { BuildingType } from '../core/buildings'
+// KI-Schwierigkeit kommt aus dem KI-Modul (5-Stufen-Leiter, ADR-0020) — eine Quelle der Wahrheit.
+import type { Difficulty } from '../ai/ai'
 
-export type Difficulty = 'easy' | 'normal' | 'hard'
+export type { Difficulty }
 export type MatchTempo = 'fast' | 'normal' | 'siege'
 /**
  * Terrain-Auswahl: prozedural (`flat`/`continents`/`islands`) **oder** eine gebackene Geo-Karte
@@ -94,9 +96,11 @@ export const TERRAIN_OPTIONS: ReadonlyArray<readonly [TerrainChoice, string]> = 
 ]
 
 export const DIFFICULTY_OPTIONS: ReadonlyArray<readonly [Difficulty, string]> = [
-  ['easy', 'Einfach'],
-  ['normal', 'Normal'],
-  ['hard', 'Schwer'],
+  ['beginner', 'Anfänger'],
+  ['easy', 'Leicht'],
+  ['standard', 'Standard'],
+  ['advanced', 'Fortgeschritten'],
+  ['expert', 'Experte'],
 ]
 
 export const CAMERA_OPTIONS: ReadonlyArray<readonly [CameraMode, string]> = [

@@ -96,7 +96,7 @@ describe('createAI', () => {
       ],
     }
     const state = createGame(config)
-    const ais = config.players.map((p) => createAI(p.id, state.seed, 'hard'))
+    const ais = config.players.map((p) => createAI(p.id, state.seed, 'advanced'))
     for (let t = 0; t < 2500; t++) {
       const intents = ais.flatMap((ai) => [...ai.decide(state)])
       tick(state, intents)
@@ -126,7 +126,7 @@ describe('createAI', () => {
     }
     const state = createGame(config)
     const { width, height } = state.map
-    const ais = config.players.map((p) => createAI(p.id, state.seed, 'hard'))
+    const ais = config.players.map((p) => createAI(p.id, state.seed, 'advanced'))
     let interior = 0
     let onBorder = 0
     for (let t = 0; t < 2500; t++) {
@@ -228,7 +228,7 @@ describe('createAI', () => {
       destPort: tileRef(9, 12, W, H),
     })
 
-    const ai = createAI(2, state.seed, 'normal')
+    const ai = createAI(2, state.seed, 'standard')
     let sawMove = false
     for (let tt = 0; tt < 300 && !sawMove; tt++) {
       const intents = ai.decide(state)
@@ -282,7 +282,7 @@ describe('createAI', () => {
     state.goodwill.set(directedKey(3, 2), 9999)
     state.goodwill.set(directedKey(2, 3), 9999)
 
-    const ai = createAI(2, state.seed, 'hard')
+    const ai = createAI(2, state.seed, 'advanced')
     let attackedFeind = false
     let attackedPartner = false
     for (let tt = 0; tt < 300; tt++) {
@@ -314,7 +314,7 @@ describe('createAI', () => {
     const p3 = state.players.get(3)
     if (p3 !== undefined) p3.tilesOwned = 100000 // dauerhaft Anführer → KI ist nie Leader
     state.allianceRequests.add(directedKey(1, 2)) // Spieler 1 bietet der KI (2) ein Bündnis
-    const ai = createAI(2, state.seed, 'hard')
+    const ai = createAI(2, state.seed, 'advanced')
     let accepted = false
     for (let t = 0; t < 400; t++) {
       state.grudge.set(directedKey(1, 2), 600) // KI grollt Spieler 1 dauerhaft stark
@@ -340,7 +340,7 @@ describe('createAI', () => {
     const p3 = state.players.get(3)
     if (p3 !== undefined) p3.tilesOwned = 100000
     state.allianceRequests.add(directedKey(1, 2))
-    const ai = createAI(2, state.seed, 'hard')
+    const ai = createAI(2, state.seed, 'advanced')
     let accepted = false
     for (let t = 0; t < 400 && !accepted; t++) {
       const intents = ai.decide(state)
@@ -361,7 +361,7 @@ describe('createAI', () => {
       ],
     }
     const state = createGame(config)
-    const wildAi = createAI(2, state.seed, 'normal', true)
+    const wildAi = createAI(2, state.seed, 'standard', true)
     let sawAttack = false
     let sawBuildOrDiplo = false
     for (let t = 0; t < 300; t++) {

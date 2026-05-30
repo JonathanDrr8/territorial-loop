@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted — in Umsetzung (Session 2026-05-31, autonomer Über-Nacht-Lauf). Schrittweise (Stufen 0–4),
-jede Stufe eigener Commit auf `feature/flugzeuge-bomben`.
+Accepted — **umgesetzt** (Session 2026-05-31, autonomer Über-Nacht-Lauf). Stufen 0–4 abgeschlossen,
+je eigener Commit auf `feature/flugzeuge-bomben`. Ergebnis siehe „Endstand" unten + Balance-Report
+`docs/ki-arena-report.md`.
 
 ## Datum
 
@@ -86,6 +87,27 @@ Zielwerte — die echten fallen aus der Arena, die Profile werden bis ~dahin jus
 kaum genutzt (launch-warship ~0,2–0,6/Match), Städte fast nie gebaut (~0,2–1,3), Angriff dominiert
 alles. Bomber/Flak: 0 (KI kennt sie nicht). Der Rework muss die Stufen-Abstände verbreitern und die
 ungenutzten Mechaniken aktivieren.
+
+## Endstand (nach Stufe 4, 40 Seeds · 96² · continents · 4000 Ticks)
+
+Die 5-Stufen-Leiter (`'beginner' | 'easy' | 'standard' | 'advanced' | 'expert'`) ist **monoton**,
+Anker `standard`=1000:
+
+| Stufe                      | ELO  | schlägt die Stufe darunter |
+| -------------------------- | ---- | -------------------------- |
+| expert (Experte)           | 1164 | 59,7 %                     |
+| advanced (Fortgeschritten) | 1094 | 63,1 %                     |
+| standard (Standard)        | 1000 | 65,3 %                     |
+| easy (Leicht)              | 896  | 79,1 %                     |
+| beginner (Anfänger)        | 660  | —                          |
+
+Jede Stufe schlägt die darunterliegende in ≈60–79 % — eine klar spürbare Schwierigkeit pro Schritt.
+Die Spitze (expert vs advanced 59,7 %) ist enger, weil beide nahe am Aggressions-**Optimum** (~42 %
+Truppen-Einsatz) spielen — darüber wird die KI nachweislich schwächer (Decke der Spielstärke). Luft-
+krieg ist gestaffelt (defensive Flak ab standard, offensive Bomber ab advanced) und capability-gated
+(passt sich an deaktivierte Gebäude an). Alle 5 Stufen sind im UI (Einzelspieler-Menü + MP-Lobby) in
+9 Sprachen wählbar. Details + Balance-Beobachtungen (Kriegsschiffe/Bomber/Städte selten genutzt) im
+Report. ~375 Tests grün.
 
 ## Konsequenzen
 

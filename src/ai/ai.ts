@@ -44,7 +44,16 @@ import { getOwner } from '../world/map'
 import { isLand } from '../world/terrain'
 import { neighbors4, tileRef, tileXY, torusDistance } from '../world/torus'
 
-export type Difficulty = 'easy' | 'normal' | 'hard'
+export type Difficulty = 'beginner' | 'easy' | 'standard' | 'advanced' | 'expert'
+
+/** Alle Stufen in aufsteigender Stärke (für UI-Auswahl, Arena-Roster, Validierung). */
+export const DIFFICULTIES: readonly Difficulty[] = [
+  'beginner',
+  'easy',
+  'standard',
+  'advanced',
+  'expert',
+]
 
 /** Übersteigt die Netto-Gunst (Gunst − Groll) diesen Wert, schont die KI den Partner (wie verbündet). */
 const FRIEND_SPARE_THRESHOLD = 200
@@ -77,22 +86,40 @@ interface DifficultyProfile {
 }
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
-  easy: {
-    attackPct: 18,
-    cooldownMin: 60,
-    cooldownMax: 180,
-    popThresholdForPvp: 0.75,
-    buildChance: 0.15,
-    diploChance: 0.1,
-    boatChance: 0.05,
-    warshipChance: 0.03,
-    betrayLeadRatio: 2.0,
+  // Anfänger (~600): nur expandieren, sehr passiv. Baut/diplomatisiert nicht, keine Luft/Schiffe.
+  beginner: {
+    attackPct: 12,
+    cooldownMin: 80,
+    cooldownMax: 220,
+    popThresholdForPvp: 0.85,
+    buildChance: 0,
+    diploChance: 0,
+    boatChance: 0,
+    warshipChance: 0,
+    betrayLeadRatio: Infinity,
     usesAirDefense: false,
     usesBombers: false,
     bomberChance: 0,
     healsCraters: false,
   },
-  normal: {
+  // Leicht (~800): + Wirtschaft (baut Gebäude), noch keine Diplomatie/Luft/Krater-Heilung.
+  easy: {
+    attackPct: 22,
+    cooldownMin: 50,
+    cooldownMax: 150,
+    popThresholdForPvp: 0.72,
+    buildChance: 0.2,
+    diploChance: 0.05,
+    boatChance: 0.05,
+    warshipChance: 0.02,
+    betrayLeadRatio: 2.2,
+    usesAirDefense: false,
+    usesBombers: false,
+    bomberChance: 0,
+    healsCraters: false,
+  },
+  // Standard (~1000, ANKER): + Diplomatie + Kriegsschiffe + defensive Flak + Krater-Heilung.
+  standard: {
     attackPct: 30,
     cooldownMin: 30,
     cooldownMax: 100,
@@ -107,19 +134,38 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     bomberChance: 0,
     healsCraters: true,
   },
-  hard: {
-    attackPct: 42,
-    cooldownMin: 18,
-    cooldownMax: 60,
-    popThresholdForPvp: 0.45,
-    buildChance: 0.5,
+  // Fortgeschritten (~1300): + offensive Bomber + situative Reaktion. Aggression knapp unter dem
+  //   Optimum (knapp unter Experte).
+  advanced: {
+    attackPct: 36,
+    cooldownMin: 24,
+    cooldownMax: 75,
+    popThresholdForPvp: 0.52,
+    buildChance: 0.45,
     diploChance: 0.3,
-    boatChance: 0.2,
-    warshipChance: 0.12,
-    betrayLeadRatio: 1.3,
+    boatChance: 0.18,
+    warshipChance: 0.1,
+    betrayLeadRatio: 1.35,
     usesAirDefense: true,
     usesBombers: true,
     bomberChance: 0.15,
+    healsCraters: true,
+  },
+  // Experte (~1600): alles, Aggression am Optimum (~42% war empirisch am stärksten — NICHT höher,
+  //   sonst zerfasern die Truppen). Höchste Bau-/Bomber-Frequenz.
+  expert: {
+    attackPct: 42,
+    cooldownMin: 18,
+    cooldownMax: 60,
+    popThresholdForPvp: 0.48,
+    buildChance: 0.58,
+    diploChance: 0.35,
+    boatChance: 0.22,
+    warshipChance: 0.14,
+    betrayLeadRatio: 1.25,
+    usesAirDefense: true,
+    usesBombers: true,
+    bomberChance: 0.2,
     healsCraters: true,
   },
 }
@@ -154,7 +200,7 @@ export interface AI {
 export function createAI(
   playerId: number,
   gameSeed: string,
-  difficulty: Difficulty = 'normal',
+  difficulty: Difficulty = 'standard',
   wild = false,
 ): AI {
   const profile = wild ? WILD_PROFILE : PROFILES[difficulty]

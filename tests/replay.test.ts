@@ -51,7 +51,7 @@ function playAndRecord(
   const recorder = createRecorder()
   const ais = config.players
     .filter((p) => !p.isHuman)
-    .map((p) => createAI(p.id, live.seed, 'normal', p.wild ?? false))
+    .map((p) => createAI(p.id, live.seed, 'standard', p.wild ?? false))
   const liveHashes: number[] = []
 
   for (let t = 0; t < turnCount; t++) {

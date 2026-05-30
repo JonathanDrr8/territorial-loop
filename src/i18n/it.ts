@@ -32,9 +32,11 @@ export const it: Record<string, string> = {
   'terrain.europe': 'Europa (geo)',
   'terrain.africa': 'Africa (geo)',
   'terrain.australia': 'Australia (geo)',
+  'difficulty.beginner': 'Principiante',
   'difficulty.easy': 'Facile',
-  'difficulty.normal': 'Normale',
-  'difficulty.hard': 'Difficile',
+  'difficulty.standard': 'Standard',
+  'difficulty.advanced': 'Avanzato',
+  'difficulty.expert': 'Esperto',
   'play.start': 'Avvia partita',
   'play.spectate': 'Guarda',
 

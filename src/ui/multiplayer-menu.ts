@@ -444,9 +444,11 @@ export function createMultiplayerMenu(
       t('mp.difficulty'),
       s.difficulty,
       [
+        ['beginner', t('difficulty.beginner')],
         ['easy', t('difficulty.easy')],
-        ['normal', t('difficulty.normal')],
-        ['hard', t('difficulty.hard')],
+        ['standard', t('difficulty.standard')],
+        ['advanced', t('difficulty.advanced')],
+        ['expert', t('difficulty.expert')],
       ],
       (v) => ({ ...settings, difficulty: v as MatchSettings['difficulty'] }),
     )

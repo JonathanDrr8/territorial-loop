@@ -10,7 +10,7 @@ import type { Difficulty } from '../src/ai/ai'
 describe('arena.runMatch', () => {
   it('ist deterministisch — gleicher Seed ergibt identisches Ergebnis', () => {
     const opts = {
-      roster: ['easy', 'normal', 'hard'] as Difficulty[],
+      roster: ['easy', 'standard', 'advanced'] as Difficulty[],
       seed: 'det-1',
       mapWidth: 64,
       mapHeight: 64,
@@ -25,19 +25,19 @@ describe('arena.runMatch', () => {
 
   it('weist jedem Spieler sein Roster-Profil zu', () => {
     const m = runMatch({
-      roster: ['easy', 'hard'] as Difficulty[],
+      roster: ['easy', 'advanced'] as Difficulty[],
       seed: 'roster-1',
       mapWidth: 48,
       mapHeight: 48,
       maxTicks: 100,
       terrain: 'continents',
     })
-    expect(m.players.map((p) => p.difficulty)).toEqual(['easy', 'hard'])
+    expect(m.players.map((p) => p.difficulty)).toEqual(['easy', 'advanced'])
   })
 
   it('zählt Aktionen in der Nutzungs-Statistik', () => {
     const m = runMatch({
-      roster: ['hard', 'hard'] as Difficulty[],
+      roster: ['advanced', 'advanced'] as Difficulty[],
       seed: 'usage-1',
       mapWidth: 64,
       mapHeight: 64,
@@ -50,7 +50,7 @@ describe('arena.runMatch', () => {
 
   it('läuft auch mit deaktivierten Gebäuden ohne Crash', () => {
     const m = runMatch({
-      roster: ['normal', 'normal'] as Difficulty[],
+      roster: ['standard', 'standard'] as Difficulty[],
       seed: 'nobld-1',
       mapWidth: 48,
       mapHeight: 48,
@@ -93,19 +93,19 @@ describe('elo', () => {
   }
 
   it('verankert das Anker-Profil bei 1000', () => {
-    const matches = [match('a', 'hard', 'easy'), match('b', 'normal', 'easy')]
-    const elo = computeElo(aggregatePairwise(matches), { anchor: 'normal' })
-    expect(elo['normal']).toBe(1000)
+    const matches = [match('a', 'advanced', 'easy'), match('b', 'standard', 'easy')]
+    const elo = computeElo(aggregatePairwise(matches), { anchor: 'standard' })
+    expect(elo['standard']).toBe(1000)
   })
 
   it('gibt dem stärkeren Profil mehr ELO', () => {
     const matches: MatchResult[] = []
     for (let i = 0; i < 10; i++) {
-      matches.push(match(`h${String(i)}`, 'hard', 'normal'))
-      matches.push(match(`n${String(i)}`, 'normal', 'easy'))
+      matches.push(match(`h${String(i)}`, 'advanced', 'standard'))
+      matches.push(match(`n${String(i)}`, 'standard', 'easy'))
     }
-    const elo = computeElo(aggregatePairwise(matches), { anchor: 'normal' })
-    expect(elo['hard']).toBeGreaterThan(elo['normal'] ?? 0)
-    expect(elo['normal']).toBeGreaterThan(elo['easy'] ?? 0)
+    const elo = computeElo(aggregatePairwise(matches), { anchor: 'standard' })
+    expect(elo['advanced']).toBeGreaterThan(elo['standard'] ?? 0)
+    expect(elo['standard']).toBeGreaterThan(elo['easy'] ?? 0)
   })
 })
