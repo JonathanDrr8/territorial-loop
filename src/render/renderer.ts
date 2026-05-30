@@ -286,12 +286,12 @@ function clamp255(v: number): number {
 
 // Fels/Schnee-Farben für unpassierbare Gipfel: dunkler Fels (Schatten/Senken) ↔ helle Schneekappe
 // (Grate/Sonnseite). Das Höhenrelief wird synthetisch erzeugt (Terrain hat keine Sub-Höhe).
-const DARK_ROCK_R = 70
-const DARK_ROCK_G = 74
-const DARK_ROCK_B = 86
-const SNOW_R = 206
-const SNOW_G = 214
-const SNOW_B = 228
+const DARK_ROCK_R = 104
+const DARK_ROCK_G = 112
+const DARK_ROCK_B = 128
+const SNOW_R = 182
+const SNOW_G = 190
+const SNOW_B = 204
 
 /**
  * Pseudo-Höhenfeld [0,1] für unpassierbaren Fels (3 Oktaven, torus-nahtlos). Daraus leiten wir
@@ -299,13 +299,12 @@ const SNOW_B = 228
  * flachen Fläche.
  */
 function rockElevation(wx: number, wy: number, w: number, h: number): number {
-  const cx = Math.max(3, Math.round(w / 13))
-  const cy = Math.max(3, Math.round(h / 13))
-  return (
-    wrapValueNoise(wx, wy, w, h, cx, cy) * 0.6 +
-    wrapValueNoise(wx, wy, w, h, cx * 2, cy * 2) * 0.3 +
-    wrapValueNoise(wx, wy, w, h, cx * 4, cy * 4) * 0.1
-  )
+  // EINE niederfrequente Oktave → sehr glattes Feld. Wichtig: das Relief nutzt die ABLEITUNG
+  // (Slope) dieses Felds; eine zweite (höhere) Oktave würde die Slope alle paar Tiles kippen und
+  // ergäbe ein Schwarz/Weiß-Pixelrauschen. Ein Feld = glatte, großflächige Schattierung.
+  const cx = Math.max(2, Math.round(w / 10))
+  const cy = Math.max(2, Math.round(h / 10))
+  return wrapValueNoise(wx, wy, w, h, cx, cy)
 }
 
 const OWNER_MASK = 0x0fff
@@ -579,22 +578,23 @@ export function createRenderer(
       // räumliche Bergstruktur statt einer flachen Eisfläche.
       const px = i % w
       const py = (i - px) / w
-      const xl = px === 0 ? w - 1 : px - 1
-      const xr = px === w - 1 ? 0 : px + 1
-      const yu = py === 0 ? h - 1 : py - 1
-      const yd = py === h - 1 ? 0 : py + 1
+      // Slope über einen BREITEREN Stencil (±2 Tiles) → erfasst nur das großflächige Gefälle,
+      // keine Tile-zu-Tile-Zacken. NW-Licht: Sonn-/Schattseite des Massivs.
+      const xl = (px - 2 + w) % w
+      const xr = (px + 2) % w
+      const yu = (py - 2 + h) % h
+      const yd = (py + 2) % h
       const e = rockElevation(px, py, w, h)
       const slope =
         rockElevation(xl, py, w, h) +
         rockElevation(px, yu, w, h) -
         rockElevation(xr, py, w, h) -
         rockElevation(px, yd, w, h)
-      // Grat-Highlight (Schnee sammelt sich auf Kämmen) + Höhen-Schneeanteil.
-      const ridge = 1 - Math.abs(2 * e - 1)
-      const snowAmt = e * 0.55 + ridge * 0.4
-      const sa = snowAmt < 0 ? 0 : snowAmt > 1 ? 1 : snowAmt
-      const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 12
-      const light = 1 + slope * 4.5 // NW-Hangschattierung (kräftig, da das Feld glatt ist)
+      // Schneeanteil aus der glatten Höhe, aber KOMPRIMIERT auf [0.35,0.75] → enges, helles
+      // Kalt-Grau (Fels/Schnee) mit nur sanfter Variation statt hartem Schwarz↔Weiß.
+      const sa = 0.35 + (e < 0 ? 0 : e > 1 ? 1 : e) * 0.4
+      const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 4 // nur dezente Textur, kein Rauschen
+      const light = 1 + slope * 1.3 // sanfte NW-Hangschattierung
       tr = clamp255((DARK_ROCK_R + (SNOW_R - DARK_ROCK_R) * sa) * light + grain)
       tg = clamp255((DARK_ROCK_G + (SNOW_G - DARK_ROCK_G) * sa) * light + grain)
       tb = clamp255((DARK_ROCK_B + (SNOW_B - DARK_ROCK_B) * sa) * light + grain)
