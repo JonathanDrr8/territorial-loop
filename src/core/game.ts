@@ -2473,11 +2473,15 @@ const ECONOMY_RECOMPUTE_INTERVAL = 20
 /** Lebensdauer einer „+Gold"-Einblendung (Ticks) — rein darstellend (auch vom Renderer genutzt). */
 export const GOLD_POP_LIFETIME = 14
 
+/** Wie viele Quellen (Städte/Häfen) eine Fabrik höchstens bedient — ihre nächsten Nachbarn. */
+const FACTORY_CART_LIMIT = 3
+
 /**
- * Aktualisiert die Owner-Land-Komponenten und das Gold-Fuhren-Netz (ADR-0018). Periodisch, weil die
- * Komponenten-Flood teuer ist. Pro eigener Stadt/Hafen, die über Land eine eigene Fabrik erreicht,
- * pendelt genau EINE Fuhre; nicht mehr verbundene Fuhren fallen weg, neue Quellen bekommen eine.
- * Bestehende, weiter gültige Fuhren behalten ihren Pfad (kein erneutes Pathfinding pro Intervall).
+ * Aktualisiert die Owner-Land-Komponenten und das Gold-Fuhren-Netz (ADR-0018). FABRIK-ZENTRIERT:
+ * jede Fabrik bedient ihre `FACTORY_CART_LIMIT` NÄCHSTEN über Land erreichbaren eigenen Gebäude
+ * (egal wie weit, solange ein Land-Weg existiert). Jede Quelle liefert an genau eine Fabrik (kein
+ * Doppel-Gold). Periodisch neu bestimmt → ein neues, näheres Gebäude verdrängt ein ferneres
+ * (Re-Routing). Gültige Fuhren behalten ihren Pfad (kein erneutes Pathfinding).
  */
 function recomputeGoldRoutes(state: GameState): void {
   const { map } = state
@@ -2485,43 +2489,31 @@ function recomputeGoldRoutes(state: GameState): void {
   const comp = computeOwnerComponents(map)
   state.ownerComponents = comp
 
-  const sources: { tile: TileRef; owner: number }[] = []
+  const sources: TileRef[] = []
   const factories: { tile: TileRef; owner: number; level: number }[] = []
   for (const b of state.buildings.values()) {
     if (!isBuildingComplete(b, state.tick)) continue
     const owner = getOwner(map, b.tile)
     if (owner <= 0) continue
     if (state.players.get(owner)?.wild === true) continue // wilde betreiben keine Wirtschaft
-    if (b.type === 'city' || b.type === 'port') sources.push({ tile: b.tile, owner })
+    if (b.type === 'city' || b.type === 'port') sources.push(b.tile)
     else if (b.type === 'factory') factories.push({ tile: b.tile, owner, level: b.level })
   }
-  sources.sort((a, b) => a.tile - b.tile)
+  sources.sort((a, b) => a - b)
   factories.sort((a, b) => a.tile - b.tile)
 
-  const cartBySource = new Map<TileRef, GoldCart>()
-  for (const cart of state.goldCarts) cartBySource.set(cart.sourceTile, cart)
-
-  const next: GoldCart[] = []
+  // Phase 1: jede Quelle der NÄCHSTEN erreichbaren eigenen Fabrik zuordnen (Luftlinie, eindeutig).
+  type Assign = { src: TileRef; fac: TileRef; level: number; dist: number }
+  const assigns: Assign[] = []
   for (const src of sources) {
-    const existing = cartBySource.get(src.tile)
-    // Gültige Fuhre behalten: Ziel noch eigene Fabrik UND in derselben Land-Komponente.
-    if (
-      existing !== undefined &&
-      getOwner(map, existing.factoryTile) === src.owner &&
-      state.buildings.get(existing.factoryTile)?.type === 'factory' &&
-      sameOwnerComponent(comp, src.tile, existing.factoryTile)
-    ) {
-      next.push(existing)
-      continue
-    }
-    // Nächste erreichbare eigene Fabrik suchen (Luftlinie vorsortiert, dann Land-Pfad).
-    const sx = src.tile % width
-    const sy = Math.floor(src.tile / width)
+    const owner = getOwner(map, src)
+    const sx = src % width
+    const sy = Math.floor(src / width)
     let bestTile = -1
     let bestLevel = 0
     let bestDist = Infinity
     for (const f of factories) {
-      if (f.owner !== src.owner || !sameOwnerComponent(comp, src.tile, f.tile)) continue
+      if (f.owner !== owner || !sameOwnerComponent(comp, src, f.tile)) continue
       const d = torusDistance(sx, sy, f.tile % width, Math.floor(f.tile / width), width, height)
       if (d < bestDist || (d === bestDist && f.tile < bestTile)) {
         bestDist = d
@@ -2529,17 +2521,49 @@ function recomputeGoldRoutes(state: GameState): void {
         bestLevel = f.level
       }
     }
-    if (bestTile < 0) continue
-    const path = findLandPath(map, comp, src.tile, bestTile)
+    if (bestTile >= 0) assigns.push({ src, fac: bestTile, level: bestLevel, dist: bestDist })
+  }
+
+  // Phase 2: je Fabrik nur die FACTORY_CART_LIMIT nächsten Quellen behalten.
+  const perFactory = new Map<TileRef, Assign[]>()
+  for (const a of assigns) {
+    const list = perFactory.get(a.fac)
+    if (list === undefined) perFactory.set(a.fac, [a])
+    else list.push(a)
+  }
+  const kept: Assign[] = []
+  for (const list of perFactory.values()) {
+    list.sort((p, q) => p.dist - q.dist || p.src - q.src)
+    for (let i = 0; i < Math.min(FACTORY_CART_LIMIT, list.length); i++) {
+      const a = list[i]
+      if (a !== undefined) kept.push(a)
+    }
+  }
+
+  // Phase 3: Fuhren bauen — gültige (gleiches Ziel + verbunden) behalten, sonst neuer Land-Pfad.
+  const cartBySource = new Map<TileRef, GoldCart>()
+  for (const cart of state.goldCarts) cartBySource.set(cart.sourceTile, cart)
+  const next: GoldCart[] = []
+  for (const a of kept) {
+    const existing = cartBySource.get(a.src)
+    if (
+      existing !== undefined &&
+      existing.factoryTile === a.fac &&
+      sameOwnerComponent(comp, a.src, a.fac)
+    ) {
+      next.push(existing)
+      continue
+    }
+    const path = findLandPath(map, comp, a.src, a.fac)
     if (path === null || path.length < 2) continue
     next.push({
-      ownerId: src.owner,
+      ownerId: getOwner(map, a.src),
       path,
       progress: 0,
       dir: 1,
-      gold: CART_GOLD_PER_LEVEL * bestLevel,
-      sourceTile: src.tile,
-      factoryTile: bestTile,
+      gold: CART_GOLD_PER_LEVEL * a.level,
+      sourceTile: a.src,
+      factoryTile: a.fac,
     })
   }
   state.goldCarts = next
