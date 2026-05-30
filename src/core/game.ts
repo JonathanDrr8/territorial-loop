@@ -1014,6 +1014,10 @@ function factoryForeignContribution(
     const bx = b.tile % width
     const by = Math.floor(b.tile / width)
     if (torusDistance(fx, fy, bx, by, width, height) > FACTORY_LINK_RANGE) continue
+    // Nur wenn über LAND erreichbar (gleiche Land-Komponente) — kein Weg über offenes Wasser
+    // zählt (ADR-0018: alle Verbindungen brauchen einen Land-Weg, keine Luftlinie über Meer).
+    const lc = state.landComponents[factoryTile]
+    if (lc === undefined || lc < 0 || lc !== state.landComponents[b.tile]) continue
     dests++
   }
   return { gold: FACTORY_GOLD_PER_DEST * FACTORY_FOREIGN_MULT * factoryLevel * dests, dests }

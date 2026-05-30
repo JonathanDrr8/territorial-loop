@@ -1422,27 +1422,30 @@ export function createRenderer(
         }
       }
     }
-    // Auslands-Verbindungen: von jeder Fabrik eine GESTRICHELTE amber Linie zu fremden (nicht
-    // embargoierten) Fabriken in Reichweite — die den 3×-Gold-Bonus bringen (gespiegelt am
-    // FACTORY_FOREIGN_CAP). Zeigt, dass Fabriken auch über Grenzen „verbinden".
+    // Auslands-Verbindungen (ADR-0018): graue Straße von jeder Fabrik zu fremden (nicht
+    // embargoierten) Fabriken in Reichweite, die ÜBER LAND erreichbar sind (gleiche Land-
+    // Komponente) — keine Luftlinie über Wasser. Bringen den 3×-Gold-Bonus.
     const embargoed = (a: number, b: number): boolean =>
       state.embargoes.has(directedKey(a, b)) || state.embargoes.has(directedKey(b, a))
-    screenCtx.lineWidth = 1.5
-    screenCtx.setLineDash([5, 4])
-    screenCtx.strokeStyle = 'rgba(255,200,90,0.55)'
+    const lc = state.landComponents
+    screenCtx.setLineDash([])
+    screenCtx.lineWidth = roadW
+    screenCtx.strokeStyle = 'rgba(150,150,150,0.3)'
     for (const f of eco) {
       if (!f.factory) continue
       const fpx = f.tile % mapW
       const fpy = Math.floor(f.tile / mapW)
+      const fcomp = lc[f.tile]
+      if (fcomp === undefined || fcomp < 0) continue
       let drawn = 0
       for (const e of eco) {
         if (drawn >= FACTORY_FOREIGN_CAP) break
-        // Ins Ausland nur noch Fabrik↔Fabrik (ADR-0018) — wie der Gold-Bonus.
         if (!e.factory || e.ownerId === f.ownerId || e.ownerId <= 0) continue
         if (embargoed(f.ownerId, e.ownerId)) continue
         const ex = e.tile % mapW
         const ey = Math.floor(e.tile / mapW)
         if (torusDistance(fpx, fpy, ex, ey, mapW, mapH) > FACTORY_LINK_RANGE) continue
+        if (fcomp !== lc[e.tile]) continue // nicht über Land erreichbar → keine Straße
         const seg = nearestWrappedSegment(fpx + 0.5, fpy + 0.5, ex + 0.5, ey + 0.5)
         screenCtx.beginPath()
         screenCtx.moveTo(seg.fromSx, seg.fromSy)
@@ -1451,7 +1454,6 @@ export function createRenderer(
         drawn++
       }
     }
-    screenCtx.setLineDash([])
     screenCtx.restore()
   }
 
