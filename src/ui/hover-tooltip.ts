@@ -144,7 +144,7 @@ export function createHoverTooltip(
     const p = state.players.get(id)
     return p === undefined
       ? '?'
-      : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.wild ? p.name.toLowerCase() : p.name)}</b>`
+      : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.wild ? t('nation.wild') : p.name)}</b>`
   }
 
   // Letzte Hover-Parameter — für die periodische Auffrischung (Countdown/Truppen/Gold ticken
@@ -338,11 +338,8 @@ export function createHoverTooltip(
       if (humanId >= 0 && player.gold > 0 && !areAllied(state.alliances, humanId, owner)) {
         loot = `<br><span style="color:#e8c14a">💰 ${t('tip.loot', { gold: fmtCompact(player.gold) })}</span>`
       }
-      const wildTag = player.wild
-        ? ` <span style="opacity:0.55;font-size:10px">(${t('nation.wild')})</span>`
-        : ''
       tooltip.innerHTML =
-        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.wild ? player.name.toLowerCase() : player.name)}</b>${wildTag}${dead}<br>` +
+        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.wild ? t('nation.wild') : player.name)}</b>${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} ${t('hud.troops')} · ${pct}%<br>` +
         `<span style="opacity:0.7">${t('tip.perTile', { n: avgPerTile.toLocaleString('de-DE') })}</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
     }

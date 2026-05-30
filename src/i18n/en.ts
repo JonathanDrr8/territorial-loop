@@ -200,8 +200,8 @@ export const en: Record<string, string> = {
   'event.victory': '{p} has won the match!',
   'event.loot': '{p} loots {amount} gold from {from}',
   'event.lootWild': '{p} loots {amount} gold from the wilds',
-  'event.annex': '{p} surrounds {wild} and annexes it',
-  'event.annexLoot': '{p} surrounds {wild} and annexes it (+{amount} gold)',
+  'event.annex': '{p} surrounds a wild nation and annexes it',
+  'event.annexLoot': '{p} surrounds a wild nation and annexes it (+{amount} gold)',
   'event.annexFragment': '{p} swallows enclosed land of {victim}',
   'event.annexFragmentLoot': '{p} swallows enclosed land of {victim} (+{amount} gold)',
 

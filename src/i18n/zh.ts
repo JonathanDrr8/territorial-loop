@@ -166,8 +166,8 @@ export const zh: Record<string, string> = {
   'event.victory': '{p} 赢得了对局！',
   'event.loot': '{p} 从 {from} 掠夺了 {amount} 金币',
   'event.lootWild': '{p} 从荒野掠夺了 {amount} 金币',
-  'event.annex': '{p} 包围并吞并了 {wild}',
-  'event.annexLoot': '{p} 包围并吞并了 {wild}（+{amount} 金币）',
+  'event.annex': '{p} 包围并吞并了一个野生国家',
+  'event.annexLoot': '{p} 包围并吞并了一个野生国家（+{amount} 金币）',
   'event.annexFragment': '{p} 吞并了 {victim} 的被包围领土',
   'event.annexFragmentLoot': '{p} 吞并了 {victim} 的被包围领土（+{amount} 金币）',
 
