@@ -311,6 +311,10 @@ export const en: Record<string, string> = {
   'menu.warship': 'Warship',
   'menu.warshipHasPort': 'patrols & blocks enemy trade',
   'menu.warshipNoPort': 'port needed (launched from port)',
+  'menu.bomber': 'Launch bomber',
+  'menu.bomberDetail':
+    'Bomb the target — destroys buildings, troops and territory in the blast radius',
+  'menu.bomberCooldown': 'airfield still reloading',
   'menu.attack': 'Attack',
   'menu.attackDetail': '{n} troops to the front',
   'menu.boatDetail': '{n} troops across the water',

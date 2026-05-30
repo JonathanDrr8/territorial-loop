@@ -1953,8 +1953,8 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
   emitEvent(state, 'event.warshipSent', { p: player.name }, player.color)
 }
 
-/** Lebensdauer eines Bomben-Einschlag-Funkens (Ticks) — rein darstellend. */
-const BOMB_IMPACT_LIFETIME = 20
+/** Lebensdauer eines Bomben-Einschlag-Funkens (Ticks) — rein darstellend (Render-Animation). */
+export const BOMB_IMPACT_LIFETIME = 20
 
 /**
  * Startet einen Bomber vom nächstgelegenen eigenen, fertigen, startbereiten Flughafen Richtung

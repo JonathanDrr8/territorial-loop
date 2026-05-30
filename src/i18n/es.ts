@@ -312,6 +312,10 @@ export const es: Record<string, string> = {
   'menu.warship': 'Buque de guerra',
   'menu.warshipHasPort': 'patrulla y bloquea el comercio enemigo',
   'menu.warshipNoPort': 'se necesita puerto (sale del puerto)',
+  'menu.bomber': 'Lanzar bombardero',
+  'menu.bomberDetail':
+    'Bombardea el objetivo — destruye edificios, tropas y territorio en el radio de la explosión',
+  'menu.bomberCooldown': 'el aeródromo aún se recarga',
   'menu.attack': 'Ataque',
   'menu.attackDetail': '{n} tropas al frente',
   'menu.boatDetail': '{n} tropas por el agua',

@@ -17,6 +17,7 @@ import type { BuildingType } from '../core/buildings'
 import { BUILD_TIME_TICKS, defenseRange, isBuildingComplete } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import {
+  BOMB_IMPACT_LIFETIME,
   canBuildAt,
   CAPTURE_FADE_TICKS,
   FACTORY_CART_LIMIT,
@@ -29,6 +30,8 @@ import {
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import {
   type Boat,
+  BOMB_RADIUS,
+  BOMBER_HP,
   type TradeShip,
   type Warship,
   WARSHIP_HP,
@@ -157,6 +160,21 @@ const WARSHIP_SPRITE: SpriteDef = {
     '..HHHH..',
   ],
   palette: { H: '#5c6670', D: '#8a929c', m: '#3a3f47', f: '#d24a4a' },
+}
+
+/** Pixel-Sprite für Bomber (Flugzeug von oben: heller Rumpf, dunkle Flügel + Heck). */
+const BOMBER_SPRITE: SpriteDef = {
+  rows: [
+    '...mm...',
+    '...mm...',
+    '.wwmmww.',
+    'wwwmmwww',
+    '...mm...',
+    '...mm...',
+    '..w..w..',
+    '........',
+  ],
+  palette: { m: '#c2cad2', w: '#5b6670' },
 }
 
 /** Transportboot: Holzrumpf mit Truppen-Fracht (über der Besitzer-Scheibe, neutral lesbar). */
@@ -1319,6 +1337,11 @@ export function createRenderer(
     if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
     return warshipSpriteCache
   }
+  let bomberSpriteCache: HTMLCanvasElement | null | undefined
+  function getBomberSprite(): HTMLCanvasElement | null {
+    if (bomberSpriteCache === undefined) bomberSpriteCache = renderSpriteCanvas(BOMBER_SPRITE)
+    return bomberSpriteCache
+  }
   let boatSpriteCache: HTMLCanvasElement | null | undefined
   function getBoatSprite(): HTMLCanvasElement | null {
     if (boatSpriteCache === undefined) boatSpriteCache = renderSpriteCanvas(BOAT_SPRITE)
@@ -1794,6 +1817,83 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /** Zeichnet fliegende Bomber (Besitzer-Scheibe + Flugzeug-Sprite + HP-Leiste). */
+  function drawBombers(): void {
+    if (state.bombers.length === 0) return
+    const cssW = container.clientWidth
+    const cssH = container.clientHeight
+    const mapW = state.map.width
+    const mapH = state.map.height
+    const r = Math.max(3, Math.min(8, camera.zoom * 2.6))
+    const sprite = getBomberSprite()
+    screenCtx.save()
+    for (const b of state.bombers) {
+      const { wx, wy } = shipWorldPosOf(b, mapW, mapH)
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
+      // Besitzer-Scheibe + Beziehungs-Ring (zeigt, wessen Bomber das ist).
+      const owner = state.players.get(b.ownerId)
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+      screenCtx.fillStyle =
+        owner === undefined ? 'rgba(15,18,24,0.85)' : rgbaToCssLocal(owner.color)
+      screenCtx.fill()
+      screenCtx.fillStyle = 'rgba(10,12,18,0.4)'
+      screenCtx.fill()
+      screenCtx.lineWidth = 2
+      screenCtx.strokeStyle = shipRelationRing(b.ownerId)
+      screenCtx.stroke()
+      if (sprite !== null) {
+        const ss = r * 1.9
+        const prev = screenCtx.imageSmoothingEnabled
+        screenCtx.imageSmoothingEnabled = false
+        screenCtx.drawImage(sprite, sx - ss / 2, sy - ss / 2, ss, ss)
+        screenCtx.imageSmoothingEnabled = prev
+      }
+      // HP-Leiste (Flak-Schaden ablesbar).
+      const hpFrac = Math.max(0, Math.min(1, b.hp / BOMBER_HP))
+      if (hpFrac < 1) {
+        const bw = r * 2
+        const byl = sy + r + 3
+        screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
+        screenCtx.fillRect(sx - r, byl, bw, 3)
+        screenCtx.fillStyle = hpFrac > 0.4 ? '#5dd75d' : '#e84545'
+        screenCtx.fillRect(sx - r, byl, bw * hpFrac, 3)
+      }
+    }
+    screenCtx.restore()
+  }
+
+  /** Zeichnet Bomben-Einschläge als expandierenden, ausblendenden Feuerball. */
+  function drawBombImpacts(): void {
+    if (state.bombImpacts.length === 0) return
+    const mapW = state.map.width
+    const z = camera.zoom
+    screenCtx.save()
+    for (const imp of state.bombImpacts) {
+      const frac = Math.min(1, (state.tick - imp.atTick) / BOMB_IMPACT_LIFETIME)
+      const wx = (imp.tile % mapW) + 0.5
+      const wy = Math.floor(imp.tile / mapW) + 0.5
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      const rad = BOMB_RADIUS * z * (0.35 + 0.65 * frac)
+      const alpha = (1 - frac) * 0.6
+      // Äußerer Rauch-/Druckring.
+      screenCtx.globalAlpha = alpha
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, rad, 0, Math.PI * 2)
+      screenCtx.fillStyle = '#e8732a'
+      screenCtx.fill()
+      // Heißer Kern.
+      screenCtx.globalAlpha = alpha * 1.3
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, rad * 0.55, 0, Math.PI * 2)
+      screenCtx.fillStyle = '#ffd24a'
+      screenCtx.fill()
+    }
+    screenCtx.globalAlpha = 1
+    screenCtx.restore()
+  }
+
   /** Zeichnet die Auswahl-Box (Box-Select) während des Ziehens. */
   function drawSelectionBox(): void {
     if (selectionBox === null) return
@@ -2206,6 +2306,8 @@ export function createRenderer(
     drawBuildPreview()
     drawMarkers()
     drawLabels()
+    drawBombers() // Bomber fliegen über allem
+    drawBombImpacts()
     drawGoldPops()
     if (clipped) screenCtx.restore()
     drawSelectionBox()

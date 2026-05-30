@@ -21,7 +21,7 @@ import {
 } from '../core/buildings'
 import { canReachByLand, type GameState } from '../core/game'
 import { areAllied, directedKey, hasAllianceRequest, pairKey } from '../core/diplomacy'
-import { WARSHIP_COST } from '../core/ships'
+import { BOMBER_COST, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { getOwner } from '../world/map'
 import { isLand, isPassable } from '../world/terrain'
@@ -605,6 +605,40 @@ export function createBuildMenu(
       if (other !== undefined && other.isAlive && !other.wild) {
         for (const a of diplomacyActions(owner)) actions.push(a)
       }
+    }
+
+    // Bomber starten (ADR-0019): auf JEDES Ziel-Tile, wenn der Spieler einen fertigen Flughafen hat.
+    // Niemand wird verschont (auch eigenes/neutrales Gebiet möglich) — daher universell angeboten.
+    let hasAirport = false
+    let airportReady = false
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'airport' || b.ownerId !== humanPlayerId) continue
+      if (!isBuildingComplete(b, state.tick)) continue
+      hasAirport = true
+      if ((b.cooldownUntilTick ?? 0) <= state.tick) {
+        airportReady = true
+        break
+      }
+    }
+    if (hasAirport) {
+      actions.push({
+        glyph: 'A',
+        label: t('menu.bomber'),
+        detail: airportReady ? t('menu.bomberDetail') : t('menu.bomberCooldown'),
+        costText: fmtCompact(BOMBER_COST),
+        affordable: player.gold >= BOMBER_COST,
+        enabled: airportReady && player.gold >= BOMBER_COST,
+        accent: '#e8884a',
+        run: () => {
+          emit({
+            type: 'launch-bomber',
+            playerId: humanPlayerId,
+            targetTile: tile,
+            route: 'direct',
+          })
+          close()
+        },
+      })
     }
 
     if (actions.length === 0) {
