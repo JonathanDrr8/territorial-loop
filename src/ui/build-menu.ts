@@ -12,7 +12,6 @@
  */
 
 import {
-  BUILDING_LABEL,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
@@ -26,7 +25,13 @@ import { WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { getOwner } from '../world/map'
 import { isLand, isPassable } from '../world/terrain'
+import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+
+/** Übersetzter Anzeige-Name eines Gebäudetyps. */
+function buildingLabel(type: BuildingType): string {
+  return t(`building.${type}`)
+}
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -35,12 +40,18 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   factory: 'F',
 }
 
-/** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe). */
-const BUILDING_HINT: Record<BuildingType, string> = {
-  city: `+${fmtCompact(CITY_CAP_BONUS)} Truppen-Cap/Stufe`,
-  defense: `Eroberung bis ${DEFENSE_MAG_MULTIPLIER.toString()}× teurer`,
-  port: 'Voraussetzung für Schiffe',
-  factory: 'Gold übers Netzwerk (Städte/Häfen in Reichweite)',
+/** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe), übersetzt zur Aufruf-Zeit. */
+function buildingHint(type: BuildingType): string {
+  switch (type) {
+    case 'city':
+      return t('menu.hint.city', { cap: fmtCompact(CITY_CAP_BONUS) })
+    case 'defense':
+      return t('menu.hint.defense', { mult: DEFENSE_MAG_MULTIPLIER })
+    case 'port':
+      return t('menu.hint.port')
+    case 'factory':
+      return t('menu.hint.factory')
+  }
 }
 
 const ATTACK_ACCENT = '#e8d24a'
@@ -195,7 +206,7 @@ export function createBuildMenu(
     titleEl.textContent = title
     titleEl.style.cssText = `font-weight: bold; font-size: 11px; line-height: 1.2; color: ${titleColor}`
     const detailEl = document.createElement('div')
-    detailEl.textContent = 'Aktion wählen'
+    detailEl.textContent = t('menu.chooseAction')
     detailEl.style.cssText = 'font-size: 9px; opacity: 0.65; margin-top: 3px; line-height: 1.2'
     info.appendChild(titleEl)
     info.appendChild(detailEl)
@@ -232,7 +243,7 @@ export function createBuildMenu(
         if (clickable) path.setAttribute('fill', 'rgba(40,44,54,0.97)')
       })
       path.addEventListener('mouseleave', () => {
-        detailEl.textContent = 'Aktion wählen'
+        detailEl.textContent = t('menu.chooseAction')
         detailEl.style.opacity = '0.65'
         path.setAttribute('fill', idle)
       })
@@ -298,8 +309,10 @@ export function createBuildMenu(
       const ss = Math.floor(remainSec % 60)
       out.push({
         glyph: '💔',
-        label: 'Allianz brechen',
-        detail: `Verrat → geächtet · läuft in ${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()} aus`,
+        label: t('menu.breakAlliance'),
+        detail: t('menu.breakAllianceDetail', {
+          time: `${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}`,
+        }),
         costText: '',
         affordable: true,
         enabled: true,
@@ -312,8 +325,8 @@ export function createBuildMenu(
     } else if (theyRequested) {
       out.push({
         glyph: '🤝',
-        label: 'Allianz annehmen',
-        detail: 'bietet ein Bündnis an',
+        label: t('menu.acceptAlliance'),
+        detail: t('menu.acceptAllianceDetail'),
         costText: '',
         affordable: true,
         enabled: true,
@@ -326,8 +339,8 @@ export function createBuildMenu(
     } else if (weRequested) {
       out.push({
         glyph: '🤝',
-        label: 'Anfrage gesendet …',
-        detail: 'wartet auf Antwort',
+        label: t('menu.requestSent'),
+        detail: t('menu.requestSentDetail'),
         costText: '',
         affordable: false,
         enabled: false,
@@ -337,8 +350,8 @@ export function createBuildMenu(
     } else {
       out.push({
         glyph: '🤝',
-        label: 'Allianz anfragen',
-        detail: 'Bündnis vorschlagen',
+        label: t('menu.requestAlliance'),
+        detail: t('menu.requestAllianceDetail'),
         costText: '',
         affordable: true,
         enabled: true,
@@ -353,8 +366,8 @@ export function createBuildMenu(
     const embargoed = state.embargoes.has(directedKey(humanPlayerId, targetId))
     out.push({
       glyph: '⛔',
-      label: embargoed ? 'Embargo aufheben' : 'Embargo verhängen',
-      detail: embargoed ? 'Handel wieder erlauben' : 'stoppt den Handel',
+      label: embargoed ? t('menu.embargoLift') : t('menu.embargoImpose'),
+      detail: embargoed ? t('menu.embargoLiftDetail') : t('menu.embargoImposeDetail'),
       costText: '',
       affordable: true,
       enabled: true,
@@ -389,10 +402,8 @@ export function createBuildMenu(
     const allStopped = targets.length > 0 && embargoed === targets.length
     return {
       glyph: '⛔',
-      label: allStopped ? 'Handel wieder erlauben' : 'Handel mit allen stoppen',
-      detail: allStopped
-        ? 'hebt alle Embargos auf — Häfen & Fabriken handeln wieder'
-        : 'Embargo gegen alle — stoppt Handelsschiffe & Fabrik-Auslandslinks',
+      label: allStopped ? t('menu.tradeAllowAll') : t('menu.tradeStopAll'),
+      detail: allStopped ? t('menu.tradeAllowAllDetail') : t('menu.tradeStopAllDetail'),
       costText: '',
       affordable: true,
       enabled: targets.length > 0,
@@ -427,11 +438,11 @@ export function createBuildMenu(
     if (owner === humanPlayerId) {
       const existing = state.buildings.get(tile)
       if (existing !== undefined) {
-        title = `${BUILDING_LABEL[existing.type]} · L${String(existing.level)}`
+        title = `${buildingLabel(existing.type)} · L${String(existing.level)}`
         if (existing.level >= MAX_BUILDING_LEVEL) {
           actions.push({
             glyph: BUILDING_GLYPH[existing.type],
-            label: 'Maximale Stufe',
+            label: t('menu.maxLevel'),
             detail: '',
             costText: '',
             affordable: false,
@@ -443,8 +454,8 @@ export function createBuildMenu(
           const cost = upgradeCost(existing.type, existing.level)
           actions.push({
             glyph: BUILDING_GLYPH[existing.type],
-            label: `Upgrade → L${String(existing.level + 1)}`,
-            detail: BUILDING_HINT[existing.type],
+            label: t('menu.upgrade', { level: existing.level + 1 }),
+            detail: buildingHint(existing.type),
             costText: fmtCompact(cost),
             affordable: player.gold >= cost,
             enabled: true,
@@ -460,8 +471,8 @@ export function createBuildMenu(
           const holding = player.warshipHold
           actions.push({
             glyph: holding ? '⚓' : '⇄',
-            label: holding ? 'Schiffe: Halten & Heilen' : 'Schiffe: Ping-Pong',
-            detail: 'Umschalten — gilt für alle eigenen Kriegsschiffe',
+            label: holding ? t('menu.warshipHoldLabel') : t('menu.warshipPingPong'),
+            detail: t('menu.warshipModeDetail'),
             costText: '',
             affordable: true,
             enabled: true,
@@ -474,10 +485,10 @@ export function createBuildMenu(
           // Handels-Zielwahl zyklisch umschalten (gilt für alle eigenen Häfen).
           const TRADE_MODES = ['random', 'nearest', 'farthest', 'allies'] as const
           const TRADE_LABEL: Record<(typeof TRADE_MODES)[number], string> = {
-            random: 'Handel: Zufall',
-            nearest: 'Handel: Nächste',
-            farthest: 'Handel: Weiteste',
-            allies: 'Handel: nur Verbündete',
+            random: t('menu.trade.random'),
+            nearest: t('menu.trade.nearest'),
+            farthest: t('menu.trade.farthest'),
+            allies: t('menu.trade.allies'),
           }
           const curMode = player.tradeMode
           const nextMode =
@@ -485,7 +496,7 @@ export function createBuildMenu(
           actions.push({
             glyph: '⚖',
             label: TRADE_LABEL[curMode],
-            detail: `Klick → ${TRADE_LABEL[nextMode]}`,
+            detail: t('menu.tradeNext', { next: TRADE_LABEL[nextMode] }),
             costText: '',
             affordable: true,
             enabled: true,
@@ -499,8 +510,8 @@ export function createBuildMenu(
           const spare = player.warshipSpareNeutral
           actions.push({
             glyph: spare ? '🛡' : '⚔',
-            label: spare ? 'Schiffe: neutrale schonen' : 'Schiffe: alle angreifen',
-            detail: 'Umschalten — neutrale Handelsschiffe verschonen?',
+            label: spare ? t('menu.warshipSpare') : t('menu.warshipAttackAll'),
+            detail: t('menu.warshipNeutralDetail'),
             costText: '',
             affordable: true,
             enabled: true,
@@ -514,14 +525,14 @@ export function createBuildMenu(
       } else {
         // Leeres eigenes Tile: kein Neubau mehr im Radialmenü (Bauen läuft über die HUD-Knöpfe
         // 1–4: Gebäude wählen → Tile klicken). Das Eigen-Menü ist jetzt für Diplomatie/Wirtschaft.
-        title = `Gold: ${fmtCompact(player.gold)}`
+        title = t('menu.goldTitle', { gold: fmtCompact(player.gold) })
       }
       // Globaler Handels-Schalter: Embargo gegen alle lebenden Nationen auf einmal (betrifft
       // Häfen UND Fabrik-Auslandslinks). „Rundum ausbreiten" liegt jetzt auf Shift+Linksklick.
       actions.push(tradeStopAllAction())
     } else if (!isLand(state.map.terrain, tile)) {
       // Wasser-Tile → Kriegsschiff entsenden (braucht eigenen Hafen + Gold).
-      title = 'Wasser'
+      title = t('menu.water')
       titleColor = 'rgba(120,200,235,0.95)'
       let hasPort = false
       for (const b of state.buildings.values()) {
@@ -532,10 +543,8 @@ export function createBuildMenu(
       }
       actions.push({
         glyph: '⚓',
-        label: 'Kriegsschiff',
-        detail: hasPort
-          ? 'patrouilliert & blockiert feindlichen Handel'
-          : 'Hafen nötig (vom Hafen entsandt)',
+        label: t('menu.warship'),
+        detail: hasPort ? t('menu.warshipHasPort') : t('menu.warshipNoPort'),
         costText: fmtCompact(WARSHIP_COST),
         affordable: player.gold >= WARSHIP_COST,
         enabled: hasPort,
@@ -554,14 +563,14 @@ export function createBuildMenu(
         close()
         return
       }
-      title = other !== undefined ? other.name : 'Wildnis'
+      title = other !== undefined ? other.name : t('hud.wilderness')
       titleColor = other !== undefined ? rgbaToCss(other.color) : 'rgba(235,235,235,0.9)'
       const troops = getAttackTroops()
       if (canReachByLand(state, humanPlayerId, tile)) {
         actions.push({
           glyph: '⚔',
-          label: 'Angriff',
-          detail: `${fmtCompact(troops)} Truppen an die Front`,
+          label: t('menu.attack'),
+          detail: t('menu.attackDetail', { n: fmtCompact(troops) }),
           costText: '',
           affordable: true,
           enabled: troops > 0,
@@ -574,8 +583,8 @@ export function createBuildMenu(
       } else {
         actions.push({
           glyph: '🚢',
-          label: 'Transportboot',
-          detail: `${fmtCompact(troops)} Truppen übers Wasser`,
+          label: t('hud.boat'),
+          detail: t('menu.boatDetail', { n: fmtCompact(troops) }),
           costText: '',
           affordable: true,
           enabled: troops > 0,

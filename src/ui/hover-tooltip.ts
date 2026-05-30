@@ -11,20 +11,26 @@
 
 import { canReachByLand, effectiveMaxTroops, factoryYield, type GameState } from '../core/game'
 import {
-  BUILDING_LABEL,
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   defenseRange,
   isBuildingComplete,
   upgradeCost,
   type Building,
+  type BuildingType,
 } from '../core/buildings'
 import { FACTORY_LINK_RANGE } from '../core/config'
 import { areAllied, directedKey, pairKey } from '../core/diplomacy'
 import { shipWorldPos, WARSHIP_HP } from '../core/ships'
 import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
+import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+
+/** Übersetzter Anzeige-Name eines Gebäudetyps. */
+function buildingLabel(type: BuildingType): string {
+  return t(`building.${type}`)
+}
 
 /** Das aktuell gehoverte (gesnappte) Objekt — für die Renderer-Markierung. */
 export interface HoverHighlight {
@@ -58,13 +64,16 @@ function fmtCompact(value: number): string {
 function buildingEffect(b: Building): string {
   switch (b.type) {
     case 'city':
-      return `+${fmtCompact(CITY_CAP_BONUS * b.level)} Truppen-Cap`
+      return t('tip.effect.city', { cap: fmtCompact(CITY_CAP_BONUS * b.level) })
     case 'defense':
-      return `${String(DEFENSE_MAG_MULTIPLIER)}× Eroberungskosten · Reichweite ${String(defenseRange(b.level))} Tiles`
+      return t('tip.effect.defense', {
+        mult: DEFENSE_MAG_MULTIPLIER,
+        range: defenseRange(b.level),
+      })
     case 'port':
-      return 'Schiffe & Handel · zählt als Netz-Ziel'
+      return t('tip.effect.port')
     case 'factory':
-      return `Netzwerk-Gold · Reichweite ${String(FACTORY_LINK_RANGE)} Tiles`
+      return t('tip.effect.factory', { range: FACTORY_LINK_RANGE })
   }
 }
 
@@ -76,7 +85,7 @@ function factoryYieldLine(state: GameState, tile: number, level: number): string
   const y = factoryYield(state, tile)
   if (y === null) return null
   const perSec = fmtCompact(y.goldPerTick * SIM_TICKS_PER_SECOND)
-  const dests = `${String(y.dests)} Ziel${y.dests === 1 ? '' : 'e'}`
+  const dests = t('tip.dests', { n: y.dests })
   return `<span style="color:#e8d24a">+${perSec}/s</span> <span style="opacity:0.7">(${dests} × Lvl ${String(level)})</span>`
 }
 
@@ -89,9 +98,9 @@ function upgradeBenefit(state: GameState, b: Building): string | null {
   const next = b.level + 1
   switch (b.type) {
     case 'city':
-      return `+${fmtCompact(CITY_CAP_BONUS * next)} Truppen-Cap`
+      return t('tip.effect.city', { cap: fmtCompact(CITY_CAP_BONUS * next) })
     case 'defense':
-      return `Reichweite ${String(defenseRange(next))} Tiles`
+      return t('tip.upgrade.defense', { range: defenseRange(next) })
     case 'factory': {
       const y = factoryYield(state, b.tile)
       if (y === null || b.level <= 0) return null
@@ -188,7 +197,7 @@ export function createHoverTooltip(
       tryShip(
         wx,
         wy,
-        `Transportboot · ${playerLabel(boat.ownerId)}<br><span style="opacity:0.75">${boat.troops.toLocaleString('de-DE')} Truppen</span>`,
+        `${t('hud.boat')} · ${playerLabel(boat.ownerId)}<br><span style="opacity:0.75">${boat.troops.toLocaleString('de-DE')} ${t('hud.troops')}</span>`,
       )
     }
     for (const ship of state.tradeShips) {
@@ -196,17 +205,17 @@ export function createHoverTooltip(
       tryShip(
         wx,
         wy,
-        `Handelsschiff · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`,
+        `${t('tip.tradeShip')} · ${playerLabel(ship.fromOwnerId)} → ${playerLabel(ship.toOwnerId)}`,
       )
     }
     for (const ws of state.warships) {
       const { wx, wy } = shipWorldPos(ws, w, h)
       const hp = Math.max(0, Math.round(ws.hp))
-      const status = ws.returning ? ' · kehrt um' : ''
+      const status = ws.returning ? ` · ${t('hud.returning')}` : ''
       tryShip(
         wx,
         wy,
-        `⚓ Kriegsschiff · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
+        `⚓ ${t('tip.warship')} · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
       )
     }
     if (bestShipHtml !== null) {
@@ -236,9 +245,11 @@ export function createHoverTooltip(
         kind: 'building',
       })
       const isOwn = building.ownerId === humanId
-      const ownerName = isOwn ? 'Du' : (state.players.get(building.ownerId)?.name ?? '?')
+      const ownerName = isOwn ? t('tip.you') : (state.players.get(building.ownerId)?.name ?? '?')
       const complete = isBuildingComplete(building, state.tick)
-      const status = complete ? '' : ' <span style="opacity:0.6">(im Bau)</span>'
+      const status = complete
+        ? ''
+        : ` <span style="opacity:0.6">(${t('tip.underConstruction')})</span>`
       // Aktueller Effekt — für eigene fertige Fabriken der Live-Netz-Beitrag.
       let effect = buildingEffect(building)
       if (building.type === 'factory' && isOwn && complete) {
@@ -251,11 +262,11 @@ export function createHoverTooltip(
         const benefit = upgradeBenefit(state, building)
         if (benefit !== null) {
           const cost = upgradeCost(building.type, building.level)
-          upgradeLine = `<br><span style="color:#7fd0ff">↑ Lvl ${String(building.level + 1)}: ${benefit} <span style="opacity:0.7">· ${fmtCompact(cost)} Gold</span></span>`
+          upgradeLine = `<br><span style="color:#7fd0ff">↑ ${t('tip.lvl')} ${String(building.level + 1)}: ${benefit} <span style="opacity:0.7">· ${fmtCompact(cost)} ${t('hud.gold')}</span></span>`
         }
       }
       place(
-        `<b>${escapeHtml(BUILDING_LABEL[building.type])}</b> <span style="opacity:0.7">Lvl ${String(building.level)}</span>${status}<br>` +
+        `<b>${escapeHtml(buildingLabel(building.type))}</b> <span style="opacity:0.7">${t('tip.lvl')} ${String(building.level)}</span>${status}<br>` +
           `<span style="opacity:0.8">${effect}</span>${upgradeLine}<br>` +
           `<span style="opacity:0.55">${escapeHtml(ownerName)}</span>`,
       )
@@ -282,7 +293,7 @@ export function createHoverTooltip(
     }
 
     if (owner === 0) {
-      tooltip.innerHTML = `<span style="opacity: 0.7">neutrales Land</span>${attackNote('inline')}`
+      tooltip.innerHTML = `<span style="opacity: 0.7">${t('tip.neutralLand')}</span>${attackNote('inline')}`
     } else {
       const player = state.players.get(owner)
       if (player === undefined) {
@@ -302,7 +313,7 @@ export function createHoverTooltip(
           expiry !== undefined ? Math.max(0, Math.floor((expiry - state.tick) / 10)) : 0
         const mm = Math.floor(remain / 60)
         const ss = remain % 60
-        alliance = `<br><span style="color:#5adc78">🤝 Verbündet · noch ${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}</span>`
+        alliance = `<br><span style="color:#5adc78">🤝 ${t('tip.allied', { time: `${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}` })}</span>`
       }
       // Beziehungs-Indikator (Gunst/Groll aus Sicht des Menschen) — die dominante Stimmung
       // mit Wert; spiegelt den Grenz-Tint wider.
@@ -311,26 +322,26 @@ export function createHoverTooltip(
         const gw = state.goodwill.get(directedKey(owner, humanId)) ?? 0
         const gr = state.grudge.get(directedKey(owner, humanId)) ?? 0
         if (gr >= 5 && gr >= gw) {
-          relation = `<br><span style="color:#e8736b">😠 Groll ${fmtCompact(gr)}${gw >= 5 ? ` <span style="opacity:0.7">· Gunst ${fmtCompact(gw)}</span>` : ''}</span>`
+          relation = `<br><span style="color:#e8736b">😠 ${t('tip.grudge', { n: fmtCompact(gr) })}${gw >= 5 ? ` <span style="opacity:0.7">· ${t('tip.favor', { n: fmtCompact(gw) })}</span>` : ''}</span>`
         } else if (gw >= 5) {
-          relation = `<br><span style="color:#5adcb0">🤝 Gunst ${fmtCompact(gw)}${gr >= 5 ? ` <span style="opacity:0.7">· Groll ${fmtCompact(gr)}</span>` : ''}</span>`
+          relation = `<br><span style="color:#5adcb0">🤝 ${t('tip.favor', { n: fmtCompact(gw) })}${gr >= 5 ? ` <span style="opacity:0.7">· ${t('tip.grudge', { n: fmtCompact(gr) })}</span>` : ''}</span>`
         }
       }
       // Verräter (geächtet): für alle sichtbar markiert, solange die Ächtung läuft.
       const traitor =
         player.traitorUntil > state.tick
-          ? `<br><span style="color:#e8736b">⚠ Verräter — geächtet (verteidigt geschwächt)</span>`
+          ? `<br><span style="color:#e8736b">⚠ ${t('tip.traitor')}</span>`
           : ''
       // Gold-Beute-Indikator: beim Erobern wird das Gold des Gegners anteilig miterbeutet —
       // eine volle Eroberung bringt ~sein ganzes Lager. Nur bei nicht-Verbündeten mit Gold.
       let loot = ''
       if (humanId >= 0 && player.gold > 0 && !areAllied(state.alliances, humanId, owner)) {
-        loot = `<br><span style="color:#e8c14a">💰 Beute bei Eroberung ~${fmtCompact(player.gold)}</span>`
+        loot = `<br><span style="color:#e8c14a">💰 ${t('tip.loot', { gold: fmtCompact(player.gold) })}</span>`
       }
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
-        `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} Truppen · ${pct}%<br>` +
-        `<span style="opacity:0.7">~${avgPerTile.toLocaleString('de-DE')}/Tile</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
+        `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} ${t('hud.troops')} · ${pct}%<br>` +
+        `<span style="opacity:0.7">${t('tip.perTile', { n: avgPerTile.toLocaleString('de-DE') })}</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
     }
 
     tooltip.style.display = 'block'
