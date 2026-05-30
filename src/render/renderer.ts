@@ -239,9 +239,11 @@ const WATER_B = 92
 const SHALLOW_R = 64
 const SHALLOW_G = 122
 const SHALLOW_B = 150
-const ROCK_R = 70
-const ROCK_G = 66
-const ROCK_B = 62
+// Unpassierbarer Fels/Gletscher: kaltes, helleres Blaugrau (kontrastiert klar mit dem warmen
+// Braun begehbarer Berge) — damit man auf einen Blick sieht, wo man nicht hochkommt.
+const ROCK_R = 120
+const ROCK_G = 128
+const ROCK_B = 142
 const BG_FILL = '#0a0a10'
 
 /** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
@@ -553,9 +555,14 @@ export function createRenderer(
     let tg: number
     let tb: number
     if (height === IMPASSABLE_HEIGHT) {
-      tr = ROCK_R
-      tg = ROCK_G
-      tb = ROCK_B
+      // Unpassierbarer Fels/Gletscher: kalter, hellerer Grauton mit grober Körnung — klar als
+      // „hier geht's nicht hoch" erkennbar (kontrastiert mit dem warmen Braun begehbarer Berge).
+      const px = i % w
+      const py = (i - px) / w
+      const speckle = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 46
+      tr = clamp255(ROCK_R + speckle)
+      tg = clamp255(ROCK_G + speckle)
+      tb = clamp255(ROCK_B + speckle)
     } else if (tier === 0) {
       tr = 26
       tg = 32
