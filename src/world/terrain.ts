@@ -152,11 +152,12 @@ function percentile(sorted: Float32Array, p: number): number {
  * `islands` ≈ 35% Land — beide mit Höhen-Variation.
  */
 /**
- * Carvt Flüsse als echtes Wasser in `terrain` (ADR-0015). Quellen liegen an Bergen
- * (`heightNoise` hoch), der Pfad folgt dem steilsten Abstieg von `landNoise` (dessen Minima das
- * Meer sind → Flüsse erreichen die Küste). Pro Pfadpunkt wird ein 2×2-Block gecarvt → der Fluss
- * ist überall ≥2 Tiles breit und orthogonal 4-zusammenhängend (Schiffe bewegen sich nur über
- * `neighbors4`, ein diagonal „treppender" 1-Tile-Fluss wäre für sie unverbunden). Deterministisch.
+ * Carvt Flüsse als echtes Wasser in `terrain` (ADR-0015). Zwei Schritte: (1) Quelle + Mündung
+ * finden (Berg→Meer per landNoise-Abstieg, oder Küste→Küste quer übers Land), (2) den Pfad NICHT
+ * als gerade Linie, sondern als **fraktale Mäander-Kurve** (Midpoint-Displacement / „Squig-Curve",
+ * vgl. Amit Patel / Prusinkiewicz) zeichnen → natürliche Windungen statt Striche. Pro Pfadpunkt ein
+ * 2×2-Block → ≥2 Tiles breit und orthogonal 4-zusammenhängend (Schiffe nutzen `neighbors4`).
+ * Deterministisch aus dem Seed.
  */
 function carveRivers(
   terrain: Uint8Array,
@@ -168,12 +169,10 @@ function carveRivers(
   h: number,
 ): void {
   const len = w * h
-  /** Wasser = Original-Meer ODER bereits gecarvter Fluss (beide: IS_LAND_BIT nicht gesetzt). */
   const isWater = (i: number): boolean => ((terrain[i] ?? 0) & IS_LAND_BIT) === 0
-  // Mäander-Feld: niederfrequentes Noise → sanfte, glatte Schlangenlinien (kein erratisches Zucken).
-  const wander = buildFractalNoise(w, h, prng, 2, 3.5, 2.0, 0.5, 2)
   const minSepSq = (Math.min(w, h) * 0.1) ** 2
   const maxLen = w + h
+  const minRiverLen = Math.max(14, Math.round(Math.min(w, h) * 0.08))
 
   const dist2 = (ax: number, ay: number, bx: number, by: number): number => {
     let dx = Math.abs(ax - bx)
@@ -182,41 +181,88 @@ function carveRivers(
     if (dy > h / 2) dy = h - dy
     return dx * dx + dy * dy
   }
+  const torusDelta = (ax: number, ay: number, bx: number, by: number): [number, number] => {
+    let dx = bx - ax
+    let dy = by - ay
+    if (dx > w / 2) dx -= w
+    if (dx < -w / 2) dx += w
+    if (dy > h / 2) dy -= h
+    if (dy < -h / 2) dy += h
+    return [dx, dy]
+  }
 
-  // 2×2-Block ab (cx,cy) zu Wasser machen → Fluss ≥2 Tiles breit + orthogonal 4-zusammenhängend.
-  const carveBlock = (i: number): void => {
-    const cx = i % w
-    const cy = (i - cx) / w
+  // 2×2-Block (torus-gewrappt) zu Wasser machen.
+  const carveAt = (fx: number, fy: number): void => {
+    const cx = ((Math.round(fx) % w) + w) % w
+    const cy = ((Math.round(fy) % h) + h) % h
     for (let dy = 0; dy <= 1; dy++) {
       for (let dx = 0; dx <= 1; dx++) {
         terrain[(((cy + dy) % h) * w + ((cx + dx) % w)) | 0] = 0
       }
     }
   }
-  // Pfad + Mündungs-Tile carven (Mündung öffnet den Fluss sichtbar ins Meer → „berührt" es).
-  const carve = (path: readonly number[], mouth: number): void => {
-    for (const p of path) carveBlock(p)
-    if (mouth >= 0) carveBlock(mouth)
+
+  // Fraktale Mäander-Kurve (Midpoint-Displacement): Polylinie Start→Ziel rekursiv unterteilen, jeden
+  // Mittelpunkt zufällig QUER zum Segment auslenken. ROUGH steuert die Windung, ITER die Feinheit.
+  const ITER = 6
+  const ROUGH = 0.42
+  const fractalCarve = (sx: number, sy: number, dx: number, dy: number): void => {
+    let pts: { x: number; y: number }[] = [
+      { x: sx, y: sy },
+      { x: sx + dx, y: sy + dy },
+    ]
+    for (let it = 0; it < ITER; it++) {
+      const np: { x: number; y: number }[] = []
+      for (let k = 0; k < pts.length - 1; k++) {
+        const a = pts[k]
+        const b = pts[k + 1]
+        if (a === undefined || b === undefined) continue
+        np.push(a)
+        const segx = b.x - a.x
+        const segy = b.y - a.y
+        const slen = Math.sqrt(segx * segx + segy * segy)
+        const mx = (a.x + b.x) / 2
+        const my = (a.y + b.y) / 2
+        if (slen > 2) {
+          const d = (prng.next() - 0.5) * slen * ROUGH
+          np.push({ x: mx + (-segy / slen) * d, y: my + (segx / slen) * d })
+        } else {
+          np.push({ x: mx, y: my })
+        }
+      }
+      const last = pts[pts.length - 1]
+      if (last !== undefined) np.push(last)
+      pts = np
+    }
+    // Polylinie rastern.
+    for (let k = 0; k < pts.length - 1; k++) {
+      const a = pts[k]
+      const b = pts[k + 1]
+      if (a === undefined || b === undefined) continue
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)))
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps
+        carveAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+      }
+    }
   }
 
-  // ── Typ B: Berg → Meer (Abstieg von landNoise, mäandernd) ────────────────────
+  // ── Typ B: Berg → Meer ───────────────────────────────────────────────────────
+  // Abstieg auf landNoise findet die Mündung (Sea-Tile). Der sichtbare Fluss ist dann die fraktale
+  // Kurve von Quelle zu Mündung.
   const targetB = Math.max(2, Math.round(Math.sqrt(w * h) / 110))
-  const sources: { i: number; x: number; y: number }[] = []
+  const sources: { x: number; y: number }[] = []
   for (let a = 0; a < targetB * 300 && sources.length < targetB; a++) {
     const i = prng.nextInt(0, len - 1)
     if (isWater(i) || (heightNoise[i] ?? 0) < sourceThr) continue
     const x = i % w
     const y = (i - x) / w
-    if (sources.every((s) => dist2(x, y, s.x, s.y) >= minSepSq)) sources.push({ i, x, y })
+    if (sources.every((s) => dist2(x, y, s.x, s.y) >= minSepSq)) sources.push({ x, y })
   }
-  const WANDER_B = 0.025 // Mäander-Stärke: wählt unter den ABWÄRTS-Nachbarn einen verschobenen
-  // Mindestlänge: ein Berg direkt an der Küste ergäbe sonst einen 3-Tile-Stummel — verwerfen.
-  const minRiverLen = Math.max(14, Math.round(Math.min(w, h) * 0.08))
   for (const src of sources) {
-    const path: number[] = []
-    const visited = new Set<number>()
-    let cur = src.i
+    let cur = src.y * w + src.x
     let mouth = -1
+    const visited = new Set<number>()
     for (let step = 0; step < maxLen; step++) {
       if (isWater(cur)) {
         mouth = cur
@@ -224,35 +270,32 @@ function carveRivers(
       }
       if (visited.has(cur)) break
       visited.add(cur)
-      path.push(cur)
       const cx = cur % w
       const cy = (cur - cx) / w
       const curN = landNoise[cur] ?? 0
       let best = -1
-      let bestScore = Infinity
+      let bestN = curN
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue
           const ni = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) | 0
-          if ((landNoise[ni] ?? 0) >= curN) continue // nur abwärts → garantiert Richtung Meer
-          const score = (landNoise[ni] ?? 0) + WANDER_B * (wander[ni] ?? 0)
-          if (score < bestScore) {
-            bestScore = score
+          if ((landNoise[ni] ?? 0) < bestN) {
+            bestN = landNoise[ni] ?? 0
             best = ni
           }
         }
       }
-      if (best < 0) break // lokales Minimum vor dem Meer → Sackgasse, verwerfen
+      if (best < 0) break
       cur = best
     }
-    if (mouth >= 0 && path.length >= minRiverLen) carve(path, mouth) // zu kurze Stummel verwerfen
+    if (mouth < 0) continue
+    const [dx, dy] = torusDelta(src.x, src.y, mouth % w, (mouth - (mouth % w)) / w)
+    if (dx * dx + dy * dy >= minRiverLen * minRiverLen) fractalCarve(src.x, src.y, dx, dy)
   }
 
   // ── Typ A: Meer → Meer, quer durchs Land ─────────────────────────────────────
-  // Start an einer Küste, Ziel ein Punkt quer überm Land. Es werden nur Schritte gewählt, die dem
-  // Ziel NÄHER kommen → der Pfad ist garantiert schleifenfrei (kann sich nie selbst kreuzen) und
-  // terminiert. Sanfter SEITLICHER Wander (kein Heading-Random-Walk) ergibt glatte Schlangenlinien.
-  // Erst simulieren, nur bei Meer-Treffer carven → keine im Land versickernden Sackgassen.
+  // Start an einer Küste, gerade Richtung quer übers Land bis ans nächste Meer (= Mündung), dann
+  // die fraktale Kurve dazwischen.
   const isCoastLand = (i: number): boolean => {
     if (isWater(i)) return false
     const x = i % w
@@ -264,20 +307,7 @@ function carveRivers(
       isWater((((y - 1 + h) % h) * w + x) | 0)
     )
   }
-  // Torus-Delta (kürzeste Richtung) von (ax,ay) nach (bx,by).
-  const torusDelta = (ax: number, ay: number, bx: number, by: number): [number, number] => {
-    let dx = bx - ax
-    let dy = by - ay
-    if (dx > w / 2) dx -= w
-    if (dx < -w / 2) dx += w
-    if (dy > h / 2) dy -= h
-    if (dy < -h / 2) dy += h
-    return [dx, dy]
-  }
   const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 150))
-  const minCross = minRiverLen
-  const reach = Math.round(Math.min(w, h) * 0.4) // wie weit das Ziel quer überm Land liegt
-  const WANDER_A = 0.85 // seitliche Mäander-Stärke (Anteil quer zur Zielrichtung)
   let madeA = 0
   for (let a = 0; a < targetA * 400 && madeA < targetA; a++) {
     const start = prng.nextInt(0, len - 1)
@@ -285,54 +315,24 @@ function carveRivers(
     const sx = start % w
     const sy = (start - sx) / w
     const ang = prng.nextFloat(0, Math.PI * 2)
-    const tx = (((sx + Math.round(reach * detCos(ang))) % w) + w) % w
-    const ty = (((sy + Math.round(reach * detSin(ang))) % h) + h) % h
-    const path: number[] = []
-    let cur = start
-    let mouth = -1
-    let curD2 = dist2(sx, sy, tx, ty)
-    for (let step = 0; step < maxLen; step++) {
-      if (isWater(cur) && path.length >= minCross) {
-        mouth = cur
+    const stepx = detCos(ang)
+    const stepy = detSin(ang)
+    // gerade marschieren, bis nach mind. minRiverLen wieder Wasser (das andere Meer) erreicht ist
+    let mx = -1
+    let my = -1
+    for (let s = minRiverLen; s <= maxLen; s++) {
+      const x = ((Math.round(sx + stepx * s) % w) + w) % w
+      const y = ((Math.round(sy + stepy * s) % h) + h) % h
+      if (isWater(y * w + x)) {
+        mx = x
+        my = y
         break
       }
-      path.push(cur)
-      const cx = cur % w
-      const cy = (cur - cx) / w
-      // Zielrichtung (normiert) + seitliche Wander-Auslenkung → glatte Kurve, immer Richtung Ziel.
-      const [ddx, ddy] = torusDelta(cx, cy, tx, ty)
-      const dl = Math.sqrt(ddx * ddx + ddy * ddy) || 1
-      const dirx = ddx / dl
-      const diry = ddy / dl
-      const lat = WANDER_A * (wander[cur] ?? 0)
-      const fx = dirx + -diry * lat
-      const fy = diry + dirx * lat
-      let best = -1
-      let bestScore = -Infinity
-      let bestD2 = curD2
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue
-          const nx = (cx + dx + w) % w
-          const ny = (cy + dy + h) % h
-          const nd2 = dist2(nx, ny, tx, ty)
-          if (nd2 >= curD2) continue // nur NÄHER ans Ziel → schleifenfrei + terminiert
-          const score = dx * fx + dy * fy
-          if (score > bestScore) {
-            bestScore = score
-            best = (ny * w + nx) | 0
-            bestD2 = nd2
-          }
-        }
-      }
-      if (best < 0) break // Ziel erreicht / keine Annäherung mehr → kein Meer getroffen, verwerfen
-      cur = best
-      curD2 = bestD2
     }
-    if (mouth >= 0) {
-      carve(path, mouth)
-      madeA++
-    }
+    if (mx < 0) continue
+    const [dx, dy] = torusDelta(sx, sy, mx, my)
+    fractalCarve(sx, sy, dx, dy)
+    madeA++
   }
 }
 
