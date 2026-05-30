@@ -4,9 +4,14 @@
 
 Spielbar im Mehrspieler. **Phasen 1–5 fertig** (Transport-Naht, Determinismus-Fundament inkl.
 Snapshot/PRNG-State/Freeze/det-math, Replay-Harness, simulierender ws-Server, Client-Transport +
-Lobby — zwei Browser-Tabs in Lockstep verifiziert). **Phase 6 (Politur) Proposed:** adaptiver
-Input-Delay, Live-Resync/Reconnect-UI (Snapshot in laufende Session einspielen), periodische
-Snapshots, Desync-Hinweis im HUD, Lasttests, gehostetes Deployment.
+Lobby — zwei Browser-Tabs in Lockstep verifiziert). **Phase 6 (Politur) teilweise umgesetzt:**
+adaptiver Input-Delay (ping/pong) ✅, **Mid-Match-Resync** ✅ (`loadSnapshotInto` lädt Server-
+Korrektur-Snapshots IN-PLACE in den laufenden State, `renderer.invalidate()` + transienter
+`hud.flashResync()`-Hinweis — abgedrifteter Client schnappt zurück statt still weiterzudriften;
+Unit-Test bit-genau), **pfad-basierte Einladungslinks** ✅ (`/r/CODE`, `?room=` als Fallback,
+SPA-Fallback des Servers liefert beliebige Pfade). **Verbleibend (Proposed):** periodische
+server-seitige Snapshots (proaktiv statt nur auf Desync), Lasttests mit vielen Slots,
+gehostetes Deployment-Härten.
 
 ## Datum
 
@@ -163,9 +168,10 @@ oder Kick. Stärker als reines Peer-Lockstep; voll State-Sync wäre noch sichere
    `startMatch` nimmt optional eine `NetSession` (Server-Config + Transport, keine lokale KI/Uhr,
    meldet Hash je Tick). **Verifiziert:** zwei echte Browser-Tabs (Host konfiguriert + beide ready)
    laufen über 1000+ Ticks in identischem Hash.
-6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** Adaptiver
-   Input-Delay, Freeze-/Resync-Handling über die schon vorhandenen Snapshots, Last-Tests mit
-   vielen Slots.
+6. **Skalierung, Input-Delay, Freeze/Reconnect-Snapshot-UI, Desync-UI, Politur.** ✅ Adaptiver
+   Input-Delay (ping/pong → `inputDelay`), ✅ **Mid-Match-Resync** (`loadSnapshotInto` in-place +
+   `renderer.invalidate()` + transienter `hud.flashResync()`), ✅ **pfad-Einladungslinks** `/r/CODE`.
+   **Offen:** proaktive periodische Server-Snapshots, Last-Tests mit vielen Slots, Deployment-Härten.
 
 Phasen 1–4 sind **umgesetzt** (Stand 2026-05-29) — Sim-Naht, Determinismus-Fundament (Snapshot/
 PRNG/Freeze/det-math), Replay und der simulierende Server stehen und sind getestet. Phase 5
