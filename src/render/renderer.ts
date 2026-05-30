@@ -20,6 +20,7 @@ import {
   canBuildAt,
   CAPTURE_FADE_TICKS,
   FACTORY_FOREIGN_CAP,
+  GOLD_POP_LIFETIME,
   snapBuildTile,
   type GameState,
   type Player,
@@ -1412,6 +1413,35 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /** Flüchtige „+Gold"-Einblendungen des Menschen (Fuhr-/Handelsschiff-Anlieferungen, ADR-0018). */
+  function drawGoldPops(): void {
+    const humanId = lutHumanId
+    if (humanId < 0 || state.goldPops.length === 0) return
+    const mapW = state.map.width
+    screenCtx.save()
+    screenCtx.textAlign = 'center'
+    screenCtx.textBaseline = 'middle'
+    screenCtx.font = `bold ${Math.max(11, Math.round(camera.zoom * 5)).toString()}px ui-monospace, monospace`
+    for (const pop of state.goldPops) {
+      if (pop.ownerId !== humanId) continue
+      const age = state.tick - pop.atTick
+      if (age < 0 || age >= GOLD_POP_LIFETIME) continue
+      const t = age / GOLD_POP_LIFETIME
+      const wx = (pop.tile % mapW) + 0.5
+      const wy = Math.floor(pop.tile / mapW) + 0.5
+      const { sx, sy } = nearestWrappedScreenPos(wx, wy)
+      const fy = sy - 8 - t * 28 // steigt langsam nach oben
+      const alpha = 1 - t
+      const text = '+' + fmtCompactRender(pop.amount)
+      screenCtx.lineWidth = 3
+      screenCtx.strokeStyle = `rgba(0,0,0,${(0.7 * alpha).toString()})`
+      screenCtx.strokeText(text, sx, fy)
+      screenCtx.fillStyle = `rgba(255,224,120,${alpha.toString()})`
+      screenCtx.fillText(text, sx, fy)
+    }
+    screenCtx.restore()
+  }
+
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
     const cssW = container.clientWidth
@@ -2106,6 +2136,7 @@ export function createRenderer(
     drawBuildPreview()
     drawMarkers()
     drawLabels()
+    drawGoldPops()
     if (clipped) screenCtx.restore()
     drawSelectionBox()
   }

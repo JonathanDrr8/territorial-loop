@@ -297,6 +297,11 @@ export interface GameState {
    * serialisiert) — nur Zwischenschritt fürs Routing der Fuhren und fürs Rendering.
    */
   ownerComponents: Int32Array | null
+  /**
+   * Flüchtige „+Gold"-Einblendungen (Fuhr-/Handelsschiff-Anlieferungen des Menschen) fürs Render —
+   * rein darstellend, NICHT gehasht/serialisiert (wie dirtyTiles), nach kurzer Zeit verworfen.
+   */
+  goldPops: { tile: TileRef; amount: number; ownerId: number; atTick: number }[]
   /** Fliegende Kriegsschiff-Projektile (verzögerter Schaden; verpuffen, wenn der Schütze stirbt). */
   projectiles: Projectile[]
   /** Aktive Allianzen als ungeordnete Paar-Schlüssel ([[pairKey]]). */
@@ -476,6 +481,7 @@ export function createGame(config: GameConfig): GameState {
     tradeShips: [],
     goldCarts: [],
     ownerComponents: null,
+    goldPops: [],
     warships: [],
     projectiles: [],
     alliances: new Set<number>(),
@@ -2426,10 +2432,24 @@ function advanceTradeShips(state: GameState): void {
       if (from !== undefined && from.isAlive) {
         from.gold += ship.gold
         from.goldEarned += ship.gold
+        if (from.isHuman)
+          state.goldPops.push({
+            tile: ship.originPort,
+            amount: ship.gold,
+            ownerId: from.id,
+            atTick: state.tick,
+          })
       }
       if (to !== undefined && to.isAlive) {
         to.gold += ship.gold
         to.goldEarned += ship.gold
+        if (to.isHuman)
+          state.goldPops.push({
+            tile: ship.destPort,
+            amount: ship.gold,
+            ownerId: to.id,
+            atTick: state.tick,
+          })
       }
       // Handel zwischen zwei Nationen schafft beidseitige Gunst (∝ Fahrt-Gold).
       if (ship.fromOwnerId !== ship.toOwnerId) {
@@ -2449,6 +2469,9 @@ function advanceTradeShips(state: GameState): void {
 
 /** Alle wie viele Ticks das Wirtschafts-Wegenetz (Land-Komponenten + Fuhren-Routen) neu berechnet wird. */
 const ECONOMY_RECOMPUTE_INTERVAL = 20
+
+/** Lebensdauer einer „+Gold"-Einblendung (Ticks) — rein darstellend (auch vom Renderer genutzt). */
+export const GOLD_POP_LIFETIME = 14
 
 /**
  * Aktualisiert die Owner-Land-Komponenten und das Gold-Fuhren-Netz (ADR-0018). Periodisch, weil die
@@ -2527,6 +2550,9 @@ function recomputeGoldRoutes(state: GameState): void {
  * gutgeschrieben und die Fuhre kehrt um; an der Quelle lädt sie neu und fährt wieder los.
  */
 function advanceGoldCarts(state: GameState): void {
+  // Abgelaufene „+Gold"-Einblendungen verwerfen (rein darstellend).
+  if (state.goldPops.length > 0)
+    state.goldPops = state.goldPops.filter((p) => state.tick - p.atTick < GOLD_POP_LIFETIME)
   if (state.goldCarts.length === 0) return
   for (const cart of state.goldCarts) {
     cart.progress += CART_SPEED * cart.dir
@@ -2539,6 +2565,13 @@ function advanceGoldCarts(state: GameState): void {
         const amount = owner.wild ? Math.floor(cart.gold * WILD_GOLD_FACTOR) : cart.gold
         owner.gold += amount
         owner.goldEarned += amount
+        if (owner.isHuman)
+          state.goldPops.push({
+            tile: cart.factoryTile,
+            amount,
+            ownerId: owner.id,
+            atTick: state.tick,
+          })
       }
     } else if (cart.dir === -1 && cart.progress <= 0) {
       cart.progress = 0
