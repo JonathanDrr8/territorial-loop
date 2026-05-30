@@ -178,9 +178,12 @@ export const ja: Record<string, string> = {
     '防衛拠点 —— 範囲 {range}（+{per}/段階）内では征服コストが最大 {mult}× に。',
   'hud.tooltip.port': '港 —— 輸送・商船に必要（水辺のみ建設可）。',
   'hud.tooltip.factory': '工場 —— 直線で自分の都市/港/工場と結ばれ、接続先ごとに金を産出します。',
+  'hud.tooltip.airport':
+    '空港 —— 目標へ爆撃機を発進させます（発進ごとに金）。クールダウン {cooldown} 秒、レベルごとに短縮。',
+  'hud.tooltip.flak': '対空 —— 範囲 {range}（レベルごとに +{per}）内の敵爆撃機を撃墜します。',
   'hud.controls': '操作',
   'hud.controlsBody':
-    '左クリック：攻撃 · B：輸送艇モード（別の島の目標）<br/>右クリック：メニュー（建設/攻撃/輸送艇/軍艦/外交）<br/>ドラッグ（左/右）または WASD：カメラ · ホイール：ズーム<br/>1–4：建物（都市/防衛/港/工場）· R：船の範囲 · スペース：一時停止<br/>, / . ：速度 · Esc：メニュー<br/>攻撃パネルをクリック：中止 / 輸送艇 · 船を呼び戻す',
+    '左クリック：攻撃 · B：輸送艇モード（別の島の目標）<br/>右クリック：メニュー（建設/攻撃/輸送艇/軍艦/外交）<br/>ドラッグ（左/右）または WASD：カメラ · ホイール：ズーム<br/>1–6：建物（都市/防衛/港/工場/空港/対空）· R：船の範囲 · スペース：一時停止<br/>, / . ：速度 · Esc：メニュー<br/>攻撃パネルをクリック：中止 / 輸送艇 · 船を呼び戻す',
   'hud.rank': 'ランキング',
   'hud.troops': '兵力',
   'hud.gold': '金',
@@ -228,6 +231,8 @@ export const ja: Record<string, string> = {
   'building.defense': '防衛',
   'building.port': '港',
   'building.factory': '工場',
+  'building.airport': '空港',
+  'building.flak': '対空',
 
   // ── 放射状メニュー ────────────────────────────────────────────────────────────
   'menu.chooseAction': '操作を選択',
@@ -235,6 +240,8 @@ export const ja: Record<string, string> = {
   'menu.hint.defense': '征服コスト最大 {mult}×',
   'menu.hint.port': '船の前提',
   'menu.hint.factory': 'ネットワークで金（範囲内の都市/港）',
+  'menu.hint.airport': '目標へ爆撃機を発進（発進ごとに金）',
+  'menu.hint.flak': '飛来する敵爆撃機を撃墜',
   'menu.breakAlliance': '同盟を破棄',
   'menu.breakAllianceDetail': '裏切り → 無法者 · {time} 後に失効',
   'menu.acceptAlliance': '同盟を受諾',
@@ -278,7 +285,11 @@ export const ja: Record<string, string> = {
   'tip.effect.defense': '征服コスト {mult}× · 範囲 {range} マス',
   'tip.effect.port': '船と交易 · ネット目標として数える',
   'tip.effect.factory': 'ネットワーク金 · 範囲 {range} マス',
+  'tip.effect.airport': '爆撃機の発進 · クールダウン {cooldown} 秒',
+  'tip.effect.flak': '対空 · 範囲 {range} マス',
   'tip.upgrade.defense': '範囲 {range} マス',
+  'tip.upgrade.airport': 'クールダウン {cooldown} 秒',
+  'tip.upgrade.flak': '範囲 {range} マス',
   'tip.dests': '目標 {n}',
   'tip.tradeShip': '商船',
   'tip.warship': '軍艦',

@@ -462,7 +462,7 @@ export function createMultiplayerMenu(
       ab[type] = on
       return { ...settings, allowedBuildings: ab }
     }
-    for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+    for (const type of ['city', 'defense', 'port', 'factory', 'airport', 'flak'] as const) {
       checkboxRow(
         t(`building.${type}`),
         s.allowedBuildings?.[type] !== false,

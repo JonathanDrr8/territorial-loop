@@ -176,9 +176,12 @@ export const zh: Record<string, string> = {
   'hud.tooltip.defense': '防御哨所 —— 在 {range} 范围内（每级 +{per}），攻占代价最高增加 {mult}×。',
   'hud.tooltip.port': '港口 —— 运输与商船所需（只能建在水边）。',
   'hud.tooltip.factory': '工厂 —— 以直线连接你的城市/港口/工厂，并按每个相连的城市/港口产出金币。',
+  'hud.tooltip.airport':
+    '机场 —— 向目标派出轰炸机（每次起飞消耗金币）。冷却 {cooldown} 秒，随等级降低。',
+  'hud.tooltip.flak': '防空 —— 击落 {range}（每级 +{per}）范围内的敌方轰炸机。',
   'hud.controls': '操作',
   'hud.controlsBody':
-    '左键：进攻 · B：运输艇模式（目标在其他岛屿）<br/>右键：菜单（建造/进攻/运输艇/战舰/外交）<br/>拖拽（左/右）或 WASD：镜头 · 滚轮：缩放<br/>1–4：建筑（城市/防御/港口/工厂）· R：船只范围 · 空格：暂停<br/>, / . ：速度 · Esc：菜单<br/>点击进攻面板：取消 / 运输艇 · 召回船只',
+    '左键：进攻 · B：运输艇模式（目标在其他岛屿）<br/>右键：菜单（建造/进攻/运输艇/战舰/外交）<br/>拖拽（左/右）或 WASD：镜头 · 滚轮：缩放<br/>1–6：建筑（城市/防御/港口/工厂/机场/防空）· R：船只范围 · 空格：暂停<br/>, / . ：速度 · Esc：菜单<br/>点击进攻面板：取消 / 运输艇 · 召回船只',
   'hud.rank': '排行',
   'hud.troops': '兵力',
   'hud.gold': '金币',
@@ -226,6 +229,8 @@ export const zh: Record<string, string> = {
   'building.defense': '防御',
   'building.port': '港口',
   'building.factory': '工厂',
+  'building.airport': '机场',
+  'building.flak': '防空',
 
   // ── 环形菜单 ──────────────────────────────────────────────────────────────────
   'menu.chooseAction': '选择操作',
@@ -233,6 +238,8 @@ export const zh: Record<string, string> = {
   'menu.hint.defense': '攻占代价最高增加 {mult}×',
   'menu.hint.port': '船只的前提',
   'menu.hint.factory': '通过网络产金（范围内的城市/港口）',
+  'menu.hint.airport': '向目标派出轰炸机（每次起飞消耗金币）',
+  'menu.hint.flak': '击落飞过的敌方轰炸机',
   'menu.breakAlliance': '破裂同盟',
   'menu.breakAllianceDetail': '背叛 → 被通缉 · {time} 后到期',
   'menu.acceptAlliance': '接受同盟',
@@ -276,7 +283,11 @@ export const zh: Record<string, string> = {
   'tip.effect.defense': '{mult}× 攻占代价 · 范围 {range} 格',
   'tip.effect.port': '船只与贸易 · 计为网络目标',
   'tip.effect.factory': '网络金币 · 范围 {range} 格',
+  'tip.effect.airport': '轰炸机起飞 · 冷却 {cooldown} 秒',
+  'tip.effect.flak': '防空 · 范围 {range} 格',
   'tip.upgrade.defense': '范围 {range} 格',
+  'tip.upgrade.airport': '冷却 {cooldown} 秒',
+  'tip.upgrade.flak': '范围 {range} 格',
   'tip.dests': '{n} 个目标',
   'tip.tradeShip': '商船',
   'tip.warship': '战舰',

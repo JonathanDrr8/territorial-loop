@@ -44,6 +44,8 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   defense: 'D',
   port: 'P',
   factory: 'F',
+  airport: 'A',
+  flak: 'K',
 }
 
 /**
@@ -111,6 +113,34 @@ const BUILDING_SPRITES: Record<BuildingType, SpriteDef> = {
       'WDDWWDDW',
     ],
     palette: { W: '#9098a0', D: '#34383f', C: '#6b5560', s: '#d2d7dd' },
+  },
+  // Flughafen: Kontrollturm über einer grauen Landebahn mit Markierung.
+  airport: {
+    rows: [
+      '...TT...',
+      '...TT...',
+      '..wTTw..',
+      '..TTTT..',
+      'gggggggg',
+      'g.WW.W.g',
+      'gW.WW..g',
+      'gggggggg',
+    ],
+    palette: { T: '#aeb4bc', w: '#3a6a9a', g: '#55585f', W: '#e2e2e2' },
+  },
+  // Flugabwehr: Geschütz mit nach oben gerichtetem Lauf auf einem Sockel.
+  flak: {
+    rows: [
+      '....b...',
+      '....b...',
+      '...bb...',
+      '..MMMM..',
+      '.MMMMMM.',
+      'MMMMMMMM',
+      'M.MMMM.M',
+      'M......M',
+    ],
+    palette: { b: '#2c313a', M: '#6b7079' },
   },
 }
 

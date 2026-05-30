@@ -214,9 +214,13 @@ export const de: Record<string, string> = {
   'hud.tooltip.port': 'Hafen — nötig für Transport- & Handelsschiffe (nur am Wasser baubar).',
   'hud.tooltip.factory':
     'Fabrik — verbindet sich per Luftlinie mit eigenen Städten/Häfen/Fabriken und produziert Gold je verbundener Stadt/Hafen.',
+  'hud.tooltip.airport':
+    'Flughafen — startet Bomber gegen ein Ziel (Gold je Start). Cooldown {cooldown}s, sinkt pro Stufe.',
+  'hud.tooltip.flak':
+    'Flugabwehr — schießt feindliche Bomber im Umkreis {range} (+{per}/Stufe) ab.',
   'hud.controls': 'Steuerung',
   'hud.controlsBody':
-    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–4: Gebäude (Stadt/Verteidigung/Hafen/Fabrik) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück',
+    'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel)<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–6: Gebäude (Stadt/Verteidigung/Hafen/Fabrik/Flughafen/Flugabwehr) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück',
   'hud.rank': 'Rangliste',
   'hud.troops': 'Truppen',
   'hud.gold': 'Gold',
@@ -264,6 +268,8 @@ export const de: Record<string, string> = {
   'building.defense': 'Verteidigung',
   'building.port': 'Hafen',
   'building.factory': 'Fabrik',
+  'building.airport': 'Flughafen',
+  'building.flak': 'Flugabwehr',
 
   // ── Radialmenü ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Aktion wählen',
@@ -271,6 +277,8 @@ export const de: Record<string, string> = {
   'menu.hint.defense': 'Eroberung bis {mult}× teurer',
   'menu.hint.port': 'Voraussetzung für Schiffe',
   'menu.hint.factory': 'Gold übers Netzwerk (Städte/Häfen in Reichweite)',
+  'menu.hint.airport': 'Startet Bomber gegen ein Ziel (Gold je Start)',
+  'menu.hint.flak': 'Schießt durchfliegende feindliche Bomber ab',
   'menu.breakAlliance': 'Allianz brechen',
   'menu.breakAllianceDetail': 'Verrat → geächtet · läuft in {time} aus',
   'menu.acceptAlliance': 'Allianz annehmen',
@@ -314,7 +322,11 @@ export const de: Record<string, string> = {
   'tip.effect.defense': '{mult}× Eroberungskosten · Reichweite {range} Tiles',
   'tip.effect.port': 'Schiffe & Handel · zählt als Netz-Ziel',
   'tip.effect.factory': 'Netzwerk-Gold · Reichweite {range} Tiles',
+  'tip.effect.airport': 'Bomber-Start · Cooldown {cooldown}s',
+  'tip.effect.flak': 'Flugabwehr · Reichweite {range} Tiles',
   'tip.upgrade.defense': 'Reichweite {range} Tiles',
+  'tip.upgrade.airport': 'Cooldown {cooldown}s',
+  'tip.upgrade.flak': 'Reichweite {range} Tiles',
   'tip.dests': '{n} Ziele',
   'tip.tradeShip': 'Handelsschiff',
   'tip.warship': 'Kriegsschiff',

@@ -188,7 +188,7 @@ function sanitizeAllowed(
   a: Partial<Record<BuildingType, boolean>>,
 ): Partial<Record<BuildingType, boolean>> {
   const out: Partial<Record<BuildingType, boolean>> = {}
-  for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+  for (const type of ['city', 'defense', 'port', 'factory', 'airport', 'flak'] as const) {
     if (a[type] === false) out[type] = false
   }
   return out

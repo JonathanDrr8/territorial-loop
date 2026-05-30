@@ -14,7 +14,14 @@ const DEFAULTS: StartMenuValues = {
   terrain: 'flat',
   soundEnabled: true,
   cameraMode: 'dynamic',
-  allowedBuildings: { city: true, defense: true, port: true, factory: true },
+  allowedBuildings: {
+    city: true,
+    defense: true,
+    port: true,
+    factory: true,
+    airport: true,
+    flak: true,
+  },
   rivers: true,
   experimental: {},
 }
@@ -41,7 +48,14 @@ describe('preferences', () => {
       terrain: 'islands',
       soundEnabled: false,
       cameraMode: 'tiles',
-      allowedBuildings: { city: true, defense: false, port: true, factory: false },
+      allowedBuildings: {
+        city: true,
+        defense: false,
+        port: true,
+        factory: false,
+        airport: true,
+        flak: false,
+      },
       rivers: false,
       experimental: { earthlikeNoise: true },
     }

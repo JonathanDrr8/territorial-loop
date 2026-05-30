@@ -23,6 +23,8 @@ const BUILD_HOTKEYS: Record<string, BuildingType> = {
   '2': 'defense',
   '3': 'port',
   '4': 'factory',
+  '5': 'airport',
+  '6': 'flak',
 }
 
 /** WASD → Kamera-Pan-Richtung (dx, dy in Welt-Tiles pro Schritt-Einheit). */

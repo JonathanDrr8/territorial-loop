@@ -38,6 +38,8 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   defense: 'D',
   port: 'P',
   factory: 'F',
+  airport: 'A',
+  flak: 'K',
 }
 
 /** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe), übersetzt zur Aufruf-Zeit. */
@@ -51,6 +53,10 @@ function buildingHint(type: BuildingType): string {
       return t('menu.hint.port')
     case 'factory':
       return t('menu.hint.factory')
+    case 'airport':
+      return t('menu.hint.airport')
+    case 'flak':
+      return t('menu.hint.flak')
   }
 }
 

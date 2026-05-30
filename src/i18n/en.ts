@@ -213,9 +213,12 @@ export const en: Record<string, string> = {
   'hud.tooltip.port': 'Port — needed for transport & trade ships (only buildable on water).',
   'hud.tooltip.factory':
     'Factory — links by line of sight to your own cities/ports/factories and produces gold per connected city/port.',
+  'hud.tooltip.airport':
+    'Airport — launches bombers at a target (gold per launch). Cooldown {cooldown}s, drops per level.',
+  'hud.tooltip.flak': 'Anti-air — shoots down enemy bombers within range {range} (+{per}/level).',
   'hud.controls': 'Controls',
   'hud.controlsBody':
-    'Left click: attack · B: boat mode (target on another island)<br/>Right click: menu (build/attack/boat/warship/diplomacy)<br/>Drag (left/right) or WASD: camera · Wheel: zoom<br/>1–4: buildings (city/defense/port/factory) · R: ship ranges · Space: pause<br/>, / . : speed · Esc: menu<br/>Click attack panel: cancel / boat · ship back',
+    'Left click: attack · B: boat mode (target on another island)<br/>Right click: menu (build/attack/boat/warship/diplomacy)<br/>Drag (left/right) or WASD: camera · Wheel: zoom<br/>1–6: buildings (city/defense/port/factory/airport/anti-air) · R: ship ranges · Space: pause<br/>, / . : speed · Esc: menu<br/>Click attack panel: cancel / boat · ship back',
   'hud.rank': 'Ranking',
   'hud.troops': 'Troops',
   'hud.gold': 'Gold',
@@ -263,6 +266,8 @@ export const en: Record<string, string> = {
   'building.defense': 'Defense',
   'building.port': 'Port',
   'building.factory': 'Factory',
+  'building.airport': 'Airport',
+  'building.flak': 'Anti-air',
 
   // ── Radial menu ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Choose an action',
@@ -270,6 +275,8 @@ export const en: Record<string, string> = {
   'menu.hint.defense': 'conquest up to {mult}× costlier',
   'menu.hint.port': 'prerequisite for ships',
   'menu.hint.factory': 'gold via network (cities/ports in range)',
+  'menu.hint.airport': 'launches bombers at a target (gold per launch)',
+  'menu.hint.flak': 'shoots down enemy bombers flying past',
   'menu.breakAlliance': 'Break alliance',
   'menu.breakAllianceDetail': 'betrayal → outlawed · expires in {time}',
   'menu.acceptAlliance': 'Accept alliance',
@@ -313,7 +320,11 @@ export const en: Record<string, string> = {
   'tip.effect.defense': '{mult}× conquest cost · range {range} tiles',
   'tip.effect.port': 'ships & trade · counts as a network target',
   'tip.effect.factory': 'network gold · range {range} tiles',
+  'tip.effect.airport': 'bomber launch · cooldown {cooldown}s',
+  'tip.effect.flak': 'anti-air · range {range} tiles',
   'tip.upgrade.defense': 'range {range} tiles',
+  'tip.upgrade.airport': 'cooldown {cooldown}s',
+  'tip.upgrade.flak': 'range {range} tiles',
   'tip.dests': '{n} targets',
   'tip.tradeShip': 'Trade ship',
   'tip.warship': 'Warship',

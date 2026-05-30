@@ -212,9 +212,13 @@ export const fr: Record<string, string> = {
     'Port — nécessaire aux navires de transport et de commerce (constructible seulement sur l’eau).',
   'hud.tooltip.factory':
     'Usine — se relie à vue à tes villes/ports/usines et produit de l’or par ville/port connecté.',
+  'hud.tooltip.airport':
+    'Aéroport — lance des bombardiers sur une cible (or par lancement). Recharge {cooldown}s, baisse par niveau.',
+  'hud.tooltip.flak':
+    'DCA — abat les bombardiers ennemis dans un rayon de {range} (+{per}/niveau).',
   'hud.controls': 'Commandes',
   'hud.controlsBody':
-    'Clic gauche : attaque · B : mode bateau (cible sur une autre île)<br/>Clic droit : menu (construire/attaque/bateau/navire/diplomatie)<br/>Glisser (gauche/droite) ou WASD : caméra · Molette : zoom<br/>1–4 : bâtiments (ville/défense/port/usine) · R : portées des navires · Espace : pause<br/>, / . : vitesse · Échap : menu<br/>Clic sur le panneau d’attaque : annuler / bateau · navire retour',
+    'Clic gauche : attaque · B : mode bateau (cible sur une autre île)<br/>Clic droit : menu (construire/attaque/bateau/navire/diplomatie)<br/>Glisser (gauche/droite) ou WASD : caméra · Molette : zoom<br/>1–6 : bâtiments (ville/défense/port/usine/aéroport/DCA) · R : portées des navires · Espace : pause<br/>, / . : vitesse · Échap : menu<br/>Clic sur le panneau d’attaque : annuler / bateau · navire retour',
   'hud.rank': 'Classement',
   'hud.troops': 'Troupes',
   'hud.gold': 'Or',
@@ -264,6 +268,8 @@ export const fr: Record<string, string> = {
   'building.defense': 'Défense',
   'building.port': 'Port',
   'building.factory': 'Usine',
+  'building.airport': 'Aéroport',
+  'building.flak': 'DCA',
 
   // ── Menu radial ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Choisir une action',
@@ -271,6 +277,8 @@ export const fr: Record<string, string> = {
   'menu.hint.defense': 'conquête jusqu’à {mult}× plus chère',
   'menu.hint.port': 'prérequis pour les navires',
   'menu.hint.factory': 'or via le réseau (villes/ports à portée)',
+  'menu.hint.airport': 'lance des bombardiers sur une cible (or par lancement)',
+  'menu.hint.flak': 'abat les bombardiers ennemis de passage',
   'menu.breakAlliance': 'Rompre l’alliance',
   'menu.breakAllianceDetail': 'trahison → proscrit · expire dans {time}',
   'menu.acceptAlliance': 'Accepter l’alliance',
@@ -315,7 +323,11 @@ export const fr: Record<string, string> = {
   'tip.effect.defense': '{mult}× coût de conquête · portée {range} tuiles',
   'tip.effect.port': 'navires et commerce · compte comme cible de réseau',
   'tip.effect.factory': 'or de réseau · portée {range} tuiles',
+  'tip.effect.airport': 'lancement de bombardiers · recharge {cooldown}s',
+  'tip.effect.flak': 'DCA · portée {range} tuiles',
   'tip.upgrade.defense': 'portée {range} tuiles',
+  'tip.upgrade.airport': 'recharge {cooldown}s',
+  'tip.upgrade.flak': 'portée {range} tuiles',
   'tip.dests': '{n} cibles',
   'tip.tradeShip': 'Navire marchand',
   'tip.warship': 'Navire de guerre',

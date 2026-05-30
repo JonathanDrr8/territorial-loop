@@ -103,7 +103,7 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (typeof parsed.allowedBuildings === 'object' && parsed.allowedBuildings !== null) {
       const ab = { ...defaults.allowedBuildings }
       const src = parsed.allowedBuildings as Record<string, unknown>
-      for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+      for (const type of ['city', 'defense', 'port', 'factory', 'airport', 'flak'] as const) {
         if (typeof src[type] === 'boolean') ab[type] = src[type]
       }
       result.allowedBuildings = ab

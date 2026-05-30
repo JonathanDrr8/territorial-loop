@@ -15,9 +15,16 @@
 
 import type { TileRef } from '../world/torus'
 
-export type BuildingType = 'city' | 'defense' | 'port' | 'factory'
+export type BuildingType = 'city' | 'defense' | 'port' | 'factory' | 'airport' | 'flak'
 
-export const BUILDING_TYPES: readonly BuildingType[] = ['city', 'defense', 'port', 'factory']
+export const BUILDING_TYPES: readonly BuildingType[] = [
+  'city',
+  'defense',
+  'port',
+  'factory',
+  'airport',
+  'flak',
+]
 
 export interface Building {
   type: BuildingType
@@ -54,6 +61,10 @@ const BASE_BUILD_COST: Record<BuildingType, number> = {
   defense: 25_000,
   port: 25_000,
   factory: 25_000,
+  // Flughafen: eigene Eskalations-Gruppe (offensive Infrastruktur ist eine Investition).
+  airport: 50_000,
+  // Flak: flach wie der Verteidigungsposten (man soll mehrere zur Abdeckung verteilen können).
+  flak: 35_000,
 }
 
 /** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer. */
@@ -70,6 +81,8 @@ export const COST_GROUP: Record<BuildingType, readonly BuildingType[]> = {
   defense: ['defense'],
   port: ['port', 'factory'],
   factory: ['port', 'factory'],
+  airport: ['airport'],
+  flak: ['flak'],
 }
 
 /** Anzeige-Namen (UI). */
@@ -78,6 +91,8 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
   defense: 'Verteidigung',
   port: 'Hafen',
   factory: 'Fabrik',
+  airport: 'Flughafen',
+  flak: 'Flugabwehr',
 }
 
 /**
@@ -87,7 +102,8 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
  * gebauter Gebäude der Eskalations-Gruppe (siehe [[COST_GROUP]]).
  */
 export function buildCost(type: BuildingType, existingCountInGroup: number): number {
-  if (type === 'defense') return BASE_BUILD_COST.defense
+  // Defensive Posten (Verteidigung + Flak) kosten flach — man verteilt sie zur Flächenabdeckung.
+  if (type === 'defense' || type === 'flak') return BASE_BUILD_COST[type]
   // Eskalation: Basiskosten × 2^n. Deterministisch per Integer-Verdopplung statt `Math.pow`
   // — exakt über JS-Engines hinweg (Cross-Engine-Determinismus, ADR-0009). Ergebnis ist
   // identisch zur alten `round(base × 2^n)`-Formel (base/2^n sind exakte Integer).
@@ -125,4 +141,22 @@ export const PORT_WATER_RANGE = 3
 /** Reichweite eines Verteidigungspostens auf gegebenem Level. */
 export function defenseRange(level: number): number {
   return DEFENSE_BASE_RANGE + (level - 1) * DEFENSE_RANGE_PER_LEVEL
+}
+
+// ── Flughafen & Flak (ADR-0019) ─────────────────────────────────────────────
+/**
+ * Cooldown des Flughafens zwischen zwei Bomber-Starts (Ticks). Level senkt ihn
+ * (L1 100 = 10 s, L2 80 = 8 s, L3 60 = 6 s) → höheres Level = schnellere Starts.
+ */
+export const AIRPORT_BASE_COOLDOWN = 100
+export const AIRPORT_COOLDOWN_PER_LEVEL = 20
+export function airportCooldown(level: number): number {
+  return Math.max(20, AIRPORT_BASE_COOLDOWN - (level - 1) * AIRPORT_COOLDOWN_PER_LEVEL)
+}
+
+/** Flak-Reichweite (Tiles) — wie der Verteidigungsposten: L1 8 / L2 12 / L3 16. */
+export const FLAK_BASE_RANGE = 8
+export const FLAK_RANGE_PER_LEVEL = 4
+export function flakRange(level: number): number {
+  return FLAK_BASE_RANGE + (level - 1) * FLAK_RANGE_PER_LEVEL
 }

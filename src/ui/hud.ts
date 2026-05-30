@@ -14,11 +14,14 @@
  */
 
 import {
+  AIRPORT_BASE_COOLDOWN,
   BUILDING_TYPES,
   CITY_CAP_BONUS,
   DEFENSE_BASE_RANGE,
   DEFENSE_MAG_MULTIPLIER,
   DEFENSE_RANGE_PER_LEVEL,
+  FLAK_BASE_RANGE,
+  FLAK_RANGE_PER_LEVEL,
   type BuildingType,
 } from '../core/buildings'
 import { growthZones, troopIncreaseRate } from '../core/config'
@@ -47,12 +50,16 @@ const BUILDING_GLYPH: Record<BuildingType, string> = {
   defense: 'D',
   port: 'P',
   factory: 'F',
+  airport: 'A',
+  flak: 'K',
 }
 const BUILDING_HOTKEY: Record<BuildingType, string> = {
   city: '1',
   defense: '2',
   port: '3',
   factory: '4',
+  airport: '5',
+  flak: '6',
 }
 /** Gebäude-Tooltip (übersetzt zur Aufruf-Zeit). */
 function buildingTooltip(type: BuildingType): string {
@@ -69,6 +76,10 @@ function buildingTooltip(type: BuildingType): string {
       return t('hud.tooltip.port')
     case 'factory':
       return t('hud.tooltip.factory')
+    case 'airport':
+      return t('hud.tooltip.airport', { cooldown: (AIRPORT_BASE_COOLDOWN / 10).toFixed(0) })
+    case 'flak':
+      return t('hud.tooltip.flak', { range: FLAK_BASE_RANGE, per: FLAK_RANGE_PER_LEVEL })
   }
 }
 

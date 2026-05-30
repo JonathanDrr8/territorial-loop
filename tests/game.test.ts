@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   CAPTURE_FADE_TICKS,
+  buildCostFor,
   canBuildAt,
   createGame,
   effectiveMaxTroops,
@@ -516,9 +517,27 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
 
   it('allowedBuildings: fehlende Map → alles erlaubt (Default)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
-    for (const type of ['city', 'defense', 'port', 'factory'] as const) {
+    for (const type of ['city', 'defense', 'port', 'factory', 'airport', 'flak'] as const) {
       expect(isBuildingAllowed(state.config, type)).toBe(true)
     }
+  })
+
+  it('Flughafen + Flugabwehr: baubar auf eigenem Land, Kosten korrekt (ADR-0019)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('player missing')
+    p.gold = 5_000_000
+    const tile = findOwnedTile(state, 1)
+    expect(tile).toBeGreaterThanOrEqual(0)
+    // Flughafen: kein Wasser-Bedarf, eigene Eskalations-Gruppe (erstes = 50k).
+    expect(canBuildAt(state, 1, tile, 'airport')).toBe(true)
+    expect(buildCostFor(state, 1, 'airport')).toBe(50_000)
+    // Flugabwehr: flach wie Verteidigung (35k).
+    expect(canBuildAt(state, 1, tile, 'flak')).toBe(true)
+    expect(buildCostFor(state, 1, 'flak')).toBe(35_000)
+    // Bauen klappt.
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'airport' }])
+    expect(state.buildings.get(tile)?.type).toBe('airport')
   })
 
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {

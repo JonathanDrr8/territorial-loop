@@ -606,7 +606,7 @@ export function createMenuShell(
     buildBody.textContent = t('settings.buildings.body')
     p.appendChild(buildBody)
 
-    const buildingTypes = ['city', 'defense', 'port', 'factory'] as const
+    const buildingTypes = ['city', 'defense', 'port', 'factory', 'airport', 'flak'] as const
     const buildingChecks = new Map<BuildingType, () => boolean>()
     for (const type of buildingTypes) {
       const row = makeCheckRow(
@@ -638,6 +638,8 @@ export function createMenuShell(
         defense: buildingChecks.get('defense')?.() ?? true,
         port: buildingChecks.get('port')?.() ?? true,
         factory: buildingChecks.get('factory')?.() ?? true,
+        airport: buildingChecks.get('airport')?.() ?? true,
+        flak: buildingChecks.get('flak')?.() ?? true,
       }),
     }
 

@@ -105,7 +105,14 @@ const DEFAULT_MENU: StartMenuValues = {
   terrain: 'continents',
   soundEnabled: true,
   cameraMode: 'period',
-  allowedBuildings: { city: true, defense: true, port: true, factory: true },
+  allowedBuildings: {
+    city: true,
+    defense: true,
+    port: true,
+    factory: true,
+    airport: true,
+    flak: true,
+  },
   rivers: true, // Flüsse standardmäßig an (reguläres Match-Toggle, ADR-0015)
   experimental: {},
 }
