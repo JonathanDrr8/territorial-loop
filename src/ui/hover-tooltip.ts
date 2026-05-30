@@ -144,7 +144,7 @@ export function createHoverTooltip(
     const p = state.players.get(id)
     return p === undefined
       ? '?'
-      : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.name)}</b>`
+      : `<b style="color:${rgbaToCss(p.color)}">${escapeHtml(p.wild ? p.name.toLowerCase() : p.name)}</b>`
   }
 
   // Letzte Hover-Parameter — für die periodische Auffrischung (Countdown/Truppen/Gold ticken
@@ -342,7 +342,7 @@ export function createHoverTooltip(
         ? ` <span style="opacity:0.55;font-size:10px">(${t('nation.wild')})</span>`
         : ''
       tooltip.innerHTML =
-        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${wildTag}${dead}<br>` +
+        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.wild ? player.name.toLowerCase() : player.name)}</b>${wildTag}${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} ${t('hud.troops')} · ${pct}%<br>` +
         `<span style="opacity:0.7">${t('tip.perTile', { n: avgPerTile.toLocaleString('de-DE') })}</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
     }

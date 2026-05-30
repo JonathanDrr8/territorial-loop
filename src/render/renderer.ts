@@ -1141,7 +1141,8 @@ export function createRenderer(
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
-      const name = (traitor ? '⚠ ' : '') + p.name
+      // Wilde Nationen kleingeschrieben → auf einen Blick von echten Nationen unterscheidbar.
+      const name = (traitor ? '⚠ ' : '') + (p.wild ? p.name.toLowerCase() : p.name)
       const troopsLabel = fmtCompactRender(p.troops)
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
