@@ -232,7 +232,10 @@ export type GamePhase = 'running' | 'ended'
 /** Ein Spielereignis fürs Log (Eliminierung, Sieg, später Allianzen/Verrat/Embargo). */
 export interface GameEvent {
   readonly tick: number
-  readonly text: string
+  /** i18n-Schlüssel (übersetzt im event-log via t()). Sprach-neutral → MP-deterministisch. */
+  readonly key: string
+  /** Platzhalter-Werte ({name}, {amount} …) — Namen/Zahlen, sprach-neutral. */
+  readonly params?: Record<string, string | number>
   /** Optionale Akzent-Farbe (RGBA-packed), z.B. die Farbe des betroffenen Spielers. */
   readonly color?: number
 }
@@ -823,7 +826,7 @@ function expireAlliances(state: GameState): void {
     const a = state.players.get(Math.floor(key / 4096))
     const b = state.players.get(key % 4096)
     if (a !== undefined && b !== undefined) {
-      emitDiploEvent(state, a, b, `Allianz zwischen ${a.name} und ${b.name} ausgelaufen`, a.color)
+      emitDiploEvent(state, a, b, 'event.allianceExpired', { a: a.name, b: b.name }, a.color)
     }
   }
 }
@@ -1399,13 +1402,21 @@ function betrayAlliance(state: GameState, breakerId: number, partnerId: number):
       state,
       breaker,
       partner,
-      `${breaker.name} kündigt das Bündnis mit Verräter ${partner.name}`,
+      'event.breakTraitor',
+      { a: breaker.name, b: partner.name },
       breaker.color,
     )
     return
   }
   breaker.traitorUntil = state.tick + AECHTUNG_DURATION_TICKS
-  emitDiploEvent(state, breaker, partner, `${breaker.name} verrät ${partner.name}!`, breaker.color)
+  emitDiploEvent(
+    state,
+    breaker,
+    partner,
+    'event.betray',
+    { a: breaker.name, b: partner.name },
+    breaker.color,
+  )
 }
 
 /** Ab so vielen Spielern wird Bot-zu-Bot-Diplomatie nicht mehr geloggt (nur Mensch-bezogene). */
@@ -1420,11 +1431,12 @@ function emitDiploEvent(
   state: GameState,
   a: Player,
   b: Player,
-  text: string,
+  key: string,
+  params?: Record<string, string | number>,
   color?: number,
 ): void {
   if (a.isHuman || b.isHuman || state.players.size <= DIPLO_LOG_ALL_MAX) {
-    emitEvent(state, text, color)
+    emitEvent(state, key, params, color)
   }
 }
 
@@ -1437,12 +1449,12 @@ function applyRequestAllianceIntent(state: GameState, intent: RequestAllianceInt
   if (hasAllianceRequest(state.allianceRequests, to.id, from.id)) {
     state.allianceRequests.delete(directedKey(to.id, from.id))
     formAlliance(state, from.id, to.id)
-    emitDiploEvent(state, from, to, `${from.name} und ${to.name} sind verbündet`, from.color)
+    emitDiploEvent(state, from, to, 'event.allied', { a: from.name, b: to.name }, from.color)
     return
   }
   if (hasAllianceRequest(state.allianceRequests, from.id, to.id)) return
   state.allianceRequests.add(directedKey(from.id, to.id))
-  emitDiploEvent(state, from, to, `${from.name} bietet ${to.name} ein Bündnis an`, from.color)
+  emitDiploEvent(state, from, to, 'event.allianceOffer', { a: from.name, b: to.name }, from.color)
 }
 
 function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceIntent): void {
@@ -1457,7 +1469,8 @@ function applyAcceptAllianceIntent(state: GameState, intent: AcceptAllianceInten
     state,
     accepter,
     requester,
-    `${accepter.name} und ${requester.name} sind verbündet`,
+    'event.allied',
+    { a: accepter.name, b: requester.name },
     accepter.color,
   )
 }
@@ -1473,7 +1486,8 @@ function applyDeclineAllianceIntent(state: GameState, intent: DeclineAllianceInt
     state,
     decliner,
     requester,
-    `${decliner.name} lehnt das Bündnis von ${requester.name} ab`,
+    'event.allianceDecline',
+    { a: decliner.name, b: requester.name },
     decliner.color,
   )
 }
@@ -1494,31 +1508,12 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
     state.embargoes.add(key)
     // Der Embargoierte grollt dem, der es verhängt (Wirtschafts-Affront).
     addGrudge(state, from.id, to.id, GRUDGE_PER_EMBARGO)
-    emitDiploEvent(
-      state,
-      from,
-      to,
-      `${from.name} verhängt ein Embargo gegen ${to.name}`,
-      from.color,
-    )
+    emitDiploEvent(state, from, to, 'event.embargoOn', { a: from.name, b: to.name }, from.color)
   } else {
     if (!state.embargoes.has(key)) return
     state.embargoes.delete(key)
-    emitDiploEvent(
-      state,
-      from,
-      to,
-      `${from.name} hebt das Embargo gegen ${to.name} auf`,
-      from.color,
-    )
+    emitDiploEvent(state, from, to, 'event.embargoOff', { a: from.name, b: to.name }, from.color)
   }
-}
-
-const TRADE_MODE_LABEL: Record<TradeMode, string> = {
-  random: 'zufällig',
-  nearest: 'nächste',
-  farthest: 'weiteste',
-  allies: 'nur Verbündete',
 }
 
 function applySetTradeModeIntent(state: GameState, intent: SetTradeModeIntent): void {
@@ -1526,7 +1521,7 @@ function applySetTradeModeIntent(state: GameState, intent: SetTradeModeIntent): 
   if (player === undefined || player.tradeMode === intent.mode) return
   player.tradeMode = intent.mode
   if (player.isHuman) {
-    emitEvent(state, `Handelsziele: ${TRADE_MODE_LABEL[intent.mode]}`, player.color)
+    emitEvent(state, `event.tradeMode.${intent.mode}`, undefined, player.color)
   }
 }
 
@@ -1540,7 +1535,8 @@ function applyToggleWarshipNeutralIntent(
   if (player.isHuman) {
     emitEvent(
       state,
-      `Kriegsschiffe: ${player.warshipSpareNeutral ? 'neutrale schonen' : 'alle angreifen'}`,
+      player.warshipSpareNeutral ? 'event.warshipNeutralSpare' : 'event.warshipNeutralAll',
+      undefined,
       player.color,
     )
   }
@@ -1659,17 +1655,13 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   const hasCoast = ownerTiles.some((t) => isCoastalTile(state.map, t))
   if (!hasCoast) {
     if (player.isHuman) {
-      emitEvent(
-        state,
-        `${player.name}: keine eigene Küste — erobere erst Land am Wasser`,
-        player.color,
-      )
+      emitEvent(state, 'event.noCoast', { p: player.name }, player.color)
     }
     return
   }
   if (!tryLaunchBoat(state, player, intent.targetTile, intent.troops)) {
     if (player.isHuman) {
-      emitEvent(state, `${player.name}: kein Wasserweg zu diesem Ziel`, player.color)
+      emitEvent(state, 'event.noWaterway', { p: player.name }, player.color)
     }
   }
 }
@@ -1736,11 +1728,12 @@ function tryLaunchBoat(
   if (defender !== undefined && defender.isAlive) {
     emitEvent(
       state,
-      `⚠ ${defender.name} wird von ${player.name} per Transportboot angegriffen`,
+      'event.boatAttack',
+      { defender: defender.name, player: player.name },
       defender.color,
     )
   } else {
-    emitEvent(state, `${player.name} schickt ein Transportboot`, player.color)
+    emitEvent(state, 'event.boatSent', { p: player.name }, player.color)
   }
   return true
 }
@@ -1827,7 +1820,7 @@ function applyDefendIntent(state: GameState, intent: DefendIntent): void {
   if (d <= 0) return
   player.troops -= d
   atk.reserveTroops -= d
-  emitEvent(state, `${player.name} wehrt den Angriff von ${attacker.name} ab`, player.color)
+  emitEvent(state, 'event.defend', { p: player.name, attacker: attacker.name }, player.color)
 }
 
 /** Ruft das `boatIndex`-te eigene Boot zurück (es fährt zur Start-Küste um). */
@@ -1881,21 +1874,21 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
   if (player === undefined || !player.isAlive) return
   const t = intent.targetTile
   if (t < 0 || t >= state.map.state.length) return
-  const note = (msg: string): void => {
-    if (player.isHuman) emitEvent(state, `${player.name}: ${msg}`, player.color)
+  const note = (key: string): void => {
+    if (player.isHuman) emitEvent(state, key, { p: player.name }, player.color)
   }
   const active = state.warships.reduce((n, w) => (w.ownerId === player.id ? n + 1 : n), 0)
   if (active >= MAX_WARSHIPS_PER_PLAYER) {
-    note('Kriegsschiff-Limit erreicht')
+    note('event.warshipLimit')
     return
   }
   if (player.gold < WARSHIP_COST) {
-    note('zu wenig Gold für ein Kriegsschiff')
+    note('event.warshipNoGold')
     return
   }
   const route = planWarshipRoute(state, player.id, t)
   if (route === null) {
-    note('kein Hafen mit Wasserweg zum Ziel')
+    note('event.warshipNoRoute')
     return
   }
   player.gold -= WARSHIP_COST
@@ -1909,7 +1902,7 @@ function applyLaunchWarshipIntent(state: GameState, intent: LaunchWarshipIntent)
     mode: player.warshipHold ? 'hold' : 'patrol',
     returning: false,
   })
-  emitEvent(state, `${player.name} entsendet ein Kriegsschiff`, player.color)
+  emitEvent(state, 'event.warshipSent', { p: player.name }, player.color)
 }
 
 /** Ruft das `warshipIndex`-te eigene Kriegsschiff zurück (fährt zur Küste, löst sich auf). */
@@ -1934,7 +1927,8 @@ function applyToggleWarshipModeIntent(state: GameState, intent: ToggleWarshipMod
   for (const w of state.warships) if (w.ownerId === player.id) w.mode = mode
   emitEvent(
     state,
-    `${player.name}: Kriegsschiffe ${player.warshipHold ? 'halten & heilen' : 'patrouillieren'}`,
+    player.warshipHold ? 'event.warshipHold' : 'event.warshipPatrol',
+    { p: player.name },
     player.color,
   )
 }
@@ -2078,7 +2072,7 @@ function resolveNavalCombat(state: GameState): void {
       state.boats = state.boats.filter((b) => {
         if (!sunkBoats.has(b)) return true
         const o = state.players.get(b.ownerId)
-        emitEvent(state, `${o?.name ?? '?'}s Transportboot versenkt`, o?.color ?? 0xffffffff)
+        emitEvent(state, 'event.boatSunk', { p: o?.name ?? '?' }, o?.color ?? 0xffffffff)
         return false
       })
     }
@@ -2086,7 +2080,7 @@ function resolveNavalCombat(state: GameState): void {
       state.tradeShips = state.tradeShips.filter((ts) => {
         if (!sunkTrades.has(ts)) return true
         const o = state.players.get(ts.fromOwnerId)
-        emitEvent(state, `Handelsschiff blockiert`, o?.color ?? 0xffffffff)
+        emitEvent(state, 'event.tradeBlocked', undefined, o?.color ?? 0xffffffff)
         return false
       })
     }
@@ -2097,7 +2091,7 @@ function resolveNavalCombat(state: GameState): void {
     state.warships = state.warships.filter((ws) => {
       if (ws.hp > 0) return true
       const o = state.players.get(ws.ownerId)
-      emitEvent(state, `${o?.name ?? '?'}s Kriegsschiff versenkt`, o?.color ?? 0xffffffff)
+      emitEvent(state, 'event.warshipSunk', { p: o?.name ?? '?' }, o?.color ?? 0xffffffff)
       return false
     })
   }
@@ -2237,10 +2231,18 @@ function fmtCompactGold(value: number): string {
   return String(n)
 }
 
-function emitEvent(state: GameState, text: string, color?: number): void {
-  state.events.push(
-    color === undefined ? { tick: state.tick, text } : { tick: state.tick, text, color },
-  )
+function emitEvent(
+  state: GameState,
+  key: string,
+  params?: Record<string, string | number>,
+  color?: number,
+): void {
+  state.events.push({
+    tick: state.tick,
+    key,
+    ...(params !== undefined ? { params } : {}),
+    ...(color !== undefined ? { color } : {}),
+  })
 }
 
 /* ============================================================================
@@ -2317,7 +2319,7 @@ function landBoat(state: GameState, boat: Boat): void {
     startTick: state.tick,
     ...(bridgeLoot > 0 && { lootGained: bridgeLoot }),
   })
-  emitEvent(state, `${attacker.name} landet Truppen an`, attacker.color)
+  emitEvent(state, 'event.boatLand', { p: attacker.name }, attacker.color)
 }
 
 /** Häfen senden gestaffelt Handelsschiffe zu erreichbaren, fremden Häfen. */
@@ -2439,7 +2441,7 @@ function checkEliminations(state: GameState): void {
   for (const player of state.players.values()) {
     if (player.isAlive && player.tilesOwned === 0) {
       player.isAlive = false
-      emitEvent(state, `${player.name} wurde eliminiert`, player.color)
+      emitEvent(state, 'event.eliminated', { p: player.name }, player.color)
       // Eventuell laufende Angriffe sind durch tilesOwned=0 implizit gestoppt;
       // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
       player.attacks = []
@@ -2470,7 +2472,7 @@ function checkVictory(state: GameState): void {
     if (player.tilesOwned / totalTiles >= threshold) {
       state.phase = 'ended'
       state.winner = player.id
-      emitEvent(state, `${player.name} hat das Match gewonnen!`, player.color)
+      emitEvent(state, 'event.victory', { p: player.name }, player.color)
       return
     }
   }
@@ -2520,15 +2522,19 @@ function resolveAttacks(state: GameState): void {
         // wurde (nur für menschliche Angreifer → kein Log-Spam bei hunderten KI/Wilden).
         const loot = attack.lootGained ?? 0
         if (player.isHuman && loot > 0) {
-          const fromName =
-            attack.targetPlayerId > 0
-              ? (state.players.get(attack.targetPlayerId)?.name ?? 'Wildnis')
-              : 'Wildnis'
-          emitEvent(
-            state,
-            `${player.name} erbeutet ${fmtCompactGold(loot)} Gold von ${fromName}`,
-            0xe8c14aff,
-          )
+          const target =
+            attack.targetPlayerId > 0 ? state.players.get(attack.targetPlayerId) : undefined
+          const amount = fmtCompactGold(loot)
+          if (target !== undefined) {
+            emitEvent(
+              state,
+              'event.loot',
+              { p: player.name, amount, from: target.name },
+              0xe8c14aff,
+            )
+          } else {
+            emitEvent(state, 'event.lootWild', { p: player.name, amount }, 0xe8c14aff)
+          }
         }
         player.attacks.splice(i, 1)
       }
@@ -2873,13 +2879,16 @@ function annexWild(state: GameState, w: Player, p: Player): void {
     captureTile(state, ref, p.id) // setzt Owner/Frontier/Flash; senkt w.tilesOwned
   }
   if (p.isHuman) {
-    emitEvent(
-      state,
-      loot > 0
-        ? `${p.name} schließt ${w.name} ein und annektiert sie (+${fmtCompactGold(loot)} Gold)`
-        : `${p.name} schließt ${w.name} ein und annektiert sie`,
-      p.color,
-    )
+    if (loot > 0) {
+      emitEvent(
+        state,
+        'event.annexLoot',
+        { p: p.name, wild: w.name, amount: fmtCompactGold(loot) },
+        p.color,
+      )
+    } else {
+      emitEvent(state, 'event.annex', { p: p.name, wild: w.name }, p.color)
+    }
   }
 }
 

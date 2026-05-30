@@ -7,6 +7,7 @@
  */
 
 import type { GameState } from '../core/game'
+import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { registerScalable } from './ui-scale'
 
@@ -70,7 +71,7 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
       }
       const accent = e.color === undefined ? '#bbb' : rgbaToCss(e.color)
       html.push(
-        `<div style="opacity:${opacity.toFixed(2)}; background:rgba(0,0,0,0.5); padding:3px 8px; border-radius:4px; border-left:3px solid ${accent}">${escapeHtml(e.text)}</div>`,
+        `<div style="opacity:${opacity.toFixed(2)}; background:rgba(0,0,0,0.5); padding:3px 8px; border-radius:4px; border-left:3px solid ${accent}">${escapeHtml(t(e.key, e.params))}</div>`,
       )
     }
     box.innerHTML = html.join('')

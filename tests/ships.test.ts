@@ -165,9 +165,9 @@ describe('boat launch + landing via tick', () => {
     const eventsBefore = state.events.length
     tick(state, [{ type: 'boat', playerId: 1, targetTile: enemyTile, troops: 500 }])
     const newEvents = state.events.slice(eventsBefore)
-    // Eine Warn-Meldung mit dem Namen des Verteidigers in dessen Farbe.
+    // Eine Boot-Angriffs-Warnung mit dem Verteidiger als Parameter, in dessen Farbe.
     const warn = newEvents.find(
-      (e) => e.text.includes(enemy.name) && e.text.includes('Transportboot'),
+      (e) => e.key === 'event.boatAttack' && e.params?.defender === enemy.name,
     )
     expect(warn).toBeDefined()
     expect(warn?.color).toBe(enemy.color)
