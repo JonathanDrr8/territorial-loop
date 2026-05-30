@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.6.5] – 2026-05-30
+
+### Behoben
+
+- **Hover-Tooltips im Angriffe-Panel erscheinen wieder** — beim Drüberfahren über das Schild steht
+  jetzt sofort „Abwehren mit X Truppen", über dem Namen „Zum Angriff springen" (auch beim Abbrechen
+  und beim Schiff-Zurückrufen). Vorher zeigte der Browser-Tooltip nie etwas, weil das Panel ständig
+  neu gezeichnet wird.
+
 ## [0.6.4] – 2026-05-30
 
 ### Behoben

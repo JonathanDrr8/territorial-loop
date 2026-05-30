@@ -297,6 +297,50 @@ export function createHUD(
     else if (defend !== undefined) onDefend(Number(defend))
   })
 
+  // Eigener Hover-Tooltip fürs Angriffs-Panel. Der native `title` taugt hier nicht: das Panel
+  // re-rendert sein innerHTML laufend, sodass das Browser-Tooltip-Delay (~1 s ruhiger Hover) nie
+  // greift. Stattdessen ein eigener DIV, der per Delegation am Panel-Container hängt (überlebt das
+  // Neu-Zeichnen) und sofort den `data-tip`-Text des Elements unterm Cursor zeigt.
+  const attackTip = document.createElement('div')
+  attackTip.style.cssText = [
+    'position: fixed',
+    'z-index: 30',
+    'pointer-events: none',
+    'background: rgba(0,0,0,0.92)',
+    'color: white',
+    'padding: 5px 8px',
+    'border-radius: 6px',
+    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-size: 11px',
+    'white-space: nowrap',
+    'box-shadow: 0 3px 12px rgba(0,0,0,0.5)',
+    'display: none',
+  ].join(';')
+  container.appendChild(attackTip)
+  function positionAttackTip(e: MouseEvent): void {
+    // Über dem Cursor, leicht versetzt; am rechten Rand nach links klappen.
+    const pad = 12
+    const w = attackTip.offsetWidth
+    let x = e.clientX + pad
+    if (x + w > window.innerWidth - 4) x = e.clientX - pad - w
+    attackTip.style.left = `${Math.max(4, x)}px`
+    attackTip.style.top = `${Math.max(4, e.clientY - 30)}px`
+  }
+  attackPanel.addEventListener('mousemove', (e) => {
+    const el = (e.target as HTMLElement | null)?.closest('[data-tip]')
+    const tip = el instanceof HTMLElement ? el.dataset.tip : undefined
+    if (tip === undefined || tip === '') {
+      attackTip.style.display = 'none'
+      return
+    }
+    attackTip.textContent = tip
+    attackTip.style.display = 'block'
+    positionAttackTip(e)
+  })
+  attackPanel.addEventListener('mouseleave', () => {
+    attackTip.style.display = 'none'
+  })
+
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
   const rankPanel = document.createElement('div')
   rankPanel.style.cssText = [
@@ -864,7 +908,7 @@ export function createHUD(
     // Rechte Zeilen-Gruppe: ⌖ „Zum Kampf springen" (zentriert die Kamera) + die Aktion.
     const locateAct = (tile: number, actionHtml: string): string =>
       `<span style="margin-left:auto;display:flex;align-items:center;gap:8px;opacity:0.75">` +
-      `<span data-locate="${String(tile)}" title="Zum Kampf springen" style="cursor:pointer">⌖</span>` +
+      `<span data-locate="${String(tile)}" data-tip="${t('hud.jumpToBattle')}" style="cursor:pointer">⌖</span>` +
       `<span>${actionHtml}</span></span>`
     const rows: string[] = []
     // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve fließt über ~2.5s zurück).
@@ -879,7 +923,7 @@ export function createHUD(
         : '✕'
       const title = cancelling ? t('hud.cancelNow') : t('hud.cancelAttack')
       rows.push(
-        `<div data-cancel="${String(i)}" title="${title}" style="${rowStyle}"><span style="color:#5dd75d">⚔→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
+        `<div data-cancel="${String(i)}" data-tip="${title}" style="${rowStyle}"><span style="color:#5dd75d">⚔→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
       )
     })
     // Eigene Boote — klickbar zum Zurückrufen.
@@ -888,7 +932,7 @@ export function createHUD(
       if (boat.ownerId !== human.id) continue
       const label = boat.returning ? t('hud.returning') : t('hud.enRoute')
       rows.push(
-        `<div data-recall="${String(boatIdx)}" title="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
+        `<div data-recall="${String(boatIdx)}" data-tip="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
       )
       boatIdx++
     }
@@ -900,7 +944,7 @@ export function createHUD(
         ? t('hud.returning')
         : `${String(Math.max(0, Math.round(ws.hp)))} HP`
       rows.push(
-        `<div data-recall-warship="${String(warIdx)}" title="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
+        `<div data-recall-warship="${String(warIdx)}" data-tip="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
       )
       warIdx++
     }
@@ -915,11 +959,11 @@ export function createHUD(
         incoming++
         rows.push(
           `<div style="${rowStyle}">` +
-            `<span data-locate="${String(atk.frontTile)}" title="${t('hud.jumpToBattle')}" style="cursor:pointer;display:flex;align-items:center;gap:6px;flex:1;min-width:0">` +
+            `<span data-locate="${String(atk.frontTile)}" data-tip="${t('hud.jumpToBattle')}" style="cursor:pointer;display:flex;align-items:center;gap:6px;flex:1;min-width:0">` +
             `<span style="color:#e84545">⚔←</span>` +
             `<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>` +
             `</span>` +
-            `<span data-defend="${String(p.id)}" title="${t('hud.defendWith', { troops: fmtCompact(defendTroops) })}" style="cursor:pointer;margin-left:8px;flex-shrink:0;font-size:15px">🛡</span>` +
+            `<span data-defend="${String(p.id)}" data-tip="${t('hud.defendWith', { troops: fmtCompact(defendTroops) })}" style="cursor:pointer;margin-left:8px;flex-shrink:0;font-size:15px">🛡</span>` +
             `</div>`,
         )
       }

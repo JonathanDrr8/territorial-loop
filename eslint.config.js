@@ -28,4 +28,11 @@ export default tseslint.config(
       eqeqeq: ['error', 'always'],
     },
   },
+  {
+    // Node-Skripte (Build-/Wartungs-Tools, keine Browser-Deps) — `process` & Co. sind hier global.
+    files: ['scripts/**/*.{mjs,js,ts}'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly' },
+    },
+  },
 )
