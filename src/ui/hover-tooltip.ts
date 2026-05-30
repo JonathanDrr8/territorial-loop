@@ -338,8 +338,11 @@ export function createHoverTooltip(
       if (humanId >= 0 && player.gold > 0 && !areAllied(state.alliances, humanId, owner)) {
         loot = `<br><span style="color:#e8c14a">💰 ${t('tip.loot', { gold: fmtCompact(player.gold) })}</span>`
       }
+      const wildTag = player.wild
+        ? ` <span style="opacity:0.55;font-size:10px">(${t('nation.wild')})</span>`
+        : ''
       tooltip.innerHTML =
-        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${dead}<br>` +
+        `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.name)}</b>${wildTag}${dead}<br>` +
         `${player.troops.toLocaleString('de-DE')} / ${cap.toLocaleString('de-DE')} ${t('hud.troops')} · ${pct}%<br>` +
         `<span style="opacity:0.7">${t('tip.perTile', { n: avgPerTile.toLocaleString('de-DE') })}</span>${traitor}${relation}${loot}${alliance}${attackNote('line')}`
     }

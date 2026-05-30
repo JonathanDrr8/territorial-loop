@@ -374,4 +374,5 @@ export const en: Record<string, string> = {
   'mp.difficulty': 'AI strength',
   'mp.visible': 'Visible',
   'uiscale.title': 'UI size',
+  'nation.wild': 'wild',
 }

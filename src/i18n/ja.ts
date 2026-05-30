@@ -339,4 +339,5 @@ export const ja: Record<string, string> = {
   'mp.difficulty': 'AI の強さ',
   'mp.visible': '公開',
   'uiscale.title': 'UI サイズ',
+  'nation.wild': '野生',
 }

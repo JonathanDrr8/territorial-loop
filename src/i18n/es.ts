@@ -374,4 +374,5 @@ export const es: Record<string, string> = {
   'mp.difficulty': 'Fuerza de la IA',
   'mp.visible': 'Visible',
   'uiscale.title': 'Tamaño de la interfaz',
+  'nation.wild': 'salvaje',
 }

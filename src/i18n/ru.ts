@@ -364,4 +364,5 @@ export const ru: Record<string, string> = {
   'mp.difficulty': 'Сила ИИ',
   'mp.visible': 'Виден',
   'uiscale.title': 'Размер интерфейса',
+  'nation.wild': 'дикая',
 }

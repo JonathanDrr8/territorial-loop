@@ -336,4 +336,5 @@ export const zh: Record<string, string> = {
   'mp.difficulty': 'AI 强度',
   'mp.visible': '可见',
   'uiscale.title': '界面大小',
+  'nation.wild': '野生',
 }

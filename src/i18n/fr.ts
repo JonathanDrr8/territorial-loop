@@ -376,4 +376,5 @@ export const fr: Record<string, string> = {
   'mp.difficulty': 'Force de l’IA',
   'mp.visible': 'Visible',
   'uiscale.title': 'Taille de l’interface',
+  'nation.wild': 'sauvage',
 }

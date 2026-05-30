@@ -24,6 +24,7 @@ import { ServerMatch } from './match'
 import type { Difficulty } from '../src/ai/ai'
 import type { GameConfig, PlayerDef } from '../src/core/game'
 import type { TerrainType } from '../src/world/terrain'
+import { pickRandomNames } from '../src/ui/player-names'
 import {
   encode,
   decodeClient,
@@ -223,12 +224,20 @@ function buildConfig(room: Room): GameConfig {
     players.push({ id: m.playerId, name: m.name, color: colorFor(m.playerId), isHuman: true })
     id = Math.max(id, m.playerId)
   }
+  // Echte Eigennamen für KI UND Wilde (sprach-neutral); wild-Status markiert das UI via `wild`-Flag.
+  const botNames = pickRandomNames(s.aiCount + s.wildCount)
+  let nameIdx = 0
   for (let i = 0; i < s.aiCount; i++)
-    players.push({ id: ++id, name: `KI ${String(i + 1)}`, color: colorFor(id), isHuman: false })
+    players.push({
+      id: ++id,
+      name: botNames[nameIdx++] ?? `Nation ${String(i + 1)}`,
+      color: colorFor(id),
+      isHuman: false,
+    })
   for (let i = 0; i < s.wildCount; i++)
     players.push({
       id: ++id,
-      name: `Wilde ${String(i + 1)}`,
+      name: botNames[nameIdx++] ?? `Nation ${String(s.aiCount + i + 1)}`,
       color: 0x8f8a78ff,
       isHuman: false,
       wild: true,

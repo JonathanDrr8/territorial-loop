@@ -83,11 +83,11 @@ function defaultPlayerName(): string {
   try {
     const saved = window.localStorage.getItem(KEY)
     if (saved !== null && saved.length > 0) return saved
-    const name = pickRandomNames(1)[0] ?? 'Spieler'
+    const name = pickRandomNames(1)[0] ?? 'Nation'
     window.localStorage.setItem(KEY, name)
     return name
   } catch {
-    return pickRandomNames(1)[0] ?? 'Spieler'
+    return pickRandomNames(1)[0] ?? 'Nation'
   }
 }
 
@@ -134,7 +134,9 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   const aiCount = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
   const humanCount = spectator ? 0 : 1
   const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen WILD_COLOR-Varianten
-  const names = pickRandomNames(aiCount)
+  // Echte Eigennamen für KI UND Wilde aus demselben Pool (sprach-neutral, keine Doppelte) —
+  // wild-Status wird im UI über das `wild`-Flag als übersetztes Kürzel markiert, nicht über den Namen.
+  const names = pickRandomNames(aiCount + menu.wildCount)
   const seed =
     menu.seed !== undefined && menu.seed.length > 0 ? menu.seed : 'match-' + Date.now().toString()
 
@@ -153,7 +155,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   for (let i = 0; i < aiCount; i++) {
     players.push({
       id: id++,
-      name: names[nameIdx++] ?? `KI ${String(i + 1)}`,
+      name: names[nameIdx++] ?? `Nation ${String(i + 1)}`,
       color: colors[colorIdx++] ?? 0x00ff00ff,
       isHuman: false,
     })
@@ -161,7 +163,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   for (let i = 0; i < menu.wildCount; i++) {
     players.push({
       id: id++,
-      name: `Wilde ${String(i + 1)}`,
+      name: names[nameIdx++] ?? `Nation ${String(aiCount + i + 1)}`,
       color: wildColorVariant(i),
       isHuman: false,
       wild: true,

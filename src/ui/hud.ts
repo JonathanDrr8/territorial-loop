@@ -941,11 +941,15 @@ export function createHUD(
         title = ` title="${t('hud.alliedTitle', { time: fmtDuration(remain) })}"`
       }
       const tag = traitor ? '⚠ ' : allied ? '🤝 ' : ''
+      // Wilde Nationen: dezentes übersetztes Kürzel statt deutschem Namen (Name ist jetzt neutral).
+      const wildTag = p.wild
+        ? ` <span style="opacity:0.5;font-size:9px">(${t('nation.wild')})</span>`
+        : ''
       rows.push(
         `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}"${title}>` +
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
           `<span style="color:${rgbaToCss(p.color)}">■</span>` +
-          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${tag}${escapeHtml(p.name)}${dead}</span>` +
+          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${tag}${escapeHtml(p.name)}${wildTag}${dead}</span>` +
           `<span style="opacity:0.55;font-size:10px">${pctTiles}</span>` +
           `<span style="min-width:88px;text-align:right;font-size:10px">${primary}</span>` +
           `</div>`,

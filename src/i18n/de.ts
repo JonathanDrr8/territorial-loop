@@ -378,4 +378,5 @@ export const de: Record<string, string> = {
 
   // ── UI-Größen-Slider ─────────────────────────────────────────────────────────
   'uiscale.title': 'UI-Größe',
+  'nation.wild': 'wild',
 }
