@@ -100,7 +100,9 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
     if (isCameraMode(parsed.cameraMode)) result.cameraMode = parsed.cameraMode
     if (typeof parsed.experimental === 'object' && parsed.experimental !== null) {
-      const exp: ExperimentalFlags = {}
+      // Gespeicherte Flags ÜBER die Defaults legen (nicht ersetzen) → neue Default-Flags wie
+      // `rivers: true` bleiben aktiv, außer der Nutzer hat sie explizit anders gespeichert.
+      const exp: ExperimentalFlags = { ...defaults.experimental }
       for (const [k, v] of Object.entries(parsed.experimental)) {
         if (typeof v === 'boolean') exp[k] = v
       }

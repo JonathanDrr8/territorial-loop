@@ -103,7 +103,7 @@ const DEFAULT_MENU: StartMenuValues = {
   terrain: 'continents',
   soundEnabled: true,
   cameraMode: 'period',
-  experimental: {},
+  experimental: { rivers: true }, // Flüsse standardmäßig an (noch im Experimentell-Panel)
 }
 
 /** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */

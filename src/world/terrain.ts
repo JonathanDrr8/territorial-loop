@@ -170,10 +170,11 @@ function carveRivers(
   const len = w * h
   /** Wasser = Original-Meer ODER bereits gecarvter Fluss (beide: IS_LAND_BIT nicht gesetzt). */
   const isWater = (i: number): boolean => ((terrain[i] ?? 0) & IS_LAND_BIT) === 0
-  const targetRivers = Math.max(3, Math.round(Math.sqrt(w * h) / 80))
+  // Mäander-Feld: mittel-hochfrequentes Noise, das Pfade seitlich wandern lässt (statt Striche).
+  const wander = buildFractalNoise(w, h, prng, 3, 7.0, 2.0, 0.55, 2)
   const minSepSq = (Math.min(w, h) * 0.1) ** 2
+  const maxLen = w + h
 
-  // torus-quadrierte Distanz zwischen zwei Tiles
   const dist2 = (ax: number, ay: number, bx: number, by: number): number => {
     let dx = Math.abs(ax - bx)
     let dy = Math.abs(ay - by)
@@ -182,42 +183,41 @@ function carveRivers(
     return dx * dx + dy * dy
   }
 
-  // 2×2-Block ab (cx,cy) zu Wasser machen.
-  const carveBlock = (cx: number, cy: number): void => {
+  // 2×2-Block ab (cx,cy) zu Wasser machen → Fluss ≥2 Tiles breit + orthogonal 4-zusammenhängend.
+  const carveBlock = (i: number): void => {
+    const cx = i % w
+    const cy = (i - cx) / w
     for (let dy = 0; dy <= 1; dy++) {
       for (let dx = 0; dx <= 1; dx++) {
         terrain[(((cy + dy) % h) * w + ((cx + dx) % w)) | 0] = 0
       }
     }
   }
+  // Pfad + Mündungs-Tile carven (Mündung öffnet den Fluss sichtbar ins Meer → „berührt" es).
+  const carve = (path: readonly number[], mouth: number): void => {
+    for (const p of path) carveBlock(p)
+    if (mouth >= 0) carveBlock(mouth)
+  }
 
-  // Quellen wählen: Land, hoch gelegen (heightNoise > sourceThr), mit Mindestabstand.
+  // ── Typ B: Berg → Meer (Abstieg von landNoise, mäandernd) ────────────────────
+  const targetB = Math.max(2, Math.round(Math.sqrt(w * h) / 110))
   const sources: { i: number; x: number; y: number }[] = []
-  const maxAttempts = targetRivers * 300
-  for (let a = 0; a < maxAttempts && sources.length < targetRivers; a++) {
+  for (let a = 0; a < targetB * 300 && sources.length < targetB; a++) {
     const i = prng.nextInt(0, len - 1)
     if (isWater(i) || (heightNoise[i] ?? 0) < sourceThr) continue
     const x = i % w
     const y = (i - x) / w
-    let ok = true
-    for (const s of sources) {
-      if (dist2(x, y, s.x, s.y) < minSepSq) {
-        ok = false
-        break
-      }
-    }
-    if (ok) sources.push({ i, x, y })
+    if (sources.every((s) => dist2(x, y, s.x, s.y) >= minSepSq)) sources.push({ i, x, y })
   }
-
-  const maxLen = w + h
+  const WANDER_B = 0.05 // Mäander-Stärke: wählt unter den ABWÄRTS-Nachbarn einen verschobenen
   for (const src of sources) {
     const path: number[] = []
     const visited = new Set<number>()
     let cur = src.i
-    let reachedSea = false
+    let mouth = -1
     for (let step = 0; step < maxLen; step++) {
       if (isWater(cur)) {
-        reachedSea = true
+        mouth = cur
         break
       }
       if (visited.has(cur)) break
@@ -225,25 +225,87 @@ function carveRivers(
       path.push(cur)
       const cx = cur % w
       const cy = (cur - cx) / w
-      // Steilster Abstieg von landNoise (→ Richtung Meer) unter den 8 Torus-Nachbarn.
+      const curN = landNoise[cur] ?? 0
       let best = -1
-      let bestN = landNoise[cur] ?? 0
+      let bestScore = Infinity
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue
           const ni = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) | 0
-          const nv = landNoise[ni] ?? 0
-          if (nv < bestN) {
-            bestN = nv
+          if ((landNoise[ni] ?? 0) >= curN) continue // nur abwärts → garantiert Richtung Meer
+          const score = (landNoise[ni] ?? 0) + WANDER_B * (wander[ni] ?? 0)
+          if (score < bestScore) {
+            bestScore = score
             best = ni
           }
         }
       }
-      if (best < 0) break // lokales Minimum vor dem Meer → Sackgasse
+      if (best < 0) break // lokales Minimum vor dem Meer → Sackgasse, verwerfen
       cur = best
     }
-    if (!reachedSea) continue // nur Flüsse behalten, die das Meer erreichen
-    for (const p of path) carveBlock(p % w, (p - (p % w)) / w)
+    if (mouth >= 0) carve(path, mouth)
+  }
+
+  // ── Typ A: Meer → Meer, quer durchs Land (mäandernd) ─────────────────────────
+  // Start an einer Küste, festes Heading (per Wander langsam rotiert) durchs Land bis ans nächste
+  // Meer. Verbindet zwei Meeresteile (oder dasselbe Meer um eine Halbinsel). Erst simulieren,
+  // nur bei Meer-Treffer carven → keine im Land versickernden „Sackgassen".
+  const isCoastLand = (i: number): boolean => {
+    if (isWater(i)) return false
+    const x = i % w
+    const y = (i - x) / w
+    return (
+      isWater((y * w + ((x + 1) % w)) | 0) ||
+      isWater((y * w + ((x - 1 + w) % w)) | 0) ||
+      isWater((((y + 1) % h) * w + x) | 0) ||
+      isWater((((y - 1 + h) % h) * w + x) | 0)
+    )
+  }
+  const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 150))
+  const minCross = Math.round(Math.min(w, h) * 0.05)
+  let madeA = 0
+  for (let a = 0; a < targetA * 400 && madeA < targetA; a++) {
+    const start = prng.nextInt(0, len - 1)
+    if (!isCoastLand(start)) continue
+    let ang = prng.nextFloat(0, Math.PI * 2)
+    const path: number[] = []
+    const visited = new Set<number>()
+    let cur = start
+    let mouth = -1
+    for (let step = 0; step < maxLen; step++) {
+      if (isWater(cur) && path.length >= minCross) {
+        mouth = cur
+        break
+      }
+      if (visited.has(cur)) break
+      visited.add(cur)
+      path.push(cur)
+      const cx = cur % w
+      const cy = (cur - cx) / w
+      ang += ((wander[cur] ?? 0) - 0.0) * 0.6 // Heading mäandert sanft mit dem Wander-Feld
+      const dirx = detCos(ang)
+      const diry = detSin(ang)
+      let best = -1
+      let bestDot = -Infinity
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue
+          const ni = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) | 0
+          if (visited.has(ni)) continue
+          const dot = dx * dirx + dy * diry
+          if (dot > bestDot) {
+            bestDot = dot
+            best = ni
+          }
+        }
+      }
+      if (best < 0) break
+      cur = best
+    }
+    if (mouth >= 0) {
+      carve(path, mouth)
+      madeA++
+    }
   }
 }
 
