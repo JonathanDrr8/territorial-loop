@@ -26,14 +26,14 @@ import {
   type GameState,
   type Player,
 } from '../core/game'
-import { defenseRange, isBuildingComplete, type BuildingType } from '../core/buildings'
+import { defenseRange, flakRange, isBuildingComplete, type BuildingType } from '../core/buildings'
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import { NAVAL_RANGE, shipTile, WARSHIP_COST } from '../core/ships'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
 import { isLand } from '../world/terrain'
-import { neighbors4, torusDistance } from '../world/torus'
+import { neighbors4, tileRef, tileXY, torusDistance } from '../world/torus'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 
@@ -57,6 +57,10 @@ interface DifficultyProfile {
   readonly warshipChance: number
   /** Führungs-Verhältnis (Tiles Leader / #2) ab dem die KI ein Bündnis verrät. */
   readonly betrayLeadRatio: number
+  /** Baut die KI Flak (Luftabwehr) — reagiert auf Bomber, schützt Wirtschaft. ADR-0020 Stufe 1. */
+  readonly usesAirDefense: boolean
+  /** Nutzt die KI offensive Bomber (Flughafen bauen, Bomben werfen). ADR-0020 Stufe 2. */
+  readonly usesBombers: boolean
 }
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
@@ -70,6 +74,8 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     boatChance: 0.05,
     warshipChance: 0.03,
     betrayLeadRatio: 2.0,
+    usesAirDefense: false,
+    usesBombers: false,
   },
   normal: {
     attackPct: 30,
@@ -81,6 +87,8 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     boatChance: 0.12,
     warshipChance: 0.06,
     betrayLeadRatio: 1.6,
+    usesAirDefense: true,
+    usesBombers: false,
   },
   hard: {
     attackPct: 42,
@@ -92,6 +100,8 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     boatChance: 0.2,
     warshipChance: 0.12,
     betrayLeadRatio: 1.3,
+    usesAirDefense: true,
+    usesBombers: true,
   },
 }
 
@@ -111,6 +121,8 @@ const WILD_PROFILE: DifficultyProfile = {
   boatChance: 0,
   warshipChance: 0,
   betrayLeadRatio: Infinity,
+  usesAirDefense: false,
+  usesBombers: false,
 }
 
 export interface AI {
@@ -326,10 +338,123 @@ export function createAI(
     return best
   }
 
-  /** Plant einen Bau nach einfachen Prioritäten (Stadt → Hafen → Verteidigung). */
+  /**
+   * Eingehende feindliche Bomber, die ein eigenes Tile anvisieren (noch nicht abgeworfen).
+   * Grundlage der Luftabwehr-Reaktion: wo droht ein Einschlag? (ADR-0020 Stufe 1)
+   */
+  function incomingBomberTargets(state: GameState, player: Player): number[] {
+    const out: number[] = []
+    for (const bomber of state.bombers) {
+      if (bomber.ownerId === player.id || bomber.dropped) continue
+      if (getOwner(state.map, bomber.targetTile) === player.id) out.push(bomber.targetTile)
+    }
+    return out
+  }
+
+  /** Besitzt ein nicht-verbündeter Gegner einen Flughafen? (gibt es überhaupt eine Luftbedrohung?) */
+  function enemyHasAirport(state: GameState, player: Player): boolean {
+    for (const b of state.buildings.values()) {
+      if (b.type !== 'airport' || b.ownerId === player.id) continue
+      if (areAllied(state.alliances, player.id, b.ownerId)) continue
+      return true
+    }
+    return false
+  }
+
+  /** Eigene „wertvolle" Gebäude (Wirtschaft/Luftwaffe) — was eine Flak schützen soll. */
+  function ownValuableBuildingTiles(state: GameState, player: Player): number[] {
+    const out: number[] = []
+    for (const [tile, b] of state.buildings) {
+      if (b.ownerId !== player.id) continue
+      if (b.type === 'defense' || b.type === 'flak') continue
+      out.push(tile)
+    }
+    return out
+  }
+
+  /**
+   * Bestes Tile für einen Flak-Turm: deckt mit seinem Reichweiten-Ring möglichst viele eigene
+   * wertvolle Gebäude (und akut bedrohte Tiles, falls Bomber im Anflug — 3× gewichtet) ab. Hält
+   * Abstand zu bestehenden Flaks, damit sich die Abdeckung verteilt. -1 wenn nichts Sinnvolles.
+   */
+  function pickFlakTile(state: GameState, player: Player, threatTiles: readonly number[]): number {
+    const { width, height } = state.map
+    const range = flakRange(1)
+    const cover = ownValuableBuildingTiles(state, player)
+    if (cover.length === 0 && threatTiles.length === 0) return -1
+
+    const flaks: Array<readonly [number, number]> = []
+    for (const b of state.buildings.values()) {
+      if (b.type === 'flak' && b.ownerId === player.id) flaks.push(tileXY(b.tile, width))
+    }
+    const spacing = range * 0.8
+
+    // Kandidaten: eigene, unbebaute Tiles im Umkreis der Schutzobjekte/Bedrohungen.
+    const focus = threatTiles.length > 0 ? [...threatTiles, ...cover] : cover
+    const cand = new Set<number>()
+    const r = Math.max(2, Math.floor(range / 2))
+    for (const f of focus) {
+      const [fx, fy] = tileXY(f, width)
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const t = tileRef(fx + dx, fy + dy, width, height)
+          if (getOwner(state.map, t) !== player.id) continue
+          if (state.buildings.has(t)) continue
+          cand.add(t)
+        }
+      }
+    }
+    if (cand.size === 0) return -1
+
+    let best = -1
+    let bestScore = -Infinity
+    for (const t of cand) {
+      const [tx, ty] = tileXY(t, width)
+      let tooClose = false
+      for (const [fx, fy] of flaks) {
+        if (torusDistance(tx, ty, fx, fy, width, height) < spacing) {
+          tooClose = true
+          break
+        }
+      }
+      if (tooClose) continue
+      let score = 0
+      for (const c of cover) {
+        const [cx, cy] = tileXY(c, width)
+        if (torusDistance(tx, ty, cx, cy, width, height) <= range) score += 1
+      }
+      for (const th of threatTiles) {
+        const [hx, hy] = tileXY(th, width)
+        if (torusDistance(tx, ty, hx, hy, width, height) <= range) score += 3
+      }
+      if (score > bestScore || (score === bestScore && (best < 0 || t < best))) {
+        bestScore = score
+        best = t
+      }
+    }
+    return bestScore > 0 ? best : -1
+  }
+
+  /** Plant einen Bau nach einfachen Prioritäten (Luftabwehr-Notfall → Stadt → Hafen → Verteidigung). */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
     const costOf = (t: BuildingType): number => buildCostFor(state, player.id, t)
+
+    // 0. Akute Luftbedrohung: Bomber im Anflug → sofort Flak (vor allem anderen).
+    if (
+      profile.usesAirDefense &&
+      isBuildingAllowed(state.config, 'flak') &&
+      gold >= costOf('flak')
+    ) {
+      const threats = incomingBomberTargets(state, player)
+      if (
+        threats.length > 0 &&
+        countBuildingsOfType(state, player.id, 'flak') < threats.length + 1
+      ) {
+        const tile = pickFlakTile(state, player, threats)
+        if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'flak' }
+      }
+    }
 
     // 1. Truppen-Cap ist der Engpass → Stadt
     if (
@@ -364,6 +489,27 @@ export function createAI(
       const tile = pickOwnTile(state, player, false)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'factory' }
     }
+    // 2c. Luftabwehr-Schutz: NUR wenn ein Gegner überhaupt Luftwaffe hat (Flughafen) — sonst ist
+    //     Flak vergeudetes Gold. Dann ein paar Flaks zur Deckung der Wirtschaft (Deckel ~ halbe
+    //     Anzahl wertvoller Gebäude → kein Flak-Spam).
+    if (
+      profile.usesAirDefense &&
+      isBuildingAllowed(state.config, 'flak') &&
+      gold >= costOf('flak') &&
+      enemyHasAirport(state, player)
+    ) {
+      const valuable =
+        countBuildingsOfType(state, player.id, 'city') +
+        countBuildingsOfType(state, player.id, 'port') +
+        countBuildingsOfType(state, player.id, 'factory') +
+        countBuildingsOfType(state, player.id, 'airport')
+      const flakCount = countBuildingsOfType(state, player.id, 'flak')
+      if (valuable >= 2 && flakCount < Math.ceil(valuable / 2)) {
+        const tile = pickFlakTile(state, player, [])
+        if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'flak' }
+      }
+    }
+
     // 3. Bedrohte Front → Verteidigungsposten (hinter der Grenze, nicht drauf)
     if (isBuildingAllowed(state.config, 'defense') && gold >= costOf('defense')) {
       const tile = pickDefenseTile(state, player)
