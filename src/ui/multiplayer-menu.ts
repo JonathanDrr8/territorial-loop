@@ -239,7 +239,7 @@ export function createMultiplayerMenu(
     panel.appendChild(code)
 
     // Einladungslink: öffnet das Spiel direkt in diesem Raum (auch für private Lobbys teilbar).
-    const inviteUrl = `${window.location.origin}/?room=${room}`
+    const inviteUrl = `${window.location.origin}/r/${room}`
     const inviteRow = document.createElement('div')
     inviteRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:12px'
     const inviteField = document.createElement('input')

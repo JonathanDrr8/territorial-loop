@@ -821,11 +821,14 @@ function main(): void {
     }
   }
 
-  // Einladungslink (?room=CODE) → direkt in die Lobby dieses Raums (auch für private Lobbys).
-  const roomParam = new URLSearchParams(window.location.search).get('room')
-  if (roomParam !== null && roomParam.length > 0) {
-    history.replaceState(null, '', window.location.pathname) // ?room= entfernen (kein Re-Trigger)
-    showLobby(loadMenuPrefs(DEFAULT_MENU), roomParam.toUpperCase())
+  // Einladungslink → direkt in die Lobby dieses Raums (auch für private Lobbys). Bevorzugt das
+  // pfad-basierte Schema `/r/CODE` (hübsch teilbar), mit `?room=CODE` als Fallback (Alt-Links).
+  const pathMatch = /^\/r\/([A-Za-z0-9]+)\/?$/.exec(window.location.pathname)
+  const roomFromUrl =
+    pathMatch?.[1] ?? new URLSearchParams(window.location.search).get('room') ?? ''
+  if (roomFromUrl.length > 0) {
+    history.replaceState(null, '', '/') // Code aus der URL entfernen (kein Re-Trigger bei Reload)
+    showLobby(loadMenuPrefs(DEFAULT_MENU), roomFromUrl.toUpperCase())
     console.info('[territorial-loop] Boot complete (Einladung → Lobby)')
   } else {
     showMenu()
