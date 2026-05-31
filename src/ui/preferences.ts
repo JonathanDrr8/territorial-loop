@@ -158,6 +158,25 @@ export function saveServerUrl(url: string): void {
   }
 }
 
+const MUSIC_KEY = 'territorial-loop:music:v1'
+
+/** Adaptiver Soundtrack (Prototyp) an? Standard: aus (opt-in). */
+export function loadMusicEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(MUSIC_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveMusicEnabled(on: boolean): void {
+  try {
+    window.localStorage.setItem(MUSIC_KEY, on ? '1' : '0')
+  } catch {
+    // silent ignore
+  }
+}
+
 const ACTIVE_SESSION_KEY = 'territorial-loop:active-mp:v1'
 /** Eine unterbrochene Mehrspieler-Sitzung gilt nach 2 h als veraltet (Match längst vorbei). */
 const ACTIVE_SESSION_TTL_MS = 2 * 60 * 60 * 1000

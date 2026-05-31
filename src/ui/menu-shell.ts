@@ -43,6 +43,7 @@ import type { BuildingType } from '../core/buildings'
 import type { TerrainType } from '../world/terrain'
 import { createMapPreview } from './map-preview'
 import { isGeoMapId } from './geo-loader'
+import { loadMusicEnabled, saveMusicEnabled } from './preferences'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
@@ -748,6 +749,30 @@ export function createMenuShell(
     soundRow.appendChild(soundLabel)
     soundRow.appendChild(soundWrap)
     p.appendChild(soundRow)
+
+    // Adaptiver Soundtrack (Prototyp) — eigenständig persistiert (nicht Teil der Match-Settings/MP),
+    // direkt in localStorage, von startMatch beim Match-Start gelesen.
+    const musicRow = document.createElement('div')
+    musicRow.style.cssText = soundRow.style.cssText
+    const musicLabel = document.createElement('label')
+    musicLabel.textContent = t('field.music')
+    const musicWrap = document.createElement('label')
+    musicWrap.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
+    const musicCheck = document.createElement('input')
+    musicCheck.type = 'checkbox'
+    musicCheck.checked = loadMusicEnabled()
+    musicCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
+    const musicText = document.createElement('span')
+    musicText.textContent = musicCheck.checked ? t('toggle.on') : t('toggle.off')
+    musicCheck.addEventListener('change', () => {
+      musicText.textContent = musicCheck.checked ? t('toggle.on') : t('toggle.off')
+      saveMusicEnabled(musicCheck.checked)
+    })
+    musicWrap.appendChild(musicCheck)
+    musicWrap.appendChild(musicText)
+    musicRow.appendChild(musicLabel)
+    musicRow.appendChild(musicWrap)
+    p.appendChild(musicRow)
 
     // Erlaubte Gebäude: deaktivierte Typen kann im Match niemand bauen (Spieler-HUD blendet aus,
     // KI überspringt, `canBuildAt` lehnt ab). Default alle an.

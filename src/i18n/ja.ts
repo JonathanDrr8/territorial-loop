@@ -52,6 +52,7 @@ export const ja: Record<string, string> = {
   'settings.display': '表示',
   'field.camera': 'カメラ',
   'field.sound': 'サウンド',
+  'field.music': '音楽（ベータ）',
   'toggle.on': 'オン',
   'toggle.off': 'オフ',
   'camera.tiles': 'タイル（従来）',
