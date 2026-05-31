@@ -18,6 +18,9 @@ import { getTheme, panelStyle, setTheme, THEMES } from './theme'
 import { getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
 
 export interface HudEditorApi {
+  /** Editor-Modus öffnen (z. B. aus dem Pause-Menü). */
+  open(): void
+  isOpen(): boolean
   destroy(): void
 }
 
@@ -50,26 +53,7 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
   let open = false
   const frames = new Map<string, HTMLElement>()
 
-  // ---- Umschalt-Knopf (oben links, neben dem Feedback-Knopf) ---------------------------------
-  const toggle = document.createElement('button')
-  toggle.type = 'button'
-  toggle.textContent = t('hud.editor.open')
-  toggle.style.cssText = panelStyle([
-    'position: absolute',
-    'left: 116px',
-    'top: 12px',
-    'z-index: 46',
-    'padding: 6px 11px',
-    'font-size: 12px',
-    'font-family: var(--tl-font)',
-    'cursor: pointer',
-    'pointer-events: auto',
-  ])
-  toggle.addEventListener('click', () => {
-    if (open) close()
-    else openEditor()
-  })
-  container.appendChild(toggle)
+  // Geöffnet wird der Editor übers Pause-Menü (Esc), geschlossen über „Fertig" in der Werkzeugleiste.
 
   // ---- Werkzeugleiste (unten mittig, nur im Editor sichtbar) ---------------------------------
   const toolbar = document.createElement('div')
@@ -87,6 +71,43 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     'pointer-events: auto',
   ])
   container.appendChild(toolbar)
+
+  // Die Werkzeugleiste lässt sich selbst verschieben (sie verdeckt sonst manchmal Panels).
+  // Standardposition: unten mittig. Nach dem Ziehen: absolute Position (über den Match hinaus
+  // nicht persistiert — reine Sitzungs-Bequemlichkeit).
+  let toolbarPos: { x: number; y: number } | null = null
+  function applyToolbarPos(): void {
+    if (toolbarPos === null) {
+      toolbar.style.left = '50%'
+      toolbar.style.top = 'auto'
+      toolbar.style.bottom = '16px'
+      toolbar.style.transform = 'translateX(-50%)'
+    } else {
+      toolbar.style.left = `${toolbarPos.x.toString()}px`
+      toolbar.style.top = `${toolbarPos.y.toString()}px`
+      toolbar.style.bottom = 'auto'
+      toolbar.style.transform = 'none'
+    }
+  }
+  function startToolbarDrag(ev: PointerEvent): void {
+    ev.preventDefault()
+    const cr = container.getBoundingClientRect()
+    const tr = toolbar.getBoundingClientRect()
+    const offX = ev.clientX - tr.left
+    const offY = ev.clientY - tr.top
+    function onMove(e: PointerEvent): void {
+      const x = Math.max(0, Math.min(e.clientX - cr.left - offX, cr.width - tr.width))
+      const y = Math.max(0, Math.min(e.clientY - cr.top - offY, cr.height - tr.height))
+      toolbarPos = { x, y }
+      applyToolbarPos()
+    }
+    function onUp(): void {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // ---- Snap-Hilfslinien ----------------------------------------------------------------------
   const guideV = document.createElement('div')
@@ -562,6 +583,26 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
   // ---- Theme-Auswahl + Aktionen in der Werkzeugleiste ----------------------------------------
   function buildToolbar(): void {
     toolbar.textContent = ''
+    applyToolbarPos()
+
+    // Zieh-Griff: die Werkzeugleiste selbst verschiebbar (verdeckt sonst manchmal Panels).
+    const dragHandle = document.createElement('div')
+    dragHandle.textContent = `⠿ ${t('hud.editor.open')}`
+    dragHandle.style.cssText = [
+      'cursor: grab',
+      'text-align: center',
+      'font-size: 11px',
+      'letter-spacing: 1px',
+      'opacity: 0.6',
+      'padding: 2px 0 4px',
+      'border-bottom: 1px solid var(--tl-panel-border-color)',
+      'margin-bottom: 4px',
+      'user-select: none',
+    ].join(';')
+    dragHandle.addEventListener('pointerdown', (e) => {
+      startToolbarDrag(e)
+    })
+    toolbar.appendChild(dragHandle)
 
     const themeRow = document.createElement('div')
     themeRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center'
@@ -785,7 +826,6 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     buildFrames()
     buildToolbar()
     toolbar.style.display = 'flex'
-    toggle.textContent = t('hud.editor.done')
   }
 
   function close(): void {
@@ -796,7 +836,6 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     panelMap.clear()
     toolbar.style.display = 'none'
     hideGuides()
-    toggle.textContent = t('hud.editor.open')
   }
 
   // Split/Merge (und andere Layout-Prefs) ändern den Panel-Satz → Rahmen + Werkzeugleiste neu.
@@ -808,10 +847,11 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
   })
 
   return {
+    open: openEditor,
+    isOpen: () => open,
     destroy(): void {
       close()
       offPrefs()
-      toggle.remove()
       toolbar.remove()
       guideV.remove()
       guideH.remove()

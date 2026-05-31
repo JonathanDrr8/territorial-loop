@@ -59,7 +59,7 @@ export const de: Record<string, string> = {
   'settings.hud': 'HUD & Design',
   'settings.hud.theme': 'Design',
   'settings.hud.hint':
-    'Das ganze HUD lässt sich im Match frei anpassen: Knopf „HUD anpassen" oben links — Panels verschieben, skalieren, aus-/einblenden.',
+    'Das ganze HUD lässt sich im Match frei anpassen — drücke im Spiel Esc und wähle „HUD anpassen": Panels verschieben, skalieren, aus-/einblenden.',
   'settings.hud.layout': 'HUD-Layout',
   'settings.hud.resetLayout': 'Auf Standard zurücksetzen',
   'settings.hud.reset.done': 'Zurückgesetzt',
@@ -237,6 +237,9 @@ export const de: Record<string, string> = {
   'hud.troops': 'Truppen',
   'hud.land': 'Land',
   'hud.gold': 'Gold',
+  'pause.title': 'Pause',
+  'pause.resume': 'Weiter',
+  'pause.leave': 'Runde verlassen',
   'hud.editor.open': 'HUD anpassen',
   'hud.editor.done': 'Fertig',
   'hud.editor.reset': 'Standard',

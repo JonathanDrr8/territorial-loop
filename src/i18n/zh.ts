@@ -57,7 +57,7 @@ export const zh: Record<string, string> = {
   'settings.hud': 'HUD 与外观',
   'settings.hud.theme': '外观',
   'settings.hud.hint':
-    '整个 HUD 可在对局中自由调整：点击左上角的「自定义 HUD」按钮 —— 移动、缩放、显示或隐藏面板。',
+    '整个 HUD 可在对局中自由调整 —— 在游戏中按 Esc 并选择「自定义 HUD」：移动、缩放、显示或隐藏面板。',
   'settings.hud.layout': 'HUD 布局',
   'settings.hud.resetLayout': '恢复默认',
   'settings.hud.reset.done': '已重置',
@@ -198,6 +198,9 @@ export const zh: Record<string, string> = {
   'hud.troops': '兵力',
   'hud.land': '领土',
   'hud.gold': '金币',
+  'pause.title': '暂停',
+  'pause.resume': '继续',
+  'pause.leave': '离开对局',
   'hud.editor.open': '自定义 HUD',
   'hud.editor.done': '完成',
   'hud.editor.reset': '默认',

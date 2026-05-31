@@ -10,7 +10,7 @@ import { t } from '../i18n'
 import type { GameListing, LobbyListing } from '../net/protocol'
 import { generateTerrainDataUrl } from './menu-background'
 
-const ACCENT = '#7cc4ff'
+const ACCENT = 'var(--tl-accent)'
 const POLL_MS = 3000
 
 export interface LobbyBrowserCallbacks {
@@ -42,15 +42,16 @@ export function createLobbyBrowser(
 ): LobbyBrowserApi {
   const panel = document.createElement('div')
   panel.style.cssText = [
-    'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
-    'color: white',
-    'border: 1px solid rgba(255,255,255,0.12)',
+    // Theme-Karte (ADR-0024): folgt dem gewählten Design statt fixem Dunkelblau.
+    'background: var(--tl-panel-bg)',
+    'color: var(--tl-text)',
+    'border: 1px solid var(--tl-panel-border-color)',
     'border-radius: 12px',
     'padding: 20px',
     'width: 250px',
     'max-width: 100%',
     'box-sizing: border-box',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+    'font-family: var(--tl-font)',
     'font-size: 14px',
     'display: flex',
     'flex-direction: column',
@@ -85,8 +86,8 @@ export function createLobbyBrowser(
     'margin-top: 14px',
     'padding: 7px',
     'background: transparent',
-    'color: white',
-    'border: 1px solid rgba(255,255,255,0.25)',
+    'color: var(--tl-text)',
+    'border: 1px solid var(--tl-panel-border-color)',
     'border-radius: 8px',
     'font-size: 13px',
     'font-family: inherit',
@@ -107,9 +108,9 @@ export function createLobbyBrowser(
     'align-items: center',
     'gap: 10px',
     'text-align: left',
-    'background: #0c0c12',
-    'color: white',
-    'border: 1px solid rgba(255,255,255,0.15)',
+    'background: rgba(0,0,0,0.28)',
+    'color: var(--tl-text)',
+    'border: 1px solid var(--tl-panel-border-color)',
     'border-radius: 8px',
     'padding: 9px 11px',
     'font-family: inherit',

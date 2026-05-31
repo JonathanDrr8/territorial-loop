@@ -58,7 +58,7 @@ export const pt: Record<string, string> = {
   'settings.hud': 'HUD e aparência',
   'settings.hud.theme': 'Aparência',
   'settings.hud.hint':
-    'Todo o HUD pode ser personalizado livremente durante a partida: botão «Personalizar HUD» no canto superior esquerdo — mova, redimensione, mostre ou oculte painéis.',
+    'Todo o HUD pode ser personalizado livremente durante a partida — prime Esc no jogo e escolhe «Personalizar HUD»: move, redimensiona, mostra ou oculta painéis.',
   'settings.hud.layout': 'Disposição do HUD',
   'settings.hud.resetLayout': 'Repor predefinições',
   'settings.hud.reset.done': 'Reposto',
@@ -231,6 +231,9 @@ export const pt: Record<string, string> = {
   'hud.troops': 'Tropas',
   'hud.land': 'Território',
   'hud.gold': 'Ouro',
+  'pause.title': 'Pausa',
+  'pause.resume': 'Continuar',
+  'pause.leave': 'Sair da ronda',
   'hud.editor.open': 'Personalizar HUD',
   'hud.editor.done': 'Concluído',
   'hud.editor.reset': 'Padrão',

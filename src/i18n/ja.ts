@@ -57,7 +57,7 @@ export const ja: Record<string, string> = {
   'settings.hud': 'HUD とデザイン',
   'settings.hud.theme': 'デザイン',
   'settings.hud.hint':
-    'HUD 全体を対戦中に自由にカスタマイズできます：左上の「HUD をカスタマイズ」ボタン —— パネルの移動・拡縮・表示/非表示が可能です。',
+    'HUD 全体を対戦中に自由にカスタマイズできます —— ゲーム中に Esc を押して「HUD をカスタマイズ」を選んでください：パネルの移動・拡縮・表示/非表示が可能です。',
   'settings.hud.layout': 'HUD レイアウト',
   'settings.hud.resetLayout': 'デフォルトに戻す',
   'settings.hud.reset.done': 'リセット済み',
@@ -200,6 +200,9 @@ export const ja: Record<string, string> = {
   'hud.troops': '兵力',
   'hud.land': '領土',
   'hud.gold': '金',
+  'pause.title': '一時停止',
+  'pause.resume': '再開',
+  'pause.leave': '対戦を抜ける',
   'hud.editor.open': 'HUD をカスタマイズ',
   'hud.editor.done': '完了',
   'hud.editor.reset': 'デフォルト',

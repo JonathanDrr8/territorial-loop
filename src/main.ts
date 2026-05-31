@@ -44,6 +44,8 @@ import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { registerPanel, unregisterPanel } from './ui/hud-layout'
 import { createHudEditor } from './ui/hud-editor'
+import { randomTipIndex, TIP_KEYS } from './ui/tips'
+import { createPauseMenu } from './ui/pause-menu'
 import { clearScalables, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
@@ -572,6 +574,16 @@ function startMatch(
 
   const confirmDialog = createConfirmDialog(container)
 
+  // Pause-/Esc-Menü: „Weiter / HUD anpassen / Runde verlassen". Ersetzt den direkten Verlassen-
+  // Bestätigungsdialog bei Esc — das Menü ist selbst die Hürde gegen versehentliches Beenden.
+  const pauseMenu = createPauseMenu(container, {
+    onResume: () => {
+      /* nichts weiter — Overlay schließt sich selbst */
+    },
+    onCustomizeHud: () => hudEditor.open(),
+    onLeave: onRequestNewMatch,
+  })
+
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -661,13 +673,16 @@ function startMatch(
           buildMenu.close()
           return
         }
-        // Offenen Bestätigungs-Dialog mit Esc wieder schließen (nicht beenden).
         if (confirmDialog.isOpen()) {
           confirmDialog.close()
           return
         }
-        // Nicht sofort raus — erst nachfragen (versehentliches Runden-Ende vermeiden).
-        confirmDialog.open(t('confirm.leaveRound'), onRequestNewMatch)
+        // Editor offen? Esc schließt nicht den Editor (der hat „Fertig") — aber das Pause-Menü
+        // soll nicht darüber aufgehen. Wenn der Editor läuft, ignorieren wir Esc hier.
+        if (hudEditor.isOpen()) return
+        // Pause-Menü auf/zu (HUD anpassen / Runde verlassen / Weiter).
+        if (pauseMenu.isOpen()) pauseMenu.close()
+        else pauseMenu.open()
       },
     },
   })
@@ -749,30 +764,76 @@ function startMatch(
       feedColumn.remove()
       buildMenu.destroy()
       confirmDialog.destroy()
+      pauseMenu.destroy()
       renderer.destroy()
       sound.destroy()
     },
   }
 }
 
-/** Zeigt ein zentriertes „Karte wird generiert…"-Overlay; gibt eine Entfernen-Funktion zurück. */
+/** Zeigt ein zentriertes „Karte wird generiert…"-Overlay mit rotierendem Tipp; entfernt es per Rückgabe. */
 function showLoadingOverlay(container: HTMLElement): () => void {
   const el = document.createElement('div')
   el.style.cssText = [
     'position: absolute',
     'inset: 0',
     'display: flex',
+    'flex-direction: column',
     'align-items: center',
     'justify-content: center',
+    'gap: 22px',
     'background: #0b0b12',
-    'color: rgba(255,255,255,0.85)',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-    'font-size: 18px',
+    'color: var(--tl-text)',
+    'font-family: var(--tl-font)',
     'z-index: 50',
+    'padding: 24px',
+    'box-sizing: border-box',
   ].join(';')
-  el.textContent = t('loading.map')
+
+  const head = document.createElement('div')
+  head.style.cssText = 'font-size: 18px; opacity: 0.9'
+  head.textContent = t('loading.map')
+  el.appendChild(head)
+
+  // Tipp-Karte (gleiche Tipps wie im Menü) — Wartezeit überbrücken statt nur „Lädt…".
+  const tipCard = document.createElement('div')
+  tipCard.style.cssText = [
+    'max-width: 440px',
+    'text-align: center',
+    'background: var(--tl-panel-bg)',
+    'border: 1px solid var(--tl-panel-border-color)',
+    'border-radius: 12px',
+    'padding: 16px 22px',
+    'box-shadow: 0 12px 40px rgba(0,0,0,0.5)',
+  ].join(';')
+  const tipHead = document.createElement('div')
+  tipHead.style.cssText =
+    'font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--tl-accent); opacity: 0.85; margin-bottom: 7px'
+  tipHead.textContent = t('info.title')
+  const tipBody = document.createElement('div')
+  tipBody.style.cssText =
+    'font-size: 14px; line-height: 1.5; opacity: 0.85; transition: opacity 0.45s ease'
+  tipCard.appendChild(tipHead)
+  tipCard.appendChild(tipBody)
+  el.appendChild(tipCard)
+
+  let tipIdx = randomTipIndex()
+  const showTip = (): void => {
+    tipBody.textContent = t(TIP_KEYS[tipIdx] ?? 'info.tip.1')
+  }
+  showTip()
+  const tipTimer = window.setInterval(() => {
+    tipBody.style.opacity = '0'
+    window.setTimeout(() => {
+      tipIdx = (tipIdx + 1) % TIP_KEYS.length
+      showTip()
+      tipBody.style.opacity = '0.85'
+    }, 450)
+  }, 13000)
+
   container.appendChild(el)
   return () => {
+    window.clearInterval(tipTimer)
     el.remove()
   }
 }

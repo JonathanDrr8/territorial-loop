@@ -57,7 +57,7 @@ export const ru: Record<string, string> = {
   'settings.hud': 'HUD и оформление',
   'settings.hud.theme': 'Оформление',
   'settings.hud.hint':
-    'Весь HUD можно свободно настроить прямо в матче: кнопка «Настроить HUD» в верхнем левом углу — перемещай, масштабируй, показывай или скрывай панели.',
+    'Весь HUD можно свободно настроить прямо в матче — нажми Esc в игре и выбери «Настроить HUD»: перемещай, масштабируй, показывай или скрывай панели.',
   'settings.hud.layout': 'Расположение HUD',
   'settings.hud.resetLayout': 'Сбросить по умолчанию',
   'settings.hud.reset.done': 'Сброшено',
@@ -225,6 +225,9 @@ export const ru: Record<string, string> = {
   'hud.troops': 'Войска',
   'hud.land': 'Земля',
   'hud.gold': 'Золото',
+  'pause.title': 'Пауза',
+  'pause.resume': 'Продолжить',
+  'pause.leave': 'Покинуть матч',
   'hud.editor.open': 'Настроить HUD',
   'hud.editor.done': 'Готово',
   'hud.editor.reset': 'По умолчанию',

@@ -40,6 +40,7 @@ import {
 import type { BuildingType } from '../core/buildings'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
+import { randomTipIndex, TIP_KEYS } from './tips'
 
 export interface MenuShellApi {
   destroy(): void
@@ -517,14 +518,16 @@ export function createMenuShell(
   function buildTipsPanel(): HTMLElement {
     const p = document.createElement('div')
     p.style.cssText = [
-      'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
-      'color: white',
-      'border: 1px solid rgba(255,255,255,0.12)',
+      // Theme-Karte (ADR-0024): folgt dem gewählten Design.
+      'background: var(--tl-panel-bg)',
+      'color: var(--tl-text)',
+      'border: 1px solid var(--tl-panel-border-color)',
       'border-radius: 12px',
       'padding: 20px',
       'width: 250px',
       'max-width: 100%',
       'box-sizing: border-box',
+      'font-family: var(--tl-font)',
       'display: flex',
       'flex-direction: column',
       'gap: 12px',
@@ -536,27 +539,26 @@ export function createMenuShell(
     p.appendChild(head)
 
     const tipEl = document.createElement('div')
-    tipEl.style.cssText = 'font-size: 14px; line-height: 1.5; opacity: 0.8; min-height: 92px'
+    tipEl.style.cssText =
+      'font-size: 14px; line-height: 1.5; opacity: 0.85; min-height: 92px; transition: opacity 0.45s ease'
     p.appendChild(tipEl)
 
-    const tipKeys = [
-      'info.tip.1',
-      'info.tip.2',
-      'info.tip.3',
-      'info.tip.4',
-      'info.tip.5',
-      'info.tip.6',
-    ]
+    const tipKeys = TIP_KEYS
     // Start-Tipp variieren (reine Deko, kein Sim-Determinismus) → nicht immer derselbe.
-    let idx = Date.now() % tipKeys.length
+    let idx = randomTipIndex()
     const showTip = (): void => {
       tipEl.textContent = t(tipKeys[idx] ?? 'info.tip.1')
     }
     showTip()
+    // Langsamer rotieren (13 s) mit sanftem Aus-/Einblenden — sonst wechselt der Tipp beim Lesen.
     tipTimer = setInterval(() => {
-      idx = (idx + 1) % tipKeys.length
-      showTip()
-    }, 8000)
+      tipEl.style.opacity = '0'
+      window.setTimeout(() => {
+        idx = (idx + 1) % tipKeys.length
+        showTip()
+        tipEl.style.opacity = '0.85'
+      }, 450)
+    }, 13000)
 
     if (callbacks.onFeedback !== undefined) {
       const fb = document.createElement('button')

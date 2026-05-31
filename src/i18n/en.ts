@@ -60,7 +60,7 @@ export const en: Record<string, string> = {
   'settings.hud': 'HUD & Appearance',
   'settings.hud.theme': 'Appearance',
   'settings.hud.hint':
-    'The entire HUD can be freely customized in a match: click the "Customize HUD" button in the top left — move, resize, show or hide panels.',
+    'The entire HUD can be freely customized in a match — press Esc in-game and choose "Customize HUD": move, resize, show or hide panels.',
   'settings.hud.layout': 'HUD layout',
   'settings.hud.resetLayout': 'Reset to default',
   'settings.hud.reset.done': 'Reset',
@@ -235,6 +235,9 @@ export const en: Record<string, string> = {
   'hud.troops': 'Troops',
   'hud.land': 'Land',
   'hud.gold': 'Gold',
+  'pause.title': 'Pause',
+  'pause.resume': 'Resume',
+  'pause.leave': 'Leave round',
   'hud.editor.open': 'Customize HUD',
   'hud.editor.done': 'Done',
   'hud.editor.reset': 'Default',
