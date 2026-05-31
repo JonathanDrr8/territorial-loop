@@ -4,6 +4,66 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-05-31
+
+### Neu
+
+- **Ranglisten-Modus:** Eigener „Ranglisten"-Knopf im Play-Menü — du startest bei **ELO 1000** und
+  spielst gegen eine KI auf genau deinem Level. Gewinnst du, steigt dein ELO; verlierst du, sinkt
+  es — so siehst du über die Zeit, **wie du besser wirst**. Mit Sieg-/Niederlage-Bilanz und
+  Höchstwert, alles lokal gespeichert (kein Account nötig).
+- **Geschenke (Gunst):** Im Diplomatie-Radialmenü kannst du jetzt **Gold an jede Nation
+  verschenken** (über den Slider oder feste 10/25/50/100 %) und **Truppen an Verbündete** schicken.
+  Beides erzeugt **Gunst** — und zwar mehr, je großzügiger du gemessen an deinem Vorrat bist. Gut,
+  um Groll zu besänftigen oder ein Bündnis zu erkaufen.
+
+### Geändert
+
+- **An jeder Schwierigkeitsstufe steht jetzt die ELO-Zahl** (z. B. „Standard (1000)") — du siehst
+  auf einen Blick, wie stark der Gegner ist. Die fünf Stufen sind Punkte auf einer durchgehenden
+  Stärke-Skala.
+- **Die KI verschenkt selbst Gold — aber nur klug:** eine schwächere KI besänftigt einen stärkeren,
+  grollenden Nachbarn mit einem Geschenk, statt blind alle zu bestechen.
+
+## [0.8.0] – 2026-05-31
+
+### Geändert
+
+- **Die KI ist deutlich stärker und schlauer geworden** — und kommt jetzt in **fünf
+  Schwierigkeitsstufen** (Anfänger / Leicht / Standard / Fortgeschritten / Experte):
+  - Sie **baut eine echte Wirtschaft** (erst Städte fürs Truppen-Limit, dann Häfen und Fabriken)
+    statt nur draufloszurennen.
+  - Sie spielt die **Profi-Taktik**: viele kleine Dauer-Angriffe statt weniger großer — so bleibt
+    ihre Truppenzahl im Wachstums-Optimum und sie überdehnt nie.
+  - Höhere Stufen sind **hyperaktiv** (handeln viel öfter), bauen **Flugabwehr**, setzen **Bomber**
+    offensiv ein, **heilen Bombenkrater** im eigenen Reich und wägen ab, ob sie ein Feind-Gebäude
+    lieber **einnehmen oder wegbomben**.
+  - Sie verbündet sich klüger, verrät situationsabhängig, jagt mit Kriegsschiffen Handelsrouten und
+    passt sich an, welche Gebäude im Match überhaupt erlaubt sind.
+- Jede Stufe ist **per Messung kalibriert** (über tausende KI-gegen-KI-Testmatches), sodass jede
+  spürbar stärker spielt als die darunter — von „zum Lernen" bis „richtig fordernd".
+
+## [0.7.0] – 2026-05-31
+
+### Neu
+
+- **Flugzeuge, Bomben & Flugabwehr:** Bau einen **Flughafen**, kauf **Bomber** (die im Hangar
+  parken) und wirf **Bomben** auf den Feind. Die Flugzeuge **fliegen physisch** zum Ziel — direkt
+  oder im Bogen, um der Flak auszuweichen. Eine Bombe trifft eine **Fläche**: sie tötet Truppen,
+  neutralisiert Gebiet, zerstört Gebäude und versenkt Schiffe im Radius — und verschont
+  **niemanden**, auch dich und deine Verbündeten nicht.
+- **Flugabwehr (Flak):** Türme mit Reichweiten-Ring schießen feindliche Bomber ab. Bomber haben
+  Panzerung — mehrere Flaks holen sie sicher runter.
+- **Ziel-Vorschau:** Vor dem Abwurf siehst du Flugroute, Einschlagsradius und eine **Warnung, wenn
+  die Route durch Flak-Gebiet führt** (wo der Bomber sicher abgeschossen würde).
+
+### Geändert
+
+- **Bomber und Kriegsschiff als Leisten-Knöpfe** mit Kosten — Bomber über Taste 7 oder das
+  Radialmenü, Kriegsschiff über Taste 8 (100k Gold).
+- **Bombardieren erzeugt massiven Groll** (auch bei unbeteiligten Nationen, aus Angst) und gilt als
+  **Verrat**, wenn es Verbündete trifft.
+
 ## [0.6.7] – 2026-05-30
 
 ### Geändert
