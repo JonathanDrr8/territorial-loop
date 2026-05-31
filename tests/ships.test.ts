@@ -569,6 +569,55 @@ describe('warships via tick', () => {
     expect(state.warships[0]?.hp).toBe(5) // B's Projektil verpuffte → A unbeschädigt
   })
 
+  it('blockiertes Eigen-Handelsschiff loggt entgangenes Gold; fremdes loggt nichts', () => {
+    const mkTrade = (fromOwnerId: number, toOwnerId: number, gold: number) => ({
+      fromOwnerId,
+      toOwnerId,
+      path: [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const,
+      progress: 0,
+      gold,
+      originPort: tileRef(1, 1, W, H),
+      destPort: tileRef(5, 1, W, H),
+    })
+    const shoot = (fromOwnerId: number, toOwnerId: number, gold: number): GameState => {
+      const state = createGame(cfg())
+      splitMap(state)
+      const water = [tileRef(0, 0, W, H), tileRef(0, 1, W, H)] as const
+      const shooter: Warship = {
+        ownerId: 2,
+        path: water,
+        progress: 0,
+        dir: 1,
+        hp: 5,
+        cooldown: 99, // keine neuen Schüsse — nur das injizierte Projektil zählt
+        mode: 'patrol',
+        returning: false,
+      }
+      state.warships.push(shooter)
+      const trade = mkTrade(fromOwnerId, toOwnerId, gold)
+      state.tradeShips.push(trade)
+      state.projectiles.push({
+        shooter,
+        target: trade,
+        targetKind: 'trade',
+        fromX: 0,
+        fromY: 0,
+        travel: 0,
+        impactAt: 1,
+      })
+      for (let i = 0; i < 3 && state.tradeShips.length > 0; i++) tick(state, [])
+      return state
+    }
+    // Spieler 1 (Mensch) ist Hafen-Besitzer → Log-Eintrag mit dem entgangenen Anteil.
+    const mine = shoot(1, 2, 444)
+    const blocked = mine.events.filter((e) => e.key === 'event.tradeBlocked')
+    expect(blocked.length).toBe(1)
+    expect(blocked[0]?.params?.amount).toBe(444)
+    // Reine Bot-Handelsroute (2 ↔ 2) → kein Eintrag.
+    const theirs = shoot(2, 2, 444)
+    expect(theirs.events.filter((e) => e.key === 'event.tradeBlocked').length).toBe(0)
+  })
+
   it('warship vs warship: the one with more HP survives', () => {
     const state = createGame(cfg())
     splitMap(state)

@@ -226,7 +226,7 @@ export const ru: Record<string, string> = {
   'event.defend': '{p} отбивает атаку {attacker}',
   'event.warshipSent': '{p} отправляет боевой корабль',
   'event.boatSunk': 'Транспортная баржа {p} потоплена',
-  'event.tradeBlocked': 'Торговое судно заблокировано',
+  'event.tradeBlocked': 'Твоя торговля заблокирована — потеряно {amount} золота',
   'event.warshipSunk': 'Боевой корабль {p} потоплен',
   'event.eliminated': '{p} выбыл',
   'event.victory': '{p} победил в матче!',

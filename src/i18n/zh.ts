@@ -188,7 +188,7 @@ export const zh: Record<string, string> = {
   'event.defend': '{p} 击退了 {attacker} 的进攻',
   'event.warshipSent': '{p} 派出一艘战舰',
   'event.boatSunk': '{p} 的运输艇被击沉',
-  'event.tradeBlocked': '商船被封锁',
+  'event.tradeBlocked': '你的贸易被封锁 — 损失 {amount} 金币',
   'event.warshipSunk': '{p} 的战舰被击沉',
   'event.eliminated': '{p} 被淘汰',
   'event.victory': '{p} 赢得了对局！',
