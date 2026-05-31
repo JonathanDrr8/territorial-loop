@@ -189,7 +189,7 @@ export const ja: Record<string, string> = {
   'event.defend': '{p} が {attacker} の攻撃を撃退',
   'event.warshipSent': '{p} が軍艦を派遣しました',
   'event.boatSunk': '{p} の輸送艇が撃沈されました',
-  'event.tradeBlocked': '商船が封鎖されました',
+  'event.tradeBlocked': '商船が封鎖された — {amount} 金消失',
   'event.warshipSunk': '{p} の軍艦が撃沈されました',
   'event.eliminated': '{p} は脱落しました',
   'event.victory': '{p} が対戦に勝利しました！',

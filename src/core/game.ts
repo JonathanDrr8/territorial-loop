@@ -2538,8 +2538,13 @@ function resolveNavalCombat(state: GameState): void {
     if (sunkTrades.size > 0) {
       state.tradeShips = state.tradeShips.filter((ts) => {
         if (!sunkTrades.has(ts)) return true
-        const o = state.players.get(ts.fromOwnerId)
-        emitEvent(state, 'event.tradeBlocked', undefined, o?.color ?? 0xffffffff)
+        // Nur fürs eigene Lager loggen: gehört einer der beiden Häfen einem Menschen, hat der
+        // genau `ts.gold` (seinen Anteil) nicht bekommen. Fremde Blockaden interessieren nicht.
+        for (const ownerId of [ts.fromOwnerId, ts.toOwnerId]) {
+          const o = state.players.get(ownerId)
+          if (o?.isHuman === true)
+            emitEvent(state, 'event.tradeBlocked', { amount: ts.gold }, o.color)
+        }
         return false
       })
     }

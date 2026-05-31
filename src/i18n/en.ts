@@ -235,7 +235,7 @@ export const en: Record<string, string> = {
   'event.defend': '{p} fends off the attack from {attacker}',
   'event.warshipSent': '{p} sends out a warship',
   'event.boatSunk': 'Transport boat of {p} sunk',
-  'event.tradeBlocked': 'Trade ship blocked',
+  'event.tradeBlocked': 'Your trade blocked — {amount} gold lost',
   'event.warshipSunk': 'Warship of {p} sunk',
   'event.eliminated': '{p} was eliminated',
   'event.victory': '{p} has won the match!',
