@@ -33,6 +33,7 @@ const PANEL_LABEL: Record<string, string> = {
   rank: 'hud.editor.panel.rank',
   resource: 'hud.editor.panel.resource',
   action: 'hud.editor.panel.action',
+  attacks: 'hud.editor.panel.attacks',
   minimap: 'hud.editor.panel.minimap',
   feed: 'hud.editor.panel.feed',
   'res-num': 'hud.editor.panel.troopsNum',
@@ -192,10 +193,12 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     const frame = frames.get(id)
     if (el === undefined || frame === undefined) return
     const f = footprint(id, el)
+    // Mindest-Greiffläche: zustandsbedingt leere Panels (z. B. 'attacks' ohne laufenden Kampf)
+    // sind sonst nur ein winziger Kasten und kaum anfassbar.
     frame.style.left = `${f.x.toString()}px`
     frame.style.top = `${f.y.toString()}px`
-    frame.style.width = `${f.w.toString()}px`
-    frame.style.height = `${f.h.toString()}px`
+    frame.style.width = `${Math.max(f.w, 120).toString()}px`
+    frame.style.height = `${Math.max(f.h, 40).toString()}px`
   }
 
   // ---- Snap-Kandidaten (Ränder + andere Panels) ----------------------------------------------
@@ -409,6 +412,27 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       startDrag(id, e)
     })
 
+    // Namens-Label (mittig, durchklickbar) — macht Panels im Editor identifizierbar und gibt
+    // zustandsbedingt leeren Panels (z. B. 'attacks' ohne Kampf) sichtbaren Text zum Anfassen.
+    const nameTag = document.createElement('div')
+    nameTag.textContent = t(PANEL_LABEL[id] ?? id)
+    nameTag.style.cssText = [
+      'position: absolute',
+      'inset: 0',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'text-align: center',
+      'font-size: 11px',
+      'font-weight: 700',
+      'letter-spacing: 0.5px',
+      'color: var(--tl-accent)',
+      'text-shadow: 0 1px 3px rgba(0,0,0,0.8)',
+      'pointer-events: none',
+      'z-index: 1',
+    ].join(';')
+    frame.appendChild(nameTag)
+
     // ×-Knopf zum Ausblenden (oben rechts, innen).
     const hide = document.createElement('button')
     hide.type = 'button'
@@ -438,7 +462,7 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       setPanel(id, { hidden: true })
       el.style.display = 'none'
       frame.style.display = 'none'
-      refreshHiddenList()
+      refreshElementList()
     })
     frame.appendChild(hide)
 
@@ -495,47 +519,51 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     layoutFrame(id)
   }
 
-  // ---- Ausgeblendet-Liste in der Werkzeugleiste ----------------------------------------------
-  const hiddenRow = document.createElement('div')
-  hiddenRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center'
+  // ---- Element-Liste in der Werkzeugleiste ---------------------------------------------------
+  // Festes Menü mit ALLEN Panels (nicht nur ausgeblendeten): je ein Schalter sichtbar `[x]` /
+  // ausgeblendet `[ ]`. So findet man entfernte Elemente jederzeit wieder und kann jedes Panel
+  // gezielt ein- oder ausblenden — auch die Split-Einzelteile, sobald sie geteilt sind.
+  const elementsRow = document.createElement('div')
+  elementsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center'
 
-  function refreshHiddenList(): void {
-    hiddenRow.textContent = ''
-    const hiddenIds = [...panelMap.keys()].filter((id) => getPanel(id)?.hidden === true)
-    if (hiddenIds.length === 0) {
-      hiddenRow.style.display = 'none'
-      return
+  /** Sichtbarkeit eines Panels setzen (Layout-Speicher + Live-Element + Rahmen). */
+  function setPanelHidden(id: string, hidden: boolean): void {
+    setPanel(id, { hidden })
+    const el = panelMap.get(id)
+    if (el !== undefined) el.style.display = hidden ? 'none' : ''
+    const frame = frames.get(id)
+    if (frame !== undefined) {
+      frame.style.display = hidden ? 'none' : ''
+      if (!hidden) layoutFrame(id)
     }
-    hiddenRow.style.display = 'flex'
+  }
+
+  function refreshElementList(): void {
+    elementsRow.textContent = ''
     const label = document.createElement('span')
-    label.textContent = `${t('hud.editor.hidden')}:`
+    label.textContent = `${t('hud.editor.elements')}:`
     label.style.cssText = 'font-size:11px;opacity:0.7'
-    hiddenRow.appendChild(label)
-    for (const id of hiddenIds) {
+    elementsRow.appendChild(label)
+    for (const id of panelMap.keys()) {
+      const hidden = getPanel(id)?.hidden === true
       const b = document.createElement('button')
       b.type = 'button'
-      b.textContent = `+ ${t(PANEL_LABEL[id] ?? id)}`
+      b.textContent = `${hidden ? '[ ]' : '[x]'} ${t(PANEL_LABEL[id] ?? id)}`
       b.style.cssText = [
         'padding:3px 8px',
         'font-size:11px',
         'cursor:pointer',
-        'border:1px solid var(--tl-panel-border-color)',
         'border-radius:5px',
-        'background:var(--tl-btn-bg, rgba(255,255,255,0.06))',
-        'color:var(--tl-text)',
+        `border:1px solid ${hidden ? 'var(--tl-panel-border-color)' : 'var(--tl-accent)'}`,
+        hidden
+          ? 'background:transparent;color:var(--tl-text);opacity:0.5'
+          : 'background:var(--tl-accent);color:#0c0c10',
       ].join(';')
       b.addEventListener('click', () => {
-        setPanel(id, { hidden: false })
-        const el = panelMap.get(id)
-        if (el !== undefined) el.style.display = ''
-        const frame = frames.get(id)
-        if (frame !== undefined) {
-          frame.style.display = ''
-          layoutFrame(id)
-        }
-        refreshHiddenList()
+        setPanelHidden(id, !hidden)
+        refreshElementList()
       })
-      hiddenRow.appendChild(b)
+      elementsRow.appendChild(b)
     }
   }
 
@@ -692,8 +720,8 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     )
     toolbar.appendChild(layoutRow)
 
-    toolbar.appendChild(hiddenRow)
-    refreshHiddenList()
+    toolbar.appendChild(elementsRow)
+    refreshElementList()
 
     // Untere Knopf-Zeile: Hinweis + Standard + Fertig.
     const actions = document.createElement('div')
@@ -802,17 +830,29 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     // Neu messen + Rahmen aktualisieren.
     for (const [id, el] of panelMap) arm(id, el)
     for (const id of panelMap.keys()) layoutFrame(id)
-    refreshHiddenList()
+    refreshElementList()
   }
+
+  // Panels, die der Editor nur fürs Bearbeiten sichtbar gemacht hat (zustandsbedingt leer wie
+  // 'attacks' ohne laufenden Kampf) — beim Schließen wieder auf `display:none` zurücksetzen.
+  const forcedShown = new Set<string>()
 
   // ---- Frames (neu) aufbauen — auch nach Split/Merge, da sich der Panel-Satz ändert ----------
   function buildFrames(): void {
     for (const [, frame] of frames) frame.remove()
     frames.clear()
     panelMap.clear()
+    forcedShown.clear()
     for (const [id, el] of panelElements()) panelMap.set(id, el)
     for (const [id, el] of panelMap) {
       const hidden = getPanel(id)?.hidden === true
+      // Nicht ausgeblendete, aber gerade unsichtbare Panels (display:none, z. B. leeres 'attacks')
+      // fürs Bearbeiten einblenden — nur die `display:none`-Inline-Regel lösen (kein flex/block
+      // anderer Panels anfassen).
+      if (!hidden && el.style.display === 'none') {
+        el.style.display = ''
+        forcedShown.add(id)
+      }
       // Auch ausgeblendete Panels vermessen (kurz einblenden), damit Position/Größe stimmen.
       if (hidden) el.style.display = ''
       arm(id, el)
@@ -837,6 +877,12 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   function close(): void {
     if (!open) return
     open = false
+    // Nur fürs Bearbeiten eingeblendete (leere) Panels wieder verstecken — ihr Live-Update
+    // setzt das `display` ohnehin neu, sobald wieder Inhalt da ist.
+    for (const id of forcedShown) {
+      if (getPanel(id)?.hidden !== true) panelMap.get(id)?.style.setProperty('display', 'none')
+    }
+    forcedShown.clear()
     for (const [, frame] of frames) frame.remove()
     frames.clear()
     panelMap.clear()

@@ -270,19 +270,20 @@ export function createHUD(
   // ausgehende Angriffe (mit ✕), Abwehr und Schiff-/Boot-Rückruf. Frei klickbar, direkt
   // beim Geschehen.
   const attackPanel = document.createElement('div')
-  // ÜBER der zentralen Hauptbox (rechtsbündig), wächst nach oben in den freien Kartenraum. Früher
-  // links daneben — das kollidierte mit dem Ressourcen-Block unten links (der sich beim Aufklappen
-  // der Economy-Aufschlüsselung zudem nach oben ausdehnt).
+  // Eigenständiges, im HUD-Editor verschiebbares Panel (registriert als 'attacks') — direktes
+  // Kind des Containers, container-relativer Anker. Default: rechtsbündig zur Aktionsleiste
+  // (deren rechte Kante bei min-width 420 ≈ 50% + 210px), knapp darüber im freien Kartenraum.
   attackPanel.style.cssText = panelStyle([
     'position: absolute',
-    'right: 0',
-    'bottom: calc(100% + 8px)',
+    'right: calc(50% - 210px)',
+    'bottom: 92px',
     'padding: 8px 11px',
     'font-size: 11px',
     'line-height: 1.7',
     'width: max-content',
     'max-width: 240px',
     'pointer-events: auto',
+    'z-index: 11',
     'display: none',
   ])
   // Delegierte Aktion auf `mousedown` (NICHT `click`!): das Panel re-rendert sein innerHTML laufend,
@@ -470,8 +471,11 @@ export function createHUD(
     'z-index: 11',
   ])
 
-  // Aktive-Aktionen-Liste als absolutes Kind LINKS außerhalb der Hauptbox (verschiebt sie nicht).
-  actionBar.appendChild(attackPanel)
+  // Angriffe-Panel als eigenes Container-Kind (nicht mehr in der Aktionsleiste) → im HUD-Editor
+  // unabhängig verschieb-/skalierbar.
+  container.appendChild(attackPanel)
+  registerScalable(attackPanel)
+  registerPanel('attacks', attackPanel)
 
   /* ---- Unten links: Ressourcen-Block (Truppen GROSS + Balken + Gold) -------- */
   // UI-Redesign Schritt 1: Truppen sind die wichtigste Zahl → prominent unten links, die ZAHL
@@ -1297,7 +1301,8 @@ export function createHUD(
       attackPanel.style.display = 'none'
       return
     }
-    attackPanel.style.display = 'block'
+    // Im HUD-Editor ausgeblendet → bleibt aus, auch wenn gerade Angriffe laufen.
+    attackPanel.style.display = getPanel('attacks')?.hidden === true ? 'none' : 'block'
     const html = `<div style="opacity:0.65;margin-bottom:2px">${t('hud.attacks')}</div>${rows.join('')}`
     if (html !== lastAttackHtml) {
       attackPanel.innerHTML = html
@@ -1489,6 +1494,7 @@ export function createHUD(
         'rank',
         'resource',
         'action',
+        'attacks',
         'res-num',
         'res-bar',
         'res-gold',

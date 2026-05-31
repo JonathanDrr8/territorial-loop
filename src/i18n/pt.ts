@@ -254,6 +254,8 @@ export const pt: Record<string, string> = {
   'hud.editor.panel.boat': 'Barco de transporte',
   'hud.editor.theme': 'Tema',
   'hud.editor.hidden': 'Oculto',
+  'hud.editor.elements': 'Elementos',
+  'hud.editor.panel.attacks': 'Ataques',
   'hud.editor.hint': 'Arrastar = mover · Cantos = redimensionar · × = ocultar',
   'hud.editor.panel.info': 'Tempo e controlos',
   'hud.editor.panel.rank': 'Classificação',

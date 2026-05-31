@@ -255,6 +255,8 @@ export const it: Record<string, string> = {
   'hud.editor.panel.boat': 'Barca da trasporto',
   'hud.editor.theme': 'Tema',
   'hud.editor.hidden': 'Nascosto',
+  'hud.editor.elements': 'Elementi',
+  'hud.editor.panel.attacks': 'Attacchi',
   'hud.editor.hint': 'Trascinare = sposta · Angoli = ridimensiona · × = nascondi',
   'hud.editor.panel.info': 'Tempo e comandi',
   'hud.editor.panel.rank': 'Classifica',

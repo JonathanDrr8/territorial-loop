@@ -260,6 +260,8 @@ export const de: Record<string, string> = {
   'hud.editor.panel.boat': 'Boot',
   'hud.editor.theme': 'Design',
   'hud.editor.hidden': 'Ausgeblendet',
+  'hud.editor.elements': 'Elemente',
+  'hud.editor.panel.attacks': 'Angriffe',
   'hud.editor.hint': 'Ziehen = verschieben · Ecken = Größe · × = ausblenden',
   'hud.editor.panel.info': 'Zeit & Steuerung',
   'hud.editor.panel.rank': 'Rangliste',
