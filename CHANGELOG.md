@@ -4,6 +4,33 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.15.0] – 2026-05-31
+
+### Neu
+
+- **Weiterspielen nach dem Match:** Am Match-Ende gibt es jetzt den Knopf **„Weiterspielen"** —
+  er schließt das Ergebnis-Fenster, sodass man die beendete Partie noch in Ruhe anschauen kann,
+  ohne direkt ins Menü zu müssen.
+- **Kamera auf C:** Die Taste **C** zentriert die Kamera sofort auf den Mittelpunkt des eigenen
+  Reichs — praktisch nach langen Kampfzügen am anderen Ende der Welt.
+- **Namen anklicken:** Alle Nationen-Namen in der **Rangliste** und im **Ereignislog** sind jetzt
+  anklickbar. Ein Klick springt die Kamera direkt zur jeweiligen Nation.
+- **Platzhalter im HUD-Editor:** Panels, die nur im Spiel aktiv sind (z. B. das Angriffe-Panel,
+  wenn gerade kein Kampf läuft), zeigen im Editor jetzt einen **beschrifteten Platzhalter** statt
+  eines leeren Kastens. So lassen sie sich sauber positionieren, auch wenn sie aktuell nichts
+  anzeigen.
+
+### Geändert
+
+- **Ergebnis-Fenster überarbeitet:** Der Endstand passt jetzt auf jeden Bildschirm — die
+  Abschlusstabelle erscheint zweispaltig (Top 16 + „… und X weitere"), und das Fenster trägt das
+  gewählte **Spiel-Design** (Theme).
+- **Hilfe aktualisiert und besser lesbar:** Die Hilfe beschreibt jetzt die aktuelle Spielversion
+  vollständig: Wirtschaft (Fabriken + Fabrik-Netzwerk), Gebäude inkl. **Flugplatz** und **Flak**,
+  aktuelle Tastenbelegung. Neu hinzugekommen sind die Themen **Luftkrieg**, **Flüsse**,
+  **HUD anpassen** und **Mehrspieler & Ranglisten**. Die Schrift in Hilfe und Changelog ist
+  größer und leichter zu lesen. Die Übersetzungen aller **9 Sprachen** wurden mitgezogen.
+
 ## [0.14.0] – 2026-05-31
 
 ### Neu
