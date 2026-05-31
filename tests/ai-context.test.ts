@@ -66,13 +66,13 @@ describe('assessContext (ADR-0022)', () => {
     p1.frontier.add(T(10, 10))
     expect(assessContext(state, p1).crowding).toBe(0)
     // Jetzt alle 4 Nachbarn dem Feind (2) geben → voll.
-    for (const [dx, dy] of [
+    const offs: ReadonlyArray<readonly [number, number]> = [
       [1, 0],
       [-1, 0],
       [0, 1],
       [0, -1],
-    ])
-      setOwner(state.map, T(10 + dx, 10 + dy), 2)
+    ]
+    for (const [dx, dy] of offs) setOwner(state.map, T(10 + dx, 10 + dy), 2)
     expect(assessContext(state, p1).crowding).toBe(1)
   })
 
