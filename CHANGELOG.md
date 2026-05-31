@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.16.0] – 2026-05-31
+
+### Neu
+
+- **Mehrere Fronten gegen dieselbe Nation:** Bisher wurden alle Angriffe auf eine Nation
+  zusammengefasst — ein zweiter Klick an anderer Stelle zog die Truppen von der ersten Front ab.
+  Jetzt bündeln sich nur noch Klicks, die **nah an einer bestehenden Front** liegen. Ein Klick
+  weiter entfernt an derselben Grenze eröffnet eine **eigene, unabhängige Front** mit eigenen
+  Truppen. So lassen sich mehrere Angriffsstöße gleichzeitig führen, ohne dass eine Front die
+  andere leersaugt.
+
 ## [0.15.0] – 2026-05-31
 
 ### Neu
