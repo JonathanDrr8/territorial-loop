@@ -26,6 +26,10 @@ export interface ParamVector {
   warshipChance: number
   bomberChance: number
   tilesPerCity: number
+  /** Diplomatie-Aktivität (Bündnisse anbieten/annehmen). ADR-0022-Nachtrag: jetzt mit-getunt. */
+  diploChance: number
+  /** Führungs-Verhältnis, ab dem die KI einen Verbündeten verrät (kleiner = treuloser). */
+  betrayLeadRatio: number
 }
 
 /** Sinnvolle Grenzen je Parameter (lo, hi) — die Suche bleibt im spielbaren Bereich. */
@@ -39,6 +43,8 @@ export const BOUNDS: Record<keyof ParamVector, readonly [number, number]> = {
   warshipChance: [0, 0.3],
   bomberChance: [0, 0.4],
   tilesPerCity: [55, 260],
+  diploChance: [0, 0.6],
+  betrayLeadRatio: [1.1, 3],
 }
 
 /** Komposit-Gewichte (Jonathan: Sieg + Economy + Wachstum). Summe 1. Bewusst sieg-lastig. */
@@ -71,6 +77,9 @@ export function profileToParams(p: DifficultyProfile): ParamVector {
     warshipChance: p.warshipChance,
     bomberChance: p.bomberChance,
     tilesPerCity: p.tilesPerCity,
+    diploChance: p.diploChance,
+    // betrayLeadRatio kann im Profil Infinity sein (nie verraten) → für die Suche auf die Obergrenze.
+    betrayLeadRatio: Number.isFinite(p.betrayLeadRatio) ? p.betrayLeadRatio : 3,
   }
 }
 

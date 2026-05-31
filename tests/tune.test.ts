@@ -74,6 +74,8 @@ describe('clampParams', () => {
       warshipChance: 9,
       bomberChance: 9,
       tilesPerCity: 9999,
+      diploChance: 9,
+      betrayLeadRatio: -5,
     }
     const c = clampParams(wild)
     for (const k of Object.keys(BOUNDS) as (keyof ParamVector)[]) {

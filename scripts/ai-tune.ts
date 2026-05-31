@@ -44,15 +44,26 @@ const TICKS = num('ticks', 2500)
 const MAP = num('map', 80)
 const BASELINE = str('baseline', 'advanced') as Difficulty
 const OUT = str('out', '/tmp/ai-tune-best.json')
+// --ffa: Freikampf-Eval (ADR-0022) — Kandidaten in einem Feld DIVERSER unabhängiger Gegner statt
+// gegen eine uniforme Baseline. So entsteht echte Bündnis-/Verrats-Dynamik → Diplomatie wird
+// sieg-relevant und der Tuner kann diploChance/betrayLeadRatio sinnvoll bewerten.
+const FFA = process.argv.includes('--ffa')
 
-// Roster: 3 Kandidaten (IDs 1-3, per Override) gegen 3 Baseline-Nationen.
-const roster: Difficulty[] = ['expert', 'expert', 'expert', BASELINE, BASELINE, BASELINE]
-const candIds = new Set([1, 2, 3])
+const CAND = 3 // Kandidaten-Nationen (IDs 1..CAND), per Override
+// Freikampf: Kandidaten + je eine Nation jeder Preset-Stärke (unabhängig). Sonst: gegen Baseline.
+const opponents: Difficulty[] = FFA
+  ? ['beginner', 'easy', 'standard', 'advanced', 'expert']
+  : [BASELINE, BASELINE, BASELINE]
+const roster: Difficulty[] = [
+  ...Array.from({ length: CAND }, () => 'expert' as Difficulty),
+  ...opponents,
+]
+const candIds = new Set(Array.from({ length: CAND }, (_, i) => i + 1))
 const baseProfile = PROFILES.expert // liefert die Fähigkeits-Flags (alle an)
 
 function evaluate(cand: ParamVector, gen: number): number {
   const prof = paramsToProfile(cand, baseProfile)
-  const overrides = [prof, prof, prof, null, null, null]
+  const overrides = roster.map((_d, i) => (i < CAND ? prof : null))
   let sum = 0
   for (let s = 0; s < SEEDS; s++) {
     const r = runMatch({
