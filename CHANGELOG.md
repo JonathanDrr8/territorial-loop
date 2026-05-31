@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.19.0] – 2026-05-31
+
+### Geändert
+
+- **Große Karten laden jetzt in Sekunden:** Ein Engpass beim Verteilen der Startpositionen
+  sorgte dafür, dass Karten mit vielen Nationen extrem lange zum Laden brauchten — 1536×1536
+  rund 30 Sekunden, 2048×2048 über eine Minute. Das ist behoben; auch die größten Karten
+  starten jetzt in wenigen Sekunden.
+- **Belebtere Welt in den Vorgaben:** Die Schnellwahl-Vorgaben **Klein**, **Standard** und
+  **Groß** haben jetzt mehr Gegner und mehr wilde Nationen, damit die Karte von Anfang an
+  voller Leben wirkt (Klein: 25 KI + 50 wild; Standard: 50 KI + 130 wild; Groß: 75 KI +
+  280 wild). **Chaos** bleibt unverändert.
+
 ## [0.18.0] – 2026-05-31
 
 ### Neu
