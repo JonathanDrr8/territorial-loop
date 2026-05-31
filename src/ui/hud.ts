@@ -43,6 +43,7 @@ import {
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
+import { registerPanel, unregisterPanel } from './hud-layout'
 import { panelStyle } from './theme'
 import { registerScalable } from './ui-scale'
 
@@ -197,6 +198,7 @@ export function createHUD(
   infoBox.appendChild(helpDetails)
   container.appendChild(infoBox)
   registerScalable(infoBox)
+  registerPanel('info', infoBox)
 
   /* ---- Verräter-Warnung: oben mittig, nur wenn DU selbst geächtet bist ---------- */
   const traitorBanner = document.createElement('div')
@@ -438,6 +440,7 @@ export function createHUD(
   rankPanel.appendChild(rankToggle)
   container.appendChild(rankPanel)
   registerScalable(rankPanel)
+  registerPanel('rank', rankPanel)
 
   /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
   const actionBar = document.createElement('div')
@@ -540,6 +543,7 @@ export function createHUD(
   troopBadge.appendChild(barLegend)
   container.appendChild(troopBadge)
   registerScalable(troopBadge)
+  registerPanel('resource', troopBadge)
 
   const sliderWrap = document.createElement('div')
   sliderWrap.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px'
@@ -799,6 +803,7 @@ export function createHUD(
 
   container.appendChild(actionBar)
   registerScalable(actionBar)
+  registerPanel('action', actionBar)
 
   /* ---- Game-Over-Banner ---------------------------------------------------- */
   const banner = document.createElement('div')
@@ -1289,6 +1294,7 @@ export function createHUD(
     },
     destroy(): void {
       if (resyncTimer !== null) clearTimeout(resyncTimer)
+      for (const id of ['info', 'rank', 'resource', 'action']) unregisterPanel(id)
       infoBox.remove()
       traitorBanner.remove()
       resyncTag.remove()

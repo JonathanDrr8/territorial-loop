@@ -42,6 +42,7 @@ import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
+import { registerPanel, unregisterPanel } from './ui/hud-layout'
 import { clearScalables, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
@@ -538,6 +539,7 @@ function startMatch(
   ].join(';')
   container.appendChild(feedColumn)
   registerScalable(feedColumn)
+  registerPanel('feed', feedColumn)
 
   // Reihenfolge zählt: Bündnis-Karten zuerst (oben), Log danach (unten, direkt über der Minimap).
   const alliancePrompt = createAlliancePrompt(
@@ -736,6 +738,7 @@ function startMatch(
       tooltip.destroy()
       eventLog.destroy()
       alliancePrompt.destroy()
+      unregisterPanel('feed')
       feedColumn.remove()
       buildMenu.destroy()
       confirmDialog.destroy()

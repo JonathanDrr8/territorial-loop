@@ -13,6 +13,7 @@
 
 import type { GameState } from '../core/game'
 import type { Camera } from '../render/renderer'
+import { registerPanel, unregisterPanel } from './hud-layout'
 import { registerScalable } from './ui-scale'
 
 export interface MinimapApi {
@@ -65,6 +66,7 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   wrapper.appendChild(canvas)
   container.appendChild(wrapper)
   registerScalable(wrapper)
+  registerPanel('minimap', wrapper)
 
   const ctx = canvas.getContext('2d')
   if (ctx === null) throw new Error('Minimap: 2D context not available')
@@ -122,6 +124,7 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   return {
     update,
     destroy(): void {
+      unregisterPanel('minimap')
       wrapper.remove()
     },
   }
