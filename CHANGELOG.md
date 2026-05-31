@@ -4,6 +4,29 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.14.0] – 2026-05-31
+
+### Neu
+
+- **Alle HUD-Elemente auf einen Blick:** Im „HUD anpassen"-Modus zeigt ein festes Seitenmenü
+  jetzt **jedes Element** mit einem Haken — ausgeblendete Panels sind sofort sichtbar und lassen
+  sich mit einem Klick wieder einblenden. Kein Rätseln mehr, wo ein Panel geblieben ist.
+- **Angriffe-Panel frei positionierbar:** Die laufenden Angriffe und die aktive Abwehr erscheinen
+  jetzt in einem **eigenen Panel**, das sich wie jedes andere HUD-Element verschieben und skalieren
+  lässt.
+- **Eroberungen schaden der Freundschaft:** Wer eine Nation überrennt, verliert sofort die
+  aufgebaute **Gunst** mit ihr und zieht sich deren **Groll** zu — je mehr Land genommen, desto
+  stärker. Dieser Effekt war schon in der KI-Logik vorhanden, wirkt jetzt aber auch beim Spieler.
+  Außerdem: Nationen, auf die gerade gebombt oder gekämpft wird, färben sich **sichtbar rot** — so
+  ist auf einen Blick erkennbar, wer gerade angegriffen wird und warum die KI entsprechend reagiert.
+
+### Behoben
+
+- **Ruckler in großen Partien behoben:** In Runden mit vielen Nationen und intensiven
+  Gefechten ruckelten die Bilder merklich. Ursache waren die **Gold-Transport-Linien**, die
+  tausendfach pro Bild einzeln gezeichnet wurden. Nach der Optimierung läuft das Spiel auch
+  mit 80+ Nationen durchgehend flüssig.
+
 ## [0.13.0] – 2026-05-31
 
 ### Neu
