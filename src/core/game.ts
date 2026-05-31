@@ -664,8 +664,8 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
   }
 
   const center = tileRef(cx, cy, width, height)
-  if (claim(center)) onClaimed(center)
-  else onClaimed(center) // belegtes/Wasser-Zentrum: trotzdem von hier aus wachsen
+  claim(center)
+  onClaimed(center) // auch bei belegtem/Wasser-Zentrum von hier aus wachsen
 
   while (claimedTiles.length < target && cost.size > 0) {
     let best = -1
@@ -681,7 +681,7 @@ function growSpawn(state: GameState, player: Player, cx: number, cy: number, tar
     if (claim(best)) onClaimed(best)
   }
 
-  fillEnclosed(state, player)
+  fillEnclosed(state, player, claimedTiles)
 }
 
 /** Glättungs-Bonus pro bereits eigenem Nachbarn beim Spawn-Wachstum (nur glätten,
@@ -693,33 +693,49 @@ const SPAWN_FILL_BONUS = 1.2
 const SPAWN_TERRAIN_PENALTY = 0.1
 
 /**
- * Schließt Tiles, die von `player` rundum (über alle passierbaren Nachbarn)
- * umschlossen sind — verhindert Ein-Pixel-Löcher im Gebiet. Läuft bis stabil.
+ * Schließt Tiles, die von `player` rundum (über alle passierbaren Nachbarn) umschlossen sind —
+ * verhindert Ein-Pixel-Löcher im Gebiet.
+ *
+ * Nur das UMFELD des Spawn-Blobs wird geprüft (lokaler BFS ab den frisch beanspruchten Tiles),
+ * NICHT die ganze Karte: ein eingeschlossenes Loch grenzt zwangsläufig an Eigenland. Das macht die
+ * Spawn-Platzierung von O(Nationen × Karten-Tiles) auf O(Nationen × Blob-Umfang) — entscheidend für
+ * große Karten mit vielen Nationen (vorher zig Sekunden Ladezeit).
  */
-function fillEnclosed(state: GameState, player: Player): void {
+function fillEnclosed(state: GameState, player: Player, seedTiles: readonly TileRef[]): void {
   const { map } = state
   const { width, height } = map
-  let changed = true
-  while (changed) {
-    changed = false
-    for (let ref = 0; ref < map.state.length; ref++) {
-      if (getOwner(map, ref) !== 0 || !isPassable(map.terrain, ref)) continue
-      let hasPassable = false
-      let enclosed = true
-      for (const nb of neighbors4(ref, width, height)) {
-        if (!isPassable(map.terrain, nb)) continue
-        hasPassable = true
-        if (getOwner(map, nb) !== player.id) {
-          enclosed = false
-          break
-        }
+  const queue: TileRef[] = []
+  const queued = new Set<TileRef>()
+  const enqueueEmptyNeighbors = (ref: TileRef): void => {
+    for (const nb of neighbors4(ref, width, height)) {
+      if (getOwner(map, nb) !== 0 || !isPassable(map.terrain, nb) || queued.has(nb)) continue
+      queued.add(nb)
+      queue.push(nb)
+    }
+  }
+  for (const ref of seedTiles) enqueueEmptyNeighbors(ref)
+  let head = 0
+  while (head < queue.length) {
+    const ref = queue[head++]
+    if (ref === undefined) continue
+    queued.delete(ref) // darf später erneut geprüft werden, falls ein Nachbar dazwischen gefüllt wird
+    if (getOwner(map, ref) !== 0) continue
+    let hasPassable = false
+    let enclosed = true
+    for (const nb of neighbors4(ref, width, height)) {
+      if (!isPassable(map.terrain, nb)) continue
+      hasPassable = true
+      if (getOwner(map, nb) !== player.id) {
+        enclosed = false
+        break
       }
-      if (hasPassable && enclosed) {
-        setOwner(map, ref, player.id)
-        player.tilesOwned++
-        player.weightedTiles += tileTroopWeight(map.terrain, ref)
-        changed = true
-      }
+    }
+    if (hasPassable && enclosed) {
+      setOwner(map, ref, player.id)
+      player.tilesOwned++
+      player.weightedTiles += tileTroopWeight(map.terrain, ref)
+      // Das neu gefüllte Tile kann weitere Löcher freilegen → dessen leere Nachbarn erneut prüfen.
+      enqueueEmptyNeighbors(ref)
     }
   }
 }
