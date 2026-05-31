@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.22.0] – 2026-05-31
+
+### Geändert
+
+- **Günstigere Gebäude im großen Maßstab:** Die Baukosten für Städte, Häfen und Fabriken
+  steigen zwar weiter mit jedem Bau (25k → 50k → 100k), sind jetzt aber bei **100.000 Gold
+  gedeckelt** — statt wie bisher bei 1 Million. Im späten Spiel lässt sich damit deutlich
+  günstiger weiter ausbauen.
+
 ## [0.21.0] – 2026-05-31
 
 ### Neu
