@@ -347,6 +347,8 @@ function clamp255(v: number): number {
 
 // Fels/Schnee-Farben für unpassierbare Gipfel: dunkler Fels (Schatten/Senken) ↔ helle Schneekappe
 // (Grate/Sonnseite). Das Höhenrelief wird synthetisch erzeugt (Terrain hat keine Sub-Höhe).
+/** Leuchtspur-Farbe für Schiffs-Schüsse UND Flak (helles Gelb → überall gut sichtbar). */
+const PROJECTILE_COLOR = '#ffe85c'
 const DARK_ROCK_R = 104
 const DARK_ROCK_G = 112
 const DARK_ROCK_B = 128
@@ -1839,14 +1841,15 @@ export function createRenderer(
         sy > container.clientHeight + 20
       )
         continue
-      const owner = state.players.get(pr.shooter.ownerId)
-      const col = owner === undefined ? '#ffe08a' : rgbaToCssLocal(owner.color)
+      // Helles Gelb statt Besitzerfarbe (die oft dunkel mit Wasser/Land verschmolz) → die
+      // Leuchtspur hebt sich überall klar ab.
+      const col = PROJECTILE_COLOR
       // Spur entgegen der Flugrichtung (länger als das Projektil-Tempo „verschmiert" wirken lässt).
       const len = Math.max(7, z * 0.9)
       const m = Math.hypot(dx, dy) || 1
       const ux = (dx / m) * len
       const uy = (dy / m) * len
-      screenCtx.globalAlpha = 0.7
+      screenCtx.globalAlpha = 0.85
       screenCtx.strokeStyle = col
       screenCtx.lineWidth = Math.max(2, z * 0.26)
       screenCtx.beginPath()
@@ -1964,15 +1967,23 @@ export function createRenderer(
         s.fromX + (s.toX - s.fromX) * Math.max(0, frac - 0.25),
         s.fromY + (s.toY - s.fromY) * Math.max(0, frac - 0.25),
       )
-      const owner = state.players.get(s.ownerId)
-      const col = owner === undefined ? '#cfe8ff' : rgbaToCssLocal(owner.color)
-      screenCtx.globalAlpha = (1 - frac) * 0.85
+      // Helles Gelb wie die Schiffs-Schüsse → die Flak-Spuren sind gut zu erkennen.
+      const col = PROJECTILE_COLOR
+      screenCtx.globalAlpha = (1 - frac) * 0.95
       screenCtx.strokeStyle = col
-      screenCtx.lineWidth = Math.max(1.5, z * 0.22)
+      screenCtx.lineWidth = Math.max(2, z * 0.3)
       screenCtx.beginPath()
       screenCtx.moveTo(tail.sx, tail.sy)
       screenCtx.lineTo(head.sx, head.sy)
       screenCtx.stroke()
+      // Kleiner glühender Kopf, damit der Schuss auch einzeln auffällt.
+      screenCtx.shadowColor = col
+      screenCtx.shadowBlur = Math.max(3, z * 0.5)
+      screenCtx.beginPath()
+      screenCtx.arc(head.sx, head.sy, Math.max(1.6, z * 0.22), 0, Math.PI * 2)
+      screenCtx.fillStyle = col
+      screenCtx.fill()
+      screenCtx.shadowBlur = 0
     }
     screenCtx.globalAlpha = 1
     screenCtx.restore()
