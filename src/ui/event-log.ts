@@ -1,9 +1,13 @@
 /**
- * Ereignislog oben rechts — eigenes Feld mit Filter-Kopf. Zeigt die letzten Spiel-Ereignisse
- * (Diplomatie, Krieg/Schiffe, Wirtschaft/Beute, Meilensteine) **neueste oben**; ältere Einträge
- * faden mit zunehmendem Tick-Alter aus. Über die Filter-Chips im Kopf lässt sich pro Kategorie
- * ausblenden, damit nicht „alles" kommt (Auswahl in localStorage gemerkt). Meilensteine
- * (Eliminierung/Sieg) bleiben immer sichtbar.
+ * Ereignislog — als Karte in der gemeinsamen Feed-Spalte unten rechts (über der Minimap, unter
+ * den Bündnis-Anfragen). Zeigt die letzten Spiel-Ereignisse (Diplomatie, Krieg/Schiffe,
+ * Wirtschaft/Beute, Meilensteine) **neueste oben**; ältere Einträge faden mit zunehmendem
+ * Tick-Alter aus. Über die Filter-Chips im Kopf lässt sich pro Kategorie ausblenden, damit nicht
+ * „alles" kommt (Auswahl in localStorage gemerkt). Meilensteine (Eliminierung/Sieg) bleiben immer
+ * sichtbar.
+ *
+ * Positioniert wird NICHT mehr selbst — der Aufrufer steckt die Box in die Feed-Spalte (`container`
+ * ist diese Spalte, sie trägt auch das `zoom`/`registerScalable`).
  *
  * Liest `state.events` (vom Core befüllt, sprach-neutral als {key, params}) read-only.
  */
@@ -11,17 +15,11 @@
 import type { GameState } from '../core/game'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
-import { registerScalable } from './ui-scale'
 
 export interface EventLogApi {
   update(): void
-  /** Verschiebt den Log nach unten (px zusätzlich zum Basis-Top), z. B. unter das Bündnis-Panel. */
-  setTopOffset(extraPx: number): void
   destroy(): void
 }
-
-/** Basis-Abstand von oben (unter der Rangliste). */
-const BASE_TOP = 232
 
 const MAX_VISIBLE = 7
 const FADE_START_TICKS = 60
@@ -112,10 +110,15 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
 
   const box = document.createElement('div')
   box.style.cssText = [
-    'position: absolute',
-    `top: ${BASE_TOP.toString()}px`,
-    'right: 12px',
-    'width: 250px',
+    // In-Flow-Karte in der Feed-Spalte (kein eigenes absolutes Anker mehr).
+    'width: 100%',
+    'box-sizing: border-box',
+    // Der Log ist der nachgebende Teil der Spalte: schrumpft, wenn oben Bündnis-Karten Platz
+    // brauchen (überzählige ÄLTESTE Einträge unten werden weggeschnitten — sie sind eh am stärksten
+    // ausgefadet). Die interaktiven Bündnis-Karten oben bleiben dadurch immer vollständig.
+    'flex: 0 1 auto',
+    'min-height: 0',
+    'overflow: hidden',
     // Deckende Box, damit die Einträge über jeder Karte gut lesbar sind.
     'background: rgba(12,14,20,0.92)',
     'border: 1px solid rgba(255,255,255,0.12)',
@@ -128,7 +131,6 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'pointer-events: auto',
-    'z-index: 12',
   ].join(';')
 
   // Filter-Kopf: ein Chip je Kategorie (an/aus). Farbe markiert die Kategorie wieder.
@@ -181,7 +183,6 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
   box.appendChild(list)
 
   container.appendChild(box)
-  registerScalable(box)
 
   function update(): void {
     const events = state.events
@@ -209,9 +210,6 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
 
   return {
     update,
-    setTopOffset(extraPx: number): void {
-      box.style.top = `${(BASE_TOP + Math.max(0, Math.round(extraPx))).toString()}px`
-    },
     destroy(): void {
       box.remove()
     },

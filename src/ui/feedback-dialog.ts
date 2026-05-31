@@ -27,8 +27,10 @@ export function createFeedbackUi(
   trigger.title = t('feedback.triggerTitle')
   trigger.style.cssText = [
     'position: absolute',
-    'left: 10px',
-    'bottom: 10px',
+    // Oben links, rechts neben dem UI-Größen-Slider (Chrome-Zeile). Die untere linke Ecke
+    // gehört dem Ressourcen-Block. Im Menü liegt der Knopf hinter dem Overlay (s. main.ts).
+    'left: 200px',
+    'top: 12px',
     'z-index: 40',
     'background: rgba(20,20,28,0.8)',
     'color: rgba(255,255,255,0.8)',

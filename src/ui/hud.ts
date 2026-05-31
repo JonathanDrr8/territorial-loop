@@ -175,7 +175,9 @@ export function createHUD(
   const infoBox = document.createElement('div')
   infoBox.style.cssText = [
     'position: absolute',
-    'top: 12px',
+    // Unter der Chrome-Zeile (UI-Größe + Feedback), die oben links bei top:12 sitzt. Die
+    // Box klappt „Controls" nach unten auf → überdeckt die Chrome-Zeile darüber nie.
+    'top: 52px',
     'left: 12px',
     'background: rgba(0,0,0,0.82)',
     'color: white',
@@ -273,13 +275,13 @@ export function createHUD(
   // ausgehende Angriffe (mit ✕), Abwehr und Schiff-/Boot-Rückruf. Frei klickbar, direkt
   // beim Geschehen.
   const attackPanel = document.createElement('div')
-  // Absolut LINKS außerhalb der Hauptbox (right:100% = an deren linker Kante, unten bündig).
-  // So bleibt die zentrierte Hauptbox fest stehen — die Liste schiebt sie nicht weg.
+  // ÜBER der zentralen Hauptbox (rechtsbündig), wächst nach oben in den freien Kartenraum. Früher
+  // links daneben — das kollidierte mit dem Ressourcen-Block unten links (der sich beim Aufklappen
+  // der Economy-Aufschlüsselung zudem nach oben ausdehnt).
   attackPanel.style.cssText = [
     'position: absolute',
-    'right: 100%',
-    'bottom: 0',
-    'margin-right: 8px',
+    'right: 0',
+    'bottom: calc(100% + 8px)',
     'background: rgba(0,0,0,0.86)',
     'color: white',
     'padding: 8px 11px',
@@ -477,47 +479,47 @@ export function createHUD(
   // Aktive-Aktionen-Liste als absolutes Kind LINKS außerhalb der Hauptbox (verschiebt sie nicht).
   actionBar.appendChild(attackPanel)
 
-  /* ---- Oben Mitte: Truppen-Badge (prominente Anzeige) ---------------------- */
-  // Die Truppen-Leiste (mit Wachstums-Zonen) + Rate wandert nach OBEN MITTE als auffälliges
-  // Badge, damit die untere Box klein bleibt. Liest dieselben Elemente wie zuvor (update()).
+  /* ---- Unten links: Ressourcen-Block (Truppen GROSS + Balken + Gold) -------- */
+  // UI-Redesign Schritt 1: Truppen sind die wichtigste Zahl → prominent unten links, die ZAHL
+  // separat (groß) statt auf dem Balken; der Balken bleibt rein visuell (idle/Angriff/Kampf +
+  // Wachstums-Zonen). Gold zieht aus der Aktions-Leiste mit hierher („alle Ressourcen an einem Ort").
   const troopBadge = document.createElement('div')
   troopBadge.style.cssText = [
     'position: absolute',
-    'top: 0',
-    'left: 50%',
-    'transform: translateX(-50%)',
+    'bottom: 12px',
+    'left: 12px',
     'background: rgba(0,0,0,0.86)',
     'color: white',
-    'padding: 10px 20px 11px',
+    'padding: 10px 14px 11px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 15px',
-    // Nodge: hängt bündig vom oberen Rand rein — oben eckig, nur unten abgerundet.
-    'border-radius: 0 0 14px 14px',
+    'border-radius: 12px',
     'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
-    'min-width: 400px',
+    'min-width: 240px',
+    'max-width: 320px',
     'pointer-events: auto',
     'z-index: 11',
     'display: flex',
     'flex-direction: column',
-    'gap: 2px',
+    'gap: 4px',
   ].join(';')
 
-  // Truppen-Beschriftung liegt jetzt direkt IM Balken (zentriert, mit Schatten für
-  // Lesbarkeit über den farbigen Segmenten).
-  const barCaption = document.createElement('div')
-  barCaption.style.cssText = [
-    'position: absolute',
-    'inset: 0',
+  // Große, prominente Truppen-Zahl (der Held des HUD) — separat ÜBER dem Balken, nicht drauf.
+  const troopBig = document.createElement('div')
+  troopBig.style.cssText = [
     'display: flex',
-    'align-items: center',
-    'justify-content: center',
-    'font-size: 13px',
-    'font-weight: bold',
-    'white-space: nowrap',
-    'text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.9)',
-    'pointer-events: none',
-    'z-index: 3',
+    'align-items: baseline',
+    'gap: 8px',
+    'line-height: 1.05',
   ].join(';')
+  // Eigenes Zahl-Element (wird per innerHTML aktualisiert), damit das Rate-Element daneben bleibt.
+  const troopNumEl = document.createElement('div')
+  troopBig.appendChild(troopNumEl)
+  troopBadge.appendChild(troopBig)
+
+  // (Balken-Beschriftung entfällt — die Zahl steht jetzt groß in troopBig.)
+  const barCaption = document.createElement('div')
+  barCaption.style.cssText = 'display: none'
 
   const barWrap = document.createElement('div')
   barWrap.style.cssText = [
@@ -529,45 +531,32 @@ export function createHUD(
     'overflow: hidden',
     'margin-bottom: 3px',
   ].join(';')
+  // Balken bewusst schlicht: eine ruhige Nationsfarbe. KEINE Optimum/Stagnations-Striche
+  // mehr — die haben gedrängt, Truppen auszugeben. Idle-Truppen voll, im Kampf befindliche
+  // als texturierter Teil desselben Tons (busy ≠ Druck). Nur die große Zahl färbt sich
+  // beim Wachsen (Ampel) als sanfter Hinweis.
   const segIdle = document.createElement('div')
-  const segAttack = document.createElement('div')
   const segCombat = document.createElement('div')
-  for (const seg of [segIdle, segAttack, segCombat]) {
+  for (const seg of [segIdle, segCombat]) {
     seg.style.cssText = 'position: absolute; top: 0; bottom: 0'
     barWrap.appendChild(seg)
   }
-  // Effizienz-Striche: Optimum-Strich (cyan) am Peak der Wachstumskurve — links
-  // davon wächst man am besten (grün), rechts wird es zunehmend weniger (gelb), ab
-  // dem Stagnations-Strich (rot) ist das Wachstum stark gebremst. Pro Frame aus dem
-  // aktuellen Cap neu positioniert.
-  const optimumTick = document.createElement('div')
-  optimumTick.style.cssText =
-    'position:absolute;top:-2px;bottom:-2px;width:3px;background:#46d9e6;box-shadow:0 0 4px #46d9e6;border-radius:1px'
-  const stallTick = document.createElement('div')
-  stallTick.style.cssText =
-    'position:absolute;top:0;bottom:0;width:2px;background:#e05a5a;opacity:0.8'
-  barWrap.appendChild(optimumTick)
-  barWrap.appendChild(stallTick)
   barWrap.appendChild(barCaption)
 
-  // Zeile: Truppen-pro-Sekunde (links, in Wachstums-Zonenfarbe) + Balken.
-  const barRow = document.createElement('div')
-  barRow.style.cssText = 'display: flex; align-items: center; gap: 8px'
+  // Truppen-pro-Sekunde (Wachstums-Zonenfarbe) — inline rechts neben der großen Zahl in troopBig.
   const troopRateEl = document.createElement('div')
   troopRateEl.style.cssText = [
-    'flex: 0 0 74px',
-    'text-align: right',
     'font-size: 14px',
     'font-weight: bold',
     'font-variant-numeric: tabular-nums',
+    'margin-left: auto',
   ].join(';')
-  barWrap.style.flex = '1'
-  barRow.appendChild(troopRateEl)
-  barRow.appendChild(barWrap)
-  troopBadge.appendChild(barRow)
+  troopBig.appendChild(troopRateEl)
+  // Balken voll breit direkt unter der Zahl (kein gequetschtes Flex-Row mehr).
+  troopBadge.appendChild(barWrap)
 
   const barLegend = document.createElement('div')
-  barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; margin-top: 3px; min-height: 13px'
+  barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; min-height: 0'
   troopBadge.appendChild(barLegend)
   container.appendChild(troopBadge)
   registerScalable(troopBadge)
@@ -613,11 +602,11 @@ export function createHUD(
   ].join(';')
   actionBar.appendChild(buildTooltip)
 
-  // Gold-Zeile über den Bau-Buttons (Gold wird hauptsächlich fürs Bauen genutzt):
-  // Vorrat + geglättete Einkommensrate (mittelt sprunghaften Handel).
+  // Gold-Zeile im Ressourcen-Block (unten links): Vorrat + geglättete Einkommensrate. Klick
+  // klappt die Economy-Aufschlüsselung auf (Grund-Gold / Fabrik-Netz / Handel).
   const goldEl = document.createElement('div')
-  goldEl.style.cssText = 'font-size: 12px; margin-bottom: 5px; color: #e8c14a; cursor: pointer'
-  actionBar.appendChild(goldEl)
+  goldEl.style.cssText = 'font-size: 13px; color: #e8c14a; cursor: pointer; margin-top: 2px'
+  troopBadge.appendChild(goldEl)
 
   // Aufklappbare Economy-Aufschlüsselung (Grund-Gold / Fabrik-Netz / Handel).
   let economyOpen = false
@@ -626,13 +615,13 @@ export function createHUD(
     'display: none',
     'font-size: 11px',
     'line-height: 1.5',
-    'margin: -2px 0 6px',
+    'margin: 2px 0 0',
     'padding: 5px 7px',
     'background: rgba(0,0,0,0.35)',
     'border-radius: 5px',
     'color: #d8d2bf',
   ].join(';')
-  actionBar.appendChild(goldDetail)
+  troopBadge.appendChild(goldDetail)
   goldEl.addEventListener('click', () => {
     economyOpen = !economyOpen
     goldDetail.style.display = economyOpen ? 'block' : 'none'
@@ -896,27 +885,24 @@ export function createHUD(
     const total = totalTroops(human)
     const combat = Math.max(0, total - idle)
     const attackAmt = Math.floor((idle * currentSliderPct) / 100)
-    const idleBase = Math.max(0, idle - attackAmt)
     const color = rgbaToCss(human.color)
     const pctW = (v: number): string => `${Math.max(0, Math.min(100, (v / cap) * 100)).toString()}%`
 
     segIdle.style.left = '0%'
-    segIdle.style.width = pctW(idleBase)
+    segIdle.style.width = pctW(idle)
     segIdle.style.background = color
-    segAttack.style.left = pctW(idleBase)
-    segAttack.style.width = pctW(attackAmt)
-    segAttack.style.background = '#e8d24a'
-    segCombat.style.left = pctW(idleBase + attackAmt)
+    segCombat.style.left = pctW(idle)
     segCombat.style.width = pctW(combat)
     segCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
 
     const zones = growthZones(cap)
-    optimumTick.style.left = `${(zones.optimum * 100).toString()}%`
-    stallTick.style.left = `${(zones.stall * 100).toString()}%`
     const frac = total / cap
     const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
     const pct = Math.round(frac * 100)
-    barCaption.innerHTML = `${t('hud.troops')} <b style="color:${stateColor}">${fmtCompact(total)}</b> (${pct.toString()}%) / ${fmtCompact(cap)}`
+    // Große, prominente Truppen-Zahl (Held); Cap/%/Label klein daneben.
+    troopNumEl.innerHTML =
+      `<span style="font-size:27px;font-weight:800;color:${stateColor};font-variant-numeric:tabular-nums">${fmtCompact(total)}</span>` +
+      `<span style="font-size:12px;opacity:0.75"> / ${fmtCompact(cap)} ${t('hud.troops')} · ${pct.toString()}%</span>`
     // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
     // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
     sliderLabel.textContent = `${t('hud.attack', { pct: currentSliderPct })} · ≈${fmtCompact(attackAmt)}`
@@ -1170,14 +1156,9 @@ export function createHUD(
 
   function update(): void {
     const gameSeconds = state.tick / SIM_TICKS_PER_SECOND
-    const speedLabel = currentSpeed === 0 ? `⏸ ${t('hud.pause')}` : `${String(currentSpeed)}×`
-    const phaseLine =
-      state.phase === 'running'
-        ? t('hud.running')
-        : t('hud.ended', {
-            winner: state.winner !== null ? (state.players.get(state.winner)?.name ?? '?') : '?',
-          })
-    infoLine.innerHTML = `${t('hud.time')} ${fmtDuration(gameSeconds)} · ${speedLabel} · ${phaseLine}`
+    const speedLabel = currentSpeed === 0 ? t('hud.pause') : `${String(currentSpeed)}×`
+    // „Phase" (running/ended) entfällt — „running" ist redundant, „ended" zeigt das Game-Over-Banner.
+    infoLine.innerHTML = `${t('hud.time')} ${fmtDuration(gameSeconds)} · ${speedLabel}`
 
     updateRankList()
     updateActionBar()

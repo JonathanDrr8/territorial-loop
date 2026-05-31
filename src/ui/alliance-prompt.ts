@@ -1,6 +1,8 @@
 /**
  * Bündnis-Anfragen-Panel: zeigt eingehende Allianz-Angebote an den Menschen mit
- * direkten Aktionen (Akzeptieren / Ablehnen / Ignorieren) — rechtsbündig unter der Rangliste.
+ * direkten Aktionen (Akzeptieren / Ablehnen / Ignorieren) — als oberste Karten der gemeinsamen
+ * Feed-Spalte unten rechts (über dem Ereignislog, der über der Minimap sitzt). Positioniert wird
+ * NICHT mehr selbst; der Aufrufer steckt die Box in die Feed-Spalte (die trägt `zoom`).
  *
  *  - Akzeptieren → accept-alliance Intent (Bündnis kommt zustande).
  *  - Ablehnen    → decline-alliance Intent (Anfrage wird verworfen).
@@ -16,7 +18,6 @@
 import type { GameState } from '../core/game'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
-import { registerScalable } from './ui-scale'
 
 const ID_STRIDE = 4096
 /** Wie lange ein unbeantwortetes Angebot sichtbar bleibt, bevor es ausfaded. */
@@ -27,8 +28,6 @@ const SOUND_COOLDOWN_MS = 1500
 
 export interface AlliancePromptApi {
   update(): void
-  /** Aktuelle Pixel-Höhe des Panels (0 wenn leer) — damit der Log darunter rücken kann. */
-  heightPx(): number
   destroy(): void
 }
 
@@ -48,22 +47,20 @@ export function createAlliancePrompt(
   onNewRequest?: () => void,
 ): AlliancePromptApi {
   const box = document.createElement('div')
-  // Links (statt rechts) — sonst überlappt die aufgeklappte Rangliste oben rechts die Anfragen.
+  // In-Flow in der Feed-Spalte (oberste Karten, über dem Log). Kein eigenes Anker mehr.
   box.style.cssText = [
-    'position: absolute',
-    'top: 232px',
-    'left: 12px',
+    'width: 100%',
+    // Bündnis-Karten behalten immer ihre volle Höhe (nicht der nachgebende Teil — das ist der Log).
+    'flex: 0 0 auto',
     'display: flex',
     'flex-direction: column',
     'gap: 6px',
-    'align-items: flex-start',
+    'align-items: stretch',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
-    'z-index: 20',
     'pointer-events: none',
   ].join(';')
   container.appendChild(box)
-  registerScalable(box)
 
   // Pro Anfragesteller eine verwaltete Zeile (kein Neubauen pro Frame → Klicks bleiben stabil,
   // und einzelne Zeilen können ein-/ausfaden).
@@ -106,7 +103,7 @@ export function createAlliancePrompt(
       return
     }
     el.style.opacity = '0'
-    el.style.transform = 'translateX(-12px)'
+    el.style.transform = 'translateX(12px)'
     window.setTimeout(() => {
       el.remove()
       rows.delete(id)
@@ -118,25 +115,29 @@ export function createAlliancePrompt(
 
   function makeRow(from: number, name: string, color: string): HTMLDivElement {
     const row = document.createElement('div')
+    // Kompakte Karte: Text-Zeile oben, Button-Zeile darunter — passt in die schmale Feed-Spalte
+    // (250px), nichts wird rechts abgeschnitten.
     row.style.cssText = [
       `background:rgba(8,10,16,0.92)`,
       `border-left:3px solid ${color}`,
       'border-radius:6px',
       'padding:6px 9px',
       'display:flex',
-      'gap:8px',
-      'align-items:center',
+      'flex-direction:column',
+      'gap:6px',
       'opacity:0',
-      'transform:translateX(-12px)',
+      'transform:translateX(12px)',
       `transition:opacity ${String(FADE_MS)}ms ease, transform ${String(FADE_MS)}ms ease`,
     ].join(';')
     const btn = (act: string, label: string, bg: string): string =>
-      `<button data-act="${act}" data-req="${String(from)}" style="pointer-events:auto;cursor:pointer;font:inherit;border:none;border-radius:4px;padding:3px 8px;color:#fff;background:${bg}">${label}</button>`
+      `<button data-act="${act}" data-req="${String(from)}" style="pointer-events:auto;cursor:pointer;font:inherit;font-size:11px;border:none;border-radius:4px;padding:3px 9px;color:#fff;background:${bg}">${label}</button>`
     row.innerHTML =
-      `<span><b style="color:${color}">${escapeHtml(name)}</b> ${t('prompt.offersAlliance')}</span>` +
+      `<span style="text-align:right"><b style="color:${color}">${escapeHtml(name)}</b> ${t('prompt.offersAlliance')}</span>` +
+      `<div style="display:flex;gap:6px;justify-content:flex-end">` +
       btn('accept', t('prompt.accept'), '#2f7d4f') +
       btn('decline', t('prompt.decline'), '#8a3a3a') +
-      btn('ignore', t('prompt.ignore'), '#3a3f4a')
+      btn('ignore', t('prompt.ignore'), '#3a3f4a') +
+      `</div>`
     return row
   }
 
@@ -201,9 +202,6 @@ export function createAlliancePrompt(
 
   return {
     update,
-    heightPx(): number {
-      return box.offsetHeight
-    },
     destroy(): void {
       box.remove()
     },

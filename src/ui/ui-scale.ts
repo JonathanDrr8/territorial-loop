@@ -56,13 +56,15 @@ export function setUiScale(value: number): void {
   for (const el of elements) el.style.setProperty('zoom', String(scale))
 }
 
-/** Kleiner Slider unten links (neben dem Feedback-Knopf), der die UI-Größe steuert. */
+/** Kleiner Slider oben links (neben dem Feedback-Knopf), der die UI-Größe steuert. */
 export function createUiScaleSlider(container: HTMLElement): { destroy(): void } {
   const wrap = document.createElement('div')
   wrap.style.cssText = [
     'position: absolute',
-    'left: 10px',
-    'bottom: 44px',
+    // Chrome-Zeile oben links (zusammen mit dem Feedback-Knopf rechts daneben), damit die
+    // untere linke Ecke ganz dem Ressourcen-Block gehört.
+    'left: 12px',
+    'top: 12px',
     'z-index: 45',
     'display: flex',
     'align-items: center',

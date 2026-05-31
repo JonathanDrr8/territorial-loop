@@ -41,7 +41,7 @@ import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
-import { clearScalables, createUiScaleSlider } from './ui/ui-scale'
+import { clearScalables, createUiScaleSlider, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -515,9 +515,32 @@ function startMatch(
     () => Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
     (h) => renderer.setHoverHighlight(h),
   )
-  const eventLog = createEventLog(container, state)
+  // Gemeinsame Feed-Spalte unten rechts, ÜBER der Minimap (klassisches Layout): oben die
+  // interaktiven Bündnis-Anfragen, darunter das passive Ereignislog. Anker unten → wächst nach
+  // oben. Die Spalte trägt das `zoom` für beide Karten (Kinder registrieren sich nicht selbst).
+  const feedColumn = document.createElement('div')
+  feedColumn.style.cssText = [
+    'position: absolute',
+    'right: 12px',
+    // Über der Minimap (TARGET_SIZE 192 + Padding/Margin) mit etwas Luft.
+    'bottom: 224px',
+    'width: 250px',
+    // Gedeckelt, damit der Feed bei vielen Anfragen/Ereignissen nicht in die Rangliste hochwächst.
+    // Anker unten → wächst nach oben; der Log (unten) gibt nach, die Bündnis-Karten (oben) bleiben.
+    'max-height: 300px',
+    'display: flex',
+    'flex-direction: column',
+    'gap: 6px',
+    'align-items: stretch',
+    'pointer-events: none',
+    'z-index: 12',
+  ].join(';')
+  container.appendChild(feedColumn)
+  registerScalable(feedColumn)
+
+  // Reihenfolge zählt: Bündnis-Karten zuerst (oben), Log danach (unten, direkt über der Minimap).
   const alliancePrompt = createAlliancePrompt(
-    container,
+    feedColumn,
     state,
     humanId,
     (requesterId) =>
@@ -529,6 +552,7 @@ function startMatch(
     (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
     () => sound.alliance(),
   )
+  const eventLog = createEventLog(feedColumn, state)
   const buildMenu = createBuildMenu(
     container,
     state,
@@ -688,10 +712,8 @@ function startMatch(
     renderer.render()
     minimap.update()
     hud.update()
-    // Bündnis-Panel zuerst, dann den Log darunter schieben (sonst überdeckt es ihn).
+    // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
     alliancePrompt.update()
-    // Bündnis-Anfragen liegen jetzt links → der Log (rechts) braucht keinen Versatz mehr.
-    eventLog.setTopOffset(0)
     eventLog.update()
     renderRafId = requestAnimationFrame(renderLoop)
   }
@@ -713,6 +735,7 @@ function startMatch(
       tooltip.destroy()
       eventLog.destroy()
       alliancePrompt.destroy()
+      feedColumn.remove()
       buildMenu.destroy()
       confirmDialog.destroy()
       renderer.destroy()
@@ -758,7 +781,7 @@ function main(): void {
     endpoint: feedbackEndpoint(),
     version: APP_VERSION,
   })
-  // UI-Größen-Slider (unten links über dem Feedback-Knopf) — skaliert das ganze In-Game-HUD.
+  // UI-Größen-Slider (oben links, neben dem Feedback-Knopf) — skaliert das ganze In-Game-HUD.
   createUiScaleSlider(container)
 
   let session: MatchSession | null = null
