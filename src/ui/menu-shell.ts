@@ -43,7 +43,7 @@ import type { BuildingType } from '../core/buildings'
 import type { TerrainType } from '../world/terrain'
 import { createMapPreview } from './map-preview'
 import { isGeoMapId } from './geo-loader'
-import { loadMusicEnabled, saveMusicEnabled, saveMenuPrefs } from './preferences'
+import { loadAudioVolumes, saveAudioVolumes, saveMenuPrefs } from './preferences'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
@@ -742,52 +742,24 @@ export function createMenuShell(
     )
     p.appendChild(camera.element)
 
-    // Sound als Select-freie Checkbox-Zeile (an/aus aus t()).
-    const soundRow = document.createElement('div')
-    soundRow.style.cssText =
-      'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
-    const soundLabel = document.createElement('label')
-    soundLabel.textContent = t('field.sound')
-    const soundWrap = document.createElement('label')
-    soundWrap.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
-    const soundCheck = document.createElement('input')
-    soundCheck.type = 'checkbox'
-    soundCheck.checked = values.soundEnabled
-    soundCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
-    const soundText = document.createElement('span')
-    soundText.textContent = values.soundEnabled ? t('toggle.on') : t('toggle.off')
-    soundCheck.addEventListener('change', () => {
-      soundText.textContent = soundCheck.checked ? t('toggle.on') : t('toggle.off')
-    })
-    soundWrap.appendChild(soundCheck)
-    soundWrap.appendChild(soundText)
-    soundRow.appendChild(soundLabel)
-    soundRow.appendChild(soundWrap)
-    p.appendChild(soundRow)
-
-    // Adaptiver Soundtrack (Prototyp) — eigenständig persistiert (nicht Teil der Match-Settings/MP),
-    // direkt in localStorage, von startMatch beim Match-Start gelesen.
-    const musicRow = document.createElement('div')
-    musicRow.style.cssText = soundRow.style.cssText
-    const musicLabel = document.createElement('label')
-    musicLabel.textContent = t('field.music')
-    const musicWrap = document.createElement('label')
-    musicWrap.style.cssText = 'display: inline-flex; align-items: center; gap: 8px; cursor: pointer'
-    const musicCheck = document.createElement('input')
-    musicCheck.type = 'checkbox'
-    musicCheck.checked = loadMusicEnabled()
-    musicCheck.style.cssText = 'width: 16px; height: 16px; cursor: pointer'
-    const musicText = document.createElement('span')
-    musicText.textContent = musicCheck.checked ? t('toggle.on') : t('toggle.off')
-    musicCheck.addEventListener('change', () => {
-      musicText.textContent = musicCheck.checked ? t('toggle.on') : t('toggle.off')
-      saveMusicEnabled(musicCheck.checked)
-    })
-    musicWrap.appendChild(musicCheck)
-    musicWrap.appendChild(musicText)
-    musicRow.appendChild(musicLabel)
-    musicRow.appendChild(musicWrap)
-    p.appendChild(musicRow)
+    // Audio: Gesamt-/Effekt-/Musik-Lautstärke als Regler (0 % = aus). Eigenständig persistiert
+    // (reine Präsentation, nicht in den Match-Settings/MP) — von startMatch beim Match-Start gelesen.
+    section(p, t('settings.audio'))
+    const av = loadAudioVolumes()
+    const masterRow = makeSliderRow(t('field.master'), 0, 100, 5, Math.round(av.master * 100), '%')
+    const sfxRow = makeSliderRow(t('field.sound'), 0, 100, 5, Math.round(av.sfx * 100), '%')
+    const musicRow = makeSliderRow(t('field.music'), 0, 100, 5, Math.round(av.music * 100), '%')
+    const persistAudio = (): void => {
+      saveAudioVolumes({
+        master: masterRow.getValue() / 100,
+        sfx: sfxRow.getValue() / 100,
+        music: musicRow.getValue() / 100,
+      })
+    }
+    for (const r of [masterRow, sfxRow, musicRow]) {
+      r.element.querySelector('input[type=range]')?.addEventListener('input', persistAudio)
+      p.appendChild(r.element)
+    }
 
     // Erlaubte Gebäude: deaktivierte Typen kann im Match niemand bauen (Spieler-HUD blendet aus,
     // KI überspringt, `canBuildAt` lehnt ab). Default alle an.
@@ -912,7 +884,8 @@ export function createMenuShell(
 
     settingsFields = {
       camera: camera.getValue,
-      sound: () => soundCheck.checked,
+      // `soundEnabled` (StartMenuValues) bleibt konsistent: an, sobald Gesamt- UND Effekt-Regler > 0.
+      sound: () => masterRow.getValue() > 0 && sfxRow.getValue() > 0,
       rivers: riversRow.getValue,
       riverDensity: riverDensityRow.getValue,
       buildings: () => ({

@@ -52,8 +52,10 @@ export const en: Record<string, string> = {
   // ── Tab "Settings" ─────────────────────────────────────────────────────────
   'settings.intro': 'Display & optional features. They apply to the next match.',
   'settings.display': 'Display',
+  'settings.audio': 'Audio',
   'field.camera': 'Camera',
-  'field.sound': 'Sound',
+  'field.master': 'Master',
+  'field.sound': 'Sound effects',
   'field.music': 'Music (beta)',
   'toggle.on': 'on',
   'toggle.off': 'off',

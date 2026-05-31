@@ -50,8 +50,10 @@ export const ja: Record<string, string> = {
 
   'settings.intro': '表示と任意機能。次の対戦から反映されます。',
   'settings.display': '表示',
+  'settings.audio': 'オーディオ',
   'field.camera': 'カメラ',
-  'field.sound': 'サウンド',
+  'field.master': 'マスター音量',
+  'field.sound': '効果音',
   'field.music': '音楽（ベータ）',
   'toggle.on': 'オン',
   'toggle.off': 'オフ',

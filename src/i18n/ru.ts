@@ -50,8 +50,10 @@ export const ru: Record<string, string> = {
 
   'settings.intro': 'Отображение и дополнительные функции. Применяются к следующему матчу.',
   'settings.display': 'Отображение',
+  'settings.audio': 'Аудио',
   'field.camera': 'Камера',
-  'field.sound': 'Звук',
+  'field.master': 'Общая',
+  'field.sound': 'Звуковые эффекты',
   'field.music': 'Музыка (бета)',
   'toggle.on': 'вкл',
   'toggle.off': 'выкл',

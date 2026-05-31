@@ -24,6 +24,8 @@ export interface SoundEngine {
   bombImpact(pan: number, gain: number): void
   setEnabled(enabled: boolean): void
   isEnabled(): boolean
+  /** Effektiv-Lautstärke der Soundeffekte (0..1, = Master × SFX-Regler). */
+  setVolume(volume: number): void
   destroy(): void
 }
 
@@ -45,6 +47,8 @@ function getAudioContextCtor(): AudioCtor | null {
 export function createSoundEngine(): SoundEngine {
   let enabled = true
   let ctx: AudioContext | null = null
+  let masterGain: GainNode | null = null
+  let volume = 1 // Effektiv-Lautstärke (Master × SFX), 0..1 — von außen per setVolume gesetzt.
 
   function ensureCtx(): AudioContext | null {
     if (!enabled) return null
@@ -55,17 +59,21 @@ export function createSoundEngine(): SoundEngine {
     const Ctor = getAudioContextCtor()
     if (Ctor === null) return null
     ctx = new Ctor()
+    masterGain = ctx.createGain()
+    masterGain.gain.value = volume
+    masterGain.connect(ctx.destination)
     return ctx
   }
 
-  /** Routet eine Quelle über optionales Stereo-Panning an den Ausgang (Fallback ohne Panner-Support). */
+  /** Routet eine Quelle über optionales Stereo-Panning an den Master-Gain (Fallback ohne Panner). */
   function connectOut(c: AudioContext, node: AudioNode, pan: number): void {
+    const out: AudioNode = masterGain ?? c.destination
     if (pan !== 0 && typeof c.createStereoPanner === 'function') {
       const panner = c.createStereoPanner()
       panner.pan.value = Math.max(-1, Math.min(1, pan))
-      node.connect(panner).connect(c.destination)
+      node.connect(panner).connect(out)
     } else {
-      node.connect(c.destination)
+      node.connect(out)
     }
   }
 
@@ -188,10 +196,15 @@ export function createSoundEngine(): SoundEngine {
     isEnabled(): boolean {
       return enabled
     },
+    setVolume(value: number): void {
+      volume = Math.max(0, Math.min(1, value))
+      if (masterGain !== null) masterGain.gain.value = volume
+    },
     destroy(): void {
       if (ctx !== null) {
         void ctx.close()
         ctx = null
+        masterGain = null
       }
     },
   }
