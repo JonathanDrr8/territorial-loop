@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.17.0] – 2026-05-31
+
+### Neu
+
+- **Fluss-Häufigkeit einstellbar:** Wenn Flüsse aktiviert sind, bestimmt ein neuer Regler
+  (0,2× bis 3×, Standard 1×), wie dicht die Karte mit Wasserläufen bedeckt wird. Niedrige
+  Werte ergeben wenige, breite Flüsse; hohe Werte überziehen die Welt mit einem dichten
+  Flussnetz. Die Einstellung gilt sowohl im Einzelspieler als auch in der Mehrspieler-Lobby.
+
 ## [0.16.0] – 2026-05-31
 
 ### Neu
