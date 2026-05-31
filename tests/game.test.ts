@@ -392,6 +392,35 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p1.gold).toBeGreaterThan(BASE_GOLD_PER_TICK * 40)
   })
 
+  it('verbindet Fabrik und WEIT entfernte Stadt über zusammenhängendes Eigenland', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 128, mapHeight: 128 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const cityTile = tileRef(20, 40, W, H)
+    const factoryTile = tileRef(90, 40, W, H) // 70 Tiles entfernt
+    // Durchgehender Eigenland-Streifen dazwischen (eine Owner-Komponente).
+    for (let x = 20; x <= 90; x++) setOwner(state.map, tileRef(x, 40, W, H), 1)
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(factoryTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: factoryTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    tick(state, [])
+    expect(
+      state.goldCarts.some((c) => c.sourceTile === cityTile && c.factoryTile === factoryTile),
+    ).toBe(true)
+  })
+
   it('isolierte Fabrik ohne verbundene Ziele bringt nur den Sockel', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width
