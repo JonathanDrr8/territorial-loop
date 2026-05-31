@@ -4,6 +4,18 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.22.1] – 2026-06-01
+
+### Behoben
+
+- **Häfen nur noch an der Küste:** Ein Hafen ließ sich versehentlich so weit vom Wasser
+  entfernt platzieren, dass keine Schiffe mehr gebaut werden konnten. Häfen müssen jetzt
+  direkt an Wasser grenzen. Klickt man knapp daneben, rastet der Cursor automatisch aufs
+  nächste eigene Küsten-Tile.
+- **Boot-Tuten wieder hörbar:** Das tiefe Tuten beim Aussenden eines Transportboots war auf
+  vielen Boxen und Laptops kaum wahrnehmbar (zu reiner Ton, zu tief). Der Sound klingt jetzt
+  voller und trägt deutlich besser.
+
 ## [0.22.0] – 2026-05-31
 
 ### Geändert
