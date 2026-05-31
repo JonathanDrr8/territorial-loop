@@ -280,6 +280,7 @@ export const ru: Record<string, string> = {
   'hud.editor.hidden': 'Скрыто',
   'hud.editor.elements': 'Элементы',
   'hud.editor.panel.attacks': 'Атаки',
+  'hud.editor.emptyHint': 'отображается в игре',
   'hud.editor.hint': 'Перетащить = переместить · Углы = размер · × = скрыть',
   'hud.editor.panel.info': 'Время и управление',
   'hud.editor.panel.rank': 'Рейтинг',

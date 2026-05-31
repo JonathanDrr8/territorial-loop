@@ -288,6 +288,7 @@ export const en: Record<string, string> = {
   'hud.editor.hidden': 'Hidden',
   'hud.editor.elements': 'Elements',
   'hud.editor.panel.attacks': 'Attacks',
+  'hud.editor.emptyHint': 'shown in-game',
   'hud.editor.hint': 'Drag = move · Corners = resize · × = hide',
   'hud.editor.panel.info': 'Time & Controls',
   'hud.editor.panel.rank': 'Ranking',

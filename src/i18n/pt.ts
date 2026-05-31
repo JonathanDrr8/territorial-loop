@@ -286,6 +286,7 @@ export const pt: Record<string, string> = {
   'hud.editor.hidden': 'Oculto',
   'hud.editor.elements': 'Elementos',
   'hud.editor.panel.attacks': 'Ataques',
+  'hud.editor.emptyHint': 'aparece na partida',
   'hud.editor.hint': 'Arrastar = mover · Cantos = redimensionar · × = ocultar',
   'hud.editor.panel.info': 'Tempo e controlos',
   'hud.editor.panel.rank': 'Classificação',

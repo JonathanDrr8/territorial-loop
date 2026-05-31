@@ -239,6 +239,7 @@ export const zh: Record<string, string> = {
   'hud.editor.hidden': '已隐藏',
   'hud.editor.elements': '元素',
   'hud.editor.panel.attacks': '进攻',
+  'hud.editor.emptyHint': '游戏中显示',
   'hud.editor.hint': '拖拽 = 移动 · 角落 = 调整大小 · × = 隐藏',
   'hud.editor.panel.info': '时间与操作',
   'hud.editor.panel.rank': '排行',

@@ -397,14 +397,17 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   // ---- Rahmen je Panel bauen -----------------------------------------------------------------
   const panelMap = new Map<string, HTMLElement>()
 
-  function buildFrame(id: string, el: HTMLElement): void {
+  function buildFrame(id: string, el: HTMLElement, isEmpty = false): void {
     const frame = document.createElement('div')
     frame.style.cssText = [
       'position: absolute',
       'z-index: 57',
       'box-sizing: border-box',
       'border: 2px dashed var(--tl-accent)',
-      'background: rgba(70,217,230,0.06)',
+      // Zustandsbedingt leere Panels (z. B. 'attacks' ohne Kampf) bekommen einen kräftigeren
+      // Karten-Hintergrund, damit der Platzhalter wie ein echtes Panel wirkt statt leerem Kasten.
+      isEmpty ? 'background: rgba(12,14,20,0.78)' : 'background: rgba(70,217,230,0.06)',
+      'border-radius: 8px',
       'cursor: grab',
       'pointer-events: auto',
     ].join(';')
@@ -412,25 +415,32 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       startDrag(id, e)
     })
 
-    // Namens-Label (mittig, durchklickbar) — macht Panels im Editor identifizierbar und gibt
-    // zustandsbedingt leeren Panels (z. B. 'attacks' ohne Kampf) sichtbaren Text zum Anfassen.
+    // Namens-Label (mittig, durchklickbar) — macht Panels im Editor identifizierbar. Leere Panels
+    // bekommen zusätzlich einen Hinweis „erscheint im Spiel", damit kein nackter Kasten dasteht.
     const nameTag = document.createElement('div')
-    nameTag.textContent = t(PANEL_LABEL[id] ?? id)
     nameTag.style.cssText = [
       'position: absolute',
       'inset: 0',
       'display: flex',
+      'flex-direction: column',
       'align-items: center',
       'justify-content: center',
+      'gap: 3px',
       'text-align: center',
-      'font-size: 11px',
-      'font-weight: 700',
-      'letter-spacing: 0.5px',
-      'color: var(--tl-accent)',
-      'text-shadow: 0 1px 3px rgba(0,0,0,0.8)',
       'pointer-events: none',
       'z-index: 1',
     ].join(';')
+    const nameLine = document.createElement('div')
+    nameLine.textContent = t(PANEL_LABEL[id] ?? id)
+    nameLine.style.cssText =
+      'font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: var(--tl-accent); text-shadow: 0 1px 3px rgba(0,0,0,0.8)'
+    nameTag.appendChild(nameLine)
+    if (isEmpty) {
+      const hint = document.createElement('div')
+      hint.textContent = t('hud.editor.emptyHint')
+      hint.style.cssText = 'font-size: 10px; opacity: 0.6; color: var(--tl-text)'
+      nameTag.appendChild(hint)
+    }
     frame.appendChild(nameTag)
 
     // ×-Knopf zum Ausblenden (oben rechts, innen).
@@ -856,7 +866,7 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       // Auch ausgeblendete Panels vermessen (kurz einblenden), damit Position/Größe stimmen.
       if (hidden) el.style.display = ''
       arm(id, el)
-      buildFrame(id, el)
+      buildFrame(id, el, forcedShown.has(id))
       if (hidden) {
         el.style.display = 'none'
         const frame = frames.get(id)

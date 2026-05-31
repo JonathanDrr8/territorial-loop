@@ -241,6 +241,7 @@ export const ja: Record<string, string> = {
   'hud.editor.hidden': '非表示',
   'hud.editor.elements': '要素',
   'hud.editor.panel.attacks': '攻撃',
+  'hud.editor.emptyHint': 'ゲーム中に表示',
   'hud.editor.hint': 'ドラッグ = 移動 · 角 = リサイズ · × = 非表示',
   'hud.editor.panel.info': '時間と操作',
   'hud.editor.panel.rank': 'ランキング',
