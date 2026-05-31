@@ -4,6 +4,31 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.13.0] – 2026-05-31
+
+### Neu
+
+- **Pause-Menü:** Wer **Esc** drückt, landet jetzt in einem richtigen Pause-Menü im Spiel-Design —
+  mit den Optionen **Weiter**, **HUD anpassen** und **Runde verlassen**. Die Verlassen-Abfrage
+  erscheint also nicht mehr sofort, sondern erst nach einem bewussten Klick.
+- **HUD-Editor aus dem Menü heraus einrichten:** In den Einstellungen unter „HUD & Design" gibt
+  es den Knopf **„HUD anpassen"**. Ein Klick startet ein kleines, pausiertes Übungs-Match mit
+  sofort geöffnetem Editor — so lässt sich das eigene HUD-Layout in Ruhe einrichten, ohne ein
+  echtes Spiel starten zu müssen. **„Fertig"** bringt direkt zurück ins Hauptmenü.
+- **Werkzeugleiste verschiebbar:** Die Editor-Leiste lässt sich jetzt am **Zieh-Griff oben**
+  frei auf dem Bildschirm verschieben — sie verdeckt keine Panels mehr.
+- **Einheitliches Design im Startmenü:** Das gewählte Spiel-Design gilt jetzt auch für die
+  **Lobby-Liste** und das **Tipps-&-Tricks-Feld** im Startmenü — vorher waren diese Bereiche
+  unabhängig davon immer dunkelblau.
+- **Tipps & Tricks auf dem Ladebildschirm:** Die Hinweise erscheinen jetzt auch während das
+  Match lädt. Der Wechsel zwischen den Tipps läuft **langsamer und mit sanftem Überblenden** —
+  so bleibt genug Zeit, sie tatsächlich zu lesen.
+
+### Geändert
+
+- Der schwebende **„HUD anpassen"-Knopf oben links** im laufenden Match ist entfallen. Den
+  Editor erreicht man jetzt über **Esc → HUD anpassen** oder über die Einstellungen.
+
 ## [0.12.0] – 2026-05-31
 
 ### Neu
