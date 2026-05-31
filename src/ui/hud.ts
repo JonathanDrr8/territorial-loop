@@ -44,6 +44,7 @@ import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
 import { registerPanel, unregisterPanel } from './hud-layout'
+import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
 import { registerScalable } from './ui-scale'
 
@@ -763,6 +764,13 @@ export function createHUD(
   })
   actionBar.appendChild(unitRow)
 
+  // Alternative Knopf-Anordnung: 3×3-Numpad auf den echten Hotkey-Positionen (oben 7/8/9,
+  // Mitte 4/5/6, unten 1/2/3). Standardmäßig versteckt; `applyLayoutPrefs` schaltet um, indem
+  // es die vorhandenen Knöpfe hier hineinhängt (oder zurück in die Reihen).
+  const numpadGrid = document.createElement('div')
+  numpadGrid.style.cssText = 'display: none; grid-template-columns: repeat(3, 1fr); gap: 6px'
+  actionBar.appendChild(numpadGrid)
+
   // Hinweis-Banner während aktivem Boot-Modus.
   const boatHint = document.createElement('div')
   boatHint.style.cssText = [
@@ -813,6 +821,48 @@ export function createHUD(
   container.appendChild(actionBar)
   registerScalable(actionBar)
   registerPanel('action', actionBar)
+
+  // ---- HUD-Layout-Präferenzen anwenden (Slider-Heimat + Knopf-Anordnung, ADR-0024) ----------
+  // Wird einmal beim Bau und danach bei jeder Editor-Umschaltung (onHudPrefsChange) ausgeführt.
+  const numpadOrder = [
+    bomberBtn, // 7
+    warshipBtn, // 8
+    boatBtn, // 9 (B)
+    buildButtons.get('factory'), // 4
+    buildButtons.get('airport'), // 5
+    buildButtons.get('flak'), // 6
+    buildButtons.get('city'), // 1
+    buildButtons.get('defense'), // 2
+    buildButtons.get('port'), // 3
+  ].filter((b): b is HTMLButtonElement => b !== undefined)
+  const rowBuildOrder: BuildingType[] = ['city', 'defense', 'port', 'factory', 'airport', 'flak']
+
+  function applyLayoutPrefs(p: HudPrefs): void {
+    // Slider-Heimat: ans obere Ende des Aktions-Panels ODER ans untere Ende des Truppen-Blocks.
+    if (p.sliderHome === 'resource') troopBadge.appendChild(sliderWrap)
+    else actionBar.insertBefore(sliderWrap, actionBar.firstChild)
+
+    // Knopf-Anordnung: zwei Reihen oder 3×3-Numpad.
+    if (p.buttonsLayout === 'numpad') {
+      for (const btn of numpadOrder) numpadGrid.appendChild(btn)
+      numpadGrid.style.display = 'grid'
+      buildRow.style.display = 'none'
+      unitRow.style.display = 'none'
+    } else {
+      for (const type of rowBuildOrder) {
+        const btn = buildButtons.get(type)
+        if (btn !== undefined) buildRow.appendChild(btn)
+      }
+      unitRow.appendChild(boatBtn)
+      unitRow.appendChild(bomberBtn)
+      unitRow.appendChild(warshipBtn)
+      numpadGrid.style.display = 'none'
+      buildRow.style.display = 'flex'
+      unitRow.style.display = 'flex'
+    }
+  }
+  applyLayoutPrefs(getHudPrefs())
+  const offHudPrefs = onHudPrefsChange(applyLayoutPrefs)
 
   /* ---- Game-Over-Banner ---------------------------------------------------- */
   const banner = document.createElement('div')
@@ -1304,6 +1354,7 @@ export function createHUD(
     },
     destroy(): void {
       if (resyncTimer !== null) clearTimeout(resyncTimer)
+      offHudPrefs()
       for (const id of ['info', 'rank', 'resource', 'action']) unregisterPanel(id)
       infoBox.remove()
       traitorBanner.remove()

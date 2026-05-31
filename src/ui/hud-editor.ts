@@ -15,6 +15,7 @@ import { t } from '../i18n'
 import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } from './hud-layout'
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
+import { getHudPrefs, setHudPref } from './hud-prefs'
 
 export interface HudEditorApi {
   destroy(): void
@@ -507,6 +508,52 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     }
   }
 
+  /** Beschrifteter Segment-Umschalter (Label + 2+ Optionen, aktive hervorgehoben). */
+  function segmented<T extends string>(
+    label: string,
+    initial: T,
+    options: ReadonlyArray<readonly [T, string]>,
+    onPick: (value: T) => void,
+  ): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'display:flex;gap:4px;align-items:center'
+    const lab = document.createElement('span')
+    lab.textContent = `${label}:`
+    lab.style.cssText = 'font-size:11px;opacity:0.7'
+    wrap.appendChild(lab)
+    const btns = new Map<T, HTMLButtonElement>()
+    let active = initial
+    const restyle = (): void => {
+      for (const [val, btn] of btns) {
+        const on = val === active
+        btn.style.cssText = [
+          'padding:3px 9px',
+          'font-size:11px',
+          'cursor:pointer',
+          'border-radius:5px',
+          `border:1px solid ${on ? 'var(--tl-accent)' : 'var(--tl-panel-border-color)'}`,
+          on
+            ? 'background:var(--tl-accent);color:#0c0c10'
+            : 'background:transparent;color:var(--tl-text)',
+        ].join(';')
+      }
+    }
+    for (const [val, text] of options) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.textContent = text
+      btn.addEventListener('click', () => {
+        active = val
+        restyle()
+        onPick(val)
+      })
+      btns.set(val, btn)
+      wrap.appendChild(btn)
+    }
+    restyle()
+    return wrap
+  }
+
   // ---- Theme-Auswahl + Aktionen in der Werkzeugleiste ----------------------------------------
   function buildToolbar(): void {
     toolbar.textContent = ''
@@ -543,6 +590,33 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
       themeRow.appendChild(b)
     }
     toolbar.appendChild(themeRow)
+
+    // Layout-Schalter: Slider-Heimat + Knopf-Anordnung (über hud-prefs, live).
+    const layoutRow = document.createElement('div')
+    layoutRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:center'
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.slider'),
+        getHudPrefs().sliderHome,
+        [
+          ['action', t('hud.editor.slider.action')],
+          ['resource', t('hud.editor.slider.resource')],
+        ],
+        (v) => setHudPref('sliderHome', v),
+      ),
+    )
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.buttons'),
+        getHudPrefs().buttonsLayout,
+        [
+          ['row', t('hud.editor.buttons.row')],
+          ['numpad', t('hud.editor.buttons.numpad')],
+        ],
+        (v) => setHudPref('buttonsLayout', v),
+      ),
+    )
+    toolbar.appendChild(layoutRow)
 
     toolbar.appendChild(hiddenRow)
     refreshHiddenList()
