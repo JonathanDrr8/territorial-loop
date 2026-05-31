@@ -116,6 +116,12 @@ export interface InputDeps {
    * Upgraden — kein pixelgenaues Treffen nötig). Liefert das (ggf. gerastete) Ziel-Tile.
    */
   readonly snapBuildTarget?: (tile: number, type: BuildingType) => number
+  /**
+   * Optional: Soll ein Doppelklick auf `tile` ein Transportboot losschicken? `true`, wenn das Ziel
+   * fremdes/neutrales Land ist, das NUR über Wasser erreichbar ist — dann ist ein Boot statt eines
+   * (sowieso wirkungslosen) Land-Angriffs gemeint.
+   */
+  readonly shouldBoatTo?: (tile: number) => boolean
 }
 
 export interface InputHandler {
@@ -180,6 +186,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let buildMode: BuildingType | null = null
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
   let boatMode = false
+  // Doppelklick-Erkennung: zwei schnelle Linksklicks auf dasselbe Tile (für „Boot per Doppelklick").
+  let lastLeftClick: { tile: number; time: number } | null = null
+  const DOUBLE_CLICK_MS = 350
   // Bomber-Modus (Toggle, Taste 7): solange aktiv startet jeder Linksklick einen Bomber zum Ziel;
   // Mausrad blättert durch die Routen. Live-Vorschau (Route/Radius/Warnung) zeigt der Renderer.
   let bomberMode = false
@@ -488,6 +497,21 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     // Boot-Modus aktiv → Linksklick schickt EIN Boot (Slider-Truppengröße) zum Ziel.
     // Der Modus bleibt an, damit man mehrere Boote losschicken kann (Esc/Toggle beendet).
     if (boatMode) {
+      if (sendTroops > 0) {
+        emit({ type: 'boat', playerId: deps.playerId, targetTile: target, troops: sendTroops })
+      }
+      return
+    }
+
+    // Doppelklick auf nur-über-Wasser-erreichbares Land → direkt ein Transportboot (ohne Boot-Modus).
+    // Der erste Klick löst auf solchem Ziel ohnehin keinen wirksamen Land-Angriff aus.
+    const now = performance.now()
+    const isDouble =
+      lastLeftClick !== null &&
+      lastLeftClick.tile === target &&
+      now - lastLeftClick.time < DOUBLE_CLICK_MS
+    lastLeftClick = { tile: target, time: now }
+    if (isDouble && !e.shiftKey && deps.shouldBoatTo?.(target) === true) {
       if (sendTroops > 0) {
         emit({ type: 'boat', playerId: deps.playerId, targetTile: target, troops: sendTroops })
       }

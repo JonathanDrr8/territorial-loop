@@ -11,6 +11,7 @@ import { profileForElo } from './ai/strength'
 import { loadRanked, recordResult, resetRanked } from './ui/ranked'
 import {
   canBuildAt,
+  canReachByLand,
   createGame,
   snapBuildTile,
   tick,
@@ -21,6 +22,7 @@ import {
 import { areAllied } from './core/diplomacy'
 import { deserializeState, loadSnapshotInto } from './core/serialize'
 import { getOwner } from './world/map'
+import { isLand } from './world/terrain'
 import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
 import { createRecorder } from './core/replay'
@@ -655,6 +657,12 @@ function startMatch(
     },
     canPlaceBuilding: (tile, type) => canBuildAt(state, humanId, tile, type),
     snapBuildTarget: (tile, type) => snapBuildTile(state, humanId, tile, type),
+    // Doppelklick-Boot: nur fremdes/neutrales LAND, das NICHT über Land erreichbar ist (also reine
+    // Wasser-Anbindung) → ein Land-Angriff wäre wirkungslos, gemeint ist ein Transportboot.
+    shouldBoatTo: (tile) =>
+      isLand(state.map.terrain, tile) &&
+      getOwner(state.map, tile) !== humanId &&
+      !canReachByLand(state, humanId, tile),
     events: {
       pause(): void {
         if (net !== undefined) {
