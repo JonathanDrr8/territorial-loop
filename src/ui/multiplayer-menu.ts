@@ -8,6 +8,7 @@
  * Reine DOM-UI (kein Framework), passend zum Start-Menü-Stil. Der Aufrufer ruft `destroy()`.
  */
 
+import { PRESET_ELO } from '../ai/strength'
 import type { BuildingType } from '../core/buildings'
 import type { GameConfig } from '../core/game'
 import { NetworkTransport } from '../net/transport'
@@ -444,11 +445,11 @@ export function createMultiplayerMenu(
       t('mp.difficulty'),
       s.difficulty,
       [
-        ['beginner', t('difficulty.beginner')],
-        ['easy', t('difficulty.easy')],
-        ['standard', t('difficulty.standard')],
-        ['advanced', t('difficulty.advanced')],
-        ['expert', t('difficulty.expert')],
+        ['beginner', `${t('difficulty.beginner')} (${String(PRESET_ELO.beginner)})`],
+        ['easy', `${t('difficulty.easy')} (${String(PRESET_ELO.easy)})`],
+        ['standard', `${t('difficulty.standard')} (${String(PRESET_ELO.standard)})`],
+        ['advanced', `${t('difficulty.advanced')} (${String(PRESET_ELO.advanced)})`],
+        ['expert', `${t('difficulty.expert')} (${String(PRESET_ELO.expert)})`],
       ],
       (v) => ({ ...settings, difficulty: v as MatchSettings['difficulty'] }),
     )

@@ -22,7 +22,9 @@
     "check:version": "node scripts/check-version.mjs",
     "format": "prettier --write \"**/*.{ts,js,json,md,html,css}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md,html,css}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "ai-tune": "tsx scripts/ai-tune.ts",
+    "ai-calibrate": "tsx scripts/ai-calibrate.ts"
   },
   "dependencies": {
     "seedrandom": "^3.0.5",

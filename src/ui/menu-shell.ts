@@ -12,6 +12,7 @@
  */
 
 import { getLocale, LOCALES, onLocaleChange, setLocale, t, type Locale } from '../i18n'
+import { PRESET_ELO } from '../ai/strength'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
@@ -83,6 +84,13 @@ function translatedOptions<T extends string>(
   prefix: string,
 ): ReadonlyArray<readonly [T, string]> {
   return values.map(([v]) => [v, t(`${prefix}.${v}`)] as const)
+}
+
+/** Schwierigkeits-Optionen mit angehängtem ELO, z.B. „Standard (1000)" (ADR-0022). */
+function difficultyOptions(): ReadonlyArray<readonly [Difficulty, string]> {
+  return DIFFICULTY_OPTIONS.map(
+    ([v]) => [v, `${t(`difficulty.${v}`)} (${String(PRESET_ELO[v])})`] as const,
+  )
 }
 
 export function createMenuShell(
@@ -440,7 +448,7 @@ export function createMenuShell(
     p.appendChild(wild.element)
     const difficulty = makeSelectRow<Difficulty>(
       t('field.difficulty'),
-      translatedOptions(DIFFICULTY_OPTIONS, 'difficulty'),
+      difficultyOptions(),
       values.difficulty,
     )
     p.appendChild(difficulty.element)

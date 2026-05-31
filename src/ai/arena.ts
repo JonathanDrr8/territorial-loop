@@ -17,7 +17,7 @@ import type { TerrainType } from '../world/terrain'
 import { isLand } from '../world/terrain'
 import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
-import { createAI, type AI, type Difficulty } from './ai'
+import { createAI, type AI, type Difficulty, type DifficultyProfile } from './ai'
 
 /** Eine Aktions-Kategorie für die Nutzungs-Statistik (Intent-Typ, Bau aufgeschlüsselt nach Gebäude). */
 export type ActionKind =
@@ -87,6 +87,12 @@ export interface MatchOptions {
   readonly allowedBuildings?: Partial<Record<BuildingType, boolean>>
   /** Anteil (Prozent) der Karte für vorzeitigen Sieg. Default 80. */
   readonly victoryPct?: number
+  /**
+   * Pro Spieler (Roster-Index) ein Kandidaten-Profil, das das Stufen-Profil ersetzt — für den Tuner
+   * (ADR-0021). `null`/fehlend → normales Profil der Roster-Difficulty. Verändert NICHT das
+   * `difficulty`-Label im Ergebnis (so kann der Tuner Kandidat vs. Baseline trennen).
+   */
+  readonly profileOverrides?: ReadonlyArray<DifficultyProfile | null>
 }
 
 const DEFAULT_MAP = 96
@@ -145,9 +151,10 @@ export function runMatch(opts: MatchOptions): MatchResult {
   let idx = 0
   for (const p of state.players.values()) {
     const diff = opts.roster[idx] ?? 'standard'
+    const override = opts.profileOverrides?.[idx] ?? undefined
     diffById.set(p.id, diff)
     usageById.set(p.id, new Map())
-    ais.push({ id: p.id, ai: createAI(p.id, state.seed, diff, p.wild) })
+    ais.push({ id: p.id, ai: createAI(p.id, state.seed, diff, p.wild, override) })
     idx++
   }
 

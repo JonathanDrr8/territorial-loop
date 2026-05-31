@@ -38,6 +38,7 @@ import {
   WARSHIP_COST,
   type BomberRoute,
 } from '../core/ships'
+import { PRESET_ELO, profileForElo } from './strength'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -60,7 +61,7 @@ const FRIEND_SPARE_THRESHOLD = 200
 /** Ab diesem Netto-Groll (Groll − Gunst) lehnt die KI ein Bündnis mit dem Betreffenden ab. */
 const ALLY_REFUSE_GRUDGE = 120
 
-interface DifficultyProfile {
+export interface DifficultyProfile {
   readonly attackPct: number
   readonly cooldownMin: number
   readonly cooldownMax: number
@@ -98,96 +99,16 @@ const PORT_PER_CITY = 0.5
 const FACTORY_PER_CITY = 0.75
 const AIRPORT_PER_CITY = 0.34
 
-const PROFILES: Record<Difficulty, DifficultyProfile> = {
-  // Anfänger (~600): nur expandieren, sehr passiv. Baut/diplomatisiert nicht, keine Luft/Schiffe.
-  beginner: {
-    attackPct: 12,
-    cooldownMin: 80,
-    cooldownMax: 220,
-    popThresholdForPvp: 0.85,
-    buildChance: 0,
-    diploChance: 0,
-    boatChance: 0,
-    warshipChance: 0,
-    betrayLeadRatio: Infinity,
-    usesAirDefense: false,
-    usesBombers: false,
-    bomberChance: 0,
-    healsCraters: false,
-    tilesPerCity: 0,
-  },
-  // Leicht (~800): + Wirtschaft (baut Gebäude), noch keine Diplomatie/Luft/Krater-Heilung.
-  easy: {
-    attackPct: 22,
-    cooldownMin: 50,
-    cooldownMax: 150,
-    popThresholdForPvp: 0.72,
-    buildChance: 0.2,
-    diploChance: 0.05,
-    boatChance: 0.05,
-    warshipChance: 0.02,
-    betrayLeadRatio: 2.2,
-    usesAirDefense: false,
-    usesBombers: false,
-    bomberChance: 0,
-    healsCraters: false,
-    tilesPerCity: 160,
-  },
-  // Standard (~1000, ANKER): + Diplomatie + Kriegsschiffe + defensive Flak + Krater-Heilung.
-  standard: {
-    attackPct: 30,
-    cooldownMin: 30,
-    cooldownMax: 100,
-    popThresholdForPvp: 0.6,
-    buildChance: 0.3,
-    diploChance: 0.2,
-    boatChance: 0.12,
-    warshipChance: 0.06,
-    betrayLeadRatio: 1.6,
-    usesAirDefense: true,
-    usesBombers: false,
-    bomberChance: 0,
-    healsCraters: true,
-    tilesPerCity: 140,
-  },
-  // Fortgeschritten (~1300): + offensive Bomber + situative Reaktion. Aggression knapp unter dem
-  //   Optimum (knapp unter Experte).
-  advanced: {
-    attackPct: 36,
-    cooldownMin: 15,
-    cooldownMax: 42,
-    popThresholdForPvp: 0.52,
-    buildChance: 0.45,
-    diploChance: 0.3,
-    boatChance: 0.18,
-    warshipChance: 0.1,
-    betrayLeadRatio: 1.35,
-    usesAirDefense: true,
-    usesBombers: true,
-    bomberChance: 0.15,
-    healsCraters: true,
-    tilesPerCity: 115,
-  },
-  // Experte (~1600): alles, Aggression am Optimum (~42% war empirisch am stärksten — NICHT höher,
-  //   sonst zerfasern die Truppen). Höchste Bau-/Bomber-Frequenz.
-  expert: {
-    attackPct: 42,
-    cooldownMin: 9,
-    cooldownMax: 26,
-    popThresholdForPvp: 0.48,
-    buildChance: 0.58,
-    diploChance: 0.35,
-    boatChance: 0.22,
-    warshipChance: 0.14,
-    betrayLeadRatio: 1.25,
-    usesAirDefense: true,
-    usesBombers: true,
-    bomberChance: 0.2,
-    healsCraters: true,
-    tilesPerCity: 90,
-  },
+export const PROFILES: Record<Difficulty, DifficultyProfile> = {
+  // Die 5 Presets sind Punkte auf dem kontinuierlichen Stärke-Kontinuum (ADR-0022): jedes Profil
+  // kommt aus profileForElo(PRESET_ELO[...]) — so ist das angezeigte ELO die echte Spielstärke und
+  // Presets + Ranked-Modus teilen sich dieselbe Engine. Tuning passiert zentral in strength.ts.
+  beginner: profileForElo(PRESET_ELO.beginner),
+  easy: profileForElo(PRESET_ELO.easy),
+  standard: profileForElo(PRESET_ELO.standard),
+  advanced: profileForElo(PRESET_ELO.advanced),
+  expert: profileForElo(PRESET_ELO.expert),
 }
-
 /**
  * Profil für wilde Nationen: passiv und simpel. Sie expandieren vor allem in neutrales Land
  * (hohe `popThresholdForPvp` → greifen Spieler erst an, wenn fast voll), greifen also eher
@@ -221,8 +142,10 @@ export function createAI(
   gameSeed: string,
   difficulty: Difficulty = 'standard',
   wild = false,
+  profileOverride?: DifficultyProfile,
 ): AI {
-  const profile = wild ? WILD_PROFILE : PROFILES[difficulty]
+  // profileOverride: vom Tuner (ADR-0021) eingespeistes Kandidaten-Profil — ersetzt das Stufen-Profil.
+  const profile = profileOverride ?? (wild ? WILD_PROFILE : PROFILES[difficulty])
   const rng = createPRNG(`ai-${playerId.toString()}-${gameSeed}`)
   let nextDecisionTick = rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
@@ -680,6 +603,19 @@ export function createAI(
       }
     }
     const base = Math.max(cities, 1) // Ratios relativ zur Stadtzahl (min 1, sobald Wirtschaft läuft)
+    // 1b. Bomber-Stufen: den ERSTEN Flughafen früh bauen (sobald eine Stadt steht), bevor das Gold
+    //     in den Rest der Wirtschaft fließt — sonst hungert die Luftwaffe aus (ADR-0021).
+    if (
+      profile.usesBombers &&
+      cities >= 1 &&
+      isBuildingAllowed(state.config, 'airport') &&
+      countBuildingsOfType(state, player.id, 'airport') === 0 &&
+      hasLivingEnemy(state, player) &&
+      gold >= costOf('airport')
+    ) {
+      const tile = pickInteriorTile(state, player)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'airport' }
+    }
     // 2. Hafen ans Wasser (Ratio pro Stadt) — Handel + Kriegsschiff-Kapazität.
     if (
       isBuildingAllowed(state.config, 'port') &&
