@@ -173,6 +173,12 @@ export interface GameConfig {
   /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). Default false. */
   readonly rivers?: boolean
   /**
+   * Fluss-Häufigkeit als Multiplikator auf die Zielanzahl der Flüsse (0 = keine, 1 = Standard,
+   * >1 = mehr). Wirkt nur wenn `rivers` an ist. Default 1. Teil des deterministischen Terrain-
+   * Seeds → in MP für alle gleich.
+   */
+  readonly riverDensity?: number
+  /**
    * Erlaubte Gebäudetypen. Fehlt ein Eintrag → erlaubt (Default: alles erlaubt).
    * Steht ein Typ auf `false`, kann ihn niemand bauen (Spieler-HUD blendet aus, KI überspringt,
    * `canBuildAt` lehnt ab). Pro Match im Setup togglebar; via `MatchSettings` an alle MP-Clients
@@ -478,7 +484,13 @@ export function createGame(config: GameConfig): GameState {
     }
     map.terrain.set(geo.terrain)
   } else {
-    generateTerrain(map, terrainRng, config.terrain ?? 'flat', config.rivers ?? false)
+    generateTerrain(
+      map,
+      terrainRng,
+      config.terrain ?? 'flat',
+      config.rivers ?? false,
+      config.riverDensity ?? 1,
+    )
   }
   const players = new Map<number, Player>()
 

@@ -492,4 +492,5 @@ export const ru: Record<string, string> = {
   'prompt.ignore': 'Игнорировать',
   'field.rivers': 'Реки',
   'field.rivers.hint': 'только континенты/острова, судоходны',
+  'field.riverDensity': 'Частота рек',
 }

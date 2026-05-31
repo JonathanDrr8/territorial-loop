@@ -448,4 +448,5 @@ export const zh: Record<string, string> = {
   'prompt.ignore': '忽略',
   'field.rivers': '河流',
   'field.rivers.hint': '仅大陆/岛屿，可通航',
+  'field.riverDensity': '河流频率',
 }

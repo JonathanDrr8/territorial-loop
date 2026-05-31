@@ -167,6 +167,7 @@ function carveRivers(
   sourceThr: number,
   w: number,
   h: number,
+  density: number,
 ): void {
   const len = w * h
   const isWater = (i: number): boolean => ((terrain[i] ?? 0) & IS_LAND_BIT) === 0
@@ -254,7 +255,7 @@ function carveRivers(
   // ── Typ B: Berg → Meer ───────────────────────────────────────────────────────
   // Abstieg auf landNoise findet die Mündung (Sea-Tile). Der sichtbare Fluss ist dann die fraktale
   // Kurve von Quelle zu Mündung.
-  const targetB = Math.max(2, Math.round(Math.sqrt(w * h) / 85))
+  const targetB = Math.max(1, Math.round((Math.sqrt(w * h) / 85) * density))
   const sources: { x: number; y: number }[] = []
   for (let a = 0; a < targetB * 300 && sources.length < targetB; a++) {
     const i = prng.nextInt(0, len - 1)
@@ -314,7 +315,7 @@ function carveRivers(
       isWater((((y - 1 + h) % h) * w + x) | 0)
     )
   }
-  const targetA = Math.max(1, Math.round(Math.sqrt(w * h) / 110))
+  const targetA = Math.max(1, Math.round((Math.sqrt(w * h) / 110) * density))
   let madeA = 0
   for (let a = 0; a < targetA * 400 && madeA < targetA; a++) {
     const start = prng.nextInt(0, len - 1)
@@ -345,7 +346,13 @@ function carveRivers(
   }
 }
 
-export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType, rivers = false): void {
+export function generateTerrain(
+  map: GameMap,
+  prng: PRNG,
+  type: TerrainType,
+  rivers = false,
+  riverDensity = 1,
+): void {
   const w = map.width
   const h = map.height
   const len = w * h
@@ -411,5 +418,6 @@ export function generateTerrain(map: GameMap, prng: PRNG, type: TerrainType, riv
   }
 
   // Flüsse (Opt-in, ADR-0015): Quellen an Bergen, Abstieg nach landNoise bis zum Meer.
-  if (rivers) carveRivers(map.terrain, prng, landNoise, heightNoise, mountainThr, w, h)
+  if (rivers)
+    carveRivers(map.terrain, prng, landNoise, heightNoise, mountainThr, w, h, riverDensity)
 }

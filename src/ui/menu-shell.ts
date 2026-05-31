@@ -406,6 +406,7 @@ export function createMenuShell(
     camera: () => CameraMode
     sound: () => boolean
     rivers: () => boolean
+    riverDensity: () => number
     buildings: () => Record<BuildingType, boolean>
   } | null = null
   let seedGetter: () => string = () => values.seed ?? ''
@@ -426,6 +427,7 @@ export function createMenuShell(
       cameraMode: settingsFields?.camera() ?? values.cameraMode,
       allowedBuildings: settingsFields?.buildings() ?? values.allowedBuildings,
       rivers: settingsFields?.rivers() ?? values.rivers,
+      riverDensity: settingsFields?.riverDensity() ?? values.riverDensity,
       experimental: { ...values.experimental },
       ...(seed.length > 0 && { seed }),
     }
@@ -653,6 +655,24 @@ export function createMenuShell(
       t('toggle.off') + ' · ' + t('field.rivers.hint'),
     )
     p.appendChild(riversRow.element)
+    // Häufigkeits-Regler (×-Multiplikator), nur sichtbar wenn Flüsse an.
+    const riverDensityRow = makeSliderRow(
+      t('field.riverDensity'),
+      0.2,
+      3,
+      0.1,
+      values.riverDensity,
+      '×',
+    )
+    p.appendChild(riverDensityRow.element)
+    const riversCheck = riversRow.element.querySelector('input[type=checkbox]')
+    const syncDensityVisible = (): void => {
+      const on = riversCheck instanceof HTMLInputElement ? riversCheck.checked : values.rivers
+      riverDensityRow.element.style.display = on ? '' : 'none'
+    }
+    if (riversCheck instanceof HTMLInputElement)
+      riversCheck.addEventListener('change', syncDensityVisible)
+    syncDensityVisible()
 
     // HUD-Anpassung (ADR-0024): Design wählen (wirkt live aufs Menü) + Layout zurücksetzen.
     // Der volle Editor (verschieben/skalieren/ausblenden) lebt im Match („HUD anpassen").
@@ -729,6 +749,7 @@ export function createMenuShell(
       camera: camera.getValue,
       sound: () => soundCheck.checked,
       rivers: riversRow.getValue,
+      riverDensity: riverDensityRow.getValue,
       buildings: () => ({
         city: buildingChecks.get('city')?.() ?? true,
         defense: buildingChecks.get('defense')?.() ?? true,

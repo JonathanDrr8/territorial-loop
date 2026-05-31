@@ -37,6 +37,19 @@ describe('generateTerrain', () => {
     expect(ratio).toBeLessThan(0.4)
   })
 
+  it('riverDensity: höhere Dichte carvt mehr Fluss-Wasser', () => {
+    const countWater = (density: number): number => {
+      const map = createMap(128, 128)
+      const rng = createPRNG('river-density-seed')
+      generateTerrain(map, rng, 'continents', true, density)
+      let w = 0
+      for (let i = 0; i < map.terrain.length; i++) if (!isLand(map.terrain, i)) w++
+      return w
+    }
+    // Gleicher Seed → gleiches Grund-Terrain; nur die Fluss-Anzahl skaliert mit der Dichte.
+    expect(countWater(2.6)).toBeGreaterThan(countWater(0.4))
+  })
+
   it('continents: roughly 70% land', () => {
     const map = createMap(64, 64)
     const rng = createPRNG('continents-seed')

@@ -63,6 +63,8 @@ export interface MatchSettings {
   readonly difficulty: Difficulty
   /** Flüsse ins Terrain carven (echtes Wasser, navigierbar; ADR-0015). */
   readonly rivers: boolean
+  /** Fluss-Häufigkeit (Multiplikator auf die Anzahl; 1 = Standard). Optional für Alt-Clients. */
+  readonly riverDensity?: number
   /**
    * Erlaubte Gebäudetypen (deterministisch an alle Clients gespiegelt). Fehlt das Feld komplett
    * (Alt-Client), gilt alles als erlaubt; ein Eintrag `false` verbietet den Typ matchweit.

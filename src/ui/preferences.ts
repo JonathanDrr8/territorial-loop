@@ -101,6 +101,12 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (typeof parsed.soundEnabled === 'boolean') result.soundEnabled = parsed.soundEnabled
     if (isCameraMode(parsed.cameraMode)) result.cameraMode = parsed.cameraMode
     if (typeof parsed.rivers === 'boolean') result.rivers = parsed.rivers
+    if (
+      typeof parsed.riverDensity === 'number' &&
+      parsed.riverDensity >= 0.2 &&
+      parsed.riverDensity <= 3
+    )
+      result.riverDensity = parsed.riverDensity
     if (typeof parsed.allowedBuildings === 'object' && parsed.allowedBuildings !== null) {
       const ab = { ...defaults.allowedBuildings }
       const src = parsed.allowedBuildings as Record<string, unknown>
