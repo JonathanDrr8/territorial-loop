@@ -41,6 +41,7 @@ import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
+import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { clearScalables, createUiScaleSlider, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {

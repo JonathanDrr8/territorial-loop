@@ -27,6 +27,9 @@
     "ai-calibrate": "tsx scripts/ai-calibrate.ts"
   },
   "dependencies": {
+    "@fontsource/oswald": "^5.2.8",
+    "@fontsource/saira-condensed": "^5.2.8",
+    "@fontsource/saira-semi-condensed": "^5.2.7",
     "seedrandom": "^3.0.5",
     "ws": "^8.21.0"
   },

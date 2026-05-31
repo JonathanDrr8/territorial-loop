@@ -15,6 +15,7 @@
 import type { GameState } from '../core/game'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+import { panelStyle } from './theme'
 
 export interface EventLogApi {
   update(): void
@@ -109,31 +110,25 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
   const filter = loadFilter()
 
   const box = document.createElement('div')
-  box.style.cssText = [
-    // In-Flow-Karte in der Feed-Spalte (kein eigenes absolutes Anker mehr).
+  // Theme-Panel (ADR-0024). Der Log ist der nachgebende Teil der Feed-Spalte: schrumpft, wenn oben
+  // Bündnis-Karten Platz brauchen. Da er ganz unten sitzt (über der Minimap), läuft er wie ein Chat:
+  // neueste Einträge UNTEN, Filter-Knöpfe ganz unten. `justify-content: flex-end` heftet den Inhalt
+  // an die Unterkante → bei Platzmangel werden die ÄLTESTEN (oben, eh am stärksten ausgefadet) oben
+  // abgeschnitten.
+  box.style.cssText = panelStyle([
     'width: 100%',
     'box-sizing: border-box',
-    // Der Log ist der nachgebende Teil der Spalte: schrumpft, wenn oben Bündnis-Karten Platz
-    // brauchen. Da er ganz unten sitzt (über der Minimap), läuft er wie ein Chat: neueste Einträge
-    // UNTEN, Filter-Knöpfe ganz unten. `justify-content: flex-end` heftet den Inhalt an die Unterkante
-    // → bei Platzmangel werden die ÄLTESTEN (oben, eh am stärksten ausgefadet) oben abgeschnitten.
     'flex: 0 1 auto',
     'min-height: 0',
     'overflow: hidden',
-    // Deckende Box, damit die Einträge über jeder Karte gut lesbar sind.
-    'background: rgba(12,14,20,0.92)',
-    'border: 1px solid rgba(255,255,255,0.12)',
-    'border-radius: 8px',
-    'box-shadow: 0 4px 16px rgba(0,0,0,0.4)',
     'padding: 6px',
     'display: flex',
     'flex-direction: column',
     'justify-content: flex-end',
     'gap: 5px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'pointer-events: auto',
-  ].join(';')
+  ])
 
   // Filter-Kopf: ein Chip je Kategorie (an/aus). Farbe markiert die Kategorie wieder.
   const head = document.createElement('div')

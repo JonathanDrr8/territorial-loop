@@ -89,6 +89,10 @@ export const icon = {
   warning: svg(
     '<path d="M12 3.5L2.3 20.5h19.4L12 3.5z"/><path d="M12 9.5v4.5"/><path d="M12 17.4v.2"/>',
   ),
+  /** Flugzeug — Bomber-Start (inline-Variante des Flughafen-Icons). */
+  plane: svg(
+    '<path d="M11 2h2l1 8 6 4v2l-6-2v4l2 2v1.6L12 20l-4 1.6V20l2-2v-4l-6 2v-2l6-4 1-8z"/>',
+  ),
   /** Kettenglieder — Einladungs-Link. */
   link: svg(
     '<path d="M9.5 13a3.5 3.5 0 0 0 5.2.4l2.4-2.4a3.5 3.5 0 0 0-5-5L10.7 7.4"/><path d="M14.5 11a3.5 3.5 0 0 0-5.2-.4L6.9 13a3.5 3.5 0 0 0 5 5l1.4-1.4"/>',

@@ -48,3 +48,8 @@ CLAUDE.md
 /*.png
 .playwright-mcp/
 scripts/.cache/
+
+# Dev-Prototypen fürs HUD-Redesign (nicht ins Spiel-Bundle)
+public/theme-samples.html
+public/theme-screens.html
+public/theme-editor.html

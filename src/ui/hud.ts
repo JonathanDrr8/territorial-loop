@@ -43,6 +43,7 @@ import {
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
+import { panelStyle } from './theme'
 import { registerScalable } from './ui-scale'
 
 const DEFAULT_SLIDER_PCT = 30
@@ -168,22 +169,18 @@ export function createHUD(
 
   /* ---- Oben links: kompakte Info + Steuerungs-Hinweis ---------------------- */
   const infoBox = document.createElement('div')
-  infoBox.style.cssText = [
+  infoBox.style.cssText = panelStyle([
     'position: absolute',
     // Unter der Chrome-Zeile (UI-Größe + Feedback), die oben links bei top:12 sitzt. Die
     // Box klappt „Controls" nach unten auf → überdeckt die Chrome-Zeile darüber nie.
     'top: 52px',
     'left: 12px',
-    'background: rgba(0,0,0,0.82)',
-    'color: white',
     'padding: 8px 12px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 13px',
     'line-height: 1.4',
-    'border-radius: 6px',
     'pointer-events: auto',
     'z-index: 10',
-  ].join(';')
+  ])
   const infoLine = document.createElement('div')
   infoBox.appendChild(infoLine)
 
@@ -273,23 +270,18 @@ export function createHUD(
   // ÜBER der zentralen Hauptbox (rechtsbündig), wächst nach oben in den freien Kartenraum. Früher
   // links daneben — das kollidierte mit dem Ressourcen-Block unten links (der sich beim Aufklappen
   // der Economy-Aufschlüsselung zudem nach oben ausdehnt).
-  attackPanel.style.cssText = [
+  attackPanel.style.cssText = panelStyle([
     'position: absolute',
     'right: 0',
     'bottom: calc(100% + 8px)',
-    'background: rgba(0,0,0,0.86)',
-    'color: white',
     'padding: 8px 11px',
-    'border-radius: 10px',
-    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 11px',
     'line-height: 1.7',
     'width: max-content',
     'max-width: 240px',
     'pointer-events: auto',
     'display: none',
-  ].join(';')
+  ])
   // Delegierte Aktion auf `mousedown` (NICHT `click`!): das Panel re-rendert sein innerHTML laufend,
   // sodass ein `click` (= mousedown+mouseup am selben Element) oft ins Leere geht, weil das Element
   // dazwischen ersetzt wurde. `mousedown` feuert atomar beim Drücken → zuverlässig. Nur linke Taste.
@@ -361,20 +353,16 @@ export function createHUD(
 
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
   const rankPanel = document.createElement('div')
-  rankPanel.style.cssText = [
+  rankPanel.style.cssText = panelStyle([
     'position: absolute',
     'top: 12px',
     'right: 12px',
     'width: 250px',
-    'background: rgba(0,0,0,0.82)',
-    'color: white',
     'padding: 8px 10px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
-    'border-radius: 6px',
     'pointer-events: auto',
     'z-index: 12',
-  ].join(';')
+  ])
 
   const rankHead = document.createElement('div')
   rankHead.style.cssText =
@@ -453,23 +441,21 @@ export function createHUD(
 
   /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
   const actionBar = document.createElement('div')
-  // Direkt am unteren Bildrand (bündig) — spart Platz; nur oben abgerundet.
-  actionBar.style.cssText = [
+  // Direkt am unteren Bildrand (bündig) — spart Platz; nur oben abgerundet (überschreibt Radius +
+  // Schatten des Theme-Panels, damit es bündig sitzt und der Schatten nach oben fällt).
+  actionBar.style.cssText = panelStyle([
     'position: absolute',
     'bottom: 0',
     'left: 50%',
     'transform: translateX(-50%)',
-    'background: rgba(0,0,0,0.86)',
-    'color: white',
     'padding: 8px 16px 10px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'border-radius: 10px 10px 0 0',
-    'box-shadow: 0 -2px 18px rgba(0,0,0,0.45)',
+    'box-shadow: 0 -6px 22px rgba(0,0,0,0.5), var(--tl-panel-inset)',
     'min-width: 420px',
     'pointer-events: auto',
     'z-index: 11',
-  ].join(';')
+  ])
 
   // Aktive-Aktionen-Liste als absolutes Kind LINKS außerhalb der Hauptbox (verschiebt sie nicht).
   actionBar.appendChild(attackPanel)
@@ -479,25 +465,22 @@ export function createHUD(
   // separat (groß) statt auf dem Balken; der Balken bleibt rein visuell (idle/Angriff/Kampf +
   // Wachstums-Zonen). Gold zieht aus der Aktions-Leiste mit hierher („alle Ressourcen an einem Ort").
   const troopBadge = document.createElement('div')
-  troopBadge.style.cssText = [
+  // Theme-Panel (Schritt 4). FESTE Breite → die Box wackelt nicht mehr mit der Truppenzahl
+  // (vorher min/max-width = inhaltsabhängig). Lieber etwas länger und statisch.
+  troopBadge.style.cssText = panelStyle([
     'position: absolute',
     'bottom: 12px',
     'left: 12px',
-    'background: rgba(0,0,0,0.86)',
-    'color: white',
     'padding: 10px 14px 11px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 15px',
-    'border-radius: 12px',
-    'box-shadow: 0 4px 18px rgba(0,0,0,0.45)',
-    'min-width: 240px',
-    'max-width: 320px',
+    'width: 360px',
+    'box-sizing: border-box',
     'pointer-events: auto',
     'z-index: 11',
     'display: flex',
     'flex-direction: column',
     'gap: 4px',
-  ].join(';')
+  ])
 
   // Große, prominente Truppen-Zahl (der Held des HUD) — separat ÜBER dem Balken, nicht drauf.
   const troopBig = document.createElement('div')
@@ -508,7 +491,9 @@ export function createHUD(
     'line-height: 1.05',
   ].join(';')
   // Eigenes Zahl-Element (wird per innerHTML aktualisiert), damit das Rate-Element daneben bleibt.
+  // nowrap → die Zeile bricht nie um (feste Box-Breite, einzeilig).
   const troopNumEl = document.createElement('div')
+  troopNumEl.style.cssText = 'white-space: nowrap'
   troopBig.appendChild(troopNumEl)
   troopBadge.appendChild(troopBig)
 
@@ -580,27 +565,25 @@ export function createHUD(
 
   // Tooltip über der Leiste — erklärt beim Hover, was ein Gebäude bewirkt.
   const buildTooltip = document.createElement('div')
-  buildTooltip.style.cssText = [
+  buildTooltip.style.cssText = panelStyle([
     'position: absolute',
     'left: 16px',
     'right: 16px',
     'bottom: calc(100% + 8px)',
-    'background: rgba(12,14,20,0.95)',
-    'border: 1px solid rgba(255,255,255,0.15)',
-    'border-radius: 6px',
     'padding: 6px 10px',
     'font-size: 11px',
     'line-height: 1.4',
     'text-align: center',
     'pointer-events: none',
     'display: none',
-  ].join(';')
+  ])
   actionBar.appendChild(buildTooltip)
 
   // Gold-Zeile im Ressourcen-Block (unten links): Vorrat + geglättete Einkommensrate. Klick
   // klappt die Economy-Aufschlüsselung auf (Grund-Gold / Fabrik-Netz / Handel).
   const goldEl = document.createElement('div')
-  goldEl.style.cssText = 'font-size: 13px; color: #e8c14a; cursor: pointer; margin-top: 2px'
+  goldEl.style.cssText =
+    'font-size: 13px; color: var(--tl-gold); font-family: var(--tl-num-font); cursor: pointer; margin-top: 2px'
   troopBadge.appendChild(goldEl)
 
   // Aufklappbare Economy-Aufschlüsselung (Grund-Gold / Fabrik-Netz / Handel).
@@ -696,6 +679,7 @@ export function createHUD(
     hotkey: string,
     label: string,
     costText: string,
+    iconSvg = '',
   ): { btn: HTMLButtonElement; costEl: HTMLSpanElement; capEl: HTMLSpanElement } => {
     const btn = document.createElement('button')
     btn.style.cssText = [
@@ -715,8 +699,11 @@ export function createHUD(
       'cursor: pointer',
     ].join(';')
     const top = document.createElement('span')
-    top.style.cssText = 'font-weight: bold'
-    top.innerHTML = `<span style="font-size:13px">${hotkey}</span> ${label}`
+    top.style.cssText = 'font-weight: bold; display: inline-flex; align-items: center; gap: 4px'
+    top.innerHTML =
+      `<span style="font-size:13px">${hotkey}</span>` +
+      (iconSvg === '' ? '' : `<span style="display:inline-flex">${iconSvg}</span>`) +
+      `<span>${label}</span>`
     const costEl = document.createElement('span')
     costEl.style.cssText = 'font-size: 11px; font-weight: bold; color: #5dd75d'
     costEl.textContent = costText
@@ -739,21 +726,22 @@ export function createHUD(
     unitRow.appendChild(btn)
     return { btn, costEl, capEl }
   }
-  // Boot kostet Truppen (kein Gold) → grauer Hinweis statt Gold-Kosten.
-  const boat = makeUnitBtn('B', t('hud.boat'), t('hud.troops'))
+  // Boot kostet Truppen (kein Gold) → grauer Hinweis statt Gold-Kosten. Schiff-Icon (wie die anderen
+  // Einheiten-Knöpfe) zur schnellen Erkennung.
+  const boat = makeUnitBtn('B', t('hud.boat'), t('hud.troops'), icon.ship)
   const boatBtn = boat.btn
   boat.costEl.style.color = 'rgba(255,255,255,0.5)'
   boatBtn.addEventListener('click', () => {
     onBoatClick()
   })
-  const bomber = makeUnitBtn('7', t('hud.bomber'), '')
+  const bomber = makeUnitBtn('7', t('hud.bomber'), '', icon.plane)
   const bomberBtn = bomber.btn
   const bomberCostEl = bomber.costEl
   const bomberCapEl = bomber.capEl
   bomberBtn.addEventListener('click', () => {
     onBomberClick()
   })
-  const warship = makeUnitBtn('8', t('hud.warship'), fmtCompact(WARSHIP_COST))
+  const warship = makeUnitBtn('8', t('hud.warship'), fmtCompact(WARSHIP_COST), icon.anchor)
   const warshipBtn = warship.btn
   const warshipCostEl = warship.costEl
   const warshipCapEl = warship.capEl
@@ -912,11 +900,16 @@ export function createHUD(
 
     const zones = growthZones(cap)
     const frac = total / cap
-    const stateColor = frac < zones.optimum ? '#5dd75d' : frac < zones.stall ? '#e8d24a' : '#e05a5a'
+    const stateColor =
+      frac < zones.optimum
+        ? 'var(--tl-good)'
+        : frac < zones.stall
+          ? 'var(--tl-warn)'
+          : 'var(--tl-bad)'
     const pct = Math.round(frac * 100)
-    // Große, prominente Truppen-Zahl (Held); Cap/%/Label klein daneben.
+    // Große, prominente Truppen-Zahl (Held); Cap/%/Label klein daneben. Zahl in der Theme-Zahlenschrift.
     troopNumEl.innerHTML =
-      `<span style="font-size:27px;font-weight:800;color:${stateColor};font-variant-numeric:tabular-nums">${fmtCompact(total)}</span>` +
+      `<span style="font-size:28px;font-weight:700;color:${stateColor};font-family:var(--tl-num-font);font-variant-numeric:tabular-nums">${fmtCompact(total)}</span>` +
       `<span style="font-size:12px;opacity:0.75"> / ${fmtCompact(cap)} ${t('hud.troops')} · ${pct.toString()}%</span>`
     // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
     // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
@@ -933,9 +926,10 @@ export function createHUD(
     // gegen ihren freien Cap-Platz.
     const freeCap = Math.max(0, cap - combat)
     const ratePerSec = troopIncreaseRate(idle, freeCap) * SIM_TICKS_PER_SECOND
-    const rateColor = ratePerSec < 0 ? '#e05a5a' : stateColor
+    const rateColor = ratePerSec < 0 ? 'var(--tl-bad)' : stateColor
     const rateSign = ratePerSec >= 0 ? '+' : '−'
     troopRateEl.style.color = rateColor
+    troopRateEl.style.fontFamily = 'var(--tl-num-font)'
     troopRateEl.innerHTML = `${rateSign}${fmtCompact(Math.abs(ratePerSec))}<span style="font-size:9px;opacity:0.7">/s</span>`
 
     // Gold-Vorrat + geglättete EINKOMMENS-Rate (EMA über GOLD_SAMPLE_TICKS). Wir sampeln
