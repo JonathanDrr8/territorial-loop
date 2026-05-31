@@ -4,6 +4,32 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.18.0] – 2026-05-31
+
+### Neu
+
+- **Karten-Vorschau im Match-Setup:** Bevor das Spiel startet, zeigt ein kleines Vorschaubild
+  die Karte zum eingestellten Seed — so sieht man schon, ob Kontinente und Inseln passen.
+  Der neue **„Würfeln"-Knopf** zieht einen anderen Seed, bis die Karte gefällt.
+- **Schnellwahl-Vorgaben:** Vier Knöpfe oben im Setup — **Klein**, **Standard**, **Groß** und
+  **Chaos** — füllen Kartengröße, Gegnerzahl und wilde Nationen passend vor. Chaos wirft
+  bis zu 150 Gegner auf die Karte.
+- **Doppelklick-Boot:** Ein Doppelklick auf Land, das nur über Wasser erreichbar ist, schickt
+  sofort einen Truppentransport los — ohne vorher in den Boot-Modus wechseln zu müssen.
+
+### Geändert
+
+- **Handelsverluste im Aktivitätslog:** Wird eines deiner Handelsschiffe von einem feindlichen
+  Kriegsschiff abgefangen, zeigt das Log jetzt, wie viel Gold dir dabei entgangen ist.
+- **Projektile besser sichtbar:** Schüsse von Kriegsschiffen und Flak-Posten leuchten
+  jetzt hellgelb mit Glühen — statt in der oft dunklen Nationsfarbe, die leicht übersehen
+  wurde.
+- **Flak feuert schneller:** Ein einzelner Flak-Posten holt einen Bomber jetzt zuverlässig
+  im Vorbeiflug runter; vorher überlebte der Bomber das häufig.
+- **KI breitet sich sauberer aus:** Die KI versucht nicht mehr, Flüsse oder Meeresfelder zu
+  erobern — sie konzentriert sich auf erreichbares Land und lässt weniger leeres Gebiet
+  zwischen ihren Fronten übrig.
+
 ## [0.17.0] – 2026-05-31
 
 ### Neu
