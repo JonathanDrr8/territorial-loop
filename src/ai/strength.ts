@@ -16,18 +16,19 @@ import type { DifficultyProfile } from './ai'
  * unermüdlich. Deutlich stärker als das alte „große, seltene Angriffe"-Experte.
  */
 const OPTIMUM = {
-  // Hinweis: Der Tuner fand attackPct 11 / Cooldown 4-12 (1-gegen-1 gegen Baseline). Die Eichung im
-  // realistischen Mehr-Nationen-Freikampf zeigte aber, dass das EXTREM (max APM, min Angriff)
-  // überangepasst ist — das etwas ruhigere Profil ist im FFA stärker. Daher hier als oberer Anker.
+  // Aus dem FREIKAMPF-Tuner (ADR-0022-Nachtrag, --ffa: Kandidat in einem Feld diverser unabhängiger
+  // Gegner, Fitness 0.74). Realistischer als das 1-gegen-1-Optimum: kleine Dauer-Angriffe (attackPct
+  // 14) bei moderater APM, viel Wirtschaft, aggressives PvP (popThr 0.3). Wichtig: Diplomatie wurde
+  // NICHT wegoptimiert (diploChance 0.37, betrayLeadRatio 1.83 = loyaler) → Diplomatie hilft im FFA.
   attackPct: 14,
-  cooldownMin: 14,
-  cooldownMax: 40,
-  popThresholdForPvp: 0.6,
-  buildChance: 0.62,
-  boatChance: 0.1,
-  warshipChance: 0.09,
-  bomberChance: 0.17,
-  tilesPerCity: 150,
+  cooldownMin: 22,
+  cooldownMax: 38,
+  popThresholdForPvp: 0.34,
+  buildChance: 0.63,
+  boatChance: 0.11,
+  warshipChance: 0.13,
+  bomberChance: 0.12,
+  tilesPerCity: 185,
 } as const
 
 const lerp = (a: number, b: number, s: number): number => a + (b - a) * s
@@ -48,11 +49,13 @@ export function profileForStrength(sRaw: number): DifficultyProfile {
     popThresholdForPvp: lerp(0.85, OPTIMUM.popThresholdForPvp, s),
     // Wirtschaft schaltet ab s≈0.18 frei.
     buildChance: s < 0.18 ? 0 : lerp(0.15, OPTIMUM.buildChance, s),
-    diploChance: s < 0.3 ? 0 : lerp(0.1, 0.35, s),
+    // Diplomatie (FFA-getunt): stark = aktive Diplomatie (0.37) + loyaler (betrayLeadRatio 1.83,
+    // verrät erst bei klarem Vorsprung). Schwach = passiv/treulos-naiv.
+    diploChance: s < 0.3 ? 0 : lerp(0.1, 0.37, s),
     boatChance: s < 0.25 ? 0 : lerp(0.03, OPTIMUM.boatChance, s),
     warshipChance: s < 0.38 ? 0 : lerp(0.02, OPTIMUM.warshipChance, s),
     bomberChance: s < 0.58 ? 0 : lerp(0.05, OPTIMUM.bomberChance, s),
-    betrayLeadRatio: s < 0.3 ? Infinity : lerp(2.0, 1.25, s),
+    betrayLeadRatio: s < 0.3 ? Infinity : lerp(2.2, 1.83, s),
     // Fähigkeits-Schwellen so gelegt, dass die benannten Presets passen: Standard (~s0.41) hat Flak +
     // Krater-Heilung, aber noch keine offensiven Bomber; Fortgeschritten (~s0.66) bekommt Bomber.
     usesAirDefense: s >= 0.38,
@@ -67,15 +70,15 @@ export function profileForStrength(sRaw: number): DifficultyProfile {
  * Platzhalter-linear bis zur ersten Messung; wird nach der Eichung mit echten Werten ersetzt.
  */
 export const STRENGTH_ELO: ReadonlyArray<readonly [number, number]> = [
-  [0, 663],
-  [0.13, 668],
-  [0.25, 857],
-  [0.38, 961],
-  [0.5, 1098],
-  [0.63, 1124],
-  [0.75, 1200],
-  [0.88, 1212],
-  [1, 1225],
+  [0, 649],
+  [0.13, 659],
+  [0.25, 790],
+  [0.38, 950],
+  [0.5, 975],
+  [0.63, 1104],
+  [0.75, 1169],
+  [0.88, 1295],
+  [1, 1410],
 ]
 
 /** Lineare Interpolation/Inversion über eine monotone (x→y)-Stützpunkt-Tabelle. */
