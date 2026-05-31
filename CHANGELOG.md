@@ -4,6 +4,36 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.10.0] – 2026-05-31
+
+### Neu
+
+- **Neuer HUD-Look „Kriegskarte":** das ganze Interface trägt jetzt ein einheitliches Design —
+  **Leder- und Bronze-Panels**, eigene Schriften, dunklere Töne. Der Look ist lokal gespeichert
+  und hat keinen Einfluss auf das Spielgeschehen.
+
+### Geändert
+
+- **Truppen sind jetzt die große Zahl** unten links — sofort lesbar, ohne im Balken zu suchen.
+  Der Balken selbst zeigt ruhig den Füllstand ohne Druck-Striche.
+- **Ereignislog und Bündnis-Anfragen** laufen jetzt in **einem gemeinsamen Feed** unten rechts
+  über der Minimap — kein zweites Fenster mehr, alles an einem Ort. Die neueste Meldung steht
+  **unten** (wie ein Chat), die Filter-Knöpfe sind ebenfalls unten.
+- **Bau-Knöpfe haben echte Icons** statt Buchstabenkürzel — Stadt, Verteidigung, Hafen und
+  Fabrik sind auf einen Blick unterscheidbar. Boot-, Bomber- und Kriegsschiff-Knöpfe zeigen
+  passende Schiff-, Flugzeug- und Anker-Icons.
+- **Bomber und Kriegsschiff zeigen einen Kapazitäts-Zähler** (z. B. „2/4"), damit du siehst,
+  wie viele Slots noch frei sind.
+- **Ressourcen-Box hat feste Breite** — die Gold-Anzeige wackelt nicht mehr, wenn die Zahl
+  größer wird.
+- **Alle Icons einheitlich:** bunte Emojis im HUD, Radialmenü und in Tooltips sind durch ein
+  einheitliches Strich-Icon-Set ersetzt — in allen 9 Sprachen.
+
+### Behoben
+
+- **Kriegsschiff-Knopf zeigte grüne Kosten**, obwohl kein Slot mehr frei war — das ist
+  behoben, die Kosten-Farbe passt jetzt zum tatsächlichen Zustand.
+
 ## [0.9.0] – 2026-05-31
 
 ### Neu
