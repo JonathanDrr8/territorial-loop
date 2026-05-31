@@ -4,6 +4,26 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.12.0] – 2026-05-31
+
+### Neu
+
+- **Kanten-Ziehen im HUD-Editor:** Panels lassen sich jetzt nicht nur an den vier Ecken, sondern
+  auch an den **Seiten-, Ober- und Unterkanten** ziehen — so ändert man Breite oder Höhe einzeln,
+  ohne das Panel in alle Richtungen zu strecken. Besonders praktisch bei Ereignislog und Rangliste.
+- **Slider-Position wählbar:** Der Angriffsgrößen-Slider kann jetzt wahlweise im **Aktions-Panel
+  bleiben oder zum Truppen-Block wandern** — ein Umschalter im Editor bestimmt das. So liegt der
+  Slider genau da, wo er beim eigenen Spielstil am schnellsten erreichbar ist.
+- **Kauf-Knöpfe als Numpad:** Die Gebäude- und Einheiten-Knöpfe lassen sich in eine **3×3-Anordnung
+  nach Ziffernblock** umschalten (7/8 oben, 4/5/6 Mitte, 1/2/3 unten) — die Tastenpositionen
+  stimmen dann 1:1 mit den echten Hotkeys überein, kein Suchen mehr.
+- **Pakete aufteilen und zusammenfügen:** Der Truppen-Block (Zahl / Balken / Gold) und der
+  Aktions-Block (Käufe / Boot) lassen sich **in Einzelteile zerlegen**, die man dann separat
+  platzieren und skalieren kann. Ein weiterer Klick fasst sie wieder zu einem Block zusammen.
+
+Alle vier Funktionen sind über die Werkzeugleiste im HUD-Editor erreichbar, werden lokal
+gespeichert und stehen in allen 9 Sprachen zur Verfügung.
+
 ## [0.11.0] – 2026-05-31
 
 ### Neu

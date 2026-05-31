@@ -62,10 +62,13 @@ Einfluss auf die Simulation oder den State-Hash. Daher:
 2. **Layout-Store + Defaults** ✅ — `hud-layout.ts`: Panel-IDs (`info`/`rank`/`resource`/`action`/
    `minimap`/`feed`) + speicherbare `{x,y,s,w,h,hidden}` in localStorage. Ohne Override bleibt das
    Panel an seiner kantenverankerten Standard-Stelle.
-3. **Editor-Modus** ✅ — `hud-editor.ts`: „HUD anpassen"-Knopf → Drag/Resize (4 Ecken)/Snap
-   (Rand + Nachbarn, Hilfslinien)/Hide+Wieder-Einblenden + Theme-Wahl live im Spiel. Beim Öffnen
-   werden Panels vom CSS-Anker + `zoom` ins absolute Modell (`left/top` + `transform:scale`)
-   überführt. (Paket↔Einzelteile/Anordnungs-Varianten aus dem Prototyp: bewusst zurückgestellt.)
+3. **Editor-Modus** ✅ — `hud-editor.ts`: „HUD anpassen"-Knopf → Drag/Resize (4 Ecken **+ 4 Kanten**
+   für Breite/Höhe einzeln)/Snap (Rand + Nachbarn, Hilfslinien)/Hide+Wieder-Einblenden + Theme-Wahl
+   live im Spiel. Beim Öffnen werden Panels vom CSS-Anker + `zoom` ins absolute Modell (`left/top`
+   - `transform:scale`) überführt. **Prototyp-Parität (v0.12.0):** Slider-Heimat (Aktion/Truppen),
+     Kauf-Knöpfe als Reihe oder 3×3-Numpad, **Paket↔Einzelteile** (Truppen-Block → Zahl/Balken/Gold,
+     Aktions-Block → Käufe/Boot) — über `hud-prefs.ts` (geteilter Pref-Speicher, `onHudPrefsChange`
+     → HUD re-rendert live, Editor baut Rahmen neu).
 4. **Persistenz + Politur** ✅ (Kern) — localStorage-Round-Trip verifiziert, „Standard"-Reset im
    Editor. Offen: Jonathans Layout als eingebauter Default (s. Status).
 
