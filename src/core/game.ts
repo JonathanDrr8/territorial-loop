@@ -49,7 +49,6 @@ import {
   COST_GROUP,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
-  PORT_WATER_RANGE,
   airportSlots,
   buildCost,
   defenseRange,
@@ -1260,6 +1259,9 @@ export function buildCostFor(state: GameState, playerId: number, type: BuildingT
 /** Snap-Radius (Tiles) beim Bauen — innerhalb dessen der Cursor auf ein eigenes Gebäude rastet. */
 export const BUILD_SNAP_RADIUS = 2
 
+/** Snap-Radius (Tiles) für Häfen ans nächste eigene Küsten-Tile (klickt man knapp neben die Küste). */
+export const PORT_COAST_SNAP_RADIUS = 4
+
 /**
  * „Snapping" beim Bauen/Upgraden: liegt nahe `tile` (≤ [[BUILD_SNAP_RADIUS]], Torus) ein
  * EIGENES Gebäude desselben `type`, liefert dessen Tile (→ Klick upgradet es, ohne pixelgenaues
@@ -1274,6 +1276,7 @@ export function snapBuildTile(
   const { width, height } = state.map
   const tx = tile % width
   const ty = Math.floor(tile / width)
+  // 1) Upgrade-Snap: nahes eigenes Gebäude desselben Typs → dorthin rasten (Klick upgradet).
   let best = -1
   let bestDist = BUILD_SNAP_RADIUS + 0.0001
   for (const b of state.buildings.values()) {
@@ -1284,20 +1287,41 @@ export function snapBuildTile(
       best = b.tile
     }
   }
-  return best >= 0 ? best : tile
+  if (best >= 0) return best
+  // 2) Hafen-Küsten-Snap: klickst du knapp neben die Küste (Ziel-Tile nicht am Wasser), rastet der
+  //    Hafen aufs NÄCHSTE eigene, freie, ans Wasser grenzende Tile — so landet er nie „tot" im Land.
+  if (type === 'port' && !nearWater(state, tile)) {
+    const r = PORT_COAST_SNAP_RADIUS
+    let cBest = -1
+    let cDist = r + 0.0001
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const ref = tileRef(tx + dx, ty + dy, width, height)
+        if (getOwner(state.map, ref) !== playerId) continue
+        if (state.buildings.has(ref) || !isPassable(state.map.terrain, ref)) continue
+        if (!nearWater(state, ref)) continue
+        const d = torusDistance(tx, ty, ref % width, Math.floor(ref / width), width, height)
+        if (d < cDist) {
+          cDist = d
+          cBest = ref
+        }
+      }
+    }
+    if (cBest >= 0) return cBest
+  }
+  return tile
 }
 
-/** Prüft ob ein Tile in `PORT_WATER_RANGE` an Wasser grenzt (für Hafen-Bau). */
+/**
+ * Prüft ob ein Tile DIREKT ans Wasser grenzt (4-Nachbarschaft) — Voraussetzung fürs Hafen-Bauen.
+ * Genau diese Bedingung braucht ein Schiff zum Auslaufen (Kriegsschiff/Boot starten aus einem
+ * Wasser-Nachbarn des Hafens). Ein Hafen weiter vom Wasser entfernt könnte gar keine Schiffe bauen
+ * — das wird hier verhindert (früher erlaubte ein Radius von 3 solche „toten" Häfen).
+ */
 export function nearWater(state: GameState, tile: TileRef): boolean {
   const { width, height } = state.map
-  const tx = tile % width
-  const ty = Math.floor(tile / width)
-  const r = PORT_WATER_RANGE
-  for (let dy = -r; dy <= r; dy++) {
-    for (let dx = -r; dx <= r; dx++) {
-      const ref = tileRef(tx + dx, ty + dy, width, height)
-      if (!isLand(state.map.terrain, ref)) return true
-    }
+  for (const n of neighbors4(tile, width, height)) {
+    if (!isLand(state.map.terrain, n)) return true
   }
   return false
 }

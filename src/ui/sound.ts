@@ -158,9 +158,12 @@ export function createSoundEngine(): SoundEngine {
       playTone(880, 0.14, { type: 'sine', volume: 0.05, delay: 0.09 })
     },
     boatHorn(pan: number): void {
-      // Tiefes „Tuuut" — zwei tiefe Sinus-Töne mit langsamem Attack, leicht versetzt (Nebelhorn).
-      playTone(150, 0.42, { type: 'sine', volume: 0.11, attack: 0.06, pan })
-      playTone(116, 0.5, { type: 'sine', volume: 0.1, attack: 0.07, delay: 0.16, pan })
+      // Tiefes „Tuuut" (Nebelhorn). Dreieck statt reinem Sinus → Obertöne, damit es auch auf
+      // kleinen Boxen/Laptops durchkommt (tiefe Sinus-Töne waren praktisch unhörbar). Zwei
+      // gestaffelte Grundtöne + ein leiser hoher Oberton für Präsenz.
+      playTone(196, 0.5, { type: 'triangle', volume: 0.17, attack: 0.05, pan })
+      playTone(147, 0.56, { type: 'triangle', volume: 0.15, attack: 0.06, delay: 0.14, pan })
+      playTone(392, 0.42, { type: 'sine', volume: 0.05, attack: 0.05, pan })
     },
     planeLaunch(pan: number, gain: number): void {
       // Aufsteigender Triebwerks-Sweep (Sägezahn 180→520 Hz) + dezentes Rauschen drüber.

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { createGame, tick, type GameConfig, type GameState } from '../src/core/game'
+import {
+  createGame,
+  tick,
+  nearWater,
+  snapBuildTile,
+  canBuildAt,
+  type GameConfig,
+  type GameState,
+} from '../src/core/game'
 import {
   planWaterRoute,
   planBoatLaunch,
@@ -70,6 +78,38 @@ function own(state: GameState, x: number, y: number, playerId: number): number {
   }
   return ref
 }
+
+describe('Hafen-Bau: nur an der Küste, sonst ans Wasser snappen', () => {
+  it('nearWater nur bei direktem Wasser-Nachbarn; Inland-Hafen wird abgelehnt', () => {
+    const state = createGame(cfg())
+    splitMap(state) // Wasser-Spalten bei x=0 und x=4
+    const player = state.players.get(1)
+    if (player === undefined) throw new Error('no player')
+    player.gold = 1_000_000
+    const coastal = tileRef(1, 1, W, H) // grenzt an x=0-Wasser
+    const inland = tileRef(2, 1, W, H) // alle 4 Nachbarn Land
+    own(state, 1, 1, 1)
+    own(state, 2, 1, 1)
+    expect(nearWater(state, coastal)).toBe(true)
+    expect(nearWater(state, inland)).toBe(false)
+    // Bau-Gate: Küste erlaubt, Inland abgelehnt.
+    expect(canBuildAt(state, 1, coastal, 'port')).toBe(true)
+    expect(canBuildAt(state, 1, inland, 'port')).toBe(false)
+  })
+
+  it('snapBuildTile rastet einen Inland-Klick aufs nächste eigene Küsten-Tile', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1) // Küste (x=0)
+    own(state, 2, 1, 1) // Inland (knapp daneben)
+    const inland = tileRef(2, 1, W, H)
+    const coastal = tileRef(1, 1, W, H)
+    // Klick aufs Inland-Tile → Hafen snappt an die Küste.
+    expect(snapBuildTile(state, 1, inland, 'port')).toBe(coastal)
+    // Andere Gebäude (Stadt) snappen NICHT an die Küste.
+    expect(snapBuildTile(state, 1, inland, 'city')).toBe(inland)
+  })
+})
 
 describe('trade gold + ship helpers', () => {
   it('tradeGold grows with distance', () => {
