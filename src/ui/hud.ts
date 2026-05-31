@@ -156,6 +156,8 @@ export function createHUD(
   onDefend: (attackerId: number) => void,
   /** Zentriert die Kamera auf ein Tile (Sprung zum Kampf-/Schiff-Ort). */
   onLocate: (tile: number) => void,
+  /** Zentriert die Kamera auf den Gebiets-Schwerpunkt einer Nation (Klick auf Namen/Zeile). */
+  onCenterPlayer: (playerId: number) => void,
   /** Spieler-ID des lokalen Menschen („du") — MP-sicher statt isHuman zu raten. */
   localHumanId: number,
 ): HUDApi {
@@ -420,6 +422,13 @@ export function createHUD(
 
   const rankBody = document.createElement('div')
   rankBody.style.cssText = 'line-height: 1.5'
+  // Klick auf eine Ranglisten-Zeile → Kamera auf das Zentrum dieser Nation.
+  rankBody.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement | null)?.closest('[data-center]')
+    if (row instanceof HTMLElement && row.dataset.center !== undefined) {
+      onCenterPlayer(Number(row.dataset.center))
+    }
+  })
   rankPanel.appendChild(rankBody)
 
   const rankToggle = document.createElement('button')
@@ -1374,7 +1383,7 @@ export function createHUD(
       }
       const tag = traitor ? `${icon.warning} ` : allied ? `${icon.alliance} ` : ''
       rows.push(
-        `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}"${title}>` +
+        `<div data-center="${String(p.id)}" style="display:flex;align-items:center;gap:6px;padding:1px 4px;cursor:pointer;${bg}"${title}>` +
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
           `<span style="color:${rgbaToCss(p.color)}">■</span>` +
           `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${tag}${escapeHtml(p.name)}${dead}</span>` +

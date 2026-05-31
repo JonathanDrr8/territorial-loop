@@ -106,7 +106,12 @@ function escapeHtml(s: string): string {
   )
 }
 
-export function createEventLog(container: HTMLElement, state: GameState): EventLogApi {
+export function createEventLog(
+  container: HTMLElement,
+  state: GameState,
+  /** Klick auf einen Log-Eintrag → Kamera auf das Zentrum der betroffenen Nation (per Farbe ermittelt). */
+  onCenterPlayer?: (playerId: number) => void,
+): EventLogApi {
   const filter = loadFilter()
 
   const box = document.createElement('div')
@@ -182,8 +187,24 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
 
   container.appendChild(box)
 
+  // Klick auf einen Eintrag → Kamera auf das Zentrum der betroffenen Nation.
+  if (onCenterPlayer !== undefined) {
+    box.addEventListener('click', (e) => {
+      const row = (e.target as HTMLElement | null)?.closest('[data-center]')
+      if (row instanceof HTMLElement && row.dataset.center !== undefined) {
+        onCenterPlayer(Number(row.dataset.center))
+      }
+    })
+  }
+
   function update(): void {
     const events = state.events
+    // Farbe → Spieler-ID (für klickbare Einträge: Event-Farbe ist die der betroffenen Nation).
+    const colorToId = new Map<number, number>()
+    if (onCenterPlayer !== undefined) {
+      for (const p of state.players.values())
+        if (!colorToId.has(p.color)) colorToId.set(p.color, p.id)
+    }
     const html: string[] = []
     // Von hinten (neueste zuerst) nach vorne, bis MAX_VISIBLE sichtbare gesammelt sind.
     for (let i = events.length - 1; i >= 0 && html.length < MAX_VISIBLE; i--) {
@@ -198,9 +219,13 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
         opacity = Math.max(0.55, 1 - f) // höherer Boden → auch ältere Einträge bleiben lesbar
       }
       const accent = e.color === undefined ? '#bbb' : rgbaToCss(e.color)
+      // Klickbar, wenn die Event-Farbe einer Nation zuzuordnen ist → Kamera auf deren Zentrum.
+      const pid = e.color !== undefined ? colorToId.get(e.color) : undefined
+      const clickAttr = pid !== undefined ? ` data-center="${String(pid)}"` : ''
+      const clickStyle = pid !== undefined ? 'cursor:pointer; pointer-events:auto;' : ''
       // Kein eigener Hintergrund mehr (die Box deckt) — nur farbiger Rand links + dezente Trennung.
       html.push(
-        `<div style="opacity:${opacity.toFixed(2)}; padding:3px 8px; border-left:3px solid ${accent}; background:rgba(255,255,255,0.04); border-radius:3px; text-align:right">${escapeHtml(t(e.key, e.params))}</div>`,
+        `<div${clickAttr} style="opacity:${opacity.toFixed(2)}; padding:3px 8px; border-left:3px solid ${accent}; background:rgba(255,255,255,0.04); border-radius:3px; text-align:right; ${clickStyle}">${escapeHtml(t(e.key, e.params))}</div>`,
       )
     }
     // Gesammelt wurde neueste→älteste; umdrehen → älteste oben, NEUESTE UNTEN (Chat-Richtung).

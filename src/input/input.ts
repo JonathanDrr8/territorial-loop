@@ -48,6 +48,8 @@ export interface InputEvents {
   cycleSpeed(dir: 1 | -1): void
   /** Optional: ESC-Taste → zurück zum Start-Menü. */
   escape?(): void
+  /** Optional: C-Taste → Kamera auf das eigene Gebiets-Zentrum. */
+  recenterSelf?(): void
 }
 
 export interface InputDeps {
@@ -576,6 +578,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       setWarshipMode(!warshipMode)
     } else if (key === 'r' && deps.interactive !== false) {
       deps.onToggleShipRanges?.()
+    } else if (key === 'c') {
+      events.recenterSelf?.()
     } else if (e.key === 'Escape') {
       // Esc bricht erst Bomber-/Kriegsschiff-/Boot-/Bau-Modus ab, sonst zurück zum Menü
       if (bomberMode) setBomberMode(false)

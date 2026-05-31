@@ -481,6 +481,7 @@ function startMatch(
       renderer.camera.x = (tile % w) + 0.5
       renderer.camera.y = Math.floor(tile / w) + 0.5
     },
+    (pid) => renderer.centerOnPlayer(pid),
     localHumanId,
   )
 
@@ -560,7 +561,7 @@ function startMatch(
     (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
     () => sound.alliance(),
   )
-  const eventLog = createEventLog(feedColumn, state)
+  const eventLog = createEventLog(feedColumn, state, (pid) => renderer.centerOnPlayer(pid))
 
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
@@ -673,6 +674,10 @@ function startMatch(
         speed = next
         transport.setIntervalMs(SIM_BASE_INTERVAL_MS / speed)
         if (!paused) hud.setSpeed(speed)
+      },
+      recenterSelf(): void {
+        // C: Kamera auf das eigene Gebiets-Zentrum (Zuschauer haben kein eigenes → ignorieren).
+        if (humanId > 0) renderer.centerOnPlayer(humanId)
       },
       escape(): void {
         if (buildMenu.isOpen()) {
