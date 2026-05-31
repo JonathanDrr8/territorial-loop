@@ -114,8 +114,9 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     'width: 100%',
     'box-sizing: border-box',
     // Der Log ist der nachgebende Teil der Spalte: schrumpft, wenn oben Bündnis-Karten Platz
-    // brauchen (überzählige ÄLTESTE Einträge unten werden weggeschnitten — sie sind eh am stärksten
-    // ausgefadet). Die interaktiven Bündnis-Karten oben bleiben dadurch immer vollständig.
+    // brauchen. Da er ganz unten sitzt (über der Minimap), läuft er wie ein Chat: neueste Einträge
+    // UNTEN, Filter-Knöpfe ganz unten. `justify-content: flex-end` heftet den Inhalt an die Unterkante
+    // → bei Platzmangel werden die ÄLTESTEN (oben, eh am stärksten ausgefadet) oben abgeschnitten.
     'flex: 0 1 auto',
     'min-height: 0',
     'overflow: hidden',
@@ -127,6 +128,7 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     'padding: 6px',
     'display: flex',
     'flex-direction: column',
+    'justify-content: flex-end',
     'gap: 5px',
     'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
@@ -176,11 +178,12 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
     refresh()
     head.appendChild(chip)
   }
-  box.appendChild(head)
 
   const list = document.createElement('div')
   list.style.cssText = 'display: flex; flex-direction: column; gap: 3px; pointer-events: none'
+  // Reihenfolge im Karten-Flow: Einträge OBEN (älteste oben, neueste unten), Filter-Knöpfe UNTEN.
   box.appendChild(list)
+  box.appendChild(head)
 
   container.appendChild(box)
 
@@ -205,7 +208,8 @@ export function createEventLog(container: HTMLElement, state: GameState): EventL
         `<div style="opacity:${opacity.toFixed(2)}; padding:3px 8px; border-left:3px solid ${accent}; background:rgba(255,255,255,0.04); border-radius:3px; text-align:right">${escapeHtml(t(e.key, e.params))}</div>`,
       )
     }
-    list.innerHTML = html.join('')
+    // Gesammelt wurde neueste→älteste; umdrehen → älteste oben, NEUESTE UNTEN (Chat-Richtung).
+    list.innerHTML = html.reverse().join('')
   }
 
   return {
