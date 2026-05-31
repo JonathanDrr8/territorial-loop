@@ -84,6 +84,8 @@ interface MenuAction {
   enabled: boolean
   accent: string
   run: () => void
+  /** Optionales Untermenü (ADR-0022): Klick öffnet diese Kind-Aktionen statt `run` auszuführen. */
+  submenu?: readonly MenuAction[]
 }
 
 export interface BuildMenuApi {
@@ -256,7 +258,9 @@ export function createBuildMenu(
       if (clickable) {
         path.addEventListener('click', (e) => {
           e.stopPropagation()
-          a.run()
+          // Untermenü (ADR-0022): an Ort und Stelle in die Kind-Aktionen wechseln statt auszuführen.
+          if (a.submenu !== undefined) renderRadial(a.submenu, a.label, a.accent, screenX, screenY)
+          else a.run()
         })
       }
       svg.appendChild(path)
@@ -388,6 +392,64 @@ export function createBuildMenu(
         close()
       },
     })
+
+    // Gunst-Spenden (ADR-0022): Gold an jeden (Untermenü: Slider-Betrag + 10/25/50/100%),
+    // Truppen nur an Verbündete (Menge über den Angriffs-Slider).
+    const me = state.players.get(humanPlayerId)
+    if (me !== undefined) {
+      const sliderPct = me.troops > 0 ? Math.min(1, getAttackTroops() / me.troops) : 0.25
+      const goldGift = (label: string, amount: number): MenuAction => ({
+        glyph: '⊕',
+        label,
+        detail: t('menu.donateGoldDetail', { n: fmtCompact(amount) }),
+        costText: '',
+        affordable: amount > 0 && me.gold >= amount,
+        enabled: amount > 0 && me.gold >= amount,
+        accent: ALLY_ACCENT,
+        run: () => {
+          emit({ type: 'donate-gold', playerId: humanPlayerId, targetPlayerId: targetId, amount })
+          close()
+        },
+      })
+      out.push({
+        glyph: '⊕',
+        label: t('menu.donateGold'),
+        detail: t('menu.donateGoldParent'),
+        costText: '',
+        affordable: me.gold > 0,
+        enabled: me.gold > 0,
+        accent: ALLY_ACCENT,
+        run: () => {},
+        submenu: [
+          goldGift(t('menu.donateSlider'), Math.floor(me.gold * sliderPct)),
+          goldGift('10 %', Math.floor(me.gold * 0.1)),
+          goldGift('25 %', Math.floor(me.gold * 0.25)),
+          goldGift('50 %', Math.floor(me.gold * 0.5)),
+          goldGift('100 %', me.gold),
+        ],
+      })
+      if (allied) {
+        const troops = getAttackTroops()
+        out.push({
+          glyph: '⊕',
+          label: t('menu.donateTroops'),
+          detail: t('menu.donateTroopsDetail', { n: fmtCompact(troops) }),
+          costText: '',
+          affordable: troops > 0,
+          enabled: troops > 0,
+          accent: ALLY_ACCENT,
+          run: () => {
+            emit({
+              type: 'donate-troops',
+              playerId: humanPlayerId,
+              targetPlayerId: targetId,
+              amount: troops,
+            })
+            close()
+          },
+        })
+      }
+    }
     return out
   }
 
