@@ -1595,6 +1595,38 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  /** Hauptstadt-Modus (ADR-0026): einen Stern in Besitzerfarbe auf jede lebende Hauptstadt zeichnen. */
+  function drawCapitals(): void {
+    if (state.config.captureMode !== true) return
+    const w = state.map.width
+    const z = camera.zoom
+    const r = Math.max(5, z * 0.6)
+    const cw = container.clientWidth
+    const ch = container.clientHeight
+    for (const p of state.players.values()) {
+      if (!p.isAlive || p.wild || p.capitalTile === undefined) continue
+      const tx = p.capitalTile % w
+      const ty = Math.floor(p.capitalTile / w)
+      const { sx, sy } = nearestWrappedScreenPos(tx + 0.5, ty + 0.5)
+      if (sx < -20 || sx > cw + 20 || sy < -20 || sy > ch + 20) continue
+      screenCtx.beginPath()
+      for (let i = 0; i < 10; i++) {
+        const ang = (Math.PI / 5) * i - Math.PI / 2
+        const rad = i % 2 === 0 ? r : r * 0.45
+        const px = sx + Math.cos(ang) * rad
+        const py = sy + Math.sin(ang) * rad
+        if (i === 0) screenCtx.moveTo(px, py)
+        else screenCtx.lineTo(px, py)
+      }
+      screenCtx.closePath()
+      screenCtx.fillStyle = rgbaToCssLocal(p.color)
+      screenCtx.fill()
+      screenCtx.lineWidth = Math.max(1.5, z * 0.12)
+      screenCtx.strokeStyle = 'rgba(255,255,255,0.95)'
+      screenCtx.stroke()
+    }
+  }
+
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
     const cssW = container.clientWidth
@@ -2579,6 +2611,7 @@ export function createRenderer(
     drawBuildingLinks()
     drawAirportHangars()
     drawBuildings()
+    drawCapitals()
     drawHoverHighlight()
     drawHoveredDefenseRange()
     drawAllOwnDefenseRanges()

@@ -16,6 +16,13 @@ export const es: Record<string, string> = {
 
   'section.world': 'Mundo',
   'section.opponents': 'Rivales',
+  'section.mode': 'Modo',
+  'field.captureMode': 'Modo capital',
+  'field.teamMode': 'Equipos',
+  'teamMode.off': 'No (todos contra todos)',
+  'teamMode.allied': 'Equipos (aliados)',
+  'field.teamCount': 'Número de equipos',
+  'field.teamSize': 'Tamaño del equipo',
   'section.match': 'Partida',
   'field.map': 'Mapa (An × Al)',
   'field.terrain': 'Tipo de mapa',

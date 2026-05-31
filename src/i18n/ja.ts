@@ -16,6 +16,13 @@ export const ja: Record<string, string> = {
 
   'section.world': '世界',
   'section.opponents': '対戦相手',
+  'section.mode': 'モード',
+  'field.captureMode': '首都モード',
+  'field.teamMode': 'チーム',
+  'teamMode.off': 'なし（全員乱戦）',
+  'teamMode.allied': 'チーム（同盟）',
+  'field.teamCount': 'チーム数',
+  'field.teamSize': 'チーム規模',
   'section.match': '対戦',
   'field.map': 'マップ（幅 × 高）',
   'field.terrain': 'マップ種類',

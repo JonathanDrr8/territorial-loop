@@ -226,6 +226,24 @@ export function createAI(
       return Math.max(0.15, 1 + Math.min(grudge / 40, 6) - Math.min(goodwill / 60, 2))
     }
 
+    // Hauptstadt-Modus (ADR-0026): Tiles näher an einer Gegner-Hauptstadt sind wertvoller → die KI
+    // drängt zur Hauptstadt (Sieg = Hauptstadt erobern). NUR in diesem Modus aktiv, sonst neutral (×1).
+    const captureMode = state.config.captureMode === true
+    const capitalBoost = (tile: number, owner: number): number => {
+      if (!captureMode) return 1
+      const cap = state.players.get(owner)?.capitalTile
+      if (cap === undefined) return 1
+      const d = torusDistance(
+        tile % width,
+        Math.floor(tile / width),
+        cap % width,
+        Math.floor(cap / width),
+        width,
+        height,
+      )
+      return 1 + 2 * Math.max(0, 1 - d / 70)
+    }
+
     for (const ref of player.frontier) {
       for (const n of neighbors4(ref, width, height)) {
         if (seen.has(n)) continue
@@ -241,7 +259,7 @@ export function createAI(
         // Verbündete nicht angreifen.
         if (areAllied(state.alliances, player.id, owner)) continue
         const w = enemyWeight(owner)
-        if (w !== null) enemyTiles.push({ tile: n, weight: w })
+        if (w !== null) enemyTiles.push({ tile: n, weight: w * capitalBoost(n, owner) })
       }
     }
 
@@ -757,7 +775,11 @@ export function createAI(
     if (leader === undefined) return null
     const amLeader = leader.id === player.id
     const allies = living.filter(
-      (o) => o.id !== player.id && areAllied(state.alliances, player.id, o.id),
+      (o) =>
+        o.id !== player.id &&
+        areAllied(state.alliances, player.id, o.id) &&
+        // Teamkameraden werden NIE verraten (permanente Team-Allianz, ADR-0025).
+        !(player.teamId !== undefined && o.teamId === player.teamId),
     )
 
     // „Im Krieg mit": die KI lehnt Bündnisse mit jemandem ab, den sie GERADE angreift oder gegen

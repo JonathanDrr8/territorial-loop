@@ -25,6 +25,10 @@ const DEFAULTS: StartMenuValues = {
   rivers: true,
   riverDensity: 1,
   experimental: {},
+  captureMode: false,
+  teamMode: 'off',
+  teamCount: 2,
+  teamSize: 2,
 }
 
 describe('preferences', () => {
@@ -60,6 +64,10 @@ describe('preferences', () => {
       rivers: false,
       riverDensity: 1,
       experimental: { earthlikeNoise: true },
+      captureMode: true,
+      teamMode: 'allied',
+      teamCount: 3,
+      teamSize: 2,
     }
     saveMenuPrefs(custom)
     expect(loadMenuPrefs(DEFAULTS)).toEqual(custom)

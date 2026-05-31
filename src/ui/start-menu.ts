@@ -72,7 +72,18 @@ export interface StartMenuValues {
   experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */
   seed?: string
+  /** Hauptstadt-Modus (ADR-0026): Sieg/Niederlage über Hauptstadt-Eroberung statt Gebiets-%. */
+  captureMode: boolean
+  /** Team-Modus (ADR-0025): `off` = jeder gegen jeden, `allied` = Teams aus verbündeten Nationen. */
+  teamMode: TeamMode
+  /** Anzahl Teams (nur bei `teamMode==='allied'`). */
+  teamCount: number
+  /** Nationen pro Team (nur bei `teamMode==='allied'`). */
+  teamSize: number
 }
+
+/** Team-Modus: aus, oder „allied" (Teams aus mehreren verbündeten Nationen mit gemeinsamem Sieg). */
+export type TeamMode = 'off' | 'allied'
 
 // Ausbreitungs-Tempo (multipliziert die Eroberungs-Rate). Unter 0.5 entsättigt sich
 // die Welle (Rate < verfügbare Front-Tiles) → spürbar langsamer UND Terrain prägt die

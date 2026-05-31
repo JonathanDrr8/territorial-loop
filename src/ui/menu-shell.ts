@@ -37,6 +37,7 @@ import {
   type Difficulty,
   type MatchPreset,
   type StartMenuValues,
+  type TeamMode,
   type TerrainChoice,
 } from './start-menu'
 import type { BuildingType } from '../core/buildings'
@@ -407,6 +408,10 @@ export function createMenuShell(
     victory: () => number
     difficulty: () => Difficulty
     terrain: () => TerrainChoice
+    captureMode: () => boolean
+    teamMode: () => TeamMode
+    teamCount: () => number
+    teamSize: () => number
   } | null = null
   let settingsFields: {
     camera: () => CameraMode
@@ -435,6 +440,10 @@ export function createMenuShell(
       rivers: settingsFields?.rivers() ?? values.rivers,
       riverDensity: settingsFields?.riverDensity() ?? values.riverDensity,
       experimental: { ...values.experimental },
+      captureMode: playFields?.captureMode() ?? values.captureMode,
+      teamMode: playFields?.teamMode() ?? values.teamMode,
+      teamCount: playFields?.teamCount() ?? values.teamCount,
+      teamSize: playFields?.teamSize() ?? values.teamSize,
       ...(seed.length > 0 && { seed }),
     }
     return out
@@ -488,6 +497,36 @@ export function createMenuShell(
       values.difficulty,
     )
     p.appendChild(difficulty.element)
+
+    // ── Modus: Hauptstadt-Modus (ADR-0026) + Teams (ADR-0025) ──
+    section(p, t('section.mode'))
+    const capture = makeCheckRow(
+      t('field.captureMode'),
+      values.captureMode,
+      t('toggle.on'),
+      t('toggle.off'),
+    )
+    p.appendChild(capture.element)
+    const teamMode = makeSelectRow<TeamMode>(
+      t('field.teamMode'),
+      [
+        ['off', t('teamMode.off')],
+        ['allied', t('teamMode.allied')],
+      ],
+      values.teamMode,
+    )
+    p.appendChild(teamMode.element)
+    const teamCount = makeSliderRow(t('field.teamCount'), 2, 8, 1, values.teamCount)
+    const teamSize = makeSliderRow(t('field.teamSize'), 1, 6, 1, values.teamSize)
+    p.appendChild(teamCount.element)
+    p.appendChild(teamSize.element)
+    const syncTeamVisible = (): void => {
+      const on = teamMode.getValue() === 'allied'
+      teamCount.element.style.display = on ? '' : 'none'
+      teamSize.element.style.display = on ? '' : 'none'
+    }
+    teamMode.element.querySelector('select')?.addEventListener('change', syncTeamVisible)
+    syncTeamVisible()
 
     section(p, t('section.match'))
     const victory = makeSliderRow(t('field.victory'), 50, 100, 5, values.victoryPct, '%')
@@ -618,6 +657,10 @@ export function createMenuShell(
       victory: victory.getValue,
       difficulty: difficulty.getValue,
       terrain: terrain.getValue,
+      captureMode: capture.getValue,
+      teamMode: teamMode.getValue,
+      teamCount: teamCount.getValue,
+      teamSize: teamSize.getValue,
     }
     seedGetter = seed.getValue
 

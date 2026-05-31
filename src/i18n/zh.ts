@@ -16,6 +16,13 @@ export const zh: Record<string, string> = {
 
   'section.world': '世界',
   'section.opponents': '对手',
+  'section.mode': '模式',
+  'field.captureMode': '首都模式',
+  'field.teamMode': '队伍',
+  'teamMode.off': '关闭（自由混战）',
+  'teamMode.allied': '队伍（结盟）',
+  'field.teamCount': '队伍数量',
+  'field.teamSize': '队伍规模',
   'section.match': '对局',
   'field.map': '地图（宽 × 高）',
   'field.terrain': '地图类型',
