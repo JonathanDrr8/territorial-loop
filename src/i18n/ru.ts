@@ -39,6 +39,7 @@ export const ru: Record<string, string> = {
   'difficulty.expert': 'Эксперт',
   'play.start': 'Начать матч',
   'play.spectate': 'Смотреть',
+  'play.ranked': 'Рейтинг',
 
   'settings.intro': 'Отображение и дополнительные функции. Применяются к следующему матчу.',
   'settings.display': 'Отображение',

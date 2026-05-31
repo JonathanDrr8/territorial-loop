@@ -7,6 +7,8 @@
  */
 
 import { createAI, type AI } from './ai/ai'
+import { profileForElo } from './ai/strength'
+import { loadRanked, recordResult, resetRanked } from './ui/ranked'
 import {
   canBuildAt,
   createGame,
@@ -214,12 +216,124 @@ interface NetSession {
   initialState?: GameState
 }
 
+// ── Ranglisten-Modus (ADR-0022) ──────────────────────────────────────────────
+// Hinweis: Texte hier vorerst deutsch hartkodiert; i18n für den Ranglisten-Screen folgt als
+// eigener kleiner Schritt (analog zu den difficulty.*-Keys).
+const RANKED_PANEL =
+  'background:#14141c;color:#fff;border:1px solid rgba(255,255,255,0.14);border-radius:12px;' +
+  'padding:24px 28px;text-align:center;font-family:ui-monospace,Menlo,Monaco,monospace;min-width:280px'
+const RANKED_OVERLAY =
+  'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;' +
+  'background:rgba(0,0,0,0.72);backdrop-filter:blur(4px)'
+
+function rankedButton(label: string, primary: boolean): HTMLButtonElement {
+  const b = document.createElement('button')
+  b.textContent = label
+  b.style.cssText = [
+    'width:100%',
+    'padding:10px',
+    'margin-top:8px',
+    primary ? 'background:#46d9e6' : 'background:transparent',
+    primary ? 'color:#06121f' : 'color:#fff',
+    primary ? 'border:none' : 'border:1px solid rgba(255,255,255,0.25)',
+    'border-radius:8px',
+    'font:inherit',
+    'font-size:13px',
+    `font-weight:${primary ? '700' : '400'}`,
+    'cursor:pointer',
+  ].join(';')
+  return b
+}
+
+/** Zeigt nach einem Ranglisten-Match die ELO-Veränderung. */
+function showRankedResultOverlay(
+  container: HTMLElement,
+  aiElo: number,
+  won: boolean,
+  before: number,
+  after: number,
+): void {
+  const delta = after - before
+  const overlay = document.createElement('div')
+  overlay.style.cssText = RANKED_OVERLAY
+  const panel = document.createElement('div')
+  panel.style.cssText = RANKED_PANEL
+  const title = document.createElement('div')
+  title.textContent = won ? 'Sieg' : 'Niederlage'
+  title.style.cssText = `font-size:20px;font-weight:700;margin-bottom:12px;color:${won ? '#46d9e6' : '#ff8080'}`
+  const line = document.createElement('div')
+  const sign = delta >= 0 ? '+' : ''
+  line.innerHTML = `Dein ELO: <b>${String(before)}</b> &rarr; <b>${String(after)}</b> <span style="color:${delta >= 0 ? '#7ee0a0' : '#ff9090'}">(${sign}${String(delta)})</span>`
+  line.style.cssText = 'font-size:14px;margin-bottom:6px'
+  const sub = document.createElement('div')
+  sub.textContent = `Gegner-Stärke: ${String(aiElo)} ELO`
+  sub.style.cssText = 'font-size:12px;opacity:0.6;margin-bottom:18px'
+  const ok = rankedButton('Weiter', true)
+  ok.addEventListener('click', () => overlay.remove())
+  panel.append(title, line, sub, ok)
+  overlay.appendChild(panel)
+  container.appendChild(overlay)
+}
+
+/** Ranglisten-Screen: zeigt ELO/Bilanz/Peak und startet ein Match auf Spieler-Stärke. */
+function showRankedScreen(
+  container: HTMLElement,
+  onPlay: (elo: number) => void,
+  onBack: () => void,
+): void {
+  const overlay = document.createElement('div')
+  overlay.style.cssText = RANKED_OVERLAY
+  const render = (): void => {
+    const r = loadRanked()
+    overlay.textContent = ''
+    const panel = document.createElement('div')
+    panel.style.cssText = RANKED_PANEL
+    const h = document.createElement('div')
+    h.textContent = 'Ranglisten-Modus'
+    h.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:14px'
+    const elo = document.createElement('div')
+    elo.textContent = String(r.elo)
+    elo.style.cssText = 'font-size:40px;font-weight:800;color:#46d9e6;line-height:1.1'
+    const eloCap = document.createElement('div')
+    eloCap.textContent = 'dein ELO'
+    eloCap.style.cssText = 'font-size:11px;opacity:0.55;margin-bottom:14px;letter-spacing:0.05em'
+    const stats = document.createElement('div')
+    stats.textContent = `${String(r.wins)} Siege · ${String(r.losses)} Niederlagen · Höchstwert ${String(r.peak)}`
+    stats.style.cssText = 'font-size:12px;opacity:0.75;margin-bottom:14px'
+    const intro = document.createElement('div')
+    intro.textContent =
+      'Spiele gegen eine KI auf deinem Level. Gewinnst du, steigt dein ELO — so siehst du, wie du besser wirst.'
+    intro.style.cssText = 'font-size:12px;opacity:0.7;margin-bottom:16px;line-height:1.4'
+    const play = rankedButton('Spielen', true)
+    play.addEventListener('click', () => {
+      overlay.remove()
+      onPlay(r.elo)
+    })
+    const reset = rankedButton('Zurücksetzen', false)
+    reset.addEventListener('click', () => {
+      resetRanked()
+      render()
+    })
+    const back = rankedButton('Zurück', false)
+    back.addEventListener('click', () => {
+      overlay.remove()
+      onBack()
+    })
+    panel.append(h, elo, eloCap, stats, intro, play, reset, back)
+    overlay.appendChild(panel)
+  }
+  render()
+  container.appendChild(overlay)
+}
+
 function startMatch(
   container: HTMLElement,
   menu: StartMenuValues,
   onRequestNewMatch: () => void,
   spectator: boolean,
   net?: NetSession,
+  /** Ranglisten-Match (ADR-0022): alle KI auf dieses ELO, Ergebnis aktualisiert das Spieler-ELO. */
+  rankedElo?: number,
 ): MatchSession {
   clearScalables() // UI-Größen-Registry leeren — die HUD-Panels dieses Matches melden sich neu an
   const config = net?.config ?? buildConfig(menu, spectator)
@@ -270,11 +384,14 @@ function startMatch(
   // der schon verbundene NetworkTransport (KI + Takt auf dem Server).
   const ais: AI[] = []
   if (net === undefined) {
+    // Ranglisten-Match: alle (nicht-wilden) KI spielen exakt auf dem Spieler-ELO (ADR-0022).
+    const rankedProfile = rankedElo !== undefined ? profileForElo(rankedElo) : undefined
     for (const p of state.players.values()) {
       if (p.isHuman) continue
       // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
       // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
-      ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild))
+      const override = !p.wild ? rankedProfile : undefined
+      ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
     }
   }
 
@@ -537,10 +654,16 @@ function startMatch(
     // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
     if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
       endChimePlayed = true
-      if (state.winner === humanId) {
+      const won = state.winner === humanId
+      if (won) {
         sound.victory()
       } else {
         sound.defeat()
+      }
+      // Ranglisten-Match: Spieler-ELO nach dem Ergebnis aktualisieren + Veränderung einblenden.
+      if (rankedElo !== undefined && !spectator) {
+        const res = recordResult(rankedElo, won)
+        showRankedResultOverlay(container, rankedElo, won, res.before, res.after.elo)
       }
     }
     lastPhase = state.phase
@@ -876,6 +999,53 @@ function main(): void {
           spectate(code)
         },
         onFeedback: () => feedbackUi.open(),
+        // Ranglisten-Modus (ADR-0022): ELO-Screen öffnen; „Spielen" startet ein Match auf
+        // Spieler-Stärke (alle KI = dein ELO), das Ergebnis bewegt das ELO.
+        onRanked: (values) => {
+          saveMenuPrefs(values)
+          clearActiveSession()
+          menu.destroy()
+          showRankedScreen(
+            container,
+            (elo) => {
+              if (session !== null) {
+                session.destroy()
+                session = null
+              }
+              const removeLoading = showLoadingOverlay(container)
+              const proceed = (startValues: StartMenuValues): void => {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    try {
+                      session = startMatch(
+                        container,
+                        startValues,
+                        backToMenu,
+                        false,
+                        undefined,
+                        elo,
+                      )
+                    } finally {
+                      removeLoading()
+                    }
+                  })
+                })
+              }
+              if (isGeoMapId(values.terrain)) {
+                loadGeoMapAsset(values.terrain)
+                  .then((m) => proceed({ ...values, mapWidth: m.width, mapHeight: m.height }))
+                  .catch((err: unknown) => {
+                    removeLoading()
+                    console.error('Geo-Karte konnte nicht geladen werden', err)
+                    backToMenu()
+                  })
+              } else {
+                proceed(values)
+              }
+            },
+            backToMenu,
+          )
+        },
       },
       loadServerUrl(defaultServerUrl()),
     )

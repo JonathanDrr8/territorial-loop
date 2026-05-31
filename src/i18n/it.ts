@@ -39,6 +39,7 @@ export const it: Record<string, string> = {
   'difficulty.expert': 'Esperto',
   'play.start': 'Avvia partita',
   'play.spectate': 'Guarda',
+  'play.ranked': 'Classificata',
 
   'settings.intro': 'Visualizzazione e funzioni opzionali. Si applicano alla prossima partita.',
   'settings.display': 'Visualizzazione',

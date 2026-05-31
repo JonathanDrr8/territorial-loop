@@ -13,6 +13,7 @@
 
 import { getLocale, LOCALES, onLocaleChange, setLocale, t, type Locale } from '../i18n'
 import { PRESET_ELO } from '../ai/strength'
+import { loadRanked } from './ranked'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
@@ -55,6 +56,8 @@ export interface MenuShellCallbacks {
   onSpectate(code: string): void
   /** Footer-Eintrag „Feedback" → öffnet den Feedback-/Bug-Dialog. */
   onFeedback?(): void
+  /** Ranglisten-Modus öffnen (ADR-0022) — Match auf Spieler-ELO, Ergebnis bewegt das ELO. */
+  onRanked(values: StartMenuValues): void
 }
 
 type TabId = 'play' | 'multiplayer' | 'settings' | 'changelog' | 'help'
@@ -485,6 +488,13 @@ export function createMenuShell(
     watchBtn.style.cssText = secondaryButtonStyle()
     watchBtn.addEventListener('click', () => callbacks.onStart(collect(), true))
     p.appendChild(watchBtn)
+
+    // Ranglisten-Modus (ADR-0022): zeigt das aktuelle Spieler-ELO direkt im Knopf.
+    const rankedBtn = document.createElement('button')
+    rankedBtn.textContent = `${t('play.ranked')} (ELO ${String(loadRanked().elo)})`
+    rankedBtn.style.cssText = secondaryButtonStyle()
+    rankedBtn.addEventListener('click', () => callbacks.onRanked(collect()))
+    p.appendChild(rankedBtn)
 
     // Drei zentrierte Spalten: Lobby-Browser links (230) · Setup-Panel mittig (auto) · Tipps
     // rechts (230), je 20 px Abstand. `justify-content: center` zentriert den ganzen Block →

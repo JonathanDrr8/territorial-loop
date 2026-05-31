@@ -39,6 +39,7 @@ export const ja: Record<string, string> = {
   'difficulty.expert': 'エキスパート',
   'play.start': '対戦を開始',
   'play.spectate': '観戦',
+  'play.ranked': 'ランク戦',
 
   'settings.intro': '表示と任意機能。次の対戦から反映されます。',
   'settings.display': '表示',

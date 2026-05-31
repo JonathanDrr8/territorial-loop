@@ -40,6 +40,7 @@ export const de: Record<string, string> = {
   'difficulty.expert': 'Experte',
   'play.start': 'Match starten',
   'play.spectate': 'Zuschauen',
+  'play.ranked': 'Ranglisten',
 
   // ── Tab „Einstellungen" ────────────────────────────────────────────────────
   'settings.intro': 'Darstellung & optionale Features. Wirken sich aufs nächste Match aus.',

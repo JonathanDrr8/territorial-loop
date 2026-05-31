@@ -39,6 +39,7 @@ export const pt: Record<string, string> = {
   'difficulty.expert': 'Especialista',
   'play.start': 'Iniciar partida',
   'play.spectate': 'Assistir',
+  'play.ranked': 'Ranqueado',
 
   'settings.intro': 'Exibição e recursos opcionais. Valem para a próxima partida.',
   'settings.display': 'Exibição',
