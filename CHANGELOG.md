@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.20.0] – 2026-05-31
+
+### Geändert
+
+- **Vollere Welt:** Die Obergrenze für wilde Nationen wurde von 400 auf 600 angehoben. Die
+  Schnellwahl-Vorgaben setzen jetzt mehr Wilde (Klein: 120, Standard: 300, Groß: 480,
+  Chaos: 600), damit sich die Karte von Anfang an weniger leer anfühlt.
+
 ## [0.19.0] – 2026-05-31
 
 ### Geändert
