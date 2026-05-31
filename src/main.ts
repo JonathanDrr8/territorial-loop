@@ -339,6 +339,8 @@ function startMatch(
   net?: NetSession,
   /** Ranglisten-Match (ADR-0022): alle KI auf dieses ELO, Ergebnis aktualisiert das Spieler-ELO. */
   rankedElo?: number,
+  /** HUD-Sandbox: Match nur zum HUD-Einrichten — pausiert starten + Editor sofort öffnen. */
+  hudSandbox?: boolean,
 ): MatchSession {
   clearScalables() // UI-Größen-Registry leeren — die HUD-Panels dieses Matches melden sich neu an
   const config = net?.config ?? buildConfig(menu, spectator)
@@ -562,7 +564,11 @@ function startMatch(
 
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
-  const hudEditor = createHudEditor(container)
+  // Im Sandbox-Modus (aus den Einstellungen) bringt „Fertig" direkt zurück ins Menü.
+  const hudEditor =
+    hudSandbox === true
+      ? createHudEditor(container, { onDone: onRequestNewMatch })
+      : createHudEditor(container)
 
   const buildMenu = createBuildMenu(
     container,
@@ -744,6 +750,15 @@ function startMatch(
   renderRafId = requestAnimationFrame(renderLoop)
 
   console.info('[territorial-loop] Match gestartet:', menu)
+
+  // HUD-Sandbox (aus den Einstellungen geöffnet): Match pausieren und den Editor sofort aufmachen,
+  // damit man das HUD am echten Layout einrichten kann, ohne ein echtes Spiel zu starten.
+  if (hudSandbox === true) {
+    transport.setRunning(false)
+    hud.setSpeed(0)
+    paused = true
+    hudEditor.open()
+  }
 
   return {
     destroy(): void {
@@ -1076,6 +1091,44 @@ function main(): void {
           } else {
             proceed(values)
           }
+        },
+        onCustomizeHud: () => {
+          // HUD-Editor aus den Einstellungen: kurz in ein kleines, pausiertes Sandbox-Match
+          // springen (echtes HUD vorhanden) + Editor sofort öffnen. „Runde verlassen" → zurück.
+          menu.destroy()
+          if (session !== null) {
+            session.destroy()
+            session = null
+          }
+          const sandbox: StartMenuValues = {
+            ...DEFAULT_MENU,
+            mapWidth: 256,
+            mapHeight: 256,
+            aiCount: 5,
+            wildCount: 0,
+            victoryPct: 100,
+            terrain: 'continents',
+            rivers: false,
+            experimental: {},
+          }
+          const removeLoading = showLoadingOverlay(container)
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              try {
+                session = startMatch(
+                  container,
+                  sandbox,
+                  backToMenu,
+                  false,
+                  undefined,
+                  undefined,
+                  true,
+                )
+              } finally {
+                removeLoading()
+              }
+            })
+          })
         },
         onMultiplayer: (values) => {
           saveMenuPrefs(values)

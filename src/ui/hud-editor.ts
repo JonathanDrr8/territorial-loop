@@ -49,7 +49,12 @@ interface Rect {
   h: number
 }
 
-export function createHudEditor(container: HTMLElement): HudEditorApi {
+export interface HudEditorOptions {
+  /** Wird beim Schließen über „Fertig" zusätzlich aufgerufen (z. B. Sandbox → zurück ins Menü). */
+  onDone?: () => void
+}
+
+export function createHudEditor(container: HTMLElement, opts: HudEditorOptions = {}): HudEditorApi {
   let open = false
   const frames = new Map<string, HTMLElement>()
 
@@ -772,6 +777,7 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     ].join(';')
     doneBtn.addEventListener('click', () => {
       close()
+      opts.onDone?.()
     })
     right.appendChild(resetBtn)
     right.appendChild(doneBtn)

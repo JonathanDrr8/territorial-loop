@@ -59,6 +59,8 @@ export interface MenuShellCallbacks {
   onSpectate(code: string): void
   /** Footer-Eintrag „Feedback" → öffnet den Feedback-/Bug-Dialog. */
   onFeedback?(): void
+  /** „HUD anpassen" in den Einstellungen → springt in ein Sandbox-Match mit offenem Editor. */
+  onCustomizeHud?(): void
   /** Ranglisten-Modus öffnen (ADR-0022) — Match auf Spieler-ELO, Ergebnis bewegt das ELO. */
   onRanked(values: StartMenuValues): void
 }
@@ -672,6 +674,28 @@ export function createMenuShell(
     hudHint.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px; margin: 4px 0 11px'
     hudHint.textContent = t('settings.hud.hint')
     p.appendChild(hudHint)
+
+    // „HUD anpassen" direkt aus den Einstellungen: springt in ein kleines Sandbox-Match mit
+    // sofort offenem Editor (das echte HUD braucht ein laufendes Match).
+    if (callbacks.onCustomizeHud !== undefined) {
+      const editBtn = document.createElement('button')
+      editBtn.type = 'button'
+      editBtn.textContent = t('hud.editor.open')
+      editBtn.style.cssText = [
+        'margin-bottom: 14px',
+        'padding: 10px 16px',
+        'font-family: inherit',
+        'font-size: 14px',
+        'font-weight: 700',
+        'cursor: pointer',
+        'border: none',
+        'border-radius: 8px',
+        'background: var(--tl-accent)',
+        'color: #0c0c10',
+      ].join(';')
+      editBtn.addEventListener('click', () => callbacks.onCustomizeHud?.())
+      p.appendChild(editBtn)
+    }
 
     const resetRow = document.createElement('div')
     resetRow.style.cssText =
