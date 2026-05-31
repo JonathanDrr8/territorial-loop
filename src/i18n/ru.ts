@@ -52,6 +52,7 @@ export const ru: Record<string, string> = {
   'settings.display': 'Отображение',
   'field.camera': 'Камера',
   'field.sound': 'Звук',
+  'field.music': 'Музыка (бета)',
   'toggle.on': 'вкл',
   'toggle.off': 'выкл',
   'camera.tiles': 'Плитки (как раньше)',

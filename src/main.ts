@@ -54,6 +54,7 @@ import {
   clearActiveSession,
   loadActiveSession,
   loadMenuPrefs,
+  loadMusicEnabled,
   loadServerUrl,
   saveActiveSession,
   saveMenuPrefs,
@@ -61,6 +62,7 @@ import {
   type ActiveSession,
 } from './ui/preferences'
 import { createSoundEngine } from './ui/sound'
+import { createMusicEngine } from './ui/music'
 import { TEMPO_TO_SPEED, type StartMenuValues } from './ui/start-menu'
 import { createMenuShell } from './ui/menu-shell'
 
@@ -365,10 +367,14 @@ function startMatch(
   let recenterPending = true
   const sound = createSoundEngine()
   sound.setEnabled(menu.soundEnabled)
+  // Adaptiver Soundtrack (Prototyp, opt-in): nur im Spielmodus (nicht Zuschauer), startet beim
+  // ersten Frame (Match-Start = User-Geste → AudioContext erlaubt). Reine Präsentation.
+  const music = !spectator && loadMusicEnabled() ? createMusicEngine() : null
   ;(window as unknown as { __TL__: unknown }).__TL__ = {
     state,
     renderer,
     sound,
+    music,
     config,
     // Replay-Log des laufenden Matches: replayGame({config, turns: __TL__.recorder.turns()}).
     get recorder() {
@@ -415,6 +421,18 @@ function startMatch(
       pan: Math.max(-1, Math.min(1, dxPx / (vw / 2))),
       gain: Math.max(0, 1 - dist / cutoff),
     }
+  }
+
+  let musicStarted = false
+  /** Intensität (0..1) fürs adaptive Musik-Prototyp: laufende Angriffe + Bomben + eigene Bedrängnis. */
+  function computeMusicIntensity(): number {
+    if (state.phase !== 'running') return 0
+    let attacks = 0
+    for (const p of state.players.values()) attacks += p.attacks.length
+    const a = Math.min(1, attacks / 50)
+    const bombs = Math.min(1, state.bombImpacts.length / 5)
+    const personal = prevIncomingAttackers.size > 0 ? 0.25 : 0
+    return Math.min(1, Math.max(a, bombs * 0.7) + personal)
   }
 
   let sliderPct = DEFAULT_SLIDER_PCT
@@ -823,6 +841,15 @@ function startMatch(
         }
       }
     }
+    // Adaptiver Soundtrack (Prototyp): beim ersten laufenden Frame starten (User-Geste vorbei),
+    // dann pro Frame die Intensität nachführen.
+    if (music !== null) {
+      if (!musicStarted && state.phase === 'running') {
+        music.start()
+        musicStarted = true
+      }
+      music.setIntensity(computeMusicIntensity())
+    }
     renderer.render()
     minimap.update()
     hud.update()
@@ -866,6 +893,7 @@ function startMatch(
       pauseMenu.destroy()
       renderer.destroy()
       sound.destroy()
+      music?.destroy()
     },
   }
 }

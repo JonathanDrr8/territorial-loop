@@ -52,6 +52,7 @@ export const zh: Record<string, string> = {
   'settings.display': '显示',
   'field.camera': '镜头',
   'field.sound': '声音',
+  'field.music': '音乐（测试版）',
   'toggle.on': '开',
   'toggle.off': '关',
   'camera.tiles': '平铺（同以前）',

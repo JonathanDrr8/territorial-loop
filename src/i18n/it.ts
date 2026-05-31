@@ -52,6 +52,7 @@ export const it: Record<string, string> = {
   'settings.display': 'Visualizzazione',
   'field.camera': 'Telecamera',
   'field.sound': 'Audio',
+  'field.music': 'Musica (beta)',
   'toggle.on': 'sì',
   'toggle.off': 'no',
   'camera.tiles': 'Tessere (come prima)',
