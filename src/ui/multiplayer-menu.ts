@@ -464,6 +464,30 @@ export function createMultiplayerMenu(
       ...settings,
       riverDensity: Math.max(0.2, Math.min(3, v)),
     }))
+    // Modus (ADR-0025/0026): Hauptstadt-Modus + Teams.
+    checkboxRow(
+      t('field.captureMode'),
+      s.captureMode === true,
+      (on) => (on ? t('toggle.on') : t('toggle.off')),
+      (v) => ({ ...settings, captureMode: v }),
+    )
+    selectRow(
+      t('field.teamMode'),
+      s.teamMode ?? 'off',
+      [
+        ['off', t('teamMode.off')],
+        ['allied', t('teamMode.allied')],
+      ],
+      (v) => ({ ...settings, teamMode: v === 'allied' ? 'allied' : 'off' }),
+    )
+    numRow(t('field.teamCount'), s.teamCount ?? 2, (v) => ({
+      ...settings,
+      teamCount: Math.max(2, Math.min(8, Math.round(v))),
+    }))
+    numRow(t('field.teamSize'), s.teamSize ?? 2, (v) => ({
+      ...settings,
+      teamSize: Math.max(1, Math.min(6, Math.round(v))),
+    }))
     // Gebäude-Toggles: deaktivierte Typen kann im Match niemand bauen (deterministisch übers Netz).
     const setBuilding = (type: BuildingType, on: boolean): MatchSettings => {
       const ab: Partial<Record<BuildingType, boolean>> = { ...(settings.allowedBuildings ?? {}) }

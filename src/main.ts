@@ -1164,6 +1164,10 @@ function main(): void {
       rivers: initial.rivers,
       riverDensity: initial.riverDensity,
       allowedBuildings: initial.allowedBuildings,
+      captureMode: initial.captureMode,
+      teamMode: initial.teamMode,
+      teamCount: initial.teamCount,
+      teamSize: initial.teamSize,
       public: true,
     }
     lobby = createMultiplayerMenu(container, {
