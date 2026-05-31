@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.22.2] – 2026-06-01
+
+### Behoben
+
+- **Einstellungen werden sofort gespeichert:** Änderungen im Menü (Kamera, Sound, erlaubte
+  Gebäude, Flüsse usw.) wurden bisher erst beim Start eines Matches gesichert — wer etwas
+  umstellte und die Seite neu lud ohne zu spielen, verlor die Änderung. Jetzt wird jede
+  Einstellung sofort beim Ändern gespeichert.
+
 ## [0.22.1] – 2026-06-01
 
 ### Behoben
