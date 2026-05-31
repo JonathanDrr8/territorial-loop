@@ -384,6 +384,39 @@ function startMatch(
   let lastAlarmTick = -Infinity
   const ALARM_COOLDOWN_TICKS = 25
 
+  // Schiff-/Flugzeug-/Bomben-Sounds (reine Präsentation): erkennt neue Boote/Bomber/Einschläge im
+  // State und spielt sie positionsabhängig. Die „Wer hört's"-Regel wird pro Client am lokalen
+  // Spieler (`humanId`) ausgewertet — nicht im Sim-State, MP-sicher.
+  let seenBombImpacts = new Set<string>()
+  const seenBoats = new WeakSet<object>()
+  const seenBombers = new WeakSet<object>()
+  const MAX_BOMB_SOUNDS_PER_FRAME = 3
+  const SOUND_CUTOFF_VIEWPORTS = 1.5
+  /** Pan (−1..1) + Lautstärke (0..1) eines Tiles relativ zur Kamera; `null` = außerhalb Hörweite. */
+  function panGainForTile(tile: number): { pan: number; gain: number } | null {
+    const w = state.map.width
+    const h = state.map.height
+    const tx = tile % w
+    const ty = Math.floor(tile / w)
+    const wrap = (a: number, b: number, size: number): number => {
+      let d = a - b
+      if (d > size / 2) d -= size
+      else if (d < -size / 2) d += size
+      return d
+    }
+    const z = renderer.camera.zoom
+    const dxPx = wrap(tx, renderer.camera.x, w) * z
+    const dyPx = wrap(ty, renderer.camera.y, h) * z
+    const vw = container.clientWidth || 1
+    const cutoff = SOUND_CUTOFF_VIEWPORTS * vw
+    const dist = Math.hypot(dxPx, dyPx)
+    if (dist > cutoff) return null
+    return {
+      pan: Math.max(-1, Math.min(1, dxPx / (vw / 2))),
+      gain: Math.max(0, 1 - dist / cutoff),
+    }
+  }
+
   let sliderPct = DEFAULT_SLIDER_PCT
   let paused = false
   let speed: 1 | 2 | 5 = 1
@@ -752,6 +785,42 @@ function startMatch(
       if (newThreat && state.tick - lastAlarmTick >= ALARM_COOLDOWN_TICKS) {
         lastAlarmTick = state.tick
         sound.alarm()
+      }
+    }
+    // Schiff/Flugzeug/Bombe: neue State-Einträge → positionsabhängige Sounds (pro Client gefiltert).
+    if (state.phase === 'running' && sound.isEnabled()) {
+      // Bomben — jeder hört sie (Lautstärke nach Distanz), pro Frame begrenzt gegen Kakophonie.
+      let bombsThisFrame = 0
+      const nextSeenBomb = new Set<string>()
+      for (const imp of state.bombImpacts) {
+        const key = `${String(imp.tile)}:${String(imp.atTick)}`
+        nextSeenBomb.add(key)
+        if (seenBombImpacts.has(key) || bombsThisFrame >= MAX_BOMB_SOUNDS_PER_FRAME) continue
+        const pg = panGainForTile(imp.tile)
+        if (pg !== null) {
+          sound.bombImpact(pg.pan, pg.gain)
+          bombsThisFrame++
+        }
+      }
+      seenBombImpacts = nextSeenBomb
+      // Bomber-Start — nur Starter (Besitzer) UND Ziel (Besitzer des Ziel-Tiles) hören es.
+      for (const b of state.bombers) {
+        if (seenBombers.has(b)) continue
+        seenBombers.add(b)
+        if (humanId < 0) continue
+        if (b.ownerId === humanId || getOwner(state.map, b.targetTile) === humanId) {
+          const pg = panGainForTile(b.targetTile) ?? { pan: 0, gain: 0.85 }
+          sound.planeLaunch(pg.pan, Math.max(0.5, pg.gain))
+        }
+      }
+      // Transportboot — nur der eigene Versand (du selbst).
+      for (const bt of state.boats) {
+        if (seenBoats.has(bt)) continue
+        seenBoats.add(bt)
+        if (humanId >= 0 && bt.ownerId === humanId) {
+          const pg = panGainForTile(bt.targetTile)
+          sound.boatHorn(pg?.pan ?? 0)
+        }
       }
     }
     renderer.render()
