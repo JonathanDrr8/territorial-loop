@@ -25,6 +25,7 @@ export const ru: Record<string, string> = {
   'field.victory': 'Победа %',
   'field.seed': 'Сид (необязательно)',
   'field.seedPlaceholder': 'пусто = случайный',
+  'field.reroll': 'Перебросить',
   'terrain.flat': 'Открытая (без воды)',
   'terrain.continents': 'Континенты',
   'terrain.islands': 'Острова',

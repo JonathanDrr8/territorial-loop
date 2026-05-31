@@ -25,6 +25,7 @@ export const ja: Record<string, string> = {
   'field.victory': '勝利 %',
   'field.seed': 'シード（任意）',
   'field.seedPlaceholder': '空 = ランダム',
+  'field.reroll': '振り直す',
   'terrain.flat': '開けた地形（水なし）',
   'terrain.continents': '大陸',
   'terrain.islands': '島々',

@@ -25,6 +25,7 @@ export const zh: Record<string, string> = {
   'field.victory': '胜利 %',
   'field.seed': '种子（可选）',
   'field.seedPlaceholder': '留空 = 随机',
+  'field.reroll': '重新骰',
   'terrain.flat': '开阔（无水）',
   'terrain.continents': '大陆',
   'terrain.islands': '岛屿',

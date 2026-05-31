@@ -25,6 +25,7 @@ export const fr: Record<string, string> = {
   'field.victory': 'Victoire %',
   'field.seed': 'Graine (optionnelle)',
   'field.seedPlaceholder': 'vide = aléatoire',
+  'field.reroll': 'Relancer',
   'terrain.flat': 'Ouvert (sans eau)',
   'terrain.continents': 'Continents',
   'terrain.islands': 'Îles',

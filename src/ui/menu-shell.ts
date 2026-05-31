@@ -38,6 +38,9 @@ import {
   type TerrainChoice,
 } from './start-menu'
 import type { BuildingType } from '../core/buildings'
+import type { TerrainType } from '../world/terrain'
+import { createMapPreview } from './map-preview'
+import { isGeoMapId } from './geo-loader'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
@@ -472,6 +475,60 @@ export function createMenuShell(
       maxLength: 32,
     })
     p.appendChild(seed.element)
+
+    // Karten-Vorschau (Minimap-Look) + Würfel-Knopf: zeigt das Terrain des aktuellen Seeds in
+    // reduzierter Auflösung, damit man würfeln kann, bis die Karte gefällt. Da das Vorschau-Terrain
+    // mit demselben Seed generiert wird, entspricht es dem echten Match. Ein leeres Feld füllen wir
+    // einmal mit einem konkreten Seed → Vorschau == gespielte Karte (statt eines verworfenen Zufalls).
+    const seedInput = seed.element.querySelector('input')
+    const genSeed = (): string => Math.random().toString(36).slice(2, 8).toUpperCase()
+    if (seedInput !== null && seedInput.value.trim().length === 0) seedInput.value = genSeed()
+    const preview = createMapPreview(168)
+    const currentTerrainType = (): TerrainType => {
+      const tc = terrain.getValue()
+      return isGeoMapId(tc) ? 'continents' : (tc as TerrainType)
+    }
+    const refreshPreview = (): void => {
+      preview.render({
+        seed: seedInput?.value.trim() ?? '',
+        mapWidth: map.getWidth(),
+        mapHeight: map.getHeight(),
+        terrain: currentTerrainType(),
+        rivers: values.rivers,
+        riverDensity: values.riverDensity,
+      })
+    }
+    const previewRow = document.createElement('div')
+    previewRow.style.cssText =
+      'display: flex; gap: 14px; align-items: center; margin: 10px 0 4px; justify-content: center'
+    const dice = document.createElement('button')
+    dice.type = 'button'
+    dice.textContent = t('field.reroll')
+    dice.style.cssText = [
+      'padding: 10px 14px',
+      'background: rgba(255,255,255,0.06)',
+      'color: var(--tl-text)',
+      'border: 1px solid var(--tl-panel-border-color)',
+      'border-radius: 8px',
+      'font-family: inherit',
+      'font-size: 14px',
+      'cursor: pointer',
+      'white-space: nowrap',
+    ].join(';')
+    dice.addEventListener('click', () => {
+      if (seedInput !== null) seedInput.value = genSeed()
+      refreshPreview()
+    })
+    previewRow.appendChild(preview.element)
+    previewRow.appendChild(dice)
+    p.appendChild(previewRow)
+
+    // Live aktualisieren, wenn Seed/Größe/Terrain sich ändern.
+    seedInput?.addEventListener('input', refreshPreview)
+    for (const sel of map.element.querySelectorAll('select'))
+      sel.addEventListener('change', refreshPreview)
+    terrain.element.querySelector('select')?.addEventListener('change', refreshPreview)
+    refreshPreview()
 
     playFields = {
       mapW: map.getWidth,
