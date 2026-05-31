@@ -4,6 +4,27 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.21.0] – 2026-05-31
+
+### Neu
+
+- **Soundeffekte:** Drei neue Sounds begleiten jetzt Marinen-Aktionen und Luftangriffe.
+  Ein tiefes **Tuten** ertönt, wenn du ein Transportboot ausschickst (nur du hörst es).
+  Beim Start eines **Bombers** brummt das Triebwerk — der Angreifer und die angegriffene
+  Nation hören es. Beim **Einschlag** der Bombe gibt es einen dumpfen Knall, den alle
+  Spieler hören, lauter je näher sie am Geschehen sind. Alle drei Sounds kommen mit
+  **Stereo-Richtung**: was links auf dem Bildschirm passiert, kommt von links.
+- **Adaptiver Soundtrack (Beta):** Wer Musik mag, kann im Einstellungsmenü **„Musik (Beta)"**
+  einschalten. Der Soundtrack passt sich dann der Spielintensität an — je mehr Schlachten
+  und Bewegung auf der Karte, desto treibender und voller die Musik. Standardmäßig aus,
+  bis der Modus ausreichend erprobt ist.
+
+### Geändert
+
+- **Flak greift früher an:** Die Reichweite eines **Flak-Postens auf Stufe 1** wurde von
+  8 auf 10 Felder erhöht. Bomber werden jetzt schon aus etwas mehr Abstand beschossen,
+  bevor sie ihre Nutzlast abwerfen können.
+
 ## [0.20.0] – 2026-05-31
 
 ### Geändert
