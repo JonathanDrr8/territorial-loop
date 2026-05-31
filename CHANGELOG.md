@@ -4,6 +4,33 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.11.0] – 2026-05-31
+
+### Neu
+
+- **HUD-Editor:** Oben links erscheint der Knopf „HUD anpassen". Damit lässt sich jedes
+  HUD-Panel **frei verschieben**, an allen vier Ecken **skalieren**, **ausblenden** und wieder
+  einblenden. Beim Verschieben snappt das Panel an Bildschirm-Ränder und andere Panels — mit
+  Hilfslinien. „Standard" setzt das Layout auf die Werkseinstellung zurück. Das eigene Layout
+  wird **lokal gespeichert** und bleibt über Matches hinweg erhalten.
+- **Design live umschalten:** Im HUD-Editor lassen sich alle **6 Looks** (Dezent, Taktisch,
+  Neon, Kriegskarte, Bathymetrie, Feldemaille) auf Knopfdruck live ausprobieren — das Ergebnis
+  ist sofort im Spiel zu sehen.
+- **Layout exportieren:** Ein „Export"-Knopf im Editor kopiert das eigene Layout als Code in
+  die Zwischenablage — zum Teilen mit anderen oder als Sicherung.
+- **Rangliste nach Land sortieren:** Neben der bisherigen Sortierung nach Truppen gibt es jetzt
+  auch **„Land" (Territorium-Anteil in %)** — das eigentliche Sieg-Ziel ist damit auf einen
+  Blick ablesbar.
+- **HUD & Design in den Einstellungen:** Eine neue Sektion im Einstellungs-Menü erlaubt es,
+  das Design zu wechseln und das HUD-Layout zurückzusetzen — auch ohne laufendes Match.
+
+### Geändert
+
+- **Das gewählte Design gilt überall:** Nicht nur das HUD im Match, sondern auch das
+  **Hauptmenü und die Bündnis-Karten** tragen jetzt den gewählten Look.
+- **HUD-Größe pro Panel:** Der globale UI-Größe-Slider ist entfallen. Die Größe jedes Panels
+  lässt sich stattdessen direkt im HUD-Editor einzeln anpassen.
+
 ## [0.10.0] – 2026-05-31
 
 ### Neu
