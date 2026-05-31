@@ -163,8 +163,9 @@ export function airportSlots(level: number): number {
   return level
 }
 
-/** Flak-Reichweite (Tiles) — wie der Verteidigungsposten: L1 8 / L2 12 / L3 16. */
-export const FLAK_BASE_RANGE = 8
+/** Flak-Reichweite (Tiles): L1 10 / L2 14 / L3 18 — etwas größer als der Verteidigungsposten,
+ * damit ein Level-1-Posten Bomber schon aus etwas mehr Abstand erreicht. */
+export const FLAK_BASE_RANGE = 10
 export const FLAK_RANGE_PER_LEVEL = 4
 export function flakRange(level: number): number {
   return FLAK_BASE_RANGE + (level - 1) * FLAK_RANGE_PER_LEVEL
