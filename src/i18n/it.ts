@@ -228,6 +228,8 @@ export const it: Record<string, string> = {
   'hud.editor.open': 'Personalizza HUD',
   'hud.editor.done': 'Fatto',
   'hud.editor.reset': 'Predefinito',
+  'hud.editor.export': 'Esporta',
+  'hud.editor.copied': 'Copiato',
   'hud.editor.theme': 'Tema',
   'hud.editor.hidden': 'Nascosto',
   'hud.editor.hint': 'Trascinare = sposta · Angoli = ridimensiona · × = nascondi',

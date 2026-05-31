@@ -221,6 +221,8 @@ export const ru: Record<string, string> = {
   'hud.editor.open': 'Настроить HUD',
   'hud.editor.done': 'Готово',
   'hud.editor.reset': 'По умолчанию',
+  'hud.editor.export': 'Экспорт',
+  'hud.editor.copied': 'Скопировано',
   'hud.editor.theme': 'Тема',
   'hud.editor.hidden': 'Скрыто',
   'hud.editor.hint': 'Перетащить = переместить · Углы = размер · × = скрыть',

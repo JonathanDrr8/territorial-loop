@@ -227,6 +227,8 @@ export const pt: Record<string, string> = {
   'hud.editor.open': 'Personalizar HUD',
   'hud.editor.done': 'Concluído',
   'hud.editor.reset': 'Padrão',
+  'hud.editor.export': 'Exportar',
+  'hud.editor.copied': 'Copiado',
   'hud.editor.theme': 'Tema',
   'hud.editor.hidden': 'Oculto',
   'hud.editor.hint': 'Arrastar = mover · Cantos = redimensionar · × = ocultar',

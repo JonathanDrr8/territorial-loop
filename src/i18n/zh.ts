@@ -194,6 +194,8 @@ export const zh: Record<string, string> = {
   'hud.editor.open': '自定义 HUD',
   'hud.editor.done': '完成',
   'hud.editor.reset': '默认',
+  'hud.editor.export': '导出',
+  'hud.editor.copied': '已复制',
   'hud.editor.theme': '主题',
   'hud.editor.hidden': '已隐藏',
   'hud.editor.hint': '拖拽 = 移动 · 角落 = 调整大小 · × = 隐藏',

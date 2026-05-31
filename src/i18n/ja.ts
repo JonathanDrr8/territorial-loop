@@ -196,6 +196,8 @@ export const ja: Record<string, string> = {
   'hud.editor.open': 'HUD をカスタマイズ',
   'hud.editor.done': '完了',
   'hud.editor.reset': 'デフォルト',
+  'hud.editor.export': 'エクスポート',
+  'hud.editor.copied': 'コピーしました',
   'hud.editor.theme': 'テーマ',
   'hud.editor.hidden': '非表示',
   'hud.editor.hint': 'ドラッグ = 移動 · 角 = リサイズ · × = 非表示',

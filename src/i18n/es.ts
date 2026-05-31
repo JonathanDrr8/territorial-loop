@@ -230,6 +230,8 @@ export const es: Record<string, string> = {
   'hud.editor.open': 'Personalizar HUD',
   'hud.editor.done': 'Listo',
   'hud.editor.reset': 'Predeterminado',
+  'hud.editor.export': 'Exportar',
+  'hud.editor.copied': 'Copiado',
   'hud.editor.theme': 'Diseño',
   'hud.editor.hidden': 'Oculto',
   'hud.editor.hint': 'Arrastrar = mover · Esquinas = tamaño · × = ocultar',

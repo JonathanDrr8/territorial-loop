@@ -12,7 +12,7 @@
  */
 
 import { t } from '../i18n'
-import { getPanel, panelElements, resetLayout, setPanel } from './hud-layout'
+import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } from './hud-layout'
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
 
@@ -467,6 +467,48 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
 
     const right = document.createElement('div')
     right.style.cssText = 'display:flex;gap:8px'
+
+    // Export: aktuelles Layout (+ Theme + Bildschirmgröße) als JSON in die Zwischenablage —
+    // damit ein gewähltes Layout geteilt / als eingebauter Default übernommen werden kann.
+    const exportBtn = document.createElement('button')
+    exportBtn.type = 'button'
+    exportBtn.textContent = t('hud.editor.export')
+    exportBtn.style.cssText = [
+      'padding:5px 12px',
+      'font-size:12px',
+      'cursor:pointer',
+      'border:1px solid var(--tl-panel-border-color)',
+      'border-radius:6px',
+      'background:transparent',
+      'color:var(--tl-text)',
+    ].join(';')
+    exportBtn.addEventListener('click', () => {
+      const panels: Record<string, PanelOverride> = {}
+      for (const id of panelMap.keys()) {
+        const o = getPanel(id)
+        if (o !== undefined) panels[id] = o
+      }
+      const payload = {
+        theme: getTheme(),
+        screen: { w: container.clientWidth, h: container.clientHeight },
+        panels,
+      }
+      const json = JSON.stringify(payload)
+      void navigator.clipboard.writeText(json).then(
+        () => {
+          const prev = exportBtn.textContent
+          exportBtn.textContent = t('hud.editor.copied')
+          window.setTimeout(() => (exportBtn.textContent = prev), 1200)
+        },
+        () => {
+          /* Clipboard verweigert → wenigstens in die Konsole legen. */
+          // eslint-disable-next-line no-console
+          console.log('[hud-editor] layout export:', json)
+        },
+      )
+    })
+    right.appendChild(exportBtn)
+
     const resetBtn = document.createElement('button')
     resetBtn.type = 'button'
     resetBtn.textContent = t('hud.editor.reset')
