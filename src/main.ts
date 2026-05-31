@@ -42,7 +42,7 @@ import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
-import { clearScalables, createUiScaleSlider, registerScalable } from './ui/ui-scale'
+import { clearScalables, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -782,8 +782,8 @@ function main(): void {
     endpoint: feedbackEndpoint(),
     version: APP_VERSION,
   })
-  // UI-Größen-Slider (oben links, neben dem Feedback-Knopf) — skaliert das ganze In-Game-HUD.
-  createUiScaleSlider(container)
+  // UI-Größen-Slider entfernt (ADR-0024): die HUD-Größe regelt künftig der HUD-Editor pro Widget.
+  // Die Standard-Skalierung (registerScalable, zoom 1.3) bleibt als Basisgröße bestehen.
 
   let session: MatchSession | null = null
   let lobby: MultiplayerMenuApi | null = null

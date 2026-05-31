@@ -9,8 +9,9 @@
  */
 
 import { t } from '../i18n'
+import { panelStyle } from './theme'
 
-const ACCENT = '#7cc4ff'
+const ACCENT = 'var(--tl-accent)'
 
 export interface FeedbackUiApi {
   /** Öffnet den Feedback-/Bug-Dialog (z. B. aus dem Menü-Footer). */
@@ -25,25 +26,20 @@ export function createFeedbackUi(
   const trigger = document.createElement('button')
   trigger.textContent = t('footer.feedback')
   trigger.title = t('feedback.triggerTitle')
-  trigger.style.cssText = [
+  // Oben links (der UI-Größen-Slider, der hier mal daneben saß, ist raus → ADR-0024). Im Menü liegt
+  // der Knopf hinter dem Overlay (s. main.ts). Theme-Panel-Look, damit er zum HUD passt.
+  trigger.style.cssText = panelStyle([
     'position: absolute',
-    // Oben links, rechts neben dem UI-Größen-Slider (Chrome-Zeile). Die untere linke Ecke
-    // gehört dem Ressourcen-Block. Im Menü liegt der Knopf hinter dem Overlay (s. main.ts).
-    'left: 200px',
+    'left: 12px',
     'top: 12px',
     'z-index: 40',
-    'background: rgba(20,20,28,0.8)',
-    'color: rgba(255,255,255,0.8)',
-    'border: 1px solid rgba(255,255,255,0.2)',
-    'border-radius: 8px',
     'padding: 6px 10px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
     'font-size: 12px',
     'cursor: pointer',
-    'opacity: 0.7',
-  ].join(';')
+    'opacity: 0.82',
+  ])
   trigger.addEventListener('mouseenter', () => (trigger.style.opacity = '1'))
-  trigger.addEventListener('mouseleave', () => (trigger.style.opacity = '0.7'))
+  trigger.addEventListener('mouseleave', () => (trigger.style.opacity = '0.82'))
 
   let overlay: HTMLElement | null = null
 
@@ -67,16 +63,7 @@ export function createFeedbackUi(
     ].join(';')
 
     const panel = document.createElement('div')
-    panel.style.cssText = [
-      'background: #14141c',
-      'color: white',
-      'border: 1px solid rgba(255,255,255,0.14)',
-      'border-radius: 12px',
-      'padding: 20px 22px',
-      'width: 380px',
-      'max-width: 92vw',
-      'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-    ].join(';')
+    panel.style.cssText = panelStyle(['padding: 20px 22px', 'width: 380px', 'max-width: 92vw'])
 
     const h = document.createElement('div')
     h.textContent = t('feedback.title')
