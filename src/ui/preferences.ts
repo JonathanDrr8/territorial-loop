@@ -158,20 +158,44 @@ export function saveServerUrl(url: string): void {
   }
 }
 
-const MUSIC_KEY = 'territorial-loop:music:v1'
+const AUDIO_KEY = 'territorial-loop:audio:v1'
 
-/** Adaptiver Soundtrack (Prototyp) an? Standard: aus (opt-in). */
-export function loadMusicEnabled(): boolean {
+/** Audio-Lautstärken (0..1): Gesamt + getrennt für Soundeffekte und Musik. Standardwerte = die im
+ * Einstellungen-Menü gezeigten. Musik startet leiser (Prototyp). */
+export interface AudioVolumes {
+  master: number
+  sfx: number
+  music: number
+}
+
+const DEFAULT_AUDIO: AudioVolumes = { master: 0.8, sfx: 0.7, music: 0.45 }
+
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v)
+
+export function loadAudioVolumes(): AudioVolumes {
   try {
-    return window.localStorage.getItem(MUSIC_KEY) === '1'
+    const raw = window.localStorage.getItem(AUDIO_KEY)
+    if (raw === null) {
+      // Migration vom alten Musik-An/Aus: war es an, Musik auf Standard, sonst 0.
+      const oldMusic = window.localStorage.getItem('territorial-loop:music:v1')
+      if (oldMusic !== null)
+        return { ...DEFAULT_AUDIO, music: oldMusic === '1' ? DEFAULT_AUDIO.music : 0 }
+      return { ...DEFAULT_AUDIO }
+    }
+    const p = JSON.parse(raw) as Partial<AudioVolumes>
+    return {
+      master: typeof p.master === 'number' ? clamp01(p.master) : DEFAULT_AUDIO.master,
+      sfx: typeof p.sfx === 'number' ? clamp01(p.sfx) : DEFAULT_AUDIO.sfx,
+      music: typeof p.music === 'number' ? clamp01(p.music) : DEFAULT_AUDIO.music,
+    }
   } catch {
-    return false
+    return { ...DEFAULT_AUDIO }
   }
 }
 
-export function saveMusicEnabled(on: boolean): void {
+export function saveAudioVolumes(v: AudioVolumes): void {
   try {
-    window.localStorage.setItem(MUSIC_KEY, on ? '1' : '0')
+    window.localStorage.setItem(AUDIO_KEY, JSON.stringify(v))
   } catch {
     // silent ignore
   }

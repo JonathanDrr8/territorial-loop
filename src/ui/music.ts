@@ -17,6 +17,8 @@
 export interface MusicEngine {
   /** Ziel-Intensität setzen (0 = ruhig, 1 = Schlacht); der Motor blendet weich dorthin. */
   setIntensity(value: number): void
+  /** Effektiv-Lautstärke der Musik (0..1, = Master × Musik-Regler). */
+  setVolume(value: number): void
   start(): void
   stop(): void
   destroy(): void
@@ -64,6 +66,7 @@ export function createMusicEngine(): MusicEngine {
   let targetIntensity = 0
   let intensity = 0
   let arpIdx = 0
+  let volume = 0.7 // Effektiv-Lautstärke (Master × Musik), von außen per setVolume gesetzt.
 
   function ensure(): boolean {
     if (ctx !== null) {
@@ -74,7 +77,7 @@ export function createMusicEngine(): MusicEngine {
     if (Ctor === null) return false
     ctx = new Ctor()
     master = ctx.createGain()
-    master.gain.value = 0.7
+    master.gain.value = volume
     master.connect(ctx.destination)
     return true
   }
@@ -132,10 +135,12 @@ export function createMusicEngine(): MusicEngine {
     if (chord === undefined) return
     const beat = s % STEPS_PER_BEAT === 0
     // Schicht-Lautstärken aus der geglätteten Intensität (Crossfade per Schwellwert).
-    const padG = 0.16 + 0.08 * intensity
-    const bassG = clamp01((intensity - 0.12) / 0.3) * 0.16
-    const arpG = clamp01((intensity - 0.4) / 0.3) * 0.09
-    const percG = clamp01((intensity - 0.6) / 0.3) * 0.13
+    // Phasen-Balance: Pad als Fundament etwas präsenter, die dazukommenden Schichten sanfter, damit
+    // der Aufbau trägt statt am Höhepunkt zu übersteuern (die Gesamt-Lautstärke regelt der Master).
+    const padG = 0.17 + 0.06 * intensity
+    const bassG = clamp01((intensity - 0.12) / 0.3) * 0.14
+    const arpG = clamp01((intensity - 0.4) / 0.3) * 0.08
+    const percG = clamp01((intensity - 0.6) / 0.3) * 0.11
 
     // Pad: bei Akkordwechsel getragenen Dreiklang anstoßen.
     if (s % STEPS_PER_CHORD === 0) {
@@ -179,6 +184,10 @@ export function createMusicEngine(): MusicEngine {
   return {
     setIntensity(value: number): void {
       targetIntensity = clamp01(value)
+    },
+    setVolume(value: number): void {
+      volume = clamp01(value)
+      if (master !== null) master.gain.value = volume
     },
     start(): void {
       if (!ensure() || ctx === null) return

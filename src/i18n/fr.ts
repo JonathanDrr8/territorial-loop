@@ -50,8 +50,10 @@ export const fr: Record<string, string> = {
 
   'settings.intro': "Affichage et fonctions optionnelles. S'appliquent à la prochaine partie.",
   'settings.display': 'Affichage',
+  'settings.audio': 'Audio',
   'field.camera': 'Caméra',
-  'field.sound': 'Son',
+  'field.master': 'Principal',
+  'field.sound': 'Effets sonores',
   'field.music': 'Musique (bêta)',
   'toggle.on': 'oui',
   'toggle.off': 'non',

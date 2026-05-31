@@ -50,8 +50,10 @@ export const zh: Record<string, string> = {
 
   'settings.intro': '显示与可选功能。将在下一局生效。',
   'settings.display': '显示',
+  'settings.audio': '音频',
   'field.camera': '镜头',
-  'field.sound': '声音',
+  'field.master': '主音量',
+  'field.sound': '音效',
   'field.music': '音乐（测试版）',
   'toggle.on': '开',
   'toggle.off': '关',

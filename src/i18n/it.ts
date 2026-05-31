@@ -50,8 +50,10 @@ export const it: Record<string, string> = {
 
   'settings.intro': 'Visualizzazione e funzioni opzionali. Si applicano alla prossima partita.',
   'settings.display': 'Visualizzazione',
+  'settings.audio': 'Audio',
   'field.camera': 'Telecamera',
-  'field.sound': 'Audio',
+  'field.master': 'Generale',
+  'field.sound': 'Effetti sonori',
   'field.music': 'Musica (beta)',
   'toggle.on': 'sì',
   'toggle.off': 'no',

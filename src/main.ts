@@ -54,7 +54,7 @@ import {
   clearActiveSession,
   loadActiveSession,
   loadMenuPrefs,
-  loadMusicEnabled,
+  loadAudioVolumes,
   loadServerUrl,
   saveActiveSession,
   saveMenuPrefs,
@@ -365,11 +365,15 @@ function startMatch(
   // das Canvas hier noch nicht final dimensioniert ist.)
   renderer.centerOnPlayer(humanId)
   let recenterPending = true
+  // Audio-Lautstärken (Master/SFX/Musik, 0..1) aus den Einstellungen. Effektiv = Master × Kanal.
+  const audio = loadAudioVolumes()
   const sound = createSoundEngine()
-  sound.setEnabled(menu.soundEnabled)
-  // Adaptiver Soundtrack (Prototyp, opt-in): nur im Spielmodus (nicht Zuschauer), startet beim
-  // ersten Frame (Match-Start = User-Geste → AudioContext erlaubt). Reine Präsentation.
-  const music = !spectator && loadMusicEnabled() ? createMusicEngine() : null
+  sound.setEnabled(audio.master > 0 && audio.sfx > 0)
+  sound.setVolume(audio.master * audio.sfx)
+  // Adaptiver Soundtrack (Prototyp, opt-in über Musik-Lautstärke > 0): nur im Spielmodus, startet
+  // beim ersten Frame (Match-Start = User-Geste → AudioContext erlaubt). Reine Präsentation.
+  const music = !spectator && audio.master > 0 && audio.music > 0 ? createMusicEngine() : null
+  music?.setVolume(audio.master * audio.music)
   ;(window as unknown as { __TL__: unknown }).__TL__ = {
     state,
     renderer,
