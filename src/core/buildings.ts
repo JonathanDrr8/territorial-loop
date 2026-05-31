@@ -147,8 +147,6 @@ export const DEFENSE_BASE_RANGE = 8
 export const DEFENSE_RANGE_PER_LEVEL = 4
 /** Magnitude-Multiplikator für verteidigte Tiles (stapelt mit Terrain). */
 export const DEFENSE_MAG_MULTIPLIER = 5
-/** Wie nah ein Hafen am Wasser sein muss (Tiles). */
-export const PORT_WATER_RANGE = 3
 
 /** Reichweite eines Verteidigungspostens auf gegebenem Level. */
 export function defenseRange(level: number): number {
