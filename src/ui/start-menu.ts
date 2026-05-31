@@ -110,8 +110,8 @@ export const CAMERA_OPTIONS: ReadonlyArray<readonly [CameraMode, string]> = [
   ['dynamic', 'Dynamische Box'],
 ]
 
-/** Akzentfarbe — passt zum Eigenleuchten/Optimum-Strich im Spiel (cyan). */
-export const ACCENT = '#46d9e6'
+/** Akzentfarbe folgt dem gewählten Theme (ADR-0024: Menü teilt das HUD-Theme, nur Optik). */
+export const ACCENT = 'var(--tl-accent)'
 
 export const FIELD_ROW_STYLE =
   'display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 14px; margin-bottom: 13px'
@@ -120,26 +120,26 @@ export const BUTTON_STYLE = [
   'margin-top: 22px',
   'width: 100%',
   'padding: 16px',
-  'background: linear-gradient(180deg, #3fd0c0 0%, #2bb39c 100%)',
-  'color: #07120f',
+  'background: var(--tl-accent)',
+  'color: #100c06',
   'border: none',
-  'border-radius: 8px',
+  'border-radius: var(--tl-panel-radius)',
   'font-size: 18px',
-  'font-family: inherit',
+  'font-family: var(--tl-font)',
   'letter-spacing: 0.3px',
   'cursor: pointer',
   'font-weight: bold',
-  'box-shadow: 0 4px 16px rgba(63,208,192,0.3)',
-  'transition: transform 0.08s, box-shadow 0.12s',
+  'box-shadow: 0 4px 16px rgba(0,0,0,0.35)',
+  'transition: transform 0.08s, box-shadow 0.12s, filter 0.12s',
 ].join(';')
 
 export const INPUT_STYLE = [
-  'background: #0d0d13',
-  'color: white',
-  'border: 1px solid #2c2c3a',
+  'background: rgba(0,0,0,0.35)',
+  'color: var(--tl-text)',
+  'border: 1px solid var(--tl-panel-border-color)',
   'border-radius: 5px',
   'padding: 9px 11px',
-  'font-family: inherit',
+  'font-family: var(--tl-font)',
   'font-size: 16px',
   'width: 100%',
   'box-sizing: border-box',
@@ -149,17 +149,17 @@ export const INPUT_STYLE = [
 
 export const SELECT_STYLE = INPUT_STYLE
 
-/** Klassen-basierte Hover/Focus-Styles (inline geht nicht für :focus/:hover). */
+/** Klassen-basierte Hover/Focus-Styles (inline geht nicht für :focus/:hover). Farben aus Theme-Tokens. */
 export const MENU_CSS = `
-.tl-menu input[type=text]:focus, .tl-menu select:focus { border-color: ${ACCENT}; box-shadow: 0 0 0 2px rgba(70,217,230,0.2) }
-.tl-menu .tl-start:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(63,208,192,0.45) }
+.tl-menu input[type=text]:focus, .tl-menu select:focus { border-color: var(--tl-accent); box-shadow: 0 0 0 2px rgba(255,255,255,0.16) }
+.tl-menu .tl-start:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 6px 22px rgba(0,0,0,0.45) }
 .tl-menu .tl-start:active { transform: translateY(0) }
-.tl-menu .tl-section { margin: 20px 0 10px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: ${ACCENT}; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 14px }
-.tl-menu input[type=range] { accent-color: ${ACCENT} }
-.tl-menu input[type=checkbox] { accent-color: ${ACCENT} }
-.tl-tab { background: transparent; border: 1px solid transparent; color: rgba(255,255,255,0.7); padding: 9px 18px; border-radius: 8px; font-family: inherit; font-size: 16px; cursor: pointer; transition: color 0.12s, background 0.12s, border-color 0.12s }
+.tl-menu .tl-section { margin: 20px 0 10px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--tl-accent); opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 14px }
+.tl-menu input[type=range] { accent-color: var(--tl-accent) }
+.tl-menu input[type=checkbox] { accent-color: var(--tl-accent) }
+.tl-tab { background: transparent; border: 1px solid transparent; color: rgba(255,255,255,0.7); padding: 9px 18px; border-radius: 8px; font-family: var(--tl-font); font-size: 16px; cursor: pointer; transition: color 0.12s, background 0.12s, border-color 0.12s }
 .tl-tab:hover { color: white; background: rgba(255,255,255,0.06) }
-.tl-tab.tl-tab-active { color: #07120f; background: ${ACCENT}; border-color: ${ACCENT}; font-weight: 700 }
+.tl-tab.tl-tab-active { color: #100c06; background: var(--tl-accent); border-color: var(--tl-accent); font-weight: 700 }
 `
 
 /** Gemeinsamer Rückgabetyp der Widget-Builder: DOM-Zeile + Wert-Getter. */

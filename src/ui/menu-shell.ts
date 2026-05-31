@@ -139,8 +139,8 @@ export function createMenuShell(
       'display: flex',
       'flex-direction: column',
       'background: radial-gradient(120% 120% at 50% 0%, #1a1d28 0%, #0c0c12 70%)',
-      'color: white',
-      'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+      'color: var(--tl-text)',
+      'font-family: var(--tl-font)',
       'font-size: 16px',
       'z-index: 50',
       'overflow: hidden',
@@ -213,7 +213,7 @@ export function createMenuShell(
       'gap: 20px',
       'padding: 14px 24px',
       'border-bottom: 1px solid rgba(255,255,255,0.08)',
-      'background: #11131b',
+      'background: var(--tl-panel-bg)',
       'flex-wrap: wrap',
     ].join(';')
 
@@ -298,7 +298,7 @@ export function createMenuShell(
       'gap: 16px',
       'padding: 10px 24px',
       'border-top: 1px solid rgba(255,255,255,0.08)',
-      'background: #11131b',
+      'background: var(--tl-panel-bg)',
       'font-size: 14px',
       'opacity: 0.7',
       'flex-wrap: wrap',
@@ -341,8 +341,9 @@ export function createMenuShell(
   function panel(): HTMLDivElement {
     const p = document.createElement('div')
     p.style.cssText = [
-      'background: linear-gradient(160deg, #1c1f2b 0%, #14141c 100%)',
-      'border: 1px solid rgba(70,217,230,0.18)',
+      // Theme-Karte (ADR-0024): Look folgt dem gewählten Theme, größerer Radius/Padding fürs Menü.
+      'background: var(--tl-panel-bg)',
+      'border: 1px solid var(--tl-panel-border-color)',
       'border-radius: 14px',
       'padding: 30px 34px',
       'width: 100%',

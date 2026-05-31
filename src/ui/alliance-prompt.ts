@@ -118,9 +118,14 @@ export function createAlliancePrompt(
     // Kompakte Karte: Text-Zeile oben, Button-Zeile darunter — passt in die schmale Feed-Spalte
     // (250px), nichts wird rechts abgeschnitten.
     row.style.cssText = [
-      `background:rgba(8,10,16,0.92)`,
+      // Theme-Panel (ADR-0024) statt schwarzer Box; farbiger Rand links bleibt = Nationsfarbe.
+      'background:var(--tl-panel-bg)',
+      'border:1px solid var(--tl-panel-border-color)',
       `border-left:3px solid ${color}`,
-      'border-radius:6px',
+      'border-radius:var(--tl-panel-radius)',
+      'box-shadow:var(--tl-panel-shadow)',
+      'color:var(--tl-text)',
+      'font-family:var(--tl-font)',
       'padding:6px 9px',
       'display:flex',
       'flex-direction:column',

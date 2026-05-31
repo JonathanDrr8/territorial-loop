@@ -16,7 +16,7 @@ import type { MatchSettings, PeerInfo } from '../net/protocol'
 import { t } from '../i18n'
 import { icon } from './icons'
 
-const ACCENT = '#7cc4ff'
+const ACCENT = 'var(--tl-accent)'
 type LobbyPeer = PeerInfo & { ready: boolean }
 
 export interface MultiplayerMenuOptions {
