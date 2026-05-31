@@ -17,6 +17,13 @@ export const de: Record<string, string> = {
   // ── Tab „Spielen" (Match-Setup) ────────────────────────────────────────────
   'section.world': 'Welt',
   'section.opponents': 'Gegner',
+  'section.mode': 'Modus',
+  'field.captureMode': 'Hauptstadt-Modus',
+  'field.teamMode': 'Teams',
+  'teamMode.off': 'Aus (jeder gegen jeden)',
+  'teamMode.allied': 'Teams (verbündet)',
+  'field.teamCount': 'Anzahl Teams',
+  'field.teamSize': 'Team-Größe',
   'section.match': 'Match',
   'field.map': 'Karte (B × H)',
   'field.terrain': 'Karten-Typ',

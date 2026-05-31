@@ -151,6 +151,8 @@ export interface PlayerDef {
    * nicht, keine Diplomatie), niedrigerer Truppen-Cap → eroberbarer Puffer. Default false.
    */
   readonly wild?: boolean
+  /** Team-Zugehörigkeit (Team-Modus, ADR-0025). Gleiche `teamId` = Verbündete. `undefined` = keins. */
+  readonly teamId?: number
 }
 
 export interface GameConfig {
@@ -191,6 +193,12 @@ export interface GameConfig {
    * registriert sein (Browser/Server laden das Asset async und rufen `registerGeoMap`).
    */
   readonly mapId?: string
+  /**
+   * Hauptstadt-Modus (ADR-0026): jede Nation startet mit einer Hauptstadt (Spawn-Zentrum). Wird sie
+   * von einem Gegner erobert, ist die Nation raus; Sieg, wenn nur noch ein Team/eine Nation übrig ist.
+   * Ersetzt die Gebiets-%-Siegbedingung. Default false (= klassisch).
+   */
+  readonly captureMode?: boolean
   readonly players: readonly PlayerDef[]
 }
 
@@ -268,6 +276,16 @@ export interface Player {
    * Fracht von embargoierten / stark begrollten Nationen an). Default `false` = alle angreifen.
    */
   warshipSpareNeutral: boolean
+  /**
+   * Hauptstadt-Tile (Hauptstadt-Modus, ADR-0026). Beim Spawn aufs Zentrum gesetzt. Erobert ein
+   * Gegner dieses Tile, ist die Nation eliminiert. `undefined` außerhalb des Modus / bei Wilden.
+   */
+  capitalTile?: TileRef
+  /**
+   * Team-Zugehörigkeit (Team-Modus, ADR-0025). Gleiche `teamId` = Verbündete (Sieg zählt zusammen).
+   * `undefined` = kein Team (Free-for-all). Wilde haben nie ein Team.
+   */
+  teamId?: number
 }
 
 export type GamePhase = 'running' | 'ended'
@@ -516,6 +534,8 @@ export function createGame(config: GameConfig): GameState {
       warshipHold: false,
       tradeMode: 'random',
       warshipSpareNeutral: false,
+      // Team nur für echte (nicht-wilde) Nationen übernehmen; Hauptstadt setzt placeSpawns.
+      ...(def.teamId !== undefined && !wild ? { teamId: def.teamId } : {}),
     })
   }
 
@@ -555,8 +575,33 @@ export function createGame(config: GameConfig): GameState {
 
   placeSpawns(state)
   initializeAllFrontiers(state)
+  seedTeamAlliances(state)
 
   return state
+}
+
+/**
+ * Team-Modus (ADR-0025): Mitglieder desselben Teams sind von Anfang an permanent verbündet — als
+ * Allianz OHNE `allianceExpiry`-Eintrag, läuft also nie ab. Dadurch greift die gesamte vorhandene
+ * Allianz-Logik (kein Beschuss, KI verschont Teamkameraden, geteilte Gunst) ohne Sonderpfade.
+ */
+function seedTeamAlliances(state: GameState): void {
+  const byTeam = new Map<number, number[]>()
+  for (const p of state.players.values()) {
+    if (p.wild || p.teamId === undefined) continue
+    const list = byTeam.get(p.teamId)
+    if (list === undefined) byTeam.set(p.teamId, [p.id])
+    else list.push(p.id)
+  }
+  for (const ids of byTeam.values()) {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = ids[i]
+        const b = ids[j]
+        if (a !== undefined && b !== undefined) state.alliances.add(pairKey(a, b)) // ohne Expiry → permanent
+      }
+    }
+  }
 }
 
 function validateConfig(config: GameConfig): void {
@@ -594,12 +639,22 @@ function placeSpawns(state: GameState): void {
   const placedCenters: Array<readonly [number, number]> = []
   const playerList = orderedPlayers(state)
 
+  const captureMode = state.config.captureMode === true
   for (const player of playerList) {
     const [cx, cy] = findSpawnCenter(state, rng, width, height, placedCenters, minDist)
     placedCenters.push([cx, cy])
     // Wilde starten klein (Puffer/Beute); reguläre Spieler bekommen das volle Ziel.
     const playerTarget = player.wild ? Math.min(target, WILD_SPAWN_TILES) : target
     growSpawn(state, player, cx, cy, playerTarget)
+    // Hauptstadt-Modus: das Spawn-Zentrum ist die Hauptstadt. Gehört es dem Spieler (Normalfall),
+    // ist es das Tile; sonst das erste beanspruchte Tile (Wasser-/Block-Zentrum, selten).
+    if (captureMode && !player.wild) {
+      const center = tileRef(cx, cy, width, height)
+      player.capitalTile =
+        getOwner(state.map, center) === player.id
+          ? center
+          : (player.frontier.values().next().value ?? center)
+    }
   }
 }
 
@@ -1712,6 +1767,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
       isPassable(state.map.terrain, intent.targetTile)
     ) {
       const owner = getOwner(state.map, intent.targetTile)
+      if (owner > 0 && sameTeam(state, player.id, owner)) return // kein Friendly Fire im Team
       if (owner > 0 && owner !== player.id && reachableByLand(state, player, intent.targetTile)) {
         // Angriff auf einen Verbündeten = Verrat (Bündnis bricht, Ächtung), dann greift man an.
         if (areAllied(state.alliances, player.id, owner)) betrayAlliance(state, player.id, owner)
@@ -1744,6 +1800,7 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
 
   const targetOwner = getOwner(state.map, intent.targetTile)
   if (targetOwner === player.id) return // kein Selbst-Angriff
+  if (targetOwner > 0 && sameTeam(state, player.id, targetOwner)) return // kein Friendly Fire im Team
   // Angriff auf einen Verbündeten = Verrat: Bündnis bricht + Ächtung, dann läuft der Angriff.
   if (targetOwner > 0 && areAllied(state.alliances, player.id, targetOwner)) {
     betrayAlliance(state, player.id, targetOwner)
@@ -3148,8 +3205,17 @@ function estimatedCartIncome(state: GameState, playerId: number): number {
 }
 
 function checkEliminations(state: GameState): void {
+  const captureMode = state.config.captureMode === true
   for (const player of state.players.values()) {
-    if (player.isAlive && player.tilesOwned === 0) {
+    if (!player.isAlive) continue
+    let eliminated = player.tilesOwned === 0
+    // Hauptstadt-Modus (ADR-0026): erobert ein Gegner (owner > 0, nicht man selbst) die Hauptstadt,
+    // ist die Nation raus — auch wenn sie sonst noch Gebiet hält (das wird dann herrenlos & eroberbar).
+    if (!eliminated && captureMode && player.capitalTile !== undefined && player.tilesOwned > 0) {
+      const owner = getOwner(state.map, player.capitalTile)
+      if (owner > 0 && owner !== player.id) eliminated = true
+    }
+    if (eliminated) {
       player.isAlive = false
       // Wilde Nationen werden still eliminiert — kein Eigenname (verwirrt), und bei vielen Wilden
       // würde jede eroberte Wildnis den Log fluten.
@@ -3163,6 +3229,18 @@ function checkEliminations(state: GameState): void {
   }
 }
 
+/** „Seite" eines Spielers für Sieg-Aggregation: Team-ID, sonst die eigene ID (negativ → eindeutig). */
+function sideOf(p: Player): number {
+  return p.teamId ?? -p.id
+}
+
+/** Gehören `aId` und `bId` demselben Team an (Team-Modus, ADR-0025)? */
+function sameTeam(state: GameState, aId: number, bId: number): boolean {
+  const a = state.players.get(aId)
+  const b = state.players.get(bId)
+  return a?.teamId !== undefined && a.teamId === b?.teamId
+}
+
 /** Zählt die begehbaren (eroberbaren) Tiles einer Karte — Wasser/Extrem-Berge raus. */
 export function countPassableLand(map: GameMap): number {
   let n = 0
@@ -3174,20 +3252,57 @@ export function countPassableLand(map: GameMap): number {
 
 function checkVictory(state: GameState): void {
   if (state.phase === 'ended') return
+  if (state.config.captureMode === true) {
+    checkCaptureVictory(state)
+    return
+  }
   // Sieg-Schwelle bezieht sich auf eroberbare Tiles (Land), nicht auf den gesamten
   // Bitmap-Bereich — sonst wäre Sieg auf einer Insel-Karte mit 35% Land unmöglich.
   const totalTiles =
     state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
   const threshold = state.config.victoryPct / 100
+  // Team-bewusst: Gebiet pro „Seite" (Team oder Einzel-Nation) aufsummieren — ein Team gewinnt,
+  // sobald die SUMME seiner Mitglieder die Schwelle erreicht (ADR-0025).
+  const teamTiles = new Map<number, number>()
+  const teamRep = new Map<number, Player>()
   for (const player of orderedPlayers(state)) {
-    if (!player.isAlive) continue
-    if (player.tilesOwned / totalTiles >= threshold) {
+    if (!player.isAlive || player.wild) continue
+    const side = sideOf(player)
+    teamTiles.set(side, (teamTiles.get(side) ?? 0) + player.tilesOwned)
+    if (!teamRep.has(side)) teamRep.set(side, player)
+  }
+  for (const [side, tiles] of teamTiles) {
+    if (tiles / totalTiles >= threshold) {
+      const rep = teamRep.get(side)
+      if (rep === undefined) continue
       state.phase = 'ended'
-      state.winner = player.id
-      emitEvent(state, 'event.victory', { p: player.name }, player.color)
+      state.winner = rep.id
+      emitEvent(state, 'event.victory', { p: rep.name }, rep.color)
       return
     }
   }
+}
+
+/**
+ * Hauptstadt-Modus (ADR-0026): Sieg, sobald nur noch EINE Seite (Team oder Einzel-Nation) lebende,
+ * nicht-wilde Nationen hat — alle anderen Hauptstädte sind gefallen.
+ */
+function checkCaptureVictory(state: GameState): void {
+  const sides = new Set<number>()
+  let rep: Player | null = null
+  let alive = 0
+  for (const player of orderedPlayers(state)) {
+    if (!player.isAlive || player.wild) continue
+    alive++
+    sides.add(sideOf(player))
+    if (rep === null) rep = player
+  }
+  // Erst werten, wenn überhaupt jemand eliminiert wurde (Start: viele Seiten → kein Sofort-Sieg).
+  if (alive === 0 || sides.size !== 1 || rep === null) return
+  // Genau eine Seite übrig (kann ein ganzes Team sein) → Sieg.
+  state.phase = 'ended'
+  state.winner = rep.id
+  emitEvent(state, 'event.victory', { p: rep.name }, rep.color)
 }
 
 /* ============================================================================

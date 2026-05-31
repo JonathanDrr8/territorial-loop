@@ -127,6 +127,10 @@ const DEFAULT_MENU: StartMenuValues = {
   rivers: true, // Flüsse standardmäßig an (reguläres Match-Toggle, ADR-0015)
   riverDensity: 1, // Fluss-Häufigkeit (1 = Standard)
   experimental: {},
+  captureMode: false,
+  teamMode: 'off',
+  teamCount: 2,
+  teamSize: 2,
 }
 
 /** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */
@@ -154,8 +158,17 @@ interface MatchSession {
 }
 
 function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
-  const aiCount = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
   const humanCount = spectator ? 0 : 1
+  // Team-Modus „allied" (ADR-0025): teamCount Teams à teamSize → so viele reguläre Nationen wie
+  // Team-Slots (die KI-Anzahl wird davon bestimmt, der Mensch belegt Slot 0). Sonst: KI-Slider.
+  const teams = menu.teamMode === 'allied'
+  const teamCount = teams ? Math.max(2, menu.teamCount) : 0
+  const teamSize = teams ? Math.max(1, menu.teamSize) : 0
+  const baseAi = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
+  const aiCount = teams ? Math.max(0, teamCount * teamSize - humanCount) : baseAi
+  const teamOf = (slot: number): number | undefined =>
+    teams ? Math.floor(slot / teamSize) : undefined
+
   const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen WILD_COLOR-Varianten
   // Echte Eigennamen für KI UND Wilde aus demselben Pool (sprach-neutral, keine Doppelte) —
   // wild-Status wird im UI über das `wild`-Flag als übersetztes Kürzel markiert, nicht über den Namen.
@@ -167,21 +180,28 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   let id = SOLO_PLAYER_ID
   let colorIdx = 0
   let nameIdx = 0
+  let slot = 0
   if (!spectator) {
+    const t = teamOf(slot)
     players.push({
       id: id++,
       name: menu.playerName,
       color: colors[colorIdx++] ?? 0xff0000ff,
       isHuman: true,
+      ...(t !== undefined ? { teamId: t } : {}),
     })
+    slot++
   }
   for (let i = 0; i < aiCount; i++) {
+    const t = teamOf(slot)
     players.push({
       id: id++,
       name: names[nameIdx++] ?? `Nation ${String(i + 1)}`,
       color: colors[colorIdx++] ?? 0x00ff00ff,
       isHuman: false,
+      ...(t !== undefined ? { teamId: t } : {}),
     })
+    slot++
   }
   for (let i = 0; i < menu.wildCount; i++) {
     players.push({
@@ -207,6 +227,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     rivers: menu.rivers,
     riverDensity: menu.riverDensity,
     allowedBuildings: menu.allowedBuildings,
+    captureMode: menu.captureMode,
     players,
     ...(geoId !== undefined ? { mapId: geoId } : {}),
   }

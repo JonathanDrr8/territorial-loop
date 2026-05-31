@@ -16,6 +16,13 @@ export const ru: Record<string, string> = {
 
   'section.world': 'Мир',
   'section.opponents': 'Противники',
+  'section.mode': 'Режим',
+  'field.captureMode': 'Режим столицы',
+  'field.teamMode': 'Команды',
+  'teamMode.off': 'Нет (каждый сам за себя)',
+  'teamMode.allied': 'Команды (союзники)',
+  'field.teamCount': 'Число команд',
+  'field.teamSize': 'Размер команды',
   'section.match': 'Матч',
   'field.map': 'Карта (Ш × В)',
   'field.terrain': 'Тип карты',

@@ -107,6 +107,12 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
       parsed.riverDensity <= 3
     )
       result.riverDensity = parsed.riverDensity
+    if (typeof parsed.captureMode === 'boolean') result.captureMode = parsed.captureMode
+    if (parsed.teamMode === 'off' || parsed.teamMode === 'allied') result.teamMode = parsed.teamMode
+    if (typeof parsed.teamCount === 'number' && parsed.teamCount >= 2 && parsed.teamCount <= 8)
+      result.teamCount = Math.round(parsed.teamCount)
+    if (typeof parsed.teamSize === 'number' && parsed.teamSize >= 1 && parsed.teamSize <= 6)
+      result.teamSize = Math.round(parsed.teamSize)
     if (typeof parsed.allowedBuildings === 'object' && parsed.allowedBuildings !== null) {
       const ab = { ...defaults.allowedBuildings }
       const src = parsed.allowedBuildings as Record<string, unknown>
