@@ -2032,6 +2032,27 @@ export function bomberLaunchInfo(
 }
 
 /**
+ * Bomber-Hangar-Auslastung eines Spielers fürs HUD: `used` = aktuell vorhandene Flugzeuge
+ * (geparkt + in der Luft), `capacity` = Summe der Hangar-Plätze über alle fertigen Flughäfen
+ * ([[airportSlots]] je Level). Für den „X/Y"-Zähler am Bomber-Knopf.
+ */
+export function bomberHangarInfo(
+  state: GameState,
+  playerId: number,
+): { used: number; capacity: number } {
+  let used = 0
+  let capacity = 0
+  for (const b of state.buildings.values()) {
+    if (b.type !== 'airport' || b.ownerId !== playerId || !isBuildingComplete(b, state.tick))
+      continue
+    const slots = airportSlots(b.level)
+    capacity += slots
+    used += Math.min(slots, (b.aircraft ?? 0) + flyingBombersFrom(state, b.tile))
+  }
+  return { used, capacity }
+}
+
+/**
  * Startet einen Bomber vom nächstgelegenen eigenen, startfähigen Flughafen Richtung Ziel
  * (ADR-0019-Nachtrag, Hangar-Modell). Ein GEPARKTES Flugzeug startet für nur Munition
  * (`BOMB_MUNITION`); ist keins da, aber ein Hangar-Platz frei + genug Gold, wird automatisch eins

@@ -28,6 +28,7 @@ import { WARSHIP_COST, type BomberRoute } from '../core/ships'
 import { growthZones, troopIncreaseRate } from '../core/config'
 import { areAllied, pairKey } from '../core/diplomacy'
 import {
+  bomberHangarInfo,
   bomberLaunchInfo,
   buildCostFor,
   countBuildingsOfType,
@@ -35,6 +36,7 @@ import {
   goldBreakdown,
   isBuildingAllowed,
   totalTroops,
+  warshipCapacity,
   type GameState,
   type Player,
 } from '../core/game'
@@ -48,13 +50,20 @@ const RANK_COLLAPSED = 5
 /** Sample-Intervall (Ticks) für die geglättete Gold-Einkommensrate. */
 const GOLD_SAMPLE_TICKS = 30
 
-const BUILDING_GLYPH: Record<BuildingType, string> = {
-  city: 'C',
-  defense: 'D',
-  port: 'P',
-  factory: 'F',
-  airport: 'A',
-  flak: 'K',
+/**
+ * Erkennbare Symbol-Icons je Gebäudetyp (Inline-SVG, `currentColor`, kein Emoji) — ersetzen die
+ * Buchstaben C/D/P/F/A/K auf den Bau-Knöpfen. Stadt = Skyline, Verteidigung = Schild,
+ * Hafen = Anker, Fabrik = Fabrik-Silhouette, Flughafen = Flugzeug, Flak = Fadenkreuz (Luftabwehr).
+ */
+const SVG_OPEN =
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block">'
+const BUILDING_ICON: Record<BuildingType, string> = {
+  city: `${SVG_OPEN}<path d="M3 21h18"/><rect x="4" y="10" width="5" height="11"/><rect x="10" y="5" width="5" height="16"/><rect x="16" y="13" width="4" height="8"/></svg>`,
+  defense: `${SVG_OPEN}<path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>`,
+  port: `${SVG_OPEN}<circle cx="12" cy="5" r="2"/><path d="M12 7v13"/><path d="M8 11h8"/><path d="M5 13c0 4 3 7 7 7s7-3 7-7"/></svg>`,
+  factory: `${SVG_OPEN}<path d="M3 21h18"/><path d="M4 21V10l5 3.5V10l5 3.5V10l5 3.5V21"/><path d="M18 8V4h2v4"/></svg>`,
+  airport: `${SVG_OPEN}<path d="M11 2h2l1 8 6 4v2l-6-2v4l2 2v1.6L12 20l-4 1.6V20l2-2v-4l-6 2v-2l6-4 1-8z"/></svg>`,
+  flak: `${SVG_OPEN}<circle cx="12" cy="12" r="7"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>`,
 }
 const BUILDING_HOTKEY: Record<BuildingType, string> = {
   city: '1',
@@ -651,10 +660,13 @@ export function createHUD(
       'font-size: 10px',
       'cursor: pointer',
     ].join(';')
+    // Erkennbares Symbol-Icon + kleine Hotkey-Ziffer (statt Buchstabe C/D/P…). Name steht im
+    // Tooltip + Radialmenü; hier nur Icon + Hotkey + Kosten (kompakter Chip).
     const top = document.createElement('span')
-    top.style.cssText = 'font-weight: bold; font-size: 13px'
-    top.textContent = `${BUILDING_HOTKEY[type]} ${BUILDING_GLYPH[type]}`
-    // Name steht im Tooltip + Radialmenü → hier nur Hotkey+Glyph + Kosten (kompakter Chip).
+    top.style.cssText = 'display: flex; align-items: center; gap: 3px; height: 20px'
+    top.innerHTML =
+      `<span style="font-size:10px;opacity:0.55;font-weight:bold">${BUILDING_HOTKEY[type]}</span>` +
+      BUILDING_ICON[type]
     const cost = document.createElement('span')
     cost.style.cssText = 'color: #5dd75d; font-size: 12px; font-weight: bold'
     // Kleines Badge oben rechts: wie viele dieses Gebäudes man aktuell besitzt (0 = versteckt).
@@ -698,9 +710,10 @@ export function createHUD(
     hotkey: string,
     label: string,
     costText: string,
-  ): { btn: HTMLButtonElement; costEl: HTMLSpanElement } => {
+  ): { btn: HTMLButtonElement; costEl: HTMLSpanElement; capEl: HTMLSpanElement } => {
     const btn = document.createElement('button')
     btn.style.cssText = [
+      'position: relative',
       'flex: 1',
       'display: flex',
       'flex-direction: column',
@@ -721,10 +734,24 @@ export function createHUD(
     const costEl = document.createElement('span')
     costEl.style.cssText = 'font-size: 11px; font-weight: bold; color: #5dd75d'
     costEl.textContent = costText
+    // Kapazitäts-Badge oben rechts („benutzt/Kapazität", z. B. 2/4) — nur für Einheiten mit Limit
+    // (Bomber-Hangars, Kriegsschiff-Slots). Bleibt leer, solange niemand es füllt.
+    const capEl = document.createElement('span')
+    capEl.style.cssText = [
+      'position: absolute',
+      'top: 2px',
+      'right: 4px',
+      'font-size: 9px',
+      'font-weight: bold',
+      'line-height: 1',
+      'font-variant-numeric: tabular-nums',
+      'color: rgba(255,255,255,0.6)',
+    ].join(';')
     btn.appendChild(top)
     btn.appendChild(costEl)
+    btn.appendChild(capEl)
     unitRow.appendChild(btn)
-    return { btn, costEl }
+    return { btn, costEl, capEl }
   }
   // Boot kostet Truppen (kein Gold) → grauer Hinweis statt Gold-Kosten.
   const boat = makeUnitBtn('B', t('hud.boat'), t('hud.troops'))
@@ -736,12 +763,14 @@ export function createHUD(
   const bomber = makeUnitBtn('7', t('hud.bomber'), '')
   const bomberBtn = bomber.btn
   const bomberCostEl = bomber.costEl
+  const bomberCapEl = bomber.capEl
   bomberBtn.addEventListener('click', () => {
     onBomberClick()
   })
   const warship = makeUnitBtn('8', t('hud.warship'), fmtCompact(WARSHIP_COST))
   const warshipBtn = warship.btn
   const warshipCostEl = warship.costEl
+  const warshipCapEl = warship.capEl
   warshipBtn.addEventListener('click', () => {
     onWarshipClick()
   })
@@ -987,8 +1016,20 @@ export function createHUD(
     const bi = bomberLaunchInfo(state, human.id)
     bomberCostEl.textContent = fmtCompact(bi.cost)
     bomberCostEl.style.color = bi.available && human.gold >= bi.cost ? '#5dd75d' : '#ef5350'
-    // Kriegsschiff-Kosten einfärben (bezahlbar grün, sonst rot). Boot kostet kein Gold.
-    warshipCostEl.style.color = human.gold >= WARSHIP_COST ? '#5dd75d' : '#ef5350'
+    // Hangar-Auslastung als Zähler (geparkt + in der Luft / Plätze). Voll → rot getönt.
+    const bh = bomberHangarInfo(state, human.id)
+    bomberCapEl.textContent =
+      bh.capacity > 0 ? `${bh.used.toString()}/${bh.capacity.toString()}` : ''
+    bomberCapEl.style.color =
+      bh.used >= bh.capacity ? 'rgba(239,83,80,0.85)' : 'rgba(255,255,255,0.6)'
+    // Kriegsschiff: Kosten NUR grün, wenn bezahlbar UND ein Slot frei ist (sonst bringt das Gold
+    // nichts — das war der Bug). Slots = Summe der Hafen-Level; aktive = eigene Kriegsschiffe.
+    const wsCap = warshipCapacity(state, human.id)
+    const wsActive = state.warships.reduce((n, w) => (w.ownerId === human.id ? n + 1 : n), 0)
+    const wsRoom = wsActive < wsCap
+    warshipCostEl.style.color = wsRoom && human.gold >= WARSHIP_COST ? '#5dd75d' : '#ef5350'
+    warshipCapEl.textContent = wsCap > 0 ? `${wsActive.toString()}/${wsCap.toString()}` : ''
+    warshipCapEl.style.color = wsRoom ? 'rgba(255,255,255,0.6)' : 'rgba(239,83,80,0.85)'
   }
 
   // Memoisiertes Panel-HTML: nur neu setzen, wenn sich der Inhalt wirklich ändert — sonst würde das
