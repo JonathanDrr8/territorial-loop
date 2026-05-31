@@ -56,6 +56,13 @@ export const de: Record<string, string> = {
   'settings.buildings': 'Erlaubte Gebäude',
   'settings.buildings.body': 'Deaktivierte Gebäude kann im Match niemand bauen — auch keine KI.',
   'settings.world': 'Welt',
+  'settings.hud': 'HUD & Design',
+  'settings.hud.theme': 'Design',
+  'settings.hud.hint':
+    'Das ganze HUD lässt sich im Match frei anpassen: Knopf „HUD anpassen" oben links — Panels verschieben, skalieren, aus-/einblenden.',
+  'settings.hud.layout': 'HUD-Layout',
+  'settings.hud.resetLayout': 'Auf Standard zurücksetzen',
+  'settings.hud.reset.done': 'Zurückgesetzt',
 
   // ── Tab „Mehrspieler" ──────────────────────────────────────────────────────
   'mp.intro': 'Tritt einem offenen Spiel bei oder erstelle deine eigene Lobby.',

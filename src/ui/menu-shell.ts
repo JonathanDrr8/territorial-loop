@@ -38,6 +38,8 @@ import {
   type TerrainChoice,
 } from './start-menu'
 import type { BuildingType } from '../core/buildings'
+import { getTheme, setTheme, THEMES } from './theme'
+import { resetLayout } from './hud-layout'
 
 export interface MenuShellApi {
   destroy(): void
@@ -647,6 +649,55 @@ export function createMenuShell(
       t('toggle.off') + ' · ' + t('field.rivers.hint'),
     )
     p.appendChild(riversRow.element)
+
+    // HUD-Anpassung (ADR-0024): Design wählen (wirkt live aufs Menü) + Layout zurücksetzen.
+    // Der volle Editor (verschieben/skalieren/ausblenden) lebt im Match („HUD anpassen").
+    section(p, t('settings.hud'))
+    const themeRow = makeSelectRow<string>(
+      t('settings.hud.theme'),
+      Object.entries(THEMES).map(([key, def]) => [key, def.label] as const),
+      getTheme(),
+    )
+    const themeSelect = themeRow.element.querySelector('select')
+    if (themeSelect !== null) {
+      themeSelect.addEventListener('change', () => {
+        setTheme(themeSelect.value)
+      })
+    }
+    p.appendChild(themeRow.element)
+
+    const hudHint = document.createElement('div')
+    hudHint.style.cssText = 'line-height: 1.55; opacity: 0.7; font-size: 12px; margin: 4px 0 11px'
+    hudHint.textContent = t('settings.hud.hint')
+    p.appendChild(hudHint)
+
+    const resetRow = document.createElement('div')
+    resetRow.style.cssText =
+      'display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; margin-bottom: 11px'
+    const resetLabel = document.createElement('label')
+    resetLabel.textContent = t('settings.hud.layout')
+    const resetBtn = document.createElement('button')
+    resetBtn.type = 'button'
+    resetBtn.textContent = t('settings.hud.resetLayout')
+    resetBtn.style.cssText = [
+      'justify-self: start',
+      'padding: 6px 13px',
+      'font-size: 13px',
+      'cursor: pointer',
+      'border: 1px solid var(--tl-panel-border-color)',
+      'border-radius: 6px',
+      'background: transparent',
+      'color: var(--tl-text)',
+    ].join(';')
+    resetBtn.addEventListener('click', () => {
+      resetLayout()
+      const prev = resetBtn.textContent
+      resetBtn.textContent = t('settings.hud.reset.done')
+      window.setTimeout(() => (resetBtn.textContent = prev), 1300)
+    })
+    resetRow.appendChild(resetLabel)
+    resetRow.appendChild(resetBtn)
+    p.appendChild(resetRow)
 
     settingsFields = {
       camera: camera.getValue,

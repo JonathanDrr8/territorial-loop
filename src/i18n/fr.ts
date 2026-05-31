@@ -55,6 +55,13 @@ export const fr: Record<string, string> = {
   'settings.buildings.body':
     'Les bâtiments désactivés ne peuvent être construits par personne dans la partie — pas même l’IA.',
   'settings.world': 'Monde',
+  'settings.hud': 'HUD et apparence',
+  'settings.hud.theme': 'Apparence',
+  'settings.hud.hint':
+    'Tout le HUD peut être librement personnalisé en cours de partie : bouton « Personnaliser le HUD » en haut à gauche — déplace, redimensionne, affiche ou masque les panneaux.',
+  'settings.hud.layout': 'Disposition du HUD',
+  'settings.hud.resetLayout': 'Rétablir les valeurs par défaut',
+  'settings.hud.reset.done': 'Réinitialisé',
 
   'mp.intro': 'Rejoins une partie ouverte ou crée ton propre salon.',
   'mp.openDialog': 'Créer un salon / rejoindre par code',

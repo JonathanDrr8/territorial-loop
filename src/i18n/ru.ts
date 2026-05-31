@@ -54,6 +54,13 @@ export const ru: Record<string, string> = {
   'settings.buildings': 'Разрешённые здания',
   'settings.buildings.body': 'Отключённые здания не сможет построить никто в матче — даже ИИ.',
   'settings.world': 'Мир',
+  'settings.hud': 'HUD и оформление',
+  'settings.hud.theme': 'Оформление',
+  'settings.hud.hint':
+    'Весь HUD можно свободно настроить прямо в матче: кнопка «Настроить HUD» в верхнем левом углу — перемещай, масштабируй, показывай или скрывай панели.',
+  'settings.hud.layout': 'Расположение HUD',
+  'settings.hud.resetLayout': 'Сбросить по умолчанию',
+  'settings.hud.reset.done': 'Сброшено',
 
   'mp.intro': 'Присоединись к открытому матчу или создай свою комнату.',
   'mp.openDialog': 'Создать комнату / войти по коду',

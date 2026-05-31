@@ -57,6 +57,13 @@ export const en: Record<string, string> = {
   'settings.buildings.body':
     'Disabled buildings cannot be built by anyone in the match — not even the AI.',
   'settings.world': 'World',
+  'settings.hud': 'HUD & Appearance',
+  'settings.hud.theme': 'Appearance',
+  'settings.hud.hint':
+    'The entire HUD can be freely customized in a match: click the "Customize HUD" button in the top left — move, resize, show or hide panels.',
+  'settings.hud.layout': 'HUD layout',
+  'settings.hud.resetLayout': 'Reset to default',
+  'settings.hud.reset.done': 'Reset',
 
   // ── Tab "Multiplayer" ──────────────────────────────────────────────────────
   'mp.intro': 'Join an open game or create your own lobby.',

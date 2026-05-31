@@ -54,6 +54,13 @@ export const zh: Record<string, string> = {
   'settings.buildings': '允许的建筑',
   'settings.buildings.body': '在对局中被禁用的建筑任何人都无法建造——AI 也不行。',
   'settings.world': '世界',
+  'settings.hud': 'HUD 与外观',
+  'settings.hud.theme': '外观',
+  'settings.hud.hint':
+    '整个 HUD 可在对局中自由调整：点击左上角的「自定义 HUD」按钮 —— 移动、缩放、显示或隐藏面板。',
+  'settings.hud.layout': 'HUD 布局',
+  'settings.hud.resetLayout': '恢复默认',
+  'settings.hud.reset.done': '已重置',
 
   'mp.intro': '加入一个开放对局，或创建你自己的房间。',
   'mp.openDialog': '创建房间 / 用代码加入',

@@ -55,6 +55,13 @@ export const es: Record<string, string> = {
   'settings.buildings.body':
     'Los edificios desactivados no puede construirlos nadie en la partida, ni siquiera la IA.',
   'settings.world': 'Mundo',
+  'settings.hud': 'HUD y diseño',
+  'settings.hud.theme': 'Diseño',
+  'settings.hud.hint':
+    'Todo el HUD se puede personalizar libremente durante la partida: botón «Personalizar HUD» arriba a la izquierda — mueve, escala, muestra u oculta paneles.',
+  'settings.hud.layout': 'Disposición del HUD',
+  'settings.hud.resetLayout': 'Restablecer valores predeterminados',
+  'settings.hud.reset.done': 'Restablecido',
 
   'mp.intro': 'Únete a una partida abierta o crea tu propia sala.',
   'mp.openDialog': 'Crear sala / unirse por código',

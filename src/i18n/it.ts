@@ -55,6 +55,13 @@ export const it: Record<string, string> = {
   'settings.buildings.body':
     'Gli edifici disattivati non possono essere costruiti da nessuno nella partita — nemmeno dall’IA.',
   'settings.world': 'Mondo',
+  'settings.hud': 'HUD e aspetto',
+  'settings.hud.theme': 'Aspetto',
+  'settings.hud.hint':
+    'L’intero HUD è personalizzabile liberamente durante la partita: pulsante «Personalizza HUD» in alto a sinistra — sposta, ridimensiona, mostra o nascondi i pannelli.',
+  'settings.hud.layout': 'Disposizione HUD',
+  'settings.hud.resetLayout': 'Ripristina predefiniti',
+  'settings.hud.reset.done': 'Ripristinato',
 
   'mp.intro': 'Unisciti a una partita aperta o crea la tua stanza.',
   'mp.openDialog': 'Crea stanza / entra con codice',

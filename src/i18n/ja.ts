@@ -54,6 +54,13 @@ export const ja: Record<string, string> = {
   'settings.buildings': '許可する建物',
   'settings.buildings.body': '無効にした建物は試合中だれも建てられません — AI も同様です。',
   'settings.world': 'ワールド',
+  'settings.hud': 'HUD とデザイン',
+  'settings.hud.theme': 'デザイン',
+  'settings.hud.hint':
+    'HUD 全体を対戦中に自由にカスタマイズできます：左上の「HUD をカスタマイズ」ボタン —— パネルの移動・拡縮・表示/非表示が可能です。',
+  'settings.hud.layout': 'HUD レイアウト',
+  'settings.hud.resetLayout': 'デフォルトに戻す',
+  'settings.hud.reset.done': 'リセット済み',
 
   'mp.intro': '公開中の対戦に参加するか、自分の部屋を作成しましょう。',
   'mp.openDialog': '部屋を作成 / コードで参加',
