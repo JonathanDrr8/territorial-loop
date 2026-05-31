@@ -27,6 +27,7 @@ export type ActionKind =
   | 'move-warship'
   | 'launch-bomber'
   | 'diplomacy'
+  | 'donate'
   | `build:${BuildingType}`
   | 'other'
 
@@ -45,6 +46,9 @@ export function classifyIntent(intent: Intent): ActionKind {
       return 'launch-bomber'
     case 'build':
       return `build:${intent.buildingType}`
+    case 'donate-gold':
+    case 'donate-troops':
+      return 'donate'
     case 'request-alliance':
     case 'accept-alliance':
     case 'decline-alliance':

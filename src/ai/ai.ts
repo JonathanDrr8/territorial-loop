@@ -972,6 +972,32 @@ export function createAI(
     return { type: 'launch-bomber', playerId: player.id, targetTile: bestTarget, route: bestRoute }
   }
 
+  /**
+   * Gold-Geschenk aus Angst (ADR-0022): besänftigt einen STÄRKEREN, nicht-verbündeten Gegner, der
+   * mir grollt (könnte mich angreifen) — nur mit deutlichem Gold-Überschuss. Kein Blanko-Bestechen:
+   * eine starke KI appeased nie eine schwache (Jonathans Vorgabe).
+   */
+  function planDonation(state: GameState, player: Player): Intent | null {
+    if (player.gold < 50_000) return null // nur mit Überschuss
+    let best = -1
+    let bestGrudge = 30 // Mindest-Groll des Gegners gegen mich, damit Besänftigen sich lohnt
+    for (const p of state.players.values()) {
+      if (p.id === player.id || !p.isAlive || p.wild) continue
+      if (areAllied(state.alliances, player.id, p.id)) continue
+      if (p.troops <= player.troops) continue // nur Stärkere (Angst)
+      const grudge = state.grudge.get(directedKey(player.id, p.id)) ?? 0 // SEIN Groll gegen mich
+      if (grudge > bestGrudge) {
+        bestGrudge = grudge
+        best = p.id
+      }
+    }
+    if (best < 0) return null
+    const amount = Math.floor(player.gold * 0.2)
+    return amount > 0
+      ? { type: 'donate-gold', playerId: player.id, targetPlayerId: best, amount }
+      : null
+  }
+
   return {
     decide(state: GameState): readonly Intent[] {
       const player = state.players.get(playerId)
@@ -1010,6 +1036,13 @@ export function createAI(
       if (rng.next() < profile.diploChance) {
         const diplo = planDiplomacy(state, player)
         if (diplo !== null) intents.push(diplo)
+      }
+      // Gold-Geschenk zum Besänftigen (gegatet: nur Stärkere die grollen, nur mit Überschuss).
+      // Der Gold-Check steht VOR dem rng-Roll → arme KIs verbrauchen keine Zufallszahl, der
+      // PRNG-Strom (und damit Determinismus/Eichung) bleibt im Normalfall unverändert.
+      if (player.gold >= 50_000 && rng.next() < profile.diploChance * 0.5) {
+        const gift = planDonation(state, player)
+        if (gift !== null) intents.push(gift)
       }
 
       return intents
