@@ -1411,10 +1411,23 @@ export function createRenderer(
       nearestWrappedScreenPos((t % mapW) + 0.5, Math.floor(t / mapW) + 0.5)
     const roadW = Math.max(3, camera.zoom * 0.95)
     const col = '150,150,150' // neutrale graue Straße (Besitzer steckt im Karren/Hover-Fokus)
+    // PERF (Spätspiel/viele Nationen): alle Straßen-Segmente + -Tiles in gebündelte Pfade
+    // sammeln und je Alpha-Stufe EINMAL streichen/füllen — statt tausender Einzel-`stroke`/
+    // `fillRect`-Calls pro Frame (war der Haupt-Lag bei großen Schlachten/vielen Fabriknetzen).
+    // Zwei Stufen: hell (fokussiert / kein Hover) und gedimmt (nicht-fokussiert bei Fabrik-Hover).
+    const lineHot = new Path2D()
+    const lineDim = new Path2D()
+    const tileHot = new Path2D()
+    const tileDim = new Path2D()
+    let hasHot = false
+    let hasDim = false
     for (const cart of state.goldCarts) {
       if (cart.path.length < 2) continue
       const focused = focusFactory < 0 || cart.factoryTile === focusFactory
-      const aRoad = focused ? 0.42 : 0.08
+      const linePath = focused ? lineHot : lineDim
+      const tilePath = focused ? tileHot : tileDim
+      if (focused) hasHot = true
+      else hasDim = true
       // Durchgehende Verbindungslinie (deckt auch Brücken über Wasser ab).
       for (let i = 0; i + 1 < cart.path.length; i++) {
         const a = cart.path[i]
@@ -1426,20 +1439,28 @@ export function createRenderer(
           (b % mapW) + 0.5,
           Math.floor(b / mapW) + 0.5,
         )
-        screenCtx.beginPath()
-        screenCtx.moveTo(seg.fromSx, seg.fromSy)
-        screenCtx.lineTo(seg.toSx, seg.toSy)
-        screenCtx.lineWidth = roadW
-        screenCtx.strokeStyle = `rgba(${col},${(aRoad * 0.6).toString()})`
-        screenCtx.stroke()
+        linePath.moveTo(seg.fromSx, seg.fromSy)
+        linePath.lineTo(seg.toSx, seg.toSy)
       }
       // Straßen-Tiles als kleine Quadrate (Tile angemalt).
-      screenCtx.fillStyle = `rgba(${col},${aRoad.toString()})`
       for (const t of cart.path) {
         if (t === undefined) continue
         const { sx, sy } = tileSx(t)
-        screenCtx.fillRect(sx - roadW / 2, sy - roadW / 2, roadW, roadW)
+        tilePath.rect(sx - roadW / 2, sy - roadW / 2, roadW, roadW)
       }
+    }
+    screenCtx.lineWidth = roadW
+    if (hasHot) {
+      screenCtx.strokeStyle = `rgba(${col},${(0.42 * 0.6).toString()})`
+      screenCtx.stroke(lineHot)
+      screenCtx.fillStyle = `rgba(${col},0.42)`
+      screenCtx.fill(tileHot)
+    }
+    if (hasDim) {
+      screenCtx.strokeStyle = `rgba(${col},${(0.08 * 0.6).toString()})`
+      screenCtx.stroke(lineDim)
+      screenCtx.fillStyle = `rgba(${col},0.08)`
+      screenCtx.fill(tileDim)
     }
     // Karren-Sprites auf ihrer interpolierten Position.
     const cartSprite = getCartSprite()
