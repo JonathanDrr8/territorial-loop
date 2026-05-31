@@ -72,6 +72,14 @@ export interface MatchSettings {
   readonly allowedBuildings?: Partial<Record<BuildingType, boolean>>
   /** Öffentlich = im Server-Browser (`/lobbies`) gelistet. Privat = nur per Code/Link beitretbar. */
   readonly public: boolean
+  /** Hauptstadt-Modus (ADR-0026). Optional für Alt-Clients (Default false). */
+  readonly captureMode?: boolean
+  /** Team-Modus (ADR-0025): `off` oder `allied`. Optional für Alt-Clients (Default `off`). */
+  readonly teamMode?: 'off' | 'allied'
+  /** Anzahl Teams (nur bei `teamMode==='allied'`). */
+  readonly teamCount?: number
+  /** Nationen pro Team (nur bei `teamMode==='allied'`). */
+  readonly teamSize?: number
 }
 
 /* ── Client → Server ──────────────────────────────────────────────────────── */

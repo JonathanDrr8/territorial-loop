@@ -152,6 +152,10 @@ const DEFAULT_SETTINGS: MatchSettings = {
   difficulty: 'standard',
   rivers: false,
   riverDensity: 1,
+  captureMode: false,
+  teamMode: 'off',
+  teamCount: 2,
+  teamSize: 2,
   public: true,
 }
 
@@ -179,6 +183,10 @@ function clampSettings(s: MatchSettings): MatchSettings {
     ...(s.allowedBuildings !== undefined && {
       allowedBuildings: sanitizeAllowed(s.allowedBuildings),
     }),
+    captureMode: s.captureMode === true,
+    teamMode: s.teamMode === 'allied' ? 'allied' : 'off',
+    teamCount: clamp(s.teamCount ?? 2, 2, 8),
+    teamSize: clamp(s.teamSize ?? 2, 1, 6),
     public: s.public !== false,
   }
 }
@@ -270,25 +278,46 @@ function sendLobby(room: Room): void {
 function buildConfig(room: Room): GameConfig {
   const s = room.settings
   const players: PlayerDef[] = []
+  // Team-Modus „allied" (ADR-0025): teamCount Teams à teamSize bestimmen die KI-Anzahl; Menschen
+  // belegen die ersten Slots (per Beitritts-Reihenfolge), der Rest wird mit KI aufgefüllt. teamId
+  // ergibt sich aus dem Slot. Wilde sind teamlos.
+  const teams = s.teamMode === 'allied'
+  const teamCount = teams ? Math.max(2, s.teamCount ?? 2) : 0
+  const teamSize = teams ? Math.max(1, s.teamSize ?? 2) : 0
+  const humanCount = room.members.size
+  const aiCount = teams ? Math.max(0, teamCount * teamSize - humanCount) : s.aiCount
+  let slot = 0
+  const teamOf = (sl: number): number | undefined => (teams ? Math.floor(sl / teamSize) : undefined)
+
   let id = 0
   for (const m of room.members.values()) {
-    players.push({ id: m.playerId, name: m.name, color: colorFor(m.playerId), isHuman: true })
+    const t = teamOf(slot++)
+    players.push({
+      id: m.playerId,
+      name: m.name,
+      color: colorFor(m.playerId),
+      isHuman: true,
+      ...(t !== undefined ? { teamId: t } : {}),
+    })
     id = Math.max(id, m.playerId)
   }
   // Echte Eigennamen für KI UND Wilde (sprach-neutral); wild-Status markiert das UI via `wild`-Flag.
-  const botNames = pickRandomNames(s.aiCount + s.wildCount)
+  const botNames = pickRandomNames(aiCount + s.wildCount)
   let nameIdx = 0
-  for (let i = 0; i < s.aiCount; i++)
+  for (let i = 0; i < aiCount; i++) {
+    const t = teamOf(slot++)
     players.push({
       id: ++id,
       name: botNames[nameIdx++] ?? `Nation ${String(i + 1)}`,
       color: colorFor(id),
       isHuman: false,
+      ...(t !== undefined ? { teamId: t } : {}),
     })
+  }
   for (let i = 0; i < s.wildCount; i++)
     players.push({
       id: ++id,
-      name: botNames[nameIdx++] ?? `Nation ${String(s.aiCount + i + 1)}`,
+      name: botNames[nameIdx++] ?? `Nation ${String(aiCount + i + 1)}`,
       color: 0x8f8a78ff,
       isHuman: false,
       wild: true,
@@ -302,6 +331,7 @@ function buildConfig(room: Room): GameConfig {
     rivers: s.rivers,
     riverDensity: s.riverDensity ?? 1,
     ...(s.allowedBuildings !== undefined && { allowedBuildings: s.allowedBuildings }),
+    captureMode: s.captureMode === true,
     players,
   }
 }
