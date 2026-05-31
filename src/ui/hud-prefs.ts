@@ -15,10 +15,19 @@ export type ButtonsLayout = 'row' | 'numpad'
 export interface HudPrefs {
   sliderHome: SliderHome
   buttonsLayout: ButtonsLayout
+  /** Truppen-Block in Einzelteile (Zahl / Balken / Gold) aufgeteilt? */
+  resourceSplit: boolean
+  /** Aktions-Block in Einzelteile (Käufe / Boot) aufgeteilt? */
+  actionSplit: boolean
 }
 
 const KEY = 'territorial-loop:hud-prefs:v1'
-const DEFAULTS: HudPrefs = { sliderHome: 'action', buttonsLayout: 'row' }
+const DEFAULTS: HudPrefs = {
+  sliderHome: 'action',
+  buttonsLayout: 'row',
+  resourceSplit: false,
+  actionSplit: false,
+}
 
 const listeners = new Set<(p: HudPrefs) => void>()
 
@@ -30,6 +39,8 @@ function load(): HudPrefs {
       return {
         sliderHome: parsed.sliderHome === 'resource' ? 'resource' : 'action',
         buttonsLayout: parsed.buttonsLayout === 'numpad' ? 'numpad' : 'row',
+        resourceSplit: parsed.resourceSplit === true,
+        actionSplit: parsed.actionSplit === true,
       }
     }
   } catch {

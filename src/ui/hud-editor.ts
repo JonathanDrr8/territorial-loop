@@ -15,7 +15,7 @@ import { t } from '../i18n'
 import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } from './hud-layout'
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
-import { getHudPrefs, setHudPref } from './hud-prefs'
+import { getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
 
 export interface HudEditorApi {
   destroy(): void
@@ -32,6 +32,11 @@ const PANEL_LABEL: Record<string, string> = {
   action: 'hud.editor.panel.action',
   minimap: 'hud.editor.panel.minimap',
   feed: 'hud.editor.panel.feed',
+  'res-num': 'hud.editor.panel.troopsNum',
+  'res-bar': 'hud.editor.panel.troopsBar',
+  'res-gold': 'hud.editor.panel.gold',
+  'act-buys': 'hud.editor.panel.buys',
+  'act-boat': 'hud.editor.panel.boat',
 }
 
 interface Rect {
@@ -616,6 +621,29 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
         (v) => setHudPref('buttonsLayout', v),
       ),
     )
+    // Paket ↔ Einzelteile (Split/Merge) je Gruppe.
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.panel.resource'),
+        getHudPrefs().resourceSplit ? 'split' : 'pkg',
+        [
+          ['pkg', t('hud.editor.merged')],
+          ['split', t('hud.editor.split')],
+        ],
+        (v) => setHudPref('resourceSplit', v === 'split'),
+      ),
+    )
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.panel.action'),
+        getHudPrefs().actionSplit ? 'split' : 'pkg',
+        [
+          ['pkg', t('hud.editor.merged')],
+          ['split', t('hud.editor.split')],
+        ],
+        (v) => setHudPref('actionSplit', v === 'split'),
+      ),
+    )
     toolbar.appendChild(layoutRow)
 
     toolbar.appendChild(hiddenRow)
@@ -730,16 +758,15 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     refreshHiddenList()
   }
 
-  // ---- Öffnen / Schließen --------------------------------------------------------------------
-  function openEditor(): void {
-    if (open) return
-    open = true
+  // ---- Frames (neu) aufbauen — auch nach Split/Merge, da sich der Panel-Satz ändert ----------
+  function buildFrames(): void {
+    for (const [, frame] of frames) frame.remove()
+    frames.clear()
     panelMap.clear()
     for (const [id, el] of panelElements()) panelMap.set(id, el)
     for (const [id, el] of panelMap) {
       const hidden = getPanel(id)?.hidden === true
-      // Auch ausgeblendete Panels vermessen (kurz einblenden), damit Position/Größe stimmen,
-      // wenn sie später wieder hinzugefügt werden.
+      // Auch ausgeblendete Panels vermessen (kurz einblenden), damit Position/Größe stimmen.
       if (hidden) el.style.display = ''
       arm(id, el)
       buildFrame(id, el)
@@ -749,6 +776,13 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
         if (frame !== undefined) frame.style.display = 'none'
       }
     }
+  }
+
+  // ---- Öffnen / Schließen --------------------------------------------------------------------
+  function openEditor(): void {
+    if (open) return
+    open = true
+    buildFrames()
     buildToolbar()
     toolbar.style.display = 'flex'
     toggle.textContent = t('hud.editor.done')
@@ -765,9 +799,18 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     toggle.textContent = t('hud.editor.open')
   }
 
+  // Split/Merge (und andere Layout-Prefs) ändern den Panel-Satz → Rahmen + Werkzeugleiste neu.
+  const offPrefs = onHudPrefsChange(() => {
+    if (open) {
+      buildFrames()
+      buildToolbar()
+    }
+  })
+
   return {
     destroy(): void {
       close()
+      offPrefs()
       toggle.remove()
       toolbar.remove()
       guideV.remove()

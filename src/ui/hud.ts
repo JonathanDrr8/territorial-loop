@@ -43,10 +43,10 @@ import {
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
-import { registerPanel, unregisterPanel } from './hud-layout'
+import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
 import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
-import { registerScalable } from './ui-scale'
+import { getUiScale, registerScalable } from './ui-scale'
 
 const DEFAULT_SLIDER_PCT = 30
 const SIM_TICKS_PER_SECOND = 10
@@ -822,44 +822,173 @@ export function createHUD(
   registerScalable(actionBar)
   registerPanel('action', actionBar)
 
-  // ---- HUD-Layout-Präferenzen anwenden (Slider-Heimat + Knopf-Anordnung, ADR-0024) ----------
+  // ---- HUD-Layout-Präferenzen anwenden (Slider/Numpad/Split, ADR-0024) -----------------------
   // Wird einmal beim Bau und danach bei jeder Editor-Umschaltung (onHudPrefsChange) ausgeführt.
-  const numpadOrder = [
-    bomberBtn, // 7
-    warshipBtn, // 8
-    boatBtn, // 9 (B)
-    buildButtons.get('factory'), // 4
-    buildButtons.get('airport'), // 5
-    buildButtons.get('flak'), // 6
-    buildButtons.get('city'), // 1
-    buildButtons.get('defense'), // 2
-    buildButtons.get('port'), // 3
-  ].filter((b): b is HTMLButtonElement => b !== undefined)
+  //
+  // Splittbare Teile: der Truppen-Block (Zahl / Balken / Gold) und der Aktions-Block (Käufe / Boot).
+  // Im zusammengefügten Zustand sitzen die Teile im Eltern-Panel (transparent); im geteilten Zustand
+  // werden sie eigene Karten im Container + eigene registrierte Panels.
   const rowBuildOrder: BuildingType[] = ['city', 'defense', 'port', 'factory', 'airport', 'flak']
 
-  function applyLayoutPrefs(p: HudPrefs): void {
-    // Slider-Heimat: ans obere Ende des Aktions-Panels ODER ans untere Ende des Truppen-Blocks.
-    if (p.sliderHome === 'resource') troopBadge.appendChild(sliderWrap)
-    else actionBar.insertBefore(sliderWrap, actionBar.firstChild)
+  // Truppen-Teile aus den vorhandenen Elementen zusammensetzen (verschiebt sie aus troopBadge).
+  const partNum = document.createElement('div')
+  partNum.append(troopBig, barLegend)
+  const partBar = document.createElement('div')
+  partBar.append(barWrap)
+  const partGold = document.createElement('div')
+  partGold.append(goldEl, goldDetail)
+  // Aktions-Teile (Inhalt wird je nach Numpad/Split umgehängt).
+  const partBuys = document.createElement('div')
+  const partBoat = document.createElement('div')
+  const goldUnitRow = document.createElement('div') // Bomber+Kriegsschiff bei Split+Reihe
+  goldUnitRow.style.cssText = 'display: flex; gap: 6px; margin-top: 6px'
+  const boatRow = document.createElement('div') // Boot allein (Numpad oder Split)
+  boatRow.style.cssText = 'display: flex; gap: 6px; margin-top: 6px'
+  const emptyCell = document.createElement('div') // Numpad-Leerzelle (Position 9)
 
-    // Knopf-Anordnung: zwei Reihen oder 3×3-Numpad.
-    if (p.buttonsLayout === 'numpad') {
-      for (const btn of numpadOrder) numpadGrid.appendChild(btn)
+  const RES_PARTS: Array<readonly [string, HTMLElement]> = [
+    ['res-num', partNum],
+    ['res-bar', partBar],
+    ['res-gold', partGold],
+  ]
+  const ACT_PARTS: Array<readonly [string, HTMLElement]> = [
+    ['act-buys', partBuys],
+    ['act-boat', partBoat],
+  ]
+
+  /** Container-lokale Position eines Elements (für Stapel-Defaults beim Aufteilen). */
+  function localPos(el: HTMLElement): { x: number; y: number } {
+    const cr = container.getBoundingClientRect()
+    const r = el.getBoundingClientRect()
+    return { x: Math.round(r.left - cr.left), y: Math.round(r.top - cr.top) }
+  }
+
+  /** Teil als eigenständige Karte stylen (Split) oder zurück zu transparent (zusammengefügt). */
+  function asCard(el: HTMLElement, on: boolean): void {
+    if (on) el.style.cssText = panelStyle(['position: absolute', 'padding: 9px 13px'])
+    else el.removeAttribute('style')
+  }
+
+  /** Knöpfe in die richtigen Container hängen (Numpad vs. Reihe, Boot ggf. separat). */
+  function placeButtons(numpad: boolean, actionSplit: boolean): void {
+    if (numpad) {
+      const cells = [
+        bomberBtn,
+        warshipBtn,
+        emptyCell,
+        buildButtons.get('factory'),
+        buildButtons.get('airport'),
+        buildButtons.get('flak'),
+        buildButtons.get('city'),
+        buildButtons.get('defense'),
+        buildButtons.get('port'),
+      ]
+      for (const cell of cells) if (cell !== undefined) numpadGrid.appendChild(cell)
       numpadGrid.style.display = 'grid'
       buildRow.style.display = 'none'
       unitRow.style.display = 'none'
+      goldUnitRow.style.display = 'none'
+      boatRow.append(boatBtn)
+      boatRow.style.display = 'flex'
     } else {
       for (const type of rowBuildOrder) {
-        const btn = buildButtons.get(type)
-        if (btn !== undefined) buildRow.appendChild(btn)
+        const b = buildButtons.get(type)
+        if (b !== undefined) buildRow.appendChild(b)
       }
-      unitRow.appendChild(boatBtn)
-      unitRow.appendChild(bomberBtn)
-      unitRow.appendChild(warshipBtn)
-      numpadGrid.style.display = 'none'
       buildRow.style.display = 'flex'
-      unitRow.style.display = 'flex'
+      numpadGrid.style.display = 'none'
+      if (actionSplit) {
+        goldUnitRow.append(bomberBtn, warshipBtn)
+        goldUnitRow.style.display = 'flex'
+        boatRow.append(boatBtn)
+        boatRow.style.display = 'flex'
+        unitRow.style.display = 'none'
+      } else {
+        unitRow.append(boatBtn, bomberBtn, warshipBtn)
+        unitRow.style.display = 'flex'
+        goldUnitRow.style.display = 'none'
+        boatRow.style.display = 'none'
+      }
     }
+  }
+
+  /** Eine Gruppe auf-/zusammenklappen: Teile registrieren+positionieren oder zurück ins Eltern-Panel. */
+  function setGroupSplit(
+    split: boolean,
+    parts: Array<readonly [string, HTMLElement]>,
+    parentEl: HTMLElement,
+    parentScaleId: string,
+    mergeBack: (part: HTMLElement) => void,
+  ): void {
+    if (split) {
+      const base = localPos(parentEl)
+      const s = getPanel(parentScaleId)?.s ?? getUiScale()
+      // 1) Als Karten registrieren (wendet evtl. vorhandene Overrides an).
+      for (const [id, el] of parts) {
+        asCard(el, true)
+        container.appendChild(el)
+        registerScalable(el)
+        registerPanel(id, el)
+      }
+      // 2) Teile OHNE Override stapeln — so, dass der Stapel ins Bild passt (sonst läuft er bei
+      //    unten-verankerten Panels unten raus).
+      const fresh = parts.filter(([id]) => getPanel(id) === undefined)
+      const heights = fresh.map(([, el]) => Math.round(el.offsetHeight * s) + 8)
+      const total = heights.reduce((a, b) => a + b, 0)
+      const x = Math.max(0, Math.min(base.x, container.clientWidth - 160))
+      let y = Math.max(0, Math.min(base.y, container.clientHeight - total - 8))
+      fresh.forEach(([id], i) => {
+        setPanel(id, { x, y, s })
+        y += heights[i] ?? 0
+      })
+    } else {
+      for (const [id, el] of parts) {
+        unregisterPanel(id)
+        asCard(el, false)
+        mergeBack(el)
+      }
+    }
+  }
+
+  function applyLayoutPrefs(p: HudPrefs): void {
+    // 1) Slider-Heimat.
+    if (p.sliderHome === 'resource') troopBadge.appendChild(sliderWrap)
+    else actionBar.insertBefore(sliderWrap, actionBar.firstChild)
+
+    // 2) Knopf-Anordnung füllen.
+    placeButtons(p.buttonsLayout === 'numpad', p.actionSplit)
+
+    // 3) Aktions-Teile bestücken (vor dem Split/Merge, damit der Inhalt steht).
+    if (p.buttonsLayout === 'numpad') partBuys.append(numpadGrid)
+    else partBuys.append(buildRow, goldUnitRow)
+    partBoat.append(boatRow)
+
+    // 4) Truppen-Gruppe.
+    setGroupSplit(p.resourceSplit, RES_PARTS, troopBadge, 'resource', (el) =>
+      troopBadge.appendChild(el),
+    )
+    // troopBadge zeigt im Split nur noch den (evtl.) Slider — sonst leer → ausblenden + abmelden,
+    // damit der Editor keinen leeren Geister-Rahmen zeigt.
+    const resourceEmpty = p.resourceSplit && p.sliderHome !== 'resource'
+    troopBadge.style.display = resourceEmpty ? 'none' : ''
+    if (resourceEmpty) unregisterPanel('resource')
+    else registerPanel('resource', troopBadge)
+
+    // 5) Aktions-Gruppe (Käufe/Boot). Beim Zusammenfügen Inhalte vor die Hinweis-Banner zurück.
+    setGroupSplit(p.actionSplit, ACT_PARTS, actionBar, 'action', () => {
+      if (p.buttonsLayout === 'numpad') {
+        actionBar.insertBefore(numpadGrid, boatHint)
+        actionBar.insertBefore(boatRow, boatHint)
+      } else {
+        actionBar.insertBefore(buildRow, boatHint)
+        actionBar.insertBefore(unitRow, boatHint)
+      }
+    })
+    // actionBar zeigt im Split nur noch den (evtl.) Slider + Hinweise — sonst leer → ausblenden.
+    const actionEmpty = p.actionSplit && p.sliderHome !== 'action'
+    actionBar.style.display = actionEmpty ? 'none' : ''
+    if (actionEmpty) unregisterPanel('action')
+    else registerPanel('action', actionBar)
   }
   applyLayoutPrefs(getHudPrefs())
   const offHudPrefs = onHudPrefsChange(applyLayoutPrefs)
@@ -1355,7 +1484,20 @@ export function createHUD(
     destroy(): void {
       if (resyncTimer !== null) clearTimeout(resyncTimer)
       offHudPrefs()
-      for (const id of ['info', 'rank', 'resource', 'action']) unregisterPanel(id)
+      for (const id of [
+        'info',
+        'rank',
+        'resource',
+        'action',
+        'res-num',
+        'res-bar',
+        'res-gold',
+        'act-buys',
+        'act-boat',
+      ])
+        unregisterPanel(id)
+      // Split-Teile liegen evtl. direkt im Container → mitnehmen.
+      for (const el of [partNum, partBar, partGold, partBuys, partBoat]) el.remove()
       infoBox.remove()
       traitorBanner.remove()
       resyncTag.remove()
