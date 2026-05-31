@@ -53,12 +53,12 @@ describe('building cost functions', () => {
   it('upgrade cost skaliert am tatsächlichen Baupreis (Max-Cost-Fabrik teuer)', () => {
     // Erste/billige Fabrik (buildPrice = Basis 25k): unverändert.
     expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 25_000 })).toBe(50_000)
-    // Max-Cost-Fabrik (1 Mio gebaut): Upgrade skaliert mit → deutlich teurer als der L1-Preis.
-    expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 1_000_000 })).toBe(2_000_000)
-    expect(upgradeCost({ type: 'factory', level: 2, buildPrice: 1_000_000 })).toBe(3_000_000)
+    // Max-Cost-Fabrik (100k gebaut): Upgrade skaliert mit → deutlich teurer als der L1-Preis.
+    expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 100_000 })).toBe(200_000)
+    expect(upgradeCost({ type: 'factory', level: 2, buildPrice: 100_000 })).toBe(300_000)
   })
 
-  it('build cost is capped at BUILD_COST_CAP (1 Mio)', () => {
+  it('build cost is capped at BUILD_COST_CAP (100k)', () => {
     // Basis 25k × 2^n; 2^6 = 64 → 1.6 Mio → gedeckelt.
     expect(buildCost('city', 6)).toBe(BUILD_COST_CAP)
     expect(buildCost('city', 20)).toBe(BUILD_COST_CAP)
