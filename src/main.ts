@@ -43,6 +43,7 @@ import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { registerPanel, unregisterPanel } from './ui/hud-layout'
+import { createHudEditor } from './ui/hud-editor'
 import { clearScalables, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
@@ -556,6 +557,11 @@ function startMatch(
     () => sound.alliance(),
   )
   const eventLog = createEventLog(feedColumn, state)
+
+  // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
+  // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
+  const hudEditor = createHudEditor(container)
+
   const buildMenu = createBuildMenu(
     container,
     state,
@@ -733,6 +739,7 @@ function startMatch(
         renderRafId = null
       }
       input.destroy()
+      hudEditor.destroy()
       hud.destroy()
       minimap.destroy()
       tooltip.destroy()

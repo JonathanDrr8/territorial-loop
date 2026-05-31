@@ -52,6 +52,9 @@ function apply(id: string): void {
   if (el === undefined) return
   const o = layout[id]
   if (o === undefined) return
+  // Sobald ein Override greift, übernimmt der Layout-Speicher die Skalierung per `transform`.
+  // Das per `registerScalable` gesetzte `zoom: 1.3` muss raus, sonst skaliert es doppelt.
+  el.style.zoom = '1'
   if (o.x !== undefined) {
     el.style.left = `${o.x.toString()}px`
     el.style.right = 'auto'
@@ -116,6 +119,7 @@ export function resetLayout(): void {
     el.style.removeProperty('bottom')
     el.style.removeProperty('transform')
     el.style.removeProperty('transform-origin')
+    el.style.removeProperty('zoom')
     el.style.removeProperty('width')
     el.style.removeProperty('height')
     el.style.removeProperty('display')
