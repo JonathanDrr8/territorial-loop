@@ -167,6 +167,8 @@ export const ru: Record<string, string> = {
   'event.allianceOffer': '{a} предлагает союз {b}',
   'event.allianceDecline': '{a} отклоняет союз с {b}',
   'event.embargoOn': '{a} вводит эмбарго против {b}',
+  'event.donateGold': '{a} дарит {b} {n} золота',
+  'event.donateTroops': '{a} отправляет {b} {n} войск в поддержку',
   'event.embargoOff': '{a} снимает эмбарго с {b}',
   'event.tradeMode.random': 'Цели торговли: случайно',
   'event.tradeMode.nearest': 'Цели торговли: ближайшие',

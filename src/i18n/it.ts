@@ -173,6 +173,8 @@ export const it: Record<string, string> = {
   'event.allianceOffer': '{a} propone un’alleanza a {b}',
   'event.allianceDecline': '{a} rifiuta l’alleanza di {b}',
   'event.embargoOn': '{a} impone un embargo a {b}',
+  'event.donateGold': '{a} dona {n} oro a {b}',
+  'event.donateTroops': '{a} invia {n} truppe in supporto a {b}',
   'event.embargoOff': '{a} revoca l’embargo su {b}',
   'event.tradeMode.random': 'Mete commerciali: casuale',
   'event.tradeMode.nearest': 'Mete commerciali: la più vicina',

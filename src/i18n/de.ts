@@ -179,6 +179,8 @@ export const de: Record<string, string> = {
   'event.allianceOffer': '{a} bietet {b} ein Bündnis an',
   'event.allianceDecline': '{a} lehnt das Bündnis von {b} ab',
   'event.embargoOn': '{a} verhängt ein Embargo gegen {b}',
+  'event.donateGold': '{a} schenkt {b} {n} Gold',
+  'event.donateTroops': '{a} entsendet {b} {n} Truppen zur Unterstützung',
   'event.embargoOff': '{a} hebt das Embargo gegen {b} auf',
   'event.tradeMode.random': 'Handelsziele: Zufall',
   'event.tradeMode.nearest': 'Handelsziele: Nächste',

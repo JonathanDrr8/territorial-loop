@@ -72,6 +72,8 @@ import type {
   CancelAttackIntent,
   DeclineAllianceIntent,
   DefendIntent,
+  DonateGoldIntent,
+  DonateTroopsIntent,
   Intent,
   RequestAllianceIntent,
   SetEmbargoIntent,
@@ -886,6 +888,10 @@ const GOODWILL_PER_TRADE_DIVISOR = 8
 const FACTORY_DIPLO_INTERVAL = 30
 /** Gunst je Intervall, wenn eine Fabrik in Reichweite einer fremden Stadt/eines Hafens liegt. */
 const GOODWILL_PER_FACTORY_NEIGHBOR = 6
+/** Gunst je gespendetem Gold (Geschenk, ADR-0022): 200 Gold ≈ 1 Gunst → 100k = 500 Gunst. */
+const GOODWILL_PER_GOLD_DONATED = 1 / 200
+/** Gunst je gespendeter Truppe an einen Verbündeten (Unterstützung). */
+const GOODWILL_PER_TROOP_DONATED = 1 / 40
 
 /**
  * Fabrik-Diplomatie: liegt eine eigene fertige Fabrik in `FACTORY_LINK_RANGE` einer Stadt/eines
@@ -1158,6 +1164,12 @@ function applyIntents(state: GameState, intents: readonly Intent[]): void {
         break
       case 'set-embargo':
         applySetEmbargoIntent(state, intent)
+        break
+      case 'donate-gold':
+        applyDonateGoldIntent(state, intent)
+        break
+      case 'donate-troops':
+        applyDonateTroopsIntent(state, intent)
         break
       case 'set-trade-mode':
         applySetTradeModeIntent(state, intent)
@@ -1519,6 +1531,55 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
     state.embargoes.delete(key)
     emitDiploEvent(state, from, to, 'event.embargoOff', { a: from.name, b: to.name }, from.color)
   }
+}
+
+/**
+ * Gold-Geschenk an einen anderen lebenden Spieler (ADR-0022): überträgt Gold und erzeugt
+ * beidseitige Gunst ∝ Betrag — um Groll zu besänftigen oder ein Bündnis zu erkaufen.
+ */
+function applyDonateGoldIntent(state: GameState, intent: DonateGoldIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [from, to] = pair
+  const amount = Math.floor(intent.amount)
+  if (amount <= 0 || from.gold < amount) return
+  from.gold -= amount
+  to.gold += amount
+  to.goldEarned += amount // beim Empfänger als Einnahme verbuchen (Gold-Rate-Anzeige)
+  addGoodwill(state, from.id, to.id, Math.round(amount * GOODWILL_PER_GOLD_DONATED))
+  emitDiploEvent(
+    state,
+    from,
+    to,
+    'event.donateGold',
+    { a: from.name, b: to.name, n: String(amount) },
+    from.color,
+  )
+}
+
+/**
+ * Truppen-Spende an einen VERBÜNDETEN (ADR-0022): unterstützt einen schwächeren Partner. Nur
+ * zwischen Verbündeten; stärkt zusätzlich die Gunst. Über-Cap-Truppen beim Empfänger schmelzen
+ * normal ab (kein harter Block nötig).
+ */
+function applyDonateTroopsIntent(state: GameState, intent: DonateTroopsIntent): void {
+  const pair = livingPair(state, intent.playerId, intent.targetPlayerId)
+  if (pair === null) return
+  const [from, to] = pair
+  if (!areAllied(state.alliances, from.id, to.id)) return
+  const amount = Math.floor(intent.amount)
+  if (amount <= 0 || from.troops < amount) return
+  from.troops -= amount
+  to.troops += amount
+  addGoodwill(state, from.id, to.id, Math.round(amount * GOODWILL_PER_TROOP_DONATED))
+  emitDiploEvent(
+    state,
+    from,
+    to,
+    'event.donateTroops',
+    { a: from.name, b: to.name, n: String(amount) },
+    from.color,
+  )
 }
 
 function applySetTradeModeIntent(state: GameState, intent: SetTradeModeIntent): void {

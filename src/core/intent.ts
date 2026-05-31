@@ -31,6 +31,8 @@ export type Intent =
   | DeclineAllianceIntent
   | BreakAllianceIntent
   | SetEmbargoIntent
+  | DonateGoldIntent
+  | DonateTroopsIntent
   | SetTradeModeIntent
   | ToggleWarshipNeutralIntent
 
@@ -241,4 +243,26 @@ export interface SetEmbargoIntent {
   readonly playerId: number
   readonly targetPlayerId: number
   readonly enabled: boolean
+}
+
+/**
+ * Spieler spendet `amount` Gold an `targetPlayerId` (diplomatisches Geschenk, ADR-0022). Erzeugt
+ * beidseitige **Gunst** ∝ Betrag — um Groll zu besänftigen oder ein Bündnis zu erkaufen.
+ */
+export interface DonateGoldIntent {
+  readonly type: 'donate-gold'
+  readonly playerId: number
+  readonly targetPlayerId: number
+  readonly amount: number
+}
+
+/**
+ * Spieler spendet `amount` Truppen an einen **verbündeten** `targetPlayerId` (Unterstützung eines
+ * schwächeren Partners, ADR-0022). Nur zwischen Verbündeten; stärkt zusätzlich die Gunst.
+ */
+export interface DonateTroopsIntent {
+  readonly type: 'donate-troops'
+  readonly playerId: number
+  readonly targetPlayerId: number
+  readonly amount: number
 }

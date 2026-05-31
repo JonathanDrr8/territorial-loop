@@ -144,6 +144,8 @@ export const ja: Record<string, string> = {
   'event.allianceOffer': '{a} が {b} に同盟を提案',
   'event.allianceDecline': '{a} は {b} の同盟を断りました',
   'event.embargoOn': '{a} が {b} に禁輸を課しました',
+  'event.donateGold': '{a} が {b} に金 {n} を贈呈',
+  'event.donateTroops': '{a} が {b} に兵 {n} を支援派遣',
   'event.embargoOff': '{a} が {b} への禁輸を解除しました',
   'event.tradeMode.random': '交易先：ランダム',
   'event.tradeMode.nearest': '交易先：最も近い',

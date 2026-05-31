@@ -143,6 +143,8 @@ export const zh: Record<string, string> = {
   'event.allianceOffer': '{a} 向 {b} 提出同盟',
   'event.allianceDecline': '{a} 拒绝了 {b} 的同盟',
   'event.embargoOn': '{a} 对 {b} 实施禁运',
+  'event.donateGold': '{a} 赠予 {b} {n} 金币',
+  'event.donateTroops': '{a} 派遣 {n} 兵力支援 {b}',
   'event.embargoOff': '{a} 解除对 {b} 的禁运',
   'event.tradeMode.random': '贸易目标：随机',
   'event.tradeMode.nearest': '贸易目标：最近',
