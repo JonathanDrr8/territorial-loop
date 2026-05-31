@@ -500,4 +500,5 @@ export const pt: Record<string, string> = {
   'prompt.ignore': 'Ignorar',
   'field.rivers': 'Rios',
   'field.rivers.hint': 'só continentes/ilhas, navegáveis',
+  'field.riverDensity': 'Frequência de rios',
 }

@@ -121,6 +121,7 @@ const DEFAULT_MENU: StartMenuValues = {
     flak: true,
   },
   rivers: true, // Flüsse standardmäßig an (reguläres Match-Toggle, ADR-0015)
+  riverDensity: 1, // Fluss-Häufigkeit (1 = Standard)
   experimental: {},
 }
 
@@ -200,6 +201,7 @@ function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
     matchSpeed: TEMPO_TO_SPEED[menu.tempo],
     terrain: isGeoMapId(menu.terrain) ? 'continents' : menu.terrain,
     rivers: menu.rivers,
+    riverDensity: menu.riverDensity,
     allowedBuildings: menu.allowedBuildings,
     players,
     ...(geoId !== undefined ? { mapId: geoId } : {}),
@@ -1030,6 +1032,7 @@ function main(): void {
       victoryPct: initial.victoryPct,
       difficulty: initial.difficulty,
       rivers: initial.rivers,
+      riverDensity: initial.riverDensity,
       allowedBuildings: initial.allowedBuildings,
       public: true,
     }

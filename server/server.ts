@@ -151,6 +151,7 @@ const DEFAULT_SETTINGS: MatchSettings = {
   victoryPct: 90,
   difficulty: 'standard',
   rivers: false,
+  riverDensity: 1,
   public: true,
 }
 
@@ -173,6 +174,8 @@ function clampSettings(s: MatchSettings): MatchSettings {
     victoryPct: clamp(s.victoryPct, 1, 100),
     difficulty,
     rivers: s.rivers === true,
+    riverDensity:
+      typeof s.riverDensity === 'number' ? Math.max(0.2, Math.min(3, s.riverDensity)) : 1,
     ...(s.allowedBuildings !== undefined && {
       allowedBuildings: sanitizeAllowed(s.allowedBuildings),
     }),
@@ -297,6 +300,7 @@ function buildConfig(room: Room): GameConfig {
     victoryPct: s.victoryPct,
     terrain: s.terrain,
     rivers: s.rivers,
+    riverDensity: s.riverDensity ?? 1,
     ...(s.allowedBuildings !== undefined && { allowedBuildings: s.allowedBuildings }),
     players,
   }

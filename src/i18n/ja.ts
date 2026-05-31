@@ -452,4 +452,5 @@ export const ja: Record<string, string> = {
   'prompt.ignore': '無視',
   'field.rivers': '川',
   'field.rivers.hint': '大陸/島のみ・航行可',
+  'field.riverDensity': '川の密度',
 }

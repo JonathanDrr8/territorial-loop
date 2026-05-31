@@ -66,6 +66,8 @@ export interface StartMenuValues {
   allowedBuildings: Record<BuildingType, boolean>
   /** Flüsse ins Terrain carven (ADR-0015). Reguläres Match-Toggle (nicht mehr „experimentell"). */
   rivers: boolean
+  /** Fluss-Häufigkeit (Multiplikator auf die Anzahl; 1 = Standard). Wirkt nur bei `rivers`. */
+  riverDensity: number
   /** Opt-in experimentelle Feature-Toggles (persistiert; vorerst Platzhalter). */
   experimental: ExperimentalFlags
   /** Optional fester Match-Seed; leer/undefined → random. */

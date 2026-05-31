@@ -460,6 +460,10 @@ export function createMultiplayerMenu(
       (on) => (on ? t('toggle.on') : t('toggle.off')),
       (v) => ({ ...settings, rivers: v }),
     )
+    numRow(t('field.riverDensity'), s.riverDensity ?? 1, (v) => ({
+      ...settings,
+      riverDensity: Math.max(0.2, Math.min(3, v)),
+    }))
     // Gebäude-Toggles: deaktivierte Typen kann im Match niemand bauen (deterministisch übers Netz).
     const setBuilding = (type: BuildingType, on: boolean): MatchSettings => {
       const ab: Partial<Record<BuildingType, boolean>> = { ...(settings.allowedBuildings ?? {}) }

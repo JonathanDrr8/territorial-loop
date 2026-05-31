@@ -23,6 +23,7 @@ const DEFAULTS: StartMenuValues = {
     flak: true,
   },
   rivers: true,
+  riverDensity: 1,
   experimental: {},
 }
 
@@ -57,6 +58,7 @@ describe('preferences', () => {
         flak: false,
       },
       rivers: false,
+      riverDensity: 1,
       experimental: { earthlikeNoise: true },
     }
     saveMenuPrefs(custom)
