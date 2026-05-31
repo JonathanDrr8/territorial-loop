@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.24.0] – 2026-06-01
+
+### Neu
+
+- **Hauptstadt-Modus:** Im Match-Setup unter „Modus" einschaltbar. Jede Nation bekommt beim
+  Start eine **Hauptstadt**, die mit einem Stern auf der Karte markiert ist. Wird deine
+  Hauptstadt erobert, scheidest du sofort aus — egal wie viel Land du sonst noch hältst. Du
+  gewinnst, wenn alle gegnerischen Hauptstädte gefallen sind. Die KI drängt in diesem Modus
+  gezielt auf feindliche Hauptstädte statt nur auf Gebietsgewinn.
+- **Team-Modus:** Ebenfalls unter „Modus" zu finden. Wähle „Teams (verbündet)" sowie Anzahl
+  der Teams und Team-Größe per Slider. Teamkameraden kämpfen nie gegeneinander — auch
+  KI-Mitspieler nicht. Der Sieg wird gemeinsam gewertet: Das Gebiet aller Teammitglieder
+  zählt zusammen. Lässt sich mit dem **Hauptstadt-Modus** kombinieren.
+
 ## [0.23.0] – 2026-06-01
 
 ### Neu
