@@ -851,6 +851,12 @@ const BOMB_TROOP_KILL_CAP = 0.2
 const GRUDGE_PER_BOMB_TILE = 8
 /** „Angst"-Groll, den eine Bombardierung bei JEDER anderen (unbeteiligten) Nation auslöst. */
 const GRUDGE_BOMB_FEAR = 40
+/**
+ * Groll des Eroberten gegen den Angreifer, je erobertem eigenem Tile (Landangriff). Wer überrannt
+ * wird, ist sicher kein Freund mehr — zusätzlich wird vorhandene Gunst sofort gelöscht (s. u.).
+ * Tunable Balance-Wert.
+ */
+const GRUDGE_PER_CONQUERED_TILE = 6
 
 /** Erhöht den (abklingenden) Groll des Opfers gegen den Angreifer. Ignoriert Selbst/Besitzlos. */
 function addGrudge(state: GameState, attackerId: number, victimId: number, amount: number): void {
@@ -870,6 +876,12 @@ function addGoodwill(state: GameState, a: number, b: number, amount: number): vo
   const k2 = directedKey(b, a)
   state.goodwill.set(k1, (state.goodwill.get(k1) ?? 0) + amount)
   state.goodwill.set(k2, (state.goodwill.get(k2) ?? 0) + amount)
+}
+
+/** Löscht die (beidseitige) Gunst zwischen a und b vollständig — z. B. wenn a b angreift/erobert. */
+function clearGoodwill(state: GameState, a: number, b: number): void {
+  state.goodwill.delete(directedKey(a, b))
+  state.goodwill.delete(directedKey(b, a))
 }
 
 /** Lässt aufgebaute Gunst pro Tick etwas abklingen; vergisst Kleinstwerte. */
@@ -3288,6 +3300,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   let sumDx = 0
   let sumDy = 0
   let captured = 0
+  let defenderTilesTaken = 0
   const capturedTiles: TileRef[] = []
 
   for (let i = 0; i < wantCapture; i++) {
@@ -3331,6 +3344,7 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
       defender.troops = Math.max(0, Math.floor(defender.troops - dLoss))
       // Gold-Anteil dieses Tiles erbeuten + auf dem Angriff summieren (für das Beute-Event).
       attack.lootGained = (attack.lootGained ?? 0) + lootGoldOnCapture(attacker, defender)
+      defenderTilesTaken++
     }
 
     captureTile(state, ref, attacker.id)
@@ -3338,6 +3352,13 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     sumDx += signedTorusDelta(ref % fw, anchorX, fw)
     sumDy += signedTorusDelta(Math.floor(ref / fw), anchorY, fh)
     captured++
+  }
+
+  // Beziehung (ADR-0013): wer erobert wird, ist kein Freund mehr — vorhandene Gunst sofort
+  // löschen UND Groll proportional zum genommenen Land aufbauen (treibt KI-Vergeltung + roten Tint).
+  if (defender !== undefined && defenderTilesTaken > 0) {
+    clearGoodwill(state, attacker.id, defender.id)
+    addGrudge(state, attacker.id, defender.id, GRUDGE_PER_CONQUERED_TILE * defenderTilesTaken)
   }
 
   // Eingeschlossene Taschen schließen: vom Angreifer rundum umzingelte fremde/neutrale

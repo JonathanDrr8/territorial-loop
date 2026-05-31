@@ -331,7 +331,11 @@ export function createHoverTooltip(
       let relation = ''
       if (humanId >= 0) {
         const gw = state.goodwill.get(directedKey(owner, humanId)) ?? 0
-        const gr = state.grudge.get(directedKey(owner, humanId)) ?? 0
+        // Groll in BEIDE Richtungen (ADR-0013): erlittene Kränkung ODER selbst provozierte Feindseligkeit.
+        const gr = Math.max(
+          state.grudge.get(directedKey(owner, humanId)) ?? 0,
+          state.grudge.get(directedKey(humanId, owner)) ?? 0,
+        )
         if (gr >= 5 && gr >= gw) {
           relation = `<br><span style="color:#e8736b">${icon.grudge} ${t('tip.grudge', { n: fmtCompact(gr) })}${gw >= 5 ? ` <span style="opacity:0.7">· ${t('tip.favor', { n: fmtCompact(gw) })}</span>` : ''}</span>`
         } else if (gw >= 5) {

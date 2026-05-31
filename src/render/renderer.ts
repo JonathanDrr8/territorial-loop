@@ -479,9 +479,16 @@ export function createRenderer(
   let borderTints = new Map<number, readonly [number, number, number]>()
   let lastBorderSig = ''
 
-  /** Groll-Stufe (0–3) von `p` gegen den Menschen — nach kürzlich genommenem Land. */
+  /**
+   * Groll-Stufe (0–3) zwischen `p` und dem Menschen — in BEIDE Richtungen (ADR-0013): egal ob `p`
+   * dem Menschen grollt (genommenes Land) ODER der Mensch `p` durch eigene Angriffe/Bomben
+   * provoziert hat. Maximum beider Richtungen → jede Feindseligkeit färbt die Grenze rot.
+   */
   function grudgeLevel(p: Player, humanId: number, humanTiles: number): number {
-    const g = state.grudge.get(directedKey(p.id, humanId)) ?? 0
+    const g = Math.max(
+      state.grudge.get(directedKey(p.id, humanId)) ?? 0,
+      state.grudge.get(directedKey(humanId, p.id)) ?? 0,
+    )
     if (g <= 0) return 0
     // Anteil am eigenen (verbliebenen) Gebiet → kleiner Räuber blass, großer grell.
     const ratio = g / humanTiles
@@ -1973,7 +1980,10 @@ export function createRenderer(
     if (areAllied(state.alliances, humanId, ownerId)) return 'rgba(90,220,120,0.95)'
     const human = state.players.get(humanId)
     const humanTiles = human ? Math.max(1, human.tilesOwned) : 1
-    const grudge = state.grudge.get(directedKey(ownerId, humanId)) ?? 0
+    const grudge = Math.max(
+      state.grudge.get(directedKey(ownerId, humanId)) ?? 0,
+      state.grudge.get(directedKey(humanId, ownerId)) ?? 0,
+    )
     if (grudge / humanTiles >= 0.05) return 'rgba(232,60,60,0.95)'
     return 'rgba(0,0,0,0.75)' // neutral: schwarzer Rand
   }

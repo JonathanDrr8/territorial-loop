@@ -1162,6 +1162,50 @@ describe('Gold-Beute bei Eroberung', () => {
   })
 })
 
+describe('Eroberung verändert die Beziehung (Gunst weg + Groll)', () => {
+  it('löscht vorhandene Gunst und baut Groll proportional zum genommenen Land auf', () => {
+    const state = createGame(baseConfig({ terrain: 'flat' }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1) // Angreifer
+    const p2 = state.players.get(2) // Verteidiger
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+      p.gold = 0
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    setOwner(state.map, T(5, 5), 1)
+    p1.tilesOwned = 1
+    p1.frontier.add(T(5, 5))
+    setOwner(state.map, T(6, 5), 2)
+    setOwner(state.map, T(7, 5), 2)
+    p2.tilesOwned = 2
+    p2.frontier.add(T(6, 5))
+    p2.frontier.add(T(7, 5))
+    p1.troops = 50_000 // klare Übermacht → erobert
+    p2.troops = 100
+
+    // Vorher waren sie befreundet (z. B. durch Handel) — beidseitige Gunst.
+    state.goodwill.set(directedKey(1, 2), 200)
+    state.goodwill.set(directedKey(2, 1), 200)
+
+    for (let i = 0; i < 30 && p2.tilesOwned > 0; i++)
+      tick(state, [{ type: 'attack', playerId: 1, targetTile: T(6, 5), troops: 40_000 }])
+
+    expect(p2.tilesOwned).toBe(0) // überrannt
+    // Gunst ist weg (beidseitig).
+    expect(state.goodwill.get(directedKey(1, 2)) ?? 0).toBe(0)
+    expect(state.goodwill.get(directedKey(2, 1)) ?? 0).toBe(0)
+    // Groll des Eroberten gegen den Angreifer ist entstanden.
+    expect(state.grudge.get(directedKey(1, 2)) ?? 0).toBeGreaterThan(0)
+  })
+})
+
 describe('Bündnis ablehnen', () => {
   it('decline-alliance verwirft die eingehende Anfrage ohne Bündnis', () => {
     const state = createGame(baseConfig())
