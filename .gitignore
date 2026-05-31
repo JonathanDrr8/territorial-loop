@@ -53,3 +53,9 @@ scripts/.cache/
 public/theme-samples.html
 public/theme-screens.html
 public/theme-editor.html
+
+# Screenshots/Artefakte im Repo-Root (Playwright, Debug)
+/*.png
+/*.jpeg
+/*.jpg
+.playwright-mcp/
