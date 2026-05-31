@@ -827,6 +827,21 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(estimateBomberFlakDamage(state, 2, deadly)).toBe(0)
   })
 
+  it('estimateBomberFlakDamage: EIN Level-1-Posten holt einen Bomber im Vorbeiflug runter (Feuerrate 3→2)', () => {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 128, mapHeight: 128 }))
+    const W = state.map.width
+    const H = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const T = (x: number, y: number): number => tileRef(x, y, W, H)
+    // Ein einzelner gegnerischer Flakposten, Bomber fliegt geradewegs darüber.
+    const ft = T(35, 10)
+    setOwner(state.map, ft, 2)
+    state.buildings.set(ft, { type: 'flak', ownerId: 2, tile: ft, level: 1, completesAtTick: 0 })
+    const route = planBomberRoute(W, H, T(10, 10), T(60, 10), 'direct')
+    // Mit Cooldown 2 sind es ~5 Schüsse je Durchflug → ≥ Bomber-HP (vorher 3 < 4, Bomber überlebte).
+    expect(estimateBomberFlakDamage(state, 1, route)).toBeGreaterThanOrEqual(BOMBER_HP)
+  })
+
   it('Auslands-Gold zählt nur fremde Fabriken — eine fremde Stadt bringt keins (aber Gunst bleibt)', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
     const W = state.map.width

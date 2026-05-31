@@ -159,8 +159,12 @@ export const AIRCRAFT_COST = 50_000
 export const BOMB_MUNITION = 25_000
 /** Bomben-Wirkradius (Tiles) am Einschlagpunkt — großzügig, die Fläche soll spürbar sein. */
 export const BOMB_RADIUS = 6
-/** Schuss-Cooldown eines Flak-Turms (Ticks) — bewusst schnell, knabbert die Bomber-HP runter. */
-export const FLAK_SHOT_COOLDOWN = 3
+/**
+ * Schuss-Cooldown eines Flak-Turms (Ticks). Bei 2 schafft ein Level-1-Posten ~5 Schüsse je
+ * Bomber-Durchflug (vorher 3 → nur 3 Treffer < 4 HP, Bomber überlebte) → jetzt zuverlässiger
+ * Abschuss im Vorbeiflug, höhere Level zerlegen Bomber schnell.
+ */
+export const FLAK_SHOT_COOLDOWN = 2
 /** HP-Schaden eines Flak-Treffers (1 = ein Treffer). Eine Flak schwächt, mehrere = sicherer Abschuss. */
 export const FLAK_DAMAGE = 1
 
