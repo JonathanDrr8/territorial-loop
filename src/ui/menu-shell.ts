@@ -43,7 +43,7 @@ import type { BuildingType } from '../core/buildings'
 import type { TerrainType } from '../world/terrain'
 import { createMapPreview } from './map-preview'
 import { isGeoMapId } from './geo-loader'
-import { loadMusicEnabled, saveMusicEnabled } from './preferences'
+import { loadMusicEnabled, saveMusicEnabled, saveMenuPrefs } from './preferences'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
@@ -443,6 +443,17 @@ export function createMenuShell(
   /** Aktuelle Feldstände in `values` sichern (vor Rerender/Tab-Wechsel). */
   function captureValues(): void {
     values = collect()
+    saveMenuPrefs(values) // Tab-Wechsel/Sprachwechsel → Stand sichern (nicht erst beim Match-Start)
+  }
+
+  /**
+   * Aktuelle Feldstände sofort nach localStorage sichern. Vorher wurden Menü-Einstellungen NUR beim
+   * Match-Start gespeichert (nur die Musik hatte einen eigenen Sofort-Handler) → änderte man z.B. im
+   * Einstellungen-Tab etwas und lud neu ohne zu spielen, war es weg. Wird an Feld-Änderungen + Tab-
+   * Wechsel gehängt.
+   */
+  function persist(): void {
+    saveMenuPrefs(collect())
   }
 
   function buildPlayTab(): HTMLElement {
@@ -634,6 +645,10 @@ export function createMenuShell(
     // rechts (230), je 20 px Abstand. `justify-content: center` zentriert den ganzen Block →
     // das Setup-Panel steht symmetrisch in der Mitte, ohne Überlappen.
     const browser = mountLobbyBrowser()
+    // Jede Feld-Änderung (Select/Checkbox/Slider/Text) sofort persistieren — nicht erst beim Start.
+    p.addEventListener('change', persist)
+    p.addEventListener('input', persist)
+
     const tips = buildTipsPanel()
     const row = document.createElement('div')
     row.style.cssText =
@@ -909,6 +924,10 @@ export function createMenuShell(
         flak: buildingChecks.get('flak')?.() ?? true,
       }),
     }
+
+    // Jede Einstellungs-Änderung sofort persistieren (Kamera/Sound/Gebäude/Flüsse) — wie die Musik.
+    p.addEventListener('change', persist)
+    p.addEventListener('input', persist)
 
     return p
   }
