@@ -78,8 +78,9 @@ const BASE_BUILD_COST: Record<BuildingType, number> = {
   flak: 35_000,
 }
 
-/** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer. */
-export const BUILD_COST_CAP = 1_000_000
+/** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer.
+ * 100k: Stadt/Hafen/Fabrik eskalieren 25k→50k→100k und bleiben dann fest (Flughafen 50k→100k). */
+export const BUILD_COST_CAP = 100_000
 
 /**
  * Eskalations-Gruppen: Gebäude derselben Gruppe teilen sich den Kosten-Multiplikator
@@ -109,7 +110,7 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
 /**
  * Baukosten. Verteidigungsposten kosten immer gleich viel (flach); alle anderen
  * eskalieren — jedes weitere Gebäude der Gruppe kostet doppelt (Stadt: 25k/50k/100k…),
- * gedeckelt bei [[BUILD_COST_CAP]] (1 Mio). `existingCountInGroup` ist die Anzahl bereits
+ * gedeckelt bei [[BUILD_COST_CAP]] (100k). `existingCountInGroup` ist die Anzahl bereits
  * gebauter Gebäude der Eskalations-Gruppe (siehe [[COST_GROUP]]).
  */
 export function buildCost(type: BuildingType, existingCountInGroup: number): number {
