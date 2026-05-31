@@ -291,6 +291,74 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
     window.addEventListener('pointerup', onUp)
   }
 
+  // ---- Kanten-Resize (Breite ODER Höhe einzeln ziehen, Skalierung bleibt) --------------------
+  const EDGE_MIN = 60
+  function startEdge(id: string, axis: 'x' | 'y', side: 0 | 1, ev: PointerEvent): void {
+    const found = panelMap.get(id)
+    if (found === undefined) return
+    const el: HTMLElement = found
+    ev.preventDefault()
+    ev.stopPropagation()
+    const f0 = footprint(id, el)
+    const s = scaleOf(id)
+    const c = container.getBoundingClientRect()
+    const { vx, hy } = snapTargets(id)
+
+    function onMove(e: PointerEvent): void {
+      const px = e.clientX - c.left
+      const py = e.clientY - c.top
+      if (axis === 'x') {
+        let edge = px
+        const sn = snap(edge, vx)
+        let gx: number | null = null
+        if (sn !== null) {
+          edge = sn
+          gx = sn
+        }
+        if (side === 1) {
+          const screenW = Math.max(EDGE_MIN, edge - f0.x)
+          setPanel(id, { w: Math.round(screenW / s) })
+        } else {
+          const right = f0.x + f0.w
+          const left = Math.min(edge, right - EDGE_MIN)
+          setPanel(id, { x: Math.round(left), w: Math.round((right - left) / s) })
+          el.style.left = `${Math.round(left).toString()}px`
+        }
+        el.style.width = `${Math.round(getPanel(id)?.w ?? f0.w / s).toString()}px`
+        showGuideV(gx)
+        showGuideH(null)
+      } else {
+        let edge = py
+        const sn = snap(edge, hy)
+        let gy: number | null = null
+        if (sn !== null) {
+          edge = sn
+          gy = sn
+        }
+        if (side === 1) {
+          const screenH = Math.max(EDGE_MIN, edge - f0.y)
+          setPanel(id, { h: Math.round(screenH / s) })
+        } else {
+          const bottom = f0.y + f0.h
+          const top = Math.min(edge, bottom - EDGE_MIN)
+          setPanel(id, { y: Math.round(top), h: Math.round((bottom - top) / s) })
+          el.style.top = `${Math.round(top).toString()}px`
+        }
+        el.style.height = `${Math.round(getPanel(id)?.h ?? f0.h / s).toString()}px`
+        showGuideH(gy)
+        showGuideV(null)
+      }
+      layoutFrame(id)
+    }
+    function onUp(): void {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      hideGuides()
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   // ---- Rahmen je Panel bauen -----------------------------------------------------------------
   const panelMap = new Map<string, HTMLElement>()
 
@@ -366,6 +434,28 @@ export function createHudEditor(container: HTMLElement): HudEditorApi {
         startResize(id, cx, cy, e)
       })
       frame.appendChild(grip)
+    }
+
+    // 4 Kanten-Griffe (Breite/Höhe einzeln ziehen).
+    const edges: Array<['x' | 'y', 0 | 1, string]> = [
+      ['y', 0, 'top:-4px;left:18px;right:18px;height:8px;cursor:ns-resize'],
+      ['y', 1, 'bottom:-4px;left:18px;right:18px;height:8px;cursor:ns-resize'],
+      ['x', 0, 'left:-4px;top:18px;bottom:18px;width:8px;cursor:ew-resize'],
+      ['x', 1, 'right:-4px;top:18px;bottom:18px;width:8px;cursor:ew-resize'],
+    ]
+    for (const [axis, side, pos] of edges) {
+      const bar2 = document.createElement('div')
+      bar2.style.cssText = [
+        'position: absolute',
+        'z-index: 2',
+        'background: rgba(70,217,230,0.35)',
+        'pointer-events: auto',
+        pos,
+      ].join(';')
+      bar2.addEventListener('pointerdown', (e) => {
+        startEdge(id, axis, side, e)
+      })
+      frame.appendChild(bar2)
     }
 
     container.appendChild(frame)
