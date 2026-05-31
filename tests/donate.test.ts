@@ -35,9 +35,10 @@ describe('Gold spenden (ADR-0022)', () => {
     tick(state, [{ type: 'donate-gold', playerId: 1, targetPlayerId: 2, amount: 50_000 }])
     expect(p2.gold).toBeGreaterThanOrEqual(50_000) // Geschenk angekommen
     expect(p1.gold).toBeLessThanOrEqual(50_500) // Geschenk abgegeben (+ evtl. Tick-Einkommen)
-    // 50000 / 200 = 250, minus minimaler Abkling-Schritt im selben Tick (×0,997).
-    expect(gw(state, 1, 2)).toBeGreaterThan(245)
-    expect(gw(state, 1, 2)).toBeLessThanOrEqual(250)
+    // Basis 50000/200 = 250, plus Bereitschafts-Bonus (Anteil 0,5 → ×1,25) = 312,5,
+    // minus minimaler Abkling-Schritt im selben Tick (×0,997).
+    expect(gw(state, 1, 2)).toBeGreaterThan(305)
+    expect(gw(state, 1, 2)).toBeLessThanOrEqual(313)
     expect(gw(state, 2, 1)).toBeCloseTo(gw(state, 1, 2), 5) // beidseitig gleich
   })
 

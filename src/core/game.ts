@@ -892,6 +892,18 @@ const GOODWILL_PER_FACTORY_NEIGHBOR = 6
 const GOODWILL_PER_GOLD_DONATED = 1 / 200
 /** Gunst je gespendeter Truppe an einen Verbündeten (Unterstützung). */
 const GOODWILL_PER_TROOP_DONATED = 1 / 40
+/**
+ * „Bereitschafts"-Bonus auf die Gunst (ADR-0022): zusätzlich zur reinen MENGE zählt der ANTEIL
+ * am eigenen Vorrat — wer 100 % gibt, zeigt mehr Großzügigkeit als wer 10 % gibt. Die Menge bleibt
+ * dominant (Faktor moderat): Gunst = Basis × (1 + WEIGHT × Anteil), Anteil 0..1.
+ */
+const DONATION_WILLINGNESS_WEIGHT = 0.5
+
+/** Gunst einer Spende: Basis (∝ Menge) plus moderater Bereitschafts-Bonus (∝ Anteil am Vorrat). */
+function donationGoodwill(amount: number, totalBefore: number, perUnit: number): number {
+  const fraction = totalBefore > 0 ? Math.min(1, amount / totalBefore) : 0
+  return Math.round(amount * perUnit * (1 + DONATION_WILLINGNESS_WEIGHT * fraction))
+}
 
 /**
  * Fabrik-Diplomatie: liegt eine eigene fertige Fabrik in `FACTORY_LINK_RANGE` einer Stadt/eines
@@ -1543,10 +1555,11 @@ function applyDonateGoldIntent(state: GameState, intent: DonateGoldIntent): void
   const [from, to] = pair
   const amount = Math.floor(intent.amount)
   if (amount <= 0 || from.gold < amount) return
+  const goodwill = donationGoodwill(amount, from.gold, GOODWILL_PER_GOLD_DONATED)
   from.gold -= amount
   to.gold += amount
   to.goldEarned += amount // beim Empfänger als Einnahme verbuchen (Gold-Rate-Anzeige)
-  addGoodwill(state, from.id, to.id, Math.round(amount * GOODWILL_PER_GOLD_DONATED))
+  addGoodwill(state, from.id, to.id, goodwill)
   emitDiploEvent(
     state,
     from,
@@ -1569,9 +1582,10 @@ function applyDonateTroopsIntent(state: GameState, intent: DonateTroopsIntent): 
   if (!areAllied(state.alliances, from.id, to.id)) return
   const amount = Math.floor(intent.amount)
   if (amount <= 0 || from.troops < amount) return
+  const goodwill = donationGoodwill(amount, from.troops, GOODWILL_PER_TROOP_DONATED)
   from.troops -= amount
   to.troops += amount
-  addGoodwill(state, from.id, to.id, Math.round(amount * GOODWILL_PER_TROOP_DONATED))
+  addGoodwill(state, from.id, to.id, goodwill)
   emitDiploEvent(
     state,
     from,
