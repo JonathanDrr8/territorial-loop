@@ -115,15 +115,18 @@ export const it: Record<string, string> = {
   'help.buildings.title': 'Edifici',
   'help.buildings.body':
     'Con l’oro costruisci Città (più limite di truppe), Avamposto difensivo (bonus + raggio contro ' +
-    'gli attacchi), Porto (commercio e navi) e Fabbrica (economia). Migliorabili; alla conquista il ' +
-    'nuovo proprietario li mantiene — tranne gli avamposti difensivi.',
+    'gli attacchi), Porto (commercio e navi), Fabbrica (economia), Aeroporto (lancia bombardieri) e ' +
+    'Contraerea (abbatte i bombardieri nemici). Migliorabili; alla conquista il nuovo proprietario ' +
+    'li mantiene — tranne gli avamposti difensivi.',
 
   'help.economy.title': 'Economia (reti di fabbriche)',
   'help.economy.body':
-    'L’oro non viene dalla dimensione del territorio ma dalle fabbriche: una fabbrica si collega in ' +
-    'linea d’aria alle tue città/porti/fabbriche a portata e produce oro per ogni obiettivo ' +
-    'collegato. I collegamenti con nazioni straniere danno 3× oro (e favore) — cooperare conviene. ' +
-    'Costruisci Città + Porto + Fabbrica vicine e collegale.',
+    'L’oro non viene dalla dimensione del territorio ma dalle fabbriche: una fabbrica rifornisce le ' +
+    'tue città e porti raggiungibili tramite territorio proprio contiguo (carri dell’oro percorrono ' +
+    'le tue strade) e produce oro per ogni obiettivo collegato. Una fabbrica vicina a una nazione ' +
+    'straniera rende 3x oro (e favore) per quel collegamento. Importante: una fabbrica appena ' +
+    'conquistata produce solo una volta collegata alle tue città tramite territorio proprio. ' +
+    'Costruisci Città + Porto + Fabbrica vicine.',
 
   'help.ships.title': 'Navi e commercio',
   'help.ships.body':
@@ -161,8 +164,8 @@ export const it: Record<string, string> = {
   'help.controls.body':
     'Clic sinistro: attacca/espandi · Maiusc+clic sinistro: tutto intorno al confine · ' +
     'Maiusc+rotella: regola la dimensione dell’attacco · Clic destro: menu radiale (costruire/' +
-    'chiatta/nave/diplomazia) · 1–4: edifici · B: modalità chiatta · R: raggi delle navi · ' +
-    'Spazio: pausa · Esc: menu.',
+    'chiatta/nave/diplomazia) · 1-6: edifici · 7: bombardiere · 8: nave da guerra · B: modalità ' +
+    'chiatta · R: raggi delle navi · «.» / «,»: velocità · Spazio: pausa · Esc: menu (anche «Personalizza HUD»).',
 
   'help.growth.title': 'Crescita delle truppe',
   'help.growth.body':
@@ -171,6 +174,33 @@ export const it: Record<string, string> = {
     'cresci piano, più in fretta a riserva media, e più ti avvicini al limite più frena. L’ottimo è ' +
     'intorno al 42 % del limite. Spendere truppe in attacchi ti tiene nella zona di forte crescita; ' +
     'accumulare vicino al limite la ferma quasi del tutto.',
+
+  'help.air.title': 'Guerra aerea (bombardieri e contraerea)',
+  'help.air.body':
+    'Un aeroporto ti permette di lanciare bombardieri. Un bombardiere vola verso l’obiettivo e ' +
+    'sgancia una bomba: scava un cratere, uccide truppe nel raggio e rende neutro il terreno ' +
+    'colpito. Questo genera forte rancore nel colpito (e paura negli altri). Un avamposto ' +
+    'contraerea abbatte i bombardieri nemici a portata — usalo per proteggere città e fabbriche.',
+
+  'help.rivers.title': 'Fiumi',
+  'help.rivers.body':
+    'Opzionale (attivabile nel pannello Sperimentale o nella stanza): sulle mappe Continenti e ' +
+    'Isole vengono scavati fiumi reali navigabili nel terreno — dalle montagne fino al mare. ' +
+    'Sono abbastanza larghi per le navi, che così possono risalire nell’entroterra e aggirare.',
+
+  'help.hud.title': 'Personalizzare l’HUD',
+  'help.hud.body':
+    'In partita, premi Esc → «Personalizza HUD» per aprire l’editor: sposta, ridimensiona e ' +
+    'mostra/nascondi i pannelli liberamente (un elenco mostra tutti gli elementi), cambia il tema ' +
+    'e ripristina tutto ai valori predefiniti. Accessibile anche dalle impostazioni del menu ' +
+    'principale. La tua disposizione viene salvata localmente.',
+
+  'help.multiplayer.title': 'Multigiocatore e classificata',
+  'help.multiplayer.body':
+    'Multigiocatore: tramite «Multigiocatore» apri una stanza (condividi il codice) o ne entri ' +
+    'una — tutti giocano sincronizzati sullo stesso server. Modalità classificata: da solo contro ' +
+    'un’IA al tuo livello; vinci e il tuo ELO sale per seguire i tuoi progressi. La difficoltà ' +
+    'dell’IA va da Principiante a Esperto.',
 
   // ── Registro eventi ────────────────────────────────────────────────────────
   'event.allianceExpired': 'L’alleanza tra {a} e {b} è scaduta',

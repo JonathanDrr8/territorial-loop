@@ -117,15 +117,17 @@ export const fr: Record<string, string> = {
   'help.buildings.title': 'Bâtiments',
   'help.buildings.body':
     'Avec de l’or tu bâtis Ville (plus de limite de troupes), Poste de défense (bonus + portée ' +
-    'contre les attaques), Port (commerce et navires) et Usine (économie). Améliorables ; à la ' +
-    'conquête, le nouveau propriétaire les garde — sauf les postes de défense.',
+    'contre les attaques), Port (commerce et navires), Usine (économie), Aéroport (lance des ' +
+    'bombardiers) et DCA (abat les bombardiers ennemis). Améliorables ; à la conquête, le ' +
+    'nouveau propriétaire les garde — sauf les postes de défense.',
 
   'help.economy.title': 'Économie (réseaux d’usines)',
   'help.economy.body':
-    'L’or ne vient pas de la taille du territoire mais des usines : une usine se relie à vue à tes ' +
-    'villes/ports/usines à portée et produit de l’or par cible reliée. Les liens avec des nations ' +
-    'étrangères rapportent 3× d’or (et de la faveur) — coopérer paie. Construis Ville + Port + Usine ' +
-    'proches et relie-les.',
+    'L’or ne vient pas de la taille du territoire mais des usines : une usine ravitaille tes villes ' +
+    'et ports accessibles par un territoire contigu à toi (des chariots d’or circulent sur tes routes) ' +
+    'et produit de l’or par cible reliée. Une usine proche d’une nation étrangère rapporte 3× d’or ' +
+    '(et de la faveur) pour ce lien. Important : une usine fraîchement conquise ne produit qu’une ' +
+    'fois reliée à tes villes par ton propre territoire. Construis Ville + Port + Usine proches.',
 
   'help.ships.title': 'Navires et commerce',
   'help.ships.body':
@@ -164,8 +166,8 @@ export const fr: Record<string, string> = {
   'help.controls.body':
     'Clic gauche : attaquer/s’étendre · Maj+clic gauche : tout autour de la frontière · ' +
     'Maj+molette : ajuster la taille de l’attaque · Clic droit : menu radial (construire/barge/' +
-    'navire/diplomatie) · 1–4 : bâtiments · B : mode barge · R : portées des navires · Espace : ' +
-    'pause · Échap : menu.',
+    'navire/diplomatie) · 1–6 : bâtiments · 7 : bombardier · 8 : navire de guerre · B : mode barge · ' +
+    'R : portées des navires · « . » / « , » : vitesse · Espace : pause · Échap : menu (aussi « Personnaliser le HUD »).',
 
   'help.growth.title': 'Croissance des troupes',
   'help.growth.body':
@@ -174,6 +176,34 @@ export const fr: Record<string, string> = {
     'constante : près de 0 tu croîs lentement, le plus vite à réserve moyenne, et plus tu approches ' +
     'de la limite plus ça freine. L’optimum est autour de 42 % de la limite. Dépenser des troupes en ' +
     'attaques te garde dans la zone de forte croissance ; accumuler près de la limite l’arrête presque.',
+
+  'help.air.title': 'Guerre aérienne (bombardiers et DCA)',
+  'help.air.body':
+    'Un aéroport te permet de lancer des bombardiers. Un bombardier vole vers la cible et lâche ' +
+    'une bombe : elle creuse un cratère, tue les troupes dans le rayon et rend le terrain touché ' +
+    'neutre. Cela génère une forte rancune chez la cible (et de la crainte chez les autres). Un ' +
+    'poste DCA abat les bombardiers ennemis à portée — protège ainsi tes villes et usines.',
+
+  'help.rivers.title': 'Rivières',
+  'help.rivers.body':
+    'Optionnel (activable dans le panneau Expérimental ou le salon) : sur les cartes Continents et ' +
+    'Îles, de vraies rivières navigables sont creusées dans le terrain — des montagnes jusqu’à la ' +
+    'mer. Elles sont assez larges pour les navires, qui peuvent ainsi remonter loin à l’intérieur ' +
+    'des terres et déborder.',
+
+  'help.hud.title': 'Personnaliser le HUD',
+  'help.hud.body':
+    'En partie, appuie sur Échap → « Personnaliser le HUD » pour ouvrir l’éditeur : déplace, ' +
+    'redimensionne et affiche/masque les panneaux librement (une liste montre tous les éléments), ' +
+    'change le thème et réinitialise tout par défaut. Aussi accessible depuis les réglages du menu ' +
+    'principal. Ta disposition est sauvegardée localement.',
+
+  'help.multiplayer.title': 'Multijoueur et classé',
+  'help.multiplayer.body':
+    'Multijoueur : via « Multijoueur » tu ouvres un salon (partage le code) ou tu en rejoins un — ' +
+    'tout le monde joue synchronisé sur le serveur. Mode classé : seul contre une IA de ton niveau ; ' +
+    'si tu gagnes, ton ELO monte pour suivre ta progression. La difficulté de l’IA va de Débutant ' +
+    'à Expert.',
 
   // ── Journal des événements ─────────────────────────────────────────────────
   'event.allianceExpired': 'L’alliance entre {a} et {b} a expiré',

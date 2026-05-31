@@ -785,7 +785,7 @@ export function createMenuShell(
     p.appendChild(h)
 
     const body = document.createElement('div')
-    body.style.cssText = 'line-height: 1.6; font-size: 13px; opacity: 0.9'
+    body.style.cssText = 'line-height: 1.65; font-size: 15px; opacity: 0.9'
     renderChangelog(body, changelogRaw)
     p.appendChild(body)
     return p
@@ -805,7 +805,7 @@ export function createMenuShell(
 
     const intro = document.createElement('div')
     intro.textContent = t('help.intro')
-    intro.style.cssText = 'line-height: 1.6; opacity: 0.85; margin-bottom: 8px'
+    intro.style.cssText = 'line-height: 1.65; font-size: 15px; opacity: 0.85; margin-bottom: 8px'
     p.appendChild(intro)
 
     const topics = [
@@ -814,12 +814,16 @@ export function createMenuShell(
       'buildings',
       'economy',
       'ships',
+      'air',
       'diplomacy',
       'treason',
       'relations',
       'wild',
+      'rivers',
       'camera',
       'controls',
+      'hud',
+      'multiplayer',
       'growth',
     ]
     for (const topic of topics) {
@@ -827,10 +831,10 @@ export function createMenuShell(
       block.style.cssText = 'margin-top: 16px'
       const title = document.createElement('div')
       title.textContent = t(`help.${topic}.title`)
-      title.style.cssText = `font-weight: 700; color: ${ACCENT}; margin-bottom: 4px`
+      title.style.cssText = `font-weight: 700; font-size: 16px; color: ${ACCENT}; margin-bottom: 4px`
       const text = document.createElement('div')
       text.textContent = t(`help.${topic}.body`)
-      text.style.cssText = 'line-height: 1.6; opacity: 0.85'
+      text.style.cssText = 'line-height: 1.65; font-size: 15px; opacity: 0.85'
       block.appendChild(title)
       block.appendChild(text)
       p.appendChild(block)
@@ -933,7 +937,7 @@ function renderChangelog(parent: HTMLElement, raw: string): void {
       closeBlock()
       const h = document.createElement('div')
       h.textContent = trimmed.slice(4)
-      h.style.cssText = 'font-weight: 700; opacity: 0.8; margin: 10px 0 4px; font-size: 12px'
+      h.style.cssText = 'font-weight: 700; opacity: 0.8; margin: 10px 0 4px; font-size: 14px'
       parent.appendChild(h)
       continue
     }

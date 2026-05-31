@@ -122,15 +122,16 @@ export const en: Record<string, string> = {
   'help.buildings.title': 'Buildings',
   'help.buildings.body':
     'Spend gold on a City (higher troop cap), Defense post (bonus + range against attacks), Port ' +
-    '(trade & ships) and Factory (economy). Buildings are upgradeable; on conquest the new owner ' +
-    'keeps them — except defense posts.',
+    '(trade & ships), Factory (economy), Airport (launches bombers) and Anti-air post (shoots down ' +
+    'enemy bombers). Buildings are upgradeable; on conquest the new owner keeps them — except defense posts.',
 
   'help.economy.title': 'Economy (factory networks)',
   'help.economy.body':
-    'Gold does not come from territory size but from factories: a factory links by line-of-sight ' +
-    'to your cities/ports/factories in range and produces gold per linked target. Links to foreign ' +
-    'nations yield 3× gold (and goodwill) — cooperation pays off. So build City + Port + Factory ' +
-    'close together and network them.',
+    'Gold does not come from territory size but from factories: a factory supplies your cities ' +
+    'and ports that are reachable over contiguous own land (gold carts travel your roads) and ' +
+    'produces gold per connected target. A factory near a foreign nation yields 3× gold (and ' +
+    'goodwill) for that link. Important: a freshly captured factory only produces once it is ' +
+    'connected to your cities via your own territory. Build City + Port + Factory close together.',
 
   'help.ships.title': 'Ships & trade',
   'help.ships.body':
@@ -167,7 +168,8 @@ export const en: Record<string, string> = {
   'help.controls.body':
     'Left-click: attack/expand · Shift+left-click: all around along the whole border · ' +
     'Shift+wheel: fine-tune attack size · Right-click: radial menu (build/boat/warship/diplomacy) · ' +
-    '1–4: buildings · B: boat mode · R: ship ranges · Space: pause · Esc: menu.',
+    '1–6: buildings · 7: bomber · 8: warship · B: boat mode · R: ship ranges · ' +
+    '"." / ",": speed · Space: pause · Esc: menu (also "Customize HUD").',
 
   'help.growth.title': 'Troop growth',
   'help.growth.body':
@@ -176,6 +178,32 @@ export const en: Record<string, string> = {
     'medium stock, and the closer to the cap the more it brakes. The optimum is around 42 % of the ' +
     'cap. Spending troops on attacks keeps you in the high-growth zone; hoarding near the cap nearly ' +
     'stalls growth.',
+
+  'help.air.title': 'Air war (bombers & anti-air)',
+  'help.air.body':
+    'An airport lets you launch bombers. A bomber flies to the target and drops a bomb: it tears ' +
+    'a crater, kills troops in the blast radius and turns the hit land neutral. This generates ' +
+    'strong grudge with the target (and fear in everyone else). An anti-air post shoots down enemy ' +
+    'bombers within range — use it to protect your cities and factories.',
+
+  'help.rivers.title': 'Rivers',
+  'help.rivers.body':
+    'Optional (enabled in the Experimental panel or lobby): on Continents and Islands maps, real ' +
+    'navigable rivers are carved into the terrain — from the mountains down to the sea. They are ' +
+    'wide enough for ships, which can sail deep inland and flank.',
+
+  'help.hud.title': 'Customizing the HUD',
+  'help.hud.body':
+    'In a match, press Esc → "Customize HUD" to open the editor: freely move, resize and ' +
+    'show/hide panels (a list shows all elements), change the theme and reset everything to ' +
+    'default. Also accessible from the main-menu settings. Your layout is saved locally.',
+
+  'help.multiplayer.title': 'Multiplayer & ranked',
+  'help.multiplayer.body':
+    'Multiplayer: via "Multiplayer" you open a room (share the code) or join one — everyone plays ' +
+    'server-synchronized in the same match. Ranked mode: solo against an AI at your skill level; ' +
+    'win and your ELO rises, so you can track your progress. AI difficulty ranges from Beginner ' +
+    'to Expert.',
 
   // ── Event log ──────────────────────────────────────────────────────────────
   'event.allianceExpired': 'Alliance between {a} and {b} expired',

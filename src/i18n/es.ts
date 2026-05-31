@@ -118,15 +118,18 @@ export const es: Record<string, string> = {
   'help.buildings.title': 'Edificios',
   'help.buildings.body':
     'Con oro construyes Ciudad (más límite de tropas), Puesto defensivo (bonus + alcance contra ' +
-    'ataques), Puerto (comercio y barcos) y Fábrica (economía). Son mejorables; al conquistarlos, el ' +
-    'nuevo dueño los conserva — salvo los puestos defensivos.',
+    'ataques), Puerto (comercio y barcos), Fábrica (economía), Aeropuerto (lanza bombarderos) y ' +
+    'Antiaéreo (derriba bombarderos enemigos). Son mejorables; al conquistarlos, el nuevo dueño ' +
+    'los conserva — salvo los puestos defensivos.',
 
   'help.economy.title': 'Economía (redes de fábricas)',
   'help.economy.body':
-    'El oro no viene del tamaño del territorio, sino de las fábricas: una fábrica se conecta en ' +
-    'línea recta con tus ciudades/puertos/fábricas dentro del alcance y produce oro por cada ' +
-    'objetivo conectado. Las conexiones con naciones ajenas dan 3× oro (y simpatía) — cooperar ' +
-    'merece la pena. Construye Ciudad + Puerto + Fábrica cerca y conéctalas.',
+    'El oro no viene del tamaño del territorio, sino de las fábricas: una fábrica abastece tus ' +
+    'ciudades y puertos que sean accesibles a través de territorio propio contiguo (las carretas ' +
+    'de oro recorren tus caminos) y produce oro por cada objetivo conectado. Una fábrica cercana ' +
+    'a una nación ajena rinde 3× oro (y simpatía) por ese enlace. Importante: una fábrica recién ' +
+    'conquistada no produce hasta estar conectada a tus ciudades por territorio propio. ' +
+    'Construye Ciudad + Puerto + Fábrica cerca y conéctalas.',
 
   'help.ships.title': 'Barcos y comercio',
   'help.ships.body':
@@ -164,7 +167,8 @@ export const es: Record<string, string> = {
   'help.controls.body':
     'Clic izquierdo: atacar/expandir · Mayús+clic izquierdo: alrededor de toda la frontera · ' +
     'Mayús+rueda: ajustar el tamaño del ataque · Clic derecho: menú radial (construir/bote/buque/' +
-    'diplomacia) · 1–4: edificios · B: modo bote · R: alcances de barcos · Espacio: pausa · Esc: menú.',
+    'diplomacia) · 1–6: edificios · 7: bombardero · 8: buque de guerra · B: modo bote · ' +
+    'R: alcances de barcos · «.» / «,»: velocidad · Espacio: pausa · Esc: menú (también «Personalizar HUD»).',
 
   'help.growth.title': 'Crecimiento de tropas',
   'help.growth.body':
@@ -173,6 +177,33 @@ export const es: Record<string, string> = {
     'creces despacio, más rápido a media reserva, y cuanto más cerca del límite más se frena. El ' +
     'óptimo está en torno al 42 % del límite. Gastar tropas en ataques te mantiene en la zona de ' +
     'alto crecimiento; acumular cerca del límite casi lo detiene.',
+
+  'help.air.title': 'Guerra aérea (bombarderos y antiaéreos)',
+  'help.air.body':
+    'Un aeropuerto te permite lanzar bombarderos. Un bombardero vuela al objetivo y lanza una ' +
+    'bomba: abre un cráter, mata tropas en el radio de explosión y deja el terreno afectado ' +
+    'neutral. Esto genera mucho rencor en el objetivo (y temor en los demás). Un puesto antiaéreo ' +
+    'derriba los bombarderos enemigos dentro de su alcance — úsalo para proteger tus ciudades y fábricas.',
+
+  'help.rivers.title': 'Ríos',
+  'help.rivers.body':
+    'Opcional (se activa en el panel experimental o en la sala): en mapas de Continentes e Islas ' +
+    'se tallan ríos reales y navegables en el terreno — desde las montañas hasta el mar. Son ' +
+    'suficientemente anchos para los barcos, que así pueden adentrarse en el interior y flanquear.',
+
+  'help.hud.title': 'Personalizar el HUD',
+  'help.hud.body':
+    'En una partida, pulsa Esc → «Personalizar HUD» para abrir el editor: mueve, escala y ' +
+    'muestra/oculta paneles libremente (una lista muestra todos los elementos), cambia el diseño ' +
+    'y restablece todo al estado predeterminado. También accesible desde los ajustes del menú ' +
+    'principal. Tu disposición se guarda localmente.',
+
+  'help.multiplayer.title': 'Multijugador y clasificatoria',
+  'help.multiplayer.body':
+    'Multijugador: con «Multijugador» abres una sala (comparte el código) o te unes a una — ' +
+    'todos juegan sincronizados en el mismo servidor. Modo clasificatorio: solo contra una IA ' +
+    'a tu nivel; si ganas, sube tu ELO para que puedas seguir tu progreso. La dificultad de la ' +
+    'IA va de Principiante a Experto.',
 
   // ── Registro de eventos ────────────────────────────────────────────────────
   'event.allianceExpired': 'La alianza entre {a} y {b} ha expirado',

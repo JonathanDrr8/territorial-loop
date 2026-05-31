@@ -122,15 +122,18 @@ export const de: Record<string, string> = {
   'help.buildings.title': 'Gebäude',
   'help.buildings.body':
     'Für Gold baust du Stadt (mehr Truppen-Cap), Verteidigungsposten (Bonus + Reichweite gegen ' +
-    'Angriffe), Hafen (Handel & Schiffe) und Fabrik (Wirtschaft). Gebäude sind aufrüstbar; bei ' +
-    'Eroberung übernimmt der neue Besitzer sie — außer Verteidigungsposten.',
+    'Angriffe), Hafen (Handel & Schiffe), Fabrik (Wirtschaft), Flugplatz (startet Bomber) und ' +
+    'Flak (schießt feindliche Bomber ab). Gebäude sind aufrüstbar; bei Eroberung übernimmt der ' +
+    'neue Besitzer sie — außer Verteidigungsposten.',
 
   'help.economy.title': 'Wirtschaft (Fabrik-Netzwerke)',
   'help.economy.body':
-    'Gold kommt nicht aus der Gebietsgröße, sondern aus Fabriken: eine Fabrik verbindet sich per ' +
-    'Luftlinie mit deinen Städten/Häfen/Fabriken in Reichweite und erzeugt pro verbundenem Ziel ' +
-    'Gold. Verbindungen zu fremden Nationen bringen 3× Gold (und Gunst) — Kooperation lohnt sich. ' +
-    'Bau also Stadt + Hafen + Fabrik nah beieinander und vernetze sie.',
+    'Gold kommt nicht aus der Gebietsgröße, sondern aus Fabriken: Eine Fabrik versorgt deine ' +
+    'Städte und Häfen, die über zusammenhängendes eigenes Land erreichbar sind (Gold-Karren ' +
+    'pendeln über deine Straßen), und erzeugt pro verbundenem Ziel Gold. Liegt eine Fabrik nahe ' +
+    'einer fremden Nation, bringt diese Verbindung 3× Gold (und Gunst). Wichtig: Eine frisch ' +
+    'eroberte Fabrik produziert erst, wenn sie über eigenes Gebiet mit deinen Städten verbunden ' +
+    'ist. Bau Stadt + Hafen + Fabrik nah beieinander und vernetze sie.',
 
   'help.ships.title': 'Schiffe & Handel',
   'help.ships.body':
@@ -168,7 +171,8 @@ export const de: Record<string, string> = {
   'help.controls.body':
     'Linksklick: Angriff/Ausbreiten · Shift+Linksklick: rundum entlang der ganzen Grenze · ' +
     'Shift+Mausrad: Angriffsgröße fein justieren · Rechtsklick: Radialmenü (Bauen/Boot/Kriegsschiff/' +
-    'Diplomatie) · 1–4: Gebäude · B: Boot-Modus · R: Schiff-Reichweiten · Leertaste: Pause · Esc: Menü.',
+    'Diplomatie) · 1–6: Gebäude · 7: Bomber · 8: Kriegsschiff · B: Boot-Modus · R: Schiff-Reichweiten · ' +
+    '„.“ / „,“: Tempo · Leertaste: Pause · Esc: Menü (auch „HUD anpassen").',
 
   'help.growth.title': 'Truppen-Wachstum',
   'help.growth.body':
@@ -177,6 +181,33 @@ export const de: Record<string, string> = {
     'Truppen wächst du langsam, bei mittlerem Bestand am schnellsten, je näher am Maximum desto ' +
     'stärker abgebremst. Das Optimum liegt bei ~42 % des Caps. Truppen für Angriffe ausgeben hält ' +
     'dich oft im wachstumsstarken Bereich; Horten nahe am Cap bringt das Wachstum fast zum Stillstand.',
+
+  'help.air.title': 'Luftkrieg (Bomber & Flak)',
+  'help.air.body':
+    'Ein Flugplatz lässt dich Bomber starten. Ein Bomber fliegt zum Ziel und schlägt eine Bombe ' +
+    'ein: Sie reißt einen Krater, tötet Truppen im Umkreis und macht das getroffene Land neutral. ' +
+    'Das erzeugt starken Groll beim Getroffenen (und Angst bei allen anderen). Ein Flak-Posten ' +
+    '(Luftabwehr) schießt feindliche Bomber in Reichweite ab — schütze damit deine Städte und Fabriken.',
+
+  'help.rivers.title': 'Flüsse',
+  'help.rivers.body':
+    'Optional (im Experimentell-Panel bzw. in der Lobby aktivierbar): Auf Kontinent- und Insel-' +
+    'Karten werden echte, navigierbare Flüsse ins Terrain geschnitten — von den Bergen bis zum ' +
+    'Meer. Sie sind breit genug für Schiffe, die so tief ins Landesinnere fahren und flankieren können.',
+
+  'help.hud.title': 'HUD anpassen',
+  'help.hud.body':
+    'Im Match öffnest du mit Esc → „HUD anpassen" den Editor: Panels frei verschieben, skalieren ' +
+    'und ein-/ausblenden (eine Liste zeigt alle Elemente), das Design (Theme) wechseln und alles ' +
+    'auf Standard zurücksetzen. Auch über die Einstellungen im Hauptmenü erreichbar. Deine ' +
+    'Anordnung wird lokal gespeichert.',
+
+  'help.multiplayer.title': 'Mehrspieler & Ranglisten',
+  'help.multiplayer.body':
+    'Mehrspieler: Über „Mehrspieler" eröffnest du einen Raum (Code teilen) oder trittst einem bei ' +
+    '— alle spielen server-synchron im selben Match. Ranglisten-Modus: Solo gegen eine KI auf ' +
+    'deiner Spielstärke; gewinnst du, steigt dein ELO, so siehst du deinen Fortschritt. Die KI-' +
+    'Schwierigkeit reicht von Anfänger bis Experte.',
 
   // ── Ereignislog (Spielmeldungen) ───────────────────────────────────────────
   'event.allianceExpired': 'Allianz zwischen {a} und {b} ausgelaufen',
