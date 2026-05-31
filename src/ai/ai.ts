@@ -83,7 +83,20 @@ interface DifficultyProfile {
   readonly bomberChance: number
   /** Heilt die KI Bombenkrater / neutrale Löcher tief im eigenen Reich. ADR-0020 Stufe 3. */
   readonly healsCraters: boolean
+  /**
+   * Wirtschafts-Rückgrat (OpenFront-Stil, ADR-0021): baut proaktiv 1 Stadt je `tilesPerCity` Tiles
+   * (Städte heben den Truppen-Cap → Basis fürs Heer). 0 = baut keine Wirtschaft (nur Anfänger).
+   * Kleiner = dichter = stärker. Schlüssel-Ratio für den Tuner.
+   */
+  readonly tilesPerCity: number
 }
+
+// Wirtschafts-Ratios relativ zur Stadtzahl (OpenFront-Vorbild „Städte zuerst, Rest als Ratio pro
+// Stadt", ADR-0021). Start-Werte — der Tuner justiert sie später. Hafen/Fabrik versorgen das
+// Gold-Netz, Flughafen die Luftwaffe.
+const PORT_PER_CITY = 0.5
+const FACTORY_PER_CITY = 0.75
+const AIRPORT_PER_CITY = 0.34
 
 const PROFILES: Record<Difficulty, DifficultyProfile> = {
   // Anfänger (~600): nur expandieren, sehr passiv. Baut/diplomatisiert nicht, keine Luft/Schiffe.
@@ -101,6 +114,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesBombers: false,
     bomberChance: 0,
     healsCraters: false,
+    tilesPerCity: 0,
   },
   // Leicht (~800): + Wirtschaft (baut Gebäude), noch keine Diplomatie/Luft/Krater-Heilung.
   easy: {
@@ -117,6 +131,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesBombers: false,
     bomberChance: 0,
     healsCraters: false,
+    tilesPerCity: 160,
   },
   // Standard (~1000, ANKER): + Diplomatie + Kriegsschiffe + defensive Flak + Krater-Heilung.
   standard: {
@@ -133,13 +148,14 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesBombers: false,
     bomberChance: 0,
     healsCraters: true,
+    tilesPerCity: 140,
   },
   // Fortgeschritten (~1300): + offensive Bomber + situative Reaktion. Aggression knapp unter dem
   //   Optimum (knapp unter Experte).
   advanced: {
     attackPct: 36,
-    cooldownMin: 24,
-    cooldownMax: 75,
+    cooldownMin: 15,
+    cooldownMax: 42,
     popThresholdForPvp: 0.52,
     buildChance: 0.45,
     diploChance: 0.3,
@@ -150,13 +166,14 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesBombers: true,
     bomberChance: 0.15,
     healsCraters: true,
+    tilesPerCity: 115,
   },
   // Experte (~1600): alles, Aggression am Optimum (~42% war empirisch am stärksten — NICHT höher,
   //   sonst zerfasern die Truppen). Höchste Bau-/Bomber-Frequenz.
   expert: {
     attackPct: 42,
-    cooldownMin: 18,
-    cooldownMax: 60,
+    cooldownMin: 9,
+    cooldownMax: 26,
     popThresholdForPvp: 0.48,
     buildChance: 0.58,
     diploChance: 0.35,
@@ -167,6 +184,7 @@ const PROFILES: Record<Difficulty, DifficultyProfile> = {
     usesBombers: true,
     bomberChance: 0.2,
     healsCraters: true,
+    tilesPerCity: 90,
   },
 }
 
@@ -190,6 +208,7 @@ const WILD_PROFILE: DifficultyProfile = {
   usesBombers: false,
   bomberChance: 0,
   healsCraters: false,
+  tilesPerCity: 0,
 }
 
 export interface AI {
@@ -576,7 +595,53 @@ export function createAI(
     return best >= 0 ? best : pickOwnTile(state, player, false)
   }
 
-  /** Plant einen Bau nach einfachen Prioritäten (Luftabwehr-Notfall → Stadt → Hafen → Verteidigung). */
+  /**
+   * Tile für eine Fabrik, das sich gut ins eigene Gold-Netz einfügt: eigenes, unbebautes Tile in
+   * der Nähe möglichst vieler eigener Netz-Anker (Stadt/Hafen/Fabrik). Ohne Anker → Interior-Tile.
+   * (ADR-0021: Netz-Platzierung wie OpenFront — Fabrik produziert pro verbundener Stadt/Hafen.)
+   */
+  function pickNetworkTile(state: GameState, player: Player): number {
+    const { width, height } = state.map
+    const anchors: number[] = []
+    for (const [tile, b] of state.buildings) {
+      if (b.ownerId !== player.id) continue
+      if (b.type === 'city' || b.type === 'port' || b.type === 'factory') anchors.push(tile)
+    }
+    if (anchors.length === 0) return pickInteriorTile(state, player)
+    const r = 5
+    let best = -1
+    let bestScore = -Infinity
+    const seen = new Set<number>()
+    for (const a of anchors) {
+      const [ax, ay] = tileXY(a, width)
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const t = tileRef(ax + dx, ay + dy, width, height)
+          if (seen.has(t)) continue
+          seen.add(t)
+          if (getOwner(state.map, t) !== player.id || state.buildings.has(t)) continue
+          const [tx, ty] = tileXY(t, width)
+          // Score: Nähe zu mehreren Ankern (dichtes Netz) + etwas Abstand zum nächsten (Streuung).
+          let near = 0
+          let nearestD = Infinity
+          for (const a2 of anchors) {
+            const [bx, by] = tileXY(a2, width)
+            const d = torusDistance(tx, ty, bx, by, width, height)
+            if (d <= 12) near++
+            if (d < nearestD) nearestD = d
+          }
+          const score = near * 2 + Math.min(nearestD, 3)
+          if (score > bestScore || (score === bestScore && (best < 0 || t < best))) {
+            bestScore = score
+            best = t
+          }
+        }
+      }
+    }
+    return best >= 0 ? best : pickInteriorTile(state, player)
+  }
+
+  /** Plant einen Bau: Luftabwehr-Notfall → Wirtschafts-Rückgrat (Städte/Ratios) → Luft/Verteidigung. */
   function planBuild(state: GameState, player: Player): Intent | null {
     const gold = player.gold
     const costOf = (t: BuildingType): number => buildCostFor(state, player.id, t)
@@ -597,37 +662,41 @@ export function createAI(
       }
     }
 
-    // 1. Truppen-Cap ist der Engpass → Stadt
-    if (
-      isBuildingAllowed(state.config, 'city') &&
-      player.troops >= 0.9 * effectiveMaxTroops(state, player.id) &&
-      gold >= costOf('city')
-    ) {
-      const tile = pickOwnTile(state, player, false)
-      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
+    // Wirtschafts-Rückgrat (OpenFront-Stil, ADR-0021): Städte zuerst (proaktiv fürs Truppen-Cap),
+    // dann Hafen/Fabrik als Ratio pro Stadt. Das ersetzt das alte „Stadt nur bei Cap-Druck".
+    const cities = countBuildingsOfType(state, player.id, 'city')
+    const cityTarget =
+      profile.tilesPerCity > 0 && player.tilesOwned >= 40
+        ? Math.floor(player.tilesOwned / profile.tilesPerCity)
+        : 0
+    // 1. Stadt, wenn unter Gebiets-Ziel (Rückgrat) ODER — falls Wirtschaft aus — bei Cap-Druck.
+    if (isBuildingAllowed(state.config, 'city') && gold >= costOf('city')) {
+      const wantCity =
+        cities < cityTarget ||
+        (profile.tilesPerCity === 0 && player.troops >= 0.9 * effectiveMaxTroops(state, player.id))
+      if (wantCity) {
+        const tile = pickInteriorTile(state, player)
+        if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
+      }
     }
-    // 2. Am Wasser ohne Hafen → Hafen (VOR Verteidigung, sonst baut die KI bei flachen
-    //    Verteidigungskosten endlos Posten und kommt nie zum Hafen / zu Schiffen).
+    const base = Math.max(cities, 1) // Ratios relativ zur Stadtzahl (min 1, sobald Wirtschaft läuft)
+    // 2. Hafen ans Wasser (Ratio pro Stadt) — Handel + Kriegsschiff-Kapazität.
     if (
       isBuildingAllowed(state.config, 'port') &&
-      countBuildingsOfType(state, player.id, 'port') === 0 &&
+      countBuildingsOfType(state, player.id, 'port') < Math.ceil(base * PORT_PER_CITY) &&
       gold >= costOf('port')
     ) {
       const tile = pickCoastalTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
     }
-    // 2b. Wirtschaft: Fabrik bauen, wenn es Ziele (Stadt/Hafen) zum Vernetzen gibt und
-    //     noch nicht mehr Fabriken als Ziele existieren (sonst lohnt sich keine weitere).
-    const dests =
-      countBuildingsOfType(state, player.id, 'city') +
-      countBuildingsOfType(state, player.id, 'port')
+    // 3. Fabrik (Ratio pro Stadt), ans Gold-Netz platziert — produziert pro verbundener Stadt/Hafen.
     if (
       isBuildingAllowed(state.config, 'factory') &&
-      dests > 0 &&
-      countBuildingsOfType(state, player.id, 'factory') < dests &&
+      cities + countBuildingsOfType(state, player.id, 'port') > 0 &&
+      countBuildingsOfType(state, player.id, 'factory') < Math.ceil(base * FACTORY_PER_CITY) &&
       gold >= costOf('factory')
     ) {
-      const tile = pickOwnTile(state, player, false)
+      const tile = pickNetworkTile(state, player)
       if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'factory' }
     }
     // 2c. Luftabwehr-Schutz: NUR wenn ein Gegner überhaupt Luftwaffe hat (Flughafen) — sonst ist
@@ -659,8 +728,8 @@ export function createAI(
       gold >= costOf('airport')
     ) {
       const airports = countBuildingsOfType(state, player.id, 'airport')
-      const cap = player.tilesOwned > 200 ? 2 : 1
-      if (airports < cap && hasLivingEnemy(state, player)) {
+      const airportTarget = Math.max(1, Math.ceil(base * AIRPORT_PER_CITY))
+      if (airports < airportTarget && hasLivingEnemy(state, player)) {
         const tile = pickInteriorTile(state, player)
         if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'airport' }
       }
