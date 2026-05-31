@@ -29,11 +29,13 @@ import {
   makeSelectRow,
   makeSliderRow,
   makeTextRow,
+  MATCH_PRESETS,
   MENU_CSS,
   SELECT_STYLE,
   TERRAIN_OPTIONS,
   type CameraMode,
   type Difficulty,
+  type MatchPreset,
   type StartMenuValues,
   type TerrainChoice,
 } from './start-menu'
@@ -445,6 +447,14 @@ export function createMenuShell(
   function buildPlayTab(): HTMLElement {
     const p = panel()
 
+    // Presets-Reihe (oben): kuratierte Schnellwahl. Klick füllt alle Regler darunter vor; danach
+    // kann man weiter feintunen. Die Knöpfe werden weiter unten verdrahtet (brauchen die Felder).
+    section(p, t('preset.title'))
+    const presetRow = document.createElement('div')
+    presetRow.style.cssText =
+      'display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 6px'
+    p.appendChild(presetRow)
+
     section(p, t('section.world'))
     const map = makeMapRow(t('field.map'), values.mapWidth, values.mapHeight)
     p.appendChild(map.element)
@@ -498,6 +508,64 @@ export function createMenuShell(
         riverDensity: values.riverDensity,
       })
     }
+    // Preset anwenden: setzt die Feld-Inputs direkt (Slider feuern „input" → Wertlabel aktualisiert)
+    // und frischt die Vorschau auf. Seed bleibt, wie er ist (man würfelt unabhängig).
+    const applyPreset = (preset: MatchPreset): void => {
+      const [wSel, hSel] = map.element.querySelectorAll('select')
+      if (wSel !== undefined) wSel.value = String(preset.mapWidth)
+      if (hSel !== undefined) hSel.value = String(preset.mapHeight)
+      const tSel = terrain.element.querySelector('select')
+      if (tSel !== null) tSel.value = preset.terrain
+      const dSel = difficulty.element.querySelector('select')
+      if (dSel !== null) dSel.value = preset.difficulty
+      const setRange = (el: HTMLElement, val: number): void => {
+        const r = el.querySelector<HTMLInputElement>('input[type=range]')
+        if (r !== null) {
+          r.value = String(val)
+          r.dispatchEvent(new Event('input'))
+        }
+      }
+      setRange(ai.element, preset.aiCount)
+      setRange(wild.element, preset.wildCount)
+      setRange(victory.element, preset.victoryPct)
+      refreshPreview()
+    }
+    for (const preset of MATCH_PRESETS) {
+      const card = document.createElement('button')
+      card.type = 'button'
+      card.style.cssText = [
+        'flex: 1 1 0',
+        'min-width: 110px',
+        'padding: 10px 12px',
+        'background: var(--tl-panel-bg)',
+        'color: var(--tl-text)',
+        'border: 1px solid var(--tl-panel-border-color)',
+        'border-radius: 9px',
+        'font-family: inherit',
+        'cursor: pointer',
+        'display: flex',
+        'flex-direction: column',
+        'gap: 3px',
+        'align-items: center',
+        'transition: border-color 0.12s, background 0.12s',
+      ].join(';')
+      const name = document.createElement('div')
+      name.textContent = t(`preset.${preset.key}`)
+      name.style.cssText = 'font-size: 15px; font-weight: 700'
+      const sub = document.createElement('div')
+      sub.textContent = t('preset.sub', { ai: preset.aiCount, wild: preset.wildCount })
+      sub.style.cssText = 'font-size: 11px; opacity: 0.7'
+      card.append(name, sub)
+      card.addEventListener('mouseenter', () => {
+        card.style.borderColor = 'var(--tl-accent)'
+      })
+      card.addEventListener('mouseleave', () => {
+        card.style.borderColor = 'var(--tl-panel-border-color)'
+      })
+      card.addEventListener('click', () => applyPreset(preset))
+      presetRow.appendChild(card)
+    }
+
     const previewRow = document.createElement('div')
     previewRow.style.cssText =
       'display: flex; gap: 14px; align-items: center; margin: 10px 0 4px; justify-content: center'
