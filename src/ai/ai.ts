@@ -132,6 +132,65 @@ const WILD_PROFILE: DifficultyProfile = {
   tilesPerCity: 0,
 }
 
+/**
+ * Lage-Einschätzung (ADR-0022-Nachtrag): liest pro Entscheidung den Kontext, damit die KI ihr
+ * Verhalten dynamisch nachregelt — ein Führender konsolidiert, ein Nachzügler riskiert, leere vs.
+ * volle Welt wird anders gespielt, und wer gemobbt wird, geht in die Defensive.
+ */
+export interface AiContext {
+  /** 0 = führt (niemand hat mehr Gebiet), 1 = Schlusslicht. Anteil der Stärkeren unter den Lebenden. */
+  readonly rank: number
+  /** Hält die meisten Tiles (oder gleichauf an der Spitze). */
+  readonly isLeader: boolean
+  /** Füllstand der eigenen Grenze: 0 = nur neutrales Land ringsum (leer), 1 = nur Feinde (voll). */
+  readonly crowding: number
+  /** Greifen mich gerade ≥2 verschiedene Nationen an? */
+  readonly ganged: boolean
+}
+
+export function assessContext(state: GameState, player: Player): AiContext {
+  const { width, height } = state.map
+  // Rang nach Gebiet (nur lebende, nicht-wilde Spieler zählen).
+  let living = 0
+  let ahead = 0
+  let leaderTiles = 0
+  for (const p of state.players.values()) {
+    if (!p.isAlive || p.wild) continue
+    living++
+    if (p.tilesOwned > player.tilesOwned) ahead++
+    if (p.tilesOwned > leaderTiles) leaderTiles = p.tilesOwned
+  }
+  const rank = living > 1 ? ahead / (living - 1) : 0
+  const isLeader = player.tilesOwned > 0 && player.tilesOwned >= leaderTiles
+  // Füllstand: neutrale vs. feindliche Nachbarn entlang der eigenen Grenze (lokaler Welt-Füllstand).
+  let neutral = 0
+  let enemy = 0
+  const seen = new Set<number>()
+  for (const ref of player.frontier) {
+    for (const n of neighbors4(ref, width, height)) {
+      if (seen.has(n)) continue
+      seen.add(n)
+      const o = getOwner(state.map, n)
+      if (o === player.id) continue
+      if (o === 0) neutral++
+      else enemy++
+    }
+  }
+  const crowding = neutral + enemy > 0 ? enemy / (neutral + enemy) : 0.5
+  // Werde ich von mehreren bedrängt?
+  let attackers = 0
+  for (const p of state.players.values()) {
+    if (p.id === player.id || !p.isAlive) continue
+    for (const a of p.attacks) {
+      if (a.targetPlayerId === player.id) {
+        attackers++
+        break
+      }
+    }
+  }
+  return { rank, isLeader, crowding, ganged: attackers >= 2 }
+}
+
 export interface AI {
   /** Aufgerufen pro Sim-Tick. Returnt 0..n Intents für diesen Tick. */
   decide(state: GameState): readonly Intent[]
@@ -565,9 +624,15 @@ export function createAI(
   }
 
   /** Plant einen Bau: Luftabwehr-Notfall → Wirtschafts-Rückgrat (Städte/Ratios) → Luft/Verteidigung. */
-  function planBuild(state: GameState, player: Player): Intent | null {
+  function planBuild(state: GameState, player: Player, ctx: AiContext): Intent | null {
     const gold = player.gold
     const costOf = (t: BuildingType): number => buildCostFor(state, player.id, t)
+
+    // Kontext: werde ich von mehreren bedrängt → Verteidigung VORZIEHEN (vor der Wirtschaft).
+    if (ctx.ganged && isBuildingAllowed(state.config, 'defense') && gold >= costOf('defense')) {
+      const tile = pickDefenseTile(state, player)
+      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'defense' }
+    }
 
     // 0. Akute Luftbedrohung: Bomber im Anflug → sofort Flak (vor allem anderen).
     if (
@@ -680,7 +745,7 @@ export function createAI(
   }
 
   /** Diplomatie-Aktion: annehmen / anfragen / verraten — gegen den Stärksten spielen. */
-  function planDiplomacy(state: GameState, player: Player): Intent | null {
+  function planDiplomacy(state: GameState, player: Player, ctx: AiContext): Intent | null {
     const living: Player[] = []
     // Wilde Nationen sind passiv → keine Diplomatie-Partner (würden nie antworten).
     for (const p of state.players.values()) if (p.isAlive && !p.wild) living.push(p)
@@ -709,7 +774,10 @@ export function createAI(
         second !== undefined && second.tilesOwned > 0
           ? leader.tilesOwned / second.tilesOwned
           : Infinity
-      if (margin >= profile.betrayLeadRatio) {
+      // Kontext: in voller Welt / wenn gemobbt nur bei DEUTLICH größerem Vorsprung verraten —
+      // ein Führender, der treulos ist, wird sonst von allen gemeinsam erledigt.
+      const effBetray = profile.betrayLeadRatio * (ctx.ganged ? 1.5 : 1) * (1 + ctx.crowding * 0.4)
+      if (margin >= effBetray) {
         allies.sort((a, b) => a.tilesOwned - b.tilesOwned || a.id - b.id)
         const victim = allies[0]
         if (victim !== undefined) {
@@ -768,10 +836,17 @@ export function createAI(
     return best
   }
 
-  function planMilitary(state: GameState, player: Player): Intent | null {
+  function planMilitary(state: GameState, player: Player, ctx: AiContext): Intent | null {
     const max = effectiveMaxTroops(state, player.id)
     const popRatio = max > 0 ? player.troops / max : 0
-    const preferEnemies = popRatio >= profile.popThresholdForPvp
+    // Kontext-modulierte PvP-Schwelle: Führender konsolidiert (greift Spieler später an), Nachzügler
+    // ist aggressiver; leere Welt → expandieren (höhere Schwelle), volle Welt → kämpfen (niedriger).
+    let popThr = profile.popThresholdForPvp
+    if (ctx.isLeader) popThr += 0.12
+    if (ctx.rank > 0.7) popThr -= 0.1
+    popThr += (0.5 - ctx.crowding) * 0.2
+    popThr = Math.max(0.25, Math.min(0.95, popThr))
+    const preferEnemies = popRatio >= popThr
 
     // Bombenkrater / neutrale Innen-Löcher zuerst heilen (billig, schließt die eigene Fläche).
     if (profile.healsCraters) {
@@ -1007,8 +1082,11 @@ export function createAI(
 
       const intents: Intent[] = []
 
+      // Lage einmal pro Entscheidung lesen → moduliert Aggression/Bau/Diplomatie (ADR-0022-Nachtrag).
+      const ctx = assessContext(state, player)
+
       // Militär zuerst (bleibt das primäre Verhalten).
-      const military = planMilitary(state, player)
+      const military = planMilitary(state, player, ctx)
       if (military !== null) intents.push(military)
 
       // Gelegentlich ein Kriegsschiff zur Handelsblockade.
@@ -1028,13 +1106,13 @@ export function createAI(
 
       // Wirtschaft/Bau.
       if (rng.next() < profile.buildChance) {
-        const build = planBuild(state, player)
+        const build = planBuild(state, player, ctx)
         if (build !== null) intents.push(build)
       }
 
       // Diplomatie.
       if (rng.next() < profile.diploChance) {
-        const diplo = planDiplomacy(state, player)
+        const diplo = planDiplomacy(state, player, ctx)
         if (diplo !== null) intents.push(diplo)
       }
       // Gold-Geschenk zum Besänftigen (gegatet: nur Stärkere die grollen, nur mit Überschuss).
