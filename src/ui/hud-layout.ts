@@ -97,6 +97,11 @@ export function registeredIds(): string[] {
   return [...panels.keys()]
 }
 
+/** [id, element] aller angemeldeten Panels — für den Editor (Phase 3). */
+export function panelElements(): Array<[string, HTMLElement]> {
+  return [...panels.entries()]
+}
+
 /** Alle Overrides löschen (zurück auf Standard-Anordnung). Setzt betroffene Inline-Styles zurück. */
 export function resetLayout(): void {
   const ids = Object.keys(layout)

@@ -228,6 +228,7 @@ export const de: Record<string, string> = {
     'Linksklick: Angriff · B: Boot-Modus (Ziel auf anderer Insel) · 7: Bomber-Modus · 8: Kriegsschiff<br/>Rechtsklick: Menü (Bauen/Angriff/Boot/Kriegsschiff/Diplomatie)<br/>Ziehen (links/rechts) oder WASD: Kamera · Mausrad: Zoom<br/>1–6: Gebäude (Stadt/Verteidigung/Hafen/Fabrik/Flughafen/Flugabwehr) · R: Schiff-Reichweiten · Leertaste: Pause<br/>, / . : Tempo · Esc: Menü<br/>Angriffs-Panel anklicken: abbrechen / Boot · Schiff zurück',
   'hud.rank': 'Rangliste',
   'hud.troops': 'Truppen',
+  'hud.land': 'Land',
   'hud.gold': 'Gold',
   'hud.boat': 'Transportboot',
   'hud.bomber': 'Bomber',

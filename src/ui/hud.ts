@@ -83,7 +83,7 @@ function buildingTooltip(type: BuildingType): string {
   }
 }
 
-type RankSort = 'troops' | 'gold'
+type RankSort = 'troops' | 'gold' | 'land'
 
 /** Kompaktes Zahlenformat: 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
 function fmtCompact(value: number): string {
@@ -374,6 +374,7 @@ export function createHUD(
   rankTitle.style.cssText = 'flex: 1; opacity: 0.7'
   const sortTroopsBtn = document.createElement('button')
   const sortGoldBtn = document.createElement('button')
+  const sortLandBtn = document.createElement('button')
   function styleSortBtn(btn: HTMLButtonElement, active: boolean): void {
     btn.style.cssText = [
       'font: inherit',
@@ -387,8 +388,13 @@ export function createHUD(
       active ? 'font-weight: bold' : 'font-weight: normal',
     ].join(';')
   }
+  sortLandBtn.textContent = t('hud.land')
   sortTroopsBtn.textContent = t('hud.troops')
   sortGoldBtn.textContent = t('hud.gold')
+  sortLandBtn.addEventListener('click', () => {
+    rankSort = 'land'
+    refreshSortButtons()
+  })
   sortTroopsBtn.addEventListener('click', () => {
     rankSort = 'troops'
     refreshSortButtons()
@@ -398,11 +404,14 @@ export function createHUD(
     refreshSortButtons()
   })
   function refreshSortButtons(): void {
+    styleSortBtn(sortLandBtn, rankSort === 'land')
     styleSortBtn(sortTroopsBtn, rankSort === 'troops')
     styleSortBtn(sortGoldBtn, rankSort === 'gold')
   }
   refreshSortButtons()
   rankHead.appendChild(rankTitle)
+  // Land zuerst — es ist das Sieg-Ziel (Territorium %).
+  rankHead.appendChild(sortLandBtn)
   rankHead.appendChild(sortTroopsBtn)
   rankHead.appendChild(sortGoldBtn)
   rankPanel.appendChild(rankHead)
@@ -1126,7 +1135,8 @@ export function createHUD(
     const players = [...state.players.values()].filter(
       (p) => (p.isAlive || p.tilesOwned > 0) && !p.wild,
     )
-    const valueOf = (p: Player): number => (rankSort === 'gold' ? p.gold : totalTroops(p))
+    const valueOf = (p: Player): number =>
+      rankSort === 'gold' ? p.gold : rankSort === 'land' ? p.tilesOwned : totalTroops(p)
     players.sort((a, b) => valueOf(b) - valueOf(a))
     const visible = rankExpanded ? players : players.slice(0, RANK_COLLAPSED)
     const human = findHuman()
@@ -1167,7 +1177,7 @@ export function createHUD(
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
           `<span style="color:${rgbaToCss(p.color)}">■</span>` +
           `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${nameColor}">${tag}${escapeHtml(p.name)}${dead}</span>` +
-          `<span style="opacity:0.55;font-size:10px">${pctTiles}</span>` +
+          `<span style="font-size:10px;${rankSort === 'land' ? 'font-weight:bold;color:var(--tl-good);opacity:1' : 'opacity:0.55'}">${pctTiles}</span>` +
           `<span style="min-width:88px;text-align:right;font-size:10px">${primary}</span>` +
           `</div>`,
       )

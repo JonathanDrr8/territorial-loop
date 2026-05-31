@@ -226,6 +226,7 @@ export const fr: Record<string, string> = {
     'Clic gauche : attaque · B : mode bateau (cible sur une autre île) · 7 : mode bombardier · 8 : navire de guerre<br/>Clic droit : menu (construire/attaque/bateau/navire/diplomatie)<br/>Glisser (gauche/droite) ou WASD : caméra · Molette : zoom<br/>1–6 : bâtiments (ville/défense/port/usine/aéroport/DCA) · R : portées des navires · Espace : pause<br/>, / . : vitesse · Échap : menu<br/>Clic sur le panneau d’attaque : annuler / bateau · navire retour',
   'hud.rank': 'Classement',
   'hud.troops': 'Troupes',
+  'hud.land': 'Territoire',
   'hud.gold': 'Or',
   'hud.boat': 'Bateau de transport',
   'hud.bomber': 'Bombardier',

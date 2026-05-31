@@ -226,6 +226,7 @@ export const en: Record<string, string> = {
     'Left click: attack · B: boat mode (target on another island) · 7: bomber mode · 8: warship<br/>Right click: menu (build/attack/boat/warship/diplomacy)<br/>Drag (left/right) or WASD: camera · Wheel: zoom<br/>1–6: buildings (city/defense/port/factory/airport/anti-air) · R: ship ranges · Space: pause<br/>, / . : speed · Esc: menu<br/>Click attack panel: cancel / boat · ship back',
   'hud.rank': 'Ranking',
   'hud.troops': 'Troops',
+  'hud.land': 'Land',
   'hud.gold': 'Gold',
   'hud.boat': 'Transport boat',
   'hud.bomber': 'Bomber',
