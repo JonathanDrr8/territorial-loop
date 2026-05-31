@@ -159,7 +159,7 @@ export const zh: Record<string, string> = {
   'event.warshipNoRoute': '{p}：没有可通往目标的港口航线',
   'event.noCoast': '{p}：你没有自己的海岸 —— 先攻占临水的土地',
   'event.noWaterway': '{p}：没有通往该目标的航线',
-  'event.boatAttack': '⚠ {player} 用运输艇进攻 {defender}',
+  'event.boatAttack': '{player} 用运输艇进攻 {defender}',
   'event.boatSent': '{p} 派出一艘运输艇',
   'event.boatLand': '{p} 登陆了部队',
   'event.defend': '{p} 击退了 {attacker} 的进攻',

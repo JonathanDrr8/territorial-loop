@@ -160,7 +160,7 @@ export const ja: Record<string, string> = {
   'event.warshipNoRoute': '{p}：目標への海路を持つ港がありません',
   'event.noCoast': '{p}：自分の海岸がありません —— まず水辺の土地を占領してください',
   'event.noWaterway': '{p}：この目標への海路がありません',
-  'event.boatAttack': '⚠ {player} が輸送艇で {defender} を攻撃中',
+  'event.boatAttack': '{player} が輸送艇で {defender} を攻撃中',
   'event.boatSent': '{p} が輸送艇を送りました',
   'event.boatLand': '{p} が兵を上陸させました',
   'event.defend': '{p} が {attacker} の攻撃を撃退',

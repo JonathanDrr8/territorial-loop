@@ -194,7 +194,7 @@ export const en: Record<string, string> = {
   'event.warshipNoRoute': '{p}: no port with a sea route to the target',
   'event.noCoast': '{p}: no coast of your own — conquer land by water first',
   'event.noWaterway': '{p}: no sea route to this target',
-  'event.boatAttack': '⚠ {defender} is being attacked by {player} via transport boat',
+  'event.boatAttack': '{defender} is being attacked by {player} via transport boat',
   'event.boatSent': '{p} sends a transport boat',
   'event.boatLand': '{p} lands troops',
   'event.defend': '{p} fends off the attack from {attacker}',

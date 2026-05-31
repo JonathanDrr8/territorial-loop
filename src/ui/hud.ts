@@ -42,6 +42,7 @@ import {
 } from '../core/game'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+import { buildingIcon, icon } from './icons'
 import { registerScalable } from './ui-scale'
 
 const DEFAULT_SLIDER_PCT = 30
@@ -50,21 +51,6 @@ const RANK_COLLAPSED = 5
 /** Sample-Intervall (Ticks) für die geglättete Gold-Einkommensrate. */
 const GOLD_SAMPLE_TICKS = 30
 
-/**
- * Erkennbare Symbol-Icons je Gebäudetyp (Inline-SVG, `currentColor`, kein Emoji) — ersetzen die
- * Buchstaben C/D/P/F/A/K auf den Bau-Knöpfen. Stadt = Skyline, Verteidigung = Schild,
- * Hafen = Anker, Fabrik = Fabrik-Silhouette, Flughafen = Flugzeug, Flak = Fadenkreuz (Luftabwehr).
- */
-const SVG_OPEN =
-  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block">'
-const BUILDING_ICON: Record<BuildingType, string> = {
-  city: `${SVG_OPEN}<path d="M3 21h18"/><rect x="4" y="10" width="5" height="11"/><rect x="10" y="5" width="5" height="16"/><rect x="16" y="13" width="4" height="8"/></svg>`,
-  defense: `${SVG_OPEN}<path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/></svg>`,
-  port: `${SVG_OPEN}<circle cx="12" cy="5" r="2"/><path d="M12 7v13"/><path d="M8 11h8"/><path d="M5 13c0 4 3 7 7 7s7-3 7-7"/></svg>`,
-  factory: `${SVG_OPEN}<path d="M3 21h18"/><path d="M4 21V10l5 3.5V10l5 3.5V10l5 3.5V21"/><path d="M18 8V4h2v4"/></svg>`,
-  airport: `${SVG_OPEN}<path d="M11 2h2l1 8 6 4v2l-6-2v4l2 2v1.6L12 20l-4 1.6V20l2-2v-4l-6 2v-2l6-4 1-8z"/></svg>`,
-  flak: `${SVG_OPEN}<circle cx="12" cy="12" r="7"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>`,
-}
 const BUILDING_HOTKEY: Record<BuildingType, string> = {
   city: '1',
   defense: '2',
@@ -666,7 +652,7 @@ export function createHUD(
     top.style.cssText = 'display: flex; align-items: center; gap: 3px; height: 20px'
     top.innerHTML =
       `<span style="font-size:10px;opacity:0.55;font-weight:bold">${BUILDING_HOTKEY[type]}</span>` +
-      BUILDING_ICON[type]
+      buildingIcon(type)
     const cost = document.createElement('span')
     cost.style.cssText = 'color: #5dd75d; font-size: 12px; font-weight: bold'
     // Kleines Badge oben rechts: wie viele dieses Gebäudes man aktuell besitzt (0 = versteckt).
@@ -789,7 +775,7 @@ export function createHUD(
     'font-size: 11px',
     'text-align: center',
   ].join(';')
-  boatHint.textContent = `🚢 ${t('hud.boatModeHint')}`
+  boatHint.innerHTML = `${icon.ship} ${escapeHtml(t('hud.boatModeHint'))}`
   actionBar.appendChild(boatHint)
 
   // Hinweis-Banner während aktivem Bomber-Modus (zeigt die gewählte Route, Shift+Rad wechselt).
@@ -1067,7 +1053,7 @@ export function createHUD(
         : '✕'
       const title = cancelling ? t('hud.cancelNow') : t('hud.cancelAttack')
       rows.push(
-        `<div data-cancel="${String(i)}" data-tip="${title}" style="${rowStyle}"><span style="color:#5dd75d">⚔→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
+        `<div data-cancel="${String(i)}" data-tip="${title}" style="${rowStyle}"><span style="color:#5dd75d;display:inline-flex;align-items:center;gap:1px">${icon.swords}→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
       )
     })
     // Eigene Boote — klickbar zum Zurückrufen.
@@ -1076,7 +1062,7 @@ export function createHUD(
       if (boat.ownerId !== human.id) continue
       const label = boat.returning ? t('hud.returning') : t('hud.enRoute')
       rows.push(
-        `<div data-recall="${String(boatIdx)}" data-tip="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6">🚢</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
+        `<div data-recall="${String(boatIdx)}" data-tip="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6;display:inline-flex">${icon.ship}</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
       )
       boatIdx++
     }
@@ -1088,7 +1074,7 @@ export function createHUD(
         ? t('hud.returning')
         : `${String(Math.max(0, Math.round(ws.hp)))} HP`
       rows.push(
-        `<div data-recall-warship="${String(warIdx)}" data-tip="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4">⚓</span><span>${label}</span>${act('↩')}</div>`,
+        `<div data-recall-warship="${String(warIdx)}" data-tip="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4;display:inline-flex">${icon.anchor}</span><span>${label}</span>${act('↩')}</div>`,
       )
       warIdx++
     }
@@ -1104,10 +1090,10 @@ export function createHUD(
         rows.push(
           `<div style="${rowStyle}">` +
             `<span data-locate="${String(atk.frontTile)}" data-tip="${t('hud.jumpToBattle')}" style="cursor:pointer;display:flex;align-items:center;gap:6px;flex:1;min-width:0">` +
-            `<span style="color:#e84545">⚔←</span>` +
+            `<span style="color:#e84545;display:inline-flex;align-items:center;gap:1px">${icon.swords}←</span>` +
             `<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.name)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>` +
             `</span>` +
-            `<span data-defend="${String(p.id)}" data-tip="${t('hud.defendWith', { troops: fmtCompact(defendTroops) })}" style="cursor:pointer;margin-left:8px;flex-shrink:0;font-size:15px">🛡</span>` +
+            `<span data-defend="${String(p.id)}" data-tip="${t('hud.defendWith', { troops: fmtCompact(defendTroops) })}" style="cursor:pointer;margin-left:8px;flex-shrink:0;font-size:15px;display:inline-flex">${icon.shield}</span>` +
             `</div>`,
         )
       }
@@ -1176,7 +1162,7 @@ export function createHUD(
           expiry !== undefined ? Math.max(0, (expiry - state.tick) / SIM_TICKS_PER_SECOND) : 0
         title = ` title="${t('hud.alliedTitle', { time: fmtDuration(remain) })}"`
       }
-      const tag = traitor ? '⚠ ' : allied ? '🤝 ' : ''
+      const tag = traitor ? `${icon.warning} ` : allied ? `${icon.alliance} ` : ''
       rows.push(
         `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;${bg}"${title}>` +
           `<span style="opacity:0.5;min-width:14px">${rank.toString()}</span>` +
@@ -1209,7 +1195,7 @@ export function createHUD(
     const me = findHuman()
     if (me !== undefined && me.traitorUntil > state.tick) {
       const remain = Math.max(0, (me.traitorUntil - state.tick) / SIM_TICKS_PER_SECOND)
-      traitorBanner.textContent = `⚠ ${t('hud.traitorBanner', { time: fmtDuration(remain) })}`
+      traitorBanner.innerHTML = `${icon.warning} ${escapeHtml(t('hud.traitorBanner', { time: fmtDuration(remain) }))}`
       traitorBanner.style.display = 'block'
     } else {
       traitorBanner.style.display = 'none'

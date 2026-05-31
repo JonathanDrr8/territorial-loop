@@ -28,6 +28,7 @@ import { getOwner } from '../world/map'
 import { tileRef } from '../world/torus'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+import { icon } from './icons'
 
 /** Übersetzter Anzeige-Name eines Gebäudetyps. */
 function buildingLabel(type: BuildingType): string {
@@ -225,7 +226,7 @@ export function createHoverTooltip(
       tryShip(
         wx,
         wy,
-        `⚓ ${t('tip.warship')} · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
+        `${icon.anchor} ${t('tip.warship')} · ${playerLabel(ws.ownerId)}<br><span style="opacity:0.75">${String(hp)} / ${String(WARSHIP_HP)} HP${status}</span>`,
       )
     }
     if (bestShipHtml !== null) {
@@ -298,7 +299,7 @@ export function createHoverTooltip(
       if (atkTroops <= 0 || humanId < 0) return ''
       if (owner > 0 && areAllied(state.alliances, humanId, owner)) return ''
       if (!canReachByLand(state, humanId, ref)) return ''
-      const chip = `<span style="color:#e8d24a">⚔ ${fmtCompact(atkTroops)}</span>`
+      const chip = `<span style="color:#e8d24a">${icon.swords} ${fmtCompact(atkTroops)}</span>`
       return over === 'inline' ? ` · ${chip}` : `<br>${chip}`
     }
 
@@ -323,7 +324,7 @@ export function createHoverTooltip(
           expiry !== undefined ? Math.max(0, Math.floor((expiry - state.tick) / 10)) : 0
         const mm = Math.floor(remain / 60)
         const ss = remain % 60
-        alliance = `<br><span style="color:#5adc78">🤝 ${t('tip.allied', { time: `${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}` })}</span>`
+        alliance = `<br><span style="color:#5adc78">${icon.alliance} ${t('tip.allied', { time: `${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}` })}</span>`
       }
       // Beziehungs-Indikator (Gunst/Groll aus Sicht des Menschen) — die dominante Stimmung
       // mit Wert; spiegelt den Grenz-Tint wider.
@@ -332,21 +333,21 @@ export function createHoverTooltip(
         const gw = state.goodwill.get(directedKey(owner, humanId)) ?? 0
         const gr = state.grudge.get(directedKey(owner, humanId)) ?? 0
         if (gr >= 5 && gr >= gw) {
-          relation = `<br><span style="color:#e8736b">😠 ${t('tip.grudge', { n: fmtCompact(gr) })}${gw >= 5 ? ` <span style="opacity:0.7">· ${t('tip.favor', { n: fmtCompact(gw) })}</span>` : ''}</span>`
+          relation = `<br><span style="color:#e8736b">${icon.grudge} ${t('tip.grudge', { n: fmtCompact(gr) })}${gw >= 5 ? ` <span style="opacity:0.7">· ${t('tip.favor', { n: fmtCompact(gw) })}</span>` : ''}</span>`
         } else if (gw >= 5) {
-          relation = `<br><span style="color:#5adcb0">🤝 ${t('tip.favor', { n: fmtCompact(gw) })}${gr >= 5 ? ` <span style="opacity:0.7">· ${t('tip.grudge', { n: fmtCompact(gr) })}</span>` : ''}</span>`
+          relation = `<br><span style="color:#5adcb0">${icon.alliance} ${t('tip.favor', { n: fmtCompact(gw) })}${gr >= 5 ? ` <span style="opacity:0.7">· ${t('tip.grudge', { n: fmtCompact(gr) })}</span>` : ''}</span>`
         }
       }
       // Verräter (geächtet): für alle sichtbar markiert, solange die Ächtung läuft.
       const traitor =
         player.traitorUntil > state.tick
-          ? `<br><span style="color:#e8736b">⚠ ${t('tip.traitor')}</span>`
+          ? `<br><span style="color:#e8736b">${icon.warning} ${t('tip.traitor')}</span>`
           : ''
       // Gold-Beute-Indikator: beim Erobern wird das Gold des Gegners anteilig miterbeutet —
       // eine volle Eroberung bringt ~sein ganzes Lager. Nur bei nicht-Verbündeten mit Gold.
       let loot = ''
       if (humanId >= 0 && player.gold > 0 && !areAllied(state.alliances, humanId, owner)) {
-        loot = `<br><span style="color:#e8c14a">💰 ${t('tip.loot', { gold: fmtCompact(player.gold) })}</span>`
+        loot = `<br><span style="color:#e8c14a">${icon.gold} ${t('tip.loot', { gold: fmtCompact(player.gold) })}</span>`
       }
       tooltip.innerHTML =
         `<b style="color:${rgbaToCss(player.color)}">${escapeHtml(player.wild ? t('nation.wild') : player.name)}</b>${dead}<br>` +

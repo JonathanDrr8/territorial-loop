@@ -27,19 +27,11 @@ import { getOwner } from '../world/map'
 import { isLand, isPassable } from '../world/terrain'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+import { buildingIcon, icon } from './icons'
 
 /** Übersetzter Anzeige-Name eines Gebäudetyps. */
 function buildingLabel(type: BuildingType): string {
   return t(`building.${type}`)
-}
-
-const BUILDING_GLYPH: Record<BuildingType, string> = {
-  city: 'C',
-  defense: 'D',
-  port: 'P',
-  factory: 'F',
-  airport: 'A',
-  flak: 'K',
 }
 
 /** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe), übersetzt zur Aufruf-Zeit. */
@@ -279,8 +271,11 @@ export function createBuildMenu(
         `opacity: ${clickable ? '1' : '0.5'}`,
       ].join(';')
       const glyphEl = document.createElement('div')
-      glyphEl.textContent = a.glyph
-      glyphEl.style.cssText = 'font-size: 19px; font-weight: bold; line-height: 1'
+      // Glyph ist ein vertrauenswürdiger interner String (Icon-SVG oder einzelnes Symbol) → innerHTML,
+      // damit die Inline-SVG-Icons rendern.
+      glyphEl.innerHTML = a.glyph
+      glyphEl.style.cssText =
+        'font-size: 19px; font-weight: bold; line-height: 1; display:flex; align-items:center; justify-content:center'
       lbl.appendChild(glyphEl)
       if (a.costText !== '') {
         const costEl = document.createElement('div')
@@ -318,7 +313,7 @@ export function createBuildMenu(
       const mm = Math.floor(remainSec / 60)
       const ss = Math.floor(remainSec % 60)
       out.push({
-        glyph: '💔',
+        glyph: icon.brokenHeart,
         label: t('menu.breakAlliance'),
         detail: t('menu.breakAllianceDetail', {
           time: `${mm.toString()}:${ss < 10 ? '0' : ''}${ss.toString()}`,
@@ -334,7 +329,7 @@ export function createBuildMenu(
       })
     } else if (theyRequested) {
       out.push({
-        glyph: '🤝',
+        glyph: icon.alliance,
         label: t('menu.acceptAlliance'),
         detail: t('menu.acceptAllianceDetail'),
         costText: '',
@@ -348,7 +343,7 @@ export function createBuildMenu(
       })
     } else if (weRequested) {
       out.push({
-        glyph: '🤝',
+        glyph: icon.alliance,
         label: t('menu.requestSent'),
         detail: t('menu.requestSentDetail'),
         costText: '',
@@ -359,7 +354,7 @@ export function createBuildMenu(
       })
     } else {
       out.push({
-        glyph: '🤝',
+        glyph: icon.alliance,
         label: t('menu.requestAlliance'),
         detail: t('menu.requestAllianceDetail'),
         costText: '',
@@ -375,7 +370,7 @@ export function createBuildMenu(
 
     const embargoed = state.embargoes.has(directedKey(humanPlayerId, targetId))
     out.push({
-      glyph: '⛔',
+      glyph: icon.ban,
       label: embargoed ? t('menu.embargoLift') : t('menu.embargoImpose'),
       detail: embargoed ? t('menu.embargoLiftDetail') : t('menu.embargoImposeDetail'),
       costText: '',
@@ -469,7 +464,7 @@ export function createBuildMenu(
     ).length
     const allStopped = targets.length > 0 && embargoed === targets.length
     return {
-      glyph: '⛔',
+      glyph: icon.ban,
       label: allStopped ? t('menu.tradeAllowAll') : t('menu.tradeStopAll'),
       detail: allStopped ? t('menu.tradeAllowAllDetail') : t('menu.tradeStopAllDetail'),
       costText: '',
@@ -509,7 +504,7 @@ export function createBuildMenu(
         title = `${buildingLabel(existing.type)} · L${String(existing.level)}`
         if (existing.level >= MAX_BUILDING_LEVEL) {
           actions.push({
-            glyph: BUILDING_GLYPH[existing.type],
+            glyph: buildingIcon(existing.type, 19),
             label: t('menu.maxLevel'),
             detail: '',
             costText: '',
@@ -521,7 +516,7 @@ export function createBuildMenu(
         } else {
           const cost = upgradeCost(existing)
           actions.push({
-            glyph: BUILDING_GLYPH[existing.type],
+            glyph: buildingIcon(existing.type, 19),
             label: t('menu.upgrade', { level: existing.level + 1 }),
             detail: buildingHint(existing.type),
             costText: fmtCompact(cost),
@@ -538,7 +533,7 @@ export function createBuildMenu(
         if (existing.type === 'port' && isBuildingComplete(existing, state.tick)) {
           const holding = player.warshipHold
           actions.push({
-            glyph: holding ? '⚓' : '⇄',
+            glyph: holding ? icon.anchor : '⇄',
             label: holding ? t('menu.warshipHoldLabel') : t('menu.warshipPingPong'),
             detail: t('menu.warshipModeDetail'),
             costText: '',
@@ -562,7 +557,7 @@ export function createBuildMenu(
           const nextMode =
             TRADE_MODES[(TRADE_MODES.indexOf(curMode) + 1) % TRADE_MODES.length] ?? 'random'
           actions.push({
-            glyph: '⚖',
+            glyph: icon.scales,
             label: TRADE_LABEL[curMode],
             detail: t('menu.tradeNext', { next: TRADE_LABEL[nextMode] }),
             costText: '',
@@ -577,7 +572,7 @@ export function createBuildMenu(
           // Kriegsschiffe: neutrale Fracht schonen ↔ alle angreifen.
           const spare = player.warshipSpareNeutral
           actions.push({
-            glyph: spare ? '🛡' : '⚔',
+            glyph: spare ? icon.shield : icon.swords,
             label: spare ? t('menu.warshipSpare') : t('menu.warshipAttackAll'),
             detail: t('menu.warshipNeutralDetail'),
             costText: '',
@@ -610,7 +605,7 @@ export function createBuildMenu(
         }
       }
       actions.push({
-        glyph: '⚓',
+        glyph: icon.anchor,
         label: t('menu.warship'),
         detail: hasPort ? t('menu.warshipHasPort') : t('menu.warshipNoPort'),
         costText: fmtCompact(WARSHIP_COST),
@@ -636,7 +631,7 @@ export function createBuildMenu(
       const troops = getAttackTroops()
       if (canReachByLand(state, humanPlayerId, tile)) {
         actions.push({
-          glyph: '⚔',
+          glyph: icon.swords,
           label: t('menu.attack'),
           detail: t('menu.attackDetail', { n: fmtCompact(troops) }),
           costText: '',
@@ -650,7 +645,7 @@ export function createBuildMenu(
         })
       } else {
         actions.push({
-          glyph: '🚢',
+          glyph: icon.ship,
           label: t('hud.boat'),
           detail: t('menu.boatDetail', { n: fmtCompact(troops) }),
           costText: '',
@@ -679,7 +674,7 @@ export function createBuildMenu(
     if (hasAirport) {
       const bi = bomberLaunchInfo(state, humanPlayerId)
       actions.push({
-        glyph: 'A',
+        glyph: buildingIcon('airport', 19),
         label: t('menu.bomber'),
         detail: bi.available ? t('menu.bomberDetail') : t('menu.bomberFull'),
         costText: fmtCompact(bi.cost),

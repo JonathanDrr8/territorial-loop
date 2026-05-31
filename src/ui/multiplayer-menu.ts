@@ -14,6 +14,7 @@ import type { GameConfig } from '../core/game'
 import { NetworkTransport } from '../net/transport'
 import type { MatchSettings, PeerInfo } from '../net/protocol'
 import { t } from '../i18n'
+import { icon } from './icons'
 
 const ACCENT = '#7cc4ff'
 type LobbyPeer = PeerInfo & { ready: boolean }
@@ -255,7 +256,7 @@ export function createMultiplayerMenu(
     inviteField.value = inviteUrl
     inviteField.style.cssText = INPUT_STYLE + ';font-size:11px;opacity:0.85'
     const copyBtn = document.createElement('button')
-    copyBtn.textContent = `🔗 ${t('mp.copy')}`
+    copyBtn.innerHTML = `${icon.link} ${t('mp.copy')}`
     copyBtn.style.cssText = [
       'flex:none',
       'padding:7px 9px',
@@ -271,7 +272,7 @@ export function createMultiplayerMenu(
       void navigator.clipboard?.writeText(inviteUrl).then(
         () => {
           copyBtn.textContent = `✓ ${t('mp.copied')}`
-          setTimeout(() => (copyBtn.textContent = `🔗 ${t('mp.copy')}`), 1500)
+          setTimeout(() => (copyBtn.innerHTML = `${icon.link} ${t('mp.copy')}`), 1500)
         },
         () => {
           inviteField.select() // Fallback: markieren zum manuellen Kopieren

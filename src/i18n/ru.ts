@@ -183,7 +183,7 @@ export const ru: Record<string, string> = {
   'event.warshipNoRoute': '{p}: нет порта с морским путём к цели',
   'event.noCoast': '{p}: нет своего побережья — сначала захвати землю у воды',
   'event.noWaterway': '{p}: нет морского пути к этой цели',
-  'event.boatAttack': '⚠ {player} атакует {defender} транспортной баржей',
+  'event.boatAttack': '{player} атакует {defender} транспортной баржей',
   'event.boatSent': '{p} отправляет транспортную баржу',
   'event.boatLand': '{p} высаживает войска',
   'event.defend': '{p} отбивает атаку {attacker}',

@@ -189,7 +189,7 @@ export const it: Record<string, string> = {
   'event.warshipNoRoute': '{p}: nessun porto con rotta marittima verso l’obiettivo',
   'event.noCoast': '{p}: nessuna costa tua — conquista prima terra sull’acqua',
   'event.noWaterway': '{p}: nessuna rotta marittima verso questo obiettivo',
-  'event.boatAttack': '⚠ {player} attacca {defender} con una chiatta da trasporto',
+  'event.boatAttack': '{player} attacca {defender} con una chiatta da trasporto',
   'event.boatSent': '{p} invia una chiatta da trasporto',
   'event.boatLand': '{p} sbarca truppe',
   'event.defend': '{p} respinge l’attacco di {attacker}',
