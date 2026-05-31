@@ -3,7 +3,7 @@ import { createAI } from '../src/ai/ai'
 import { createGame, tick, type GameConfig } from '../src/core/game'
 import { getOwner, setOwner } from '../src/world/map'
 import { neighbors4, tileRef } from '../src/world/torus'
-import { IS_LAND_BIT } from '../src/world/terrain'
+import { IS_LAND_BIT, isLand } from '../src/world/terrain'
 import { labelWaterComponents, labelLandComponents } from '../src/world/water-path'
 import { directedKey } from '../src/core/diplomacy'
 
@@ -47,6 +47,33 @@ describe('createAI', () => {
       tick(state, intents)
     }
     expect(attackSeen).toBe(true)
+  })
+
+  it('greift niemals Wasser an — Flüsse/Meer werden als Expansions-Ziel gefiltert', () => {
+    // Kontinente + Flüsse → die KI-Grenzen stoßen garantiert an Wasser. Vor dem Fix landete
+    // Wasser (owner 0) in der Expansions-Liste und der Angriff verpuffte am Flussufer.
+    const state = createGame({
+      mapWidth: 96,
+      mapHeight: 96,
+      seed: 'ai-no-water-attacks',
+      victoryPct: 90,
+      terrain: 'continents',
+      rivers: true,
+      players: [
+        { id: 1, name: 'Human', color: 0xff0000ff, isHuman: true },
+        { id: 2, name: 'AI-1', color: 0x00ff00ff, isHuman: false },
+        { id: 3, name: 'AI-2', color: 0x0000ffff, isHuman: false },
+      ],
+    })
+    const ais = [createAI(2, state.seed), createAI(3, state.seed)]
+    for (let t = 0; t < 400; t++) {
+      const intents = ais.flatMap((a) => a.decide(state))
+      for (const i of intents) {
+        // Land-Angriffe (auch „Expansion") dürfen nur auf begehbares Land zielen, nie auf Wasser.
+        if (i.type === 'attack') expect(isLand(state.map.terrain, i.targetTile)).toBe(true)
+      }
+      tick(state, intents)
+    }
   })
 
   it('does not emit intents for a dead player', () => {
