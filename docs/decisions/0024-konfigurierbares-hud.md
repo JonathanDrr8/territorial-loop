@@ -2,9 +2,12 @@
 
 ## Status
 
-Proposed — Plan. Aufbauend auf ADR-0010 (HUD-Umbau) und dem UI-Redesign Schritt 1–4
-(Session 2026-05-31). Prototyp existiert unter `public/theme-*.html` (Dev-Vorschau, nicht
-für Produktion).
+Accepted — **Phasen 1–3 umgesetzt** (Session 2026-05-31). Aufbauend auf ADR-0010 (HUD-Umbau)
+und dem UI-Redesign Schritt 1–4. Prototyp existiert unter `public/theme-*.html` (Dev-Vorschau,
+nicht für Produktion). Phase 4 (Politur) weitgehend mit-erledigt (localStorage-Persistenz +
+„Standard"-Reset im Editor). Offen: Jonathans Kriegskarte-Anordnung als **eingebauter
+Default-Layout** (statt der kantenverankerten Standard-Anordnung) — wird gebacken, sobald er
+es im Editor nachbaut + exportiert.
 
 ## Datum
 
@@ -53,12 +56,18 @@ Einfluss auf die Simulation oder den State-Hash. Daher:
 
 ### Phasen (jede einzeln testbar)
 
-1. **Theme-Fundament** — Schriften bündeln, alle 6 Token-Sätze in `theme.ts`, Kriegskarte als
-   Default, `panelStyle()` auf alle echten HUD-Panels. (Look zuerst, größter Sofort-Effekt.)
-2. **Layout-Store + Defaults** — Widget-IDs + speicherbare Position/Größe/Sichtbarkeit; Jonathans
-   Layout als eingebauter Default.
-3. **Editor-Modus** — Drag/Resize/Snap/Hide/Add/Split + Theme-Wahl live im Spiel.
-4. **Persistenz + Politur** — localStorage, Reset auf Default, Feinschliff.
+1. **Theme-Fundament** ✅ — Schriften gebündelt, alle 6 Token-Sätze in `theme.ts`, Kriegskarte als
+   Default, `panelStyle()` auf allen echten HUD-Panels. Menü übernimmt das Theme mit (nur Look,
+   nicht die Positionen).
+2. **Layout-Store + Defaults** ✅ — `hud-layout.ts`: Panel-IDs (`info`/`rank`/`resource`/`action`/
+   `minimap`/`feed`) + speicherbare `{x,y,s,w,h,hidden}` in localStorage. Ohne Override bleibt das
+   Panel an seiner kantenverankerten Standard-Stelle.
+3. **Editor-Modus** ✅ — `hud-editor.ts`: „HUD anpassen"-Knopf → Drag/Resize (4 Ecken)/Snap
+   (Rand + Nachbarn, Hilfslinien)/Hide+Wieder-Einblenden + Theme-Wahl live im Spiel. Beim Öffnen
+   werden Panels vom CSS-Anker + `zoom` ins absolute Modell (`left/top` + `transform:scale`)
+   überführt. (Paket↔Einzelteile/Anordnungs-Varianten aus dem Prototyp: bewusst zurückgestellt.)
+4. **Persistenz + Politur** ✅ (Kern) — localStorage-Round-Trip verifiziert, „Standard"-Reset im
+   Editor. Offen: Jonathans Layout als eingebauter Default (s. Status).
 
 ## Konsequenzen
 
