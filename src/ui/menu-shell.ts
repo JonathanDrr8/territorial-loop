@@ -29,15 +29,20 @@ import {
   makeSelectRow,
   makeSliderRow,
   makeTextRow,
+  MATCH_PRESETS,
   MENU_CSS,
   SELECT_STYLE,
   TERRAIN_OPTIONS,
   type CameraMode,
   type Difficulty,
+  type MatchPreset,
   type StartMenuValues,
   type TerrainChoice,
 } from './start-menu'
 import type { BuildingType } from '../core/buildings'
+import type { TerrainType } from '../world/terrain'
+import { createMapPreview } from './map-preview'
+import { isGeoMapId } from './geo-loader'
 import { getTheme, setTheme, THEMES } from './theme'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
@@ -442,6 +447,14 @@ export function createMenuShell(
   function buildPlayTab(): HTMLElement {
     const p = panel()
 
+    // Presets-Reihe (oben): kuratierte Schnellwahl. Klick füllt alle Regler darunter vor; danach
+    // kann man weiter feintunen. Die Knöpfe werden weiter unten verdrahtet (brauchen die Felder).
+    section(p, t('preset.title'))
+    const presetRow = document.createElement('div')
+    presetRow.style.cssText =
+      'display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 6px'
+    p.appendChild(presetRow)
+
     section(p, t('section.world'))
     const map = makeMapRow(t('field.map'), values.mapWidth, values.mapHeight)
     p.appendChild(map.element)
@@ -472,6 +485,118 @@ export function createMenuShell(
       maxLength: 32,
     })
     p.appendChild(seed.element)
+
+    // Karten-Vorschau (Minimap-Look) + Würfel-Knopf: zeigt das Terrain des aktuellen Seeds in
+    // reduzierter Auflösung, damit man würfeln kann, bis die Karte gefällt. Da das Vorschau-Terrain
+    // mit demselben Seed generiert wird, entspricht es dem echten Match. Ein leeres Feld füllen wir
+    // einmal mit einem konkreten Seed → Vorschau == gespielte Karte (statt eines verworfenen Zufalls).
+    const seedInput = seed.element.querySelector('input')
+    const genSeed = (): string => Math.random().toString(36).slice(2, 8).toUpperCase()
+    if (seedInput !== null && seedInput.value.trim().length === 0) seedInput.value = genSeed()
+    const preview = createMapPreview(168)
+    const currentTerrainType = (): TerrainType => {
+      const tc = terrain.getValue()
+      return isGeoMapId(tc) ? 'continents' : (tc as TerrainType)
+    }
+    const refreshPreview = (): void => {
+      preview.render({
+        seed: seedInput?.value.trim() ?? '',
+        mapWidth: map.getWidth(),
+        mapHeight: map.getHeight(),
+        terrain: currentTerrainType(),
+        rivers: values.rivers,
+        riverDensity: values.riverDensity,
+      })
+    }
+    // Preset anwenden: setzt die Feld-Inputs direkt (Slider feuern „input" → Wertlabel aktualisiert)
+    // und frischt die Vorschau auf. Seed bleibt, wie er ist (man würfelt unabhängig).
+    const applyPreset = (preset: MatchPreset): void => {
+      const [wSel, hSel] = map.element.querySelectorAll('select')
+      if (wSel !== undefined) wSel.value = String(preset.mapWidth)
+      if (hSel !== undefined) hSel.value = String(preset.mapHeight)
+      const tSel = terrain.element.querySelector('select')
+      if (tSel !== null) tSel.value = preset.terrain
+      const dSel = difficulty.element.querySelector('select')
+      if (dSel !== null) dSel.value = preset.difficulty
+      const setRange = (el: HTMLElement, val: number): void => {
+        const r = el.querySelector<HTMLInputElement>('input[type=range]')
+        if (r !== null) {
+          r.value = String(val)
+          r.dispatchEvent(new Event('input'))
+        }
+      }
+      setRange(ai.element, preset.aiCount)
+      setRange(wild.element, preset.wildCount)
+      setRange(victory.element, preset.victoryPct)
+      refreshPreview()
+    }
+    for (const preset of MATCH_PRESETS) {
+      const card = document.createElement('button')
+      card.type = 'button'
+      card.style.cssText = [
+        'flex: 1 1 0',
+        'min-width: 110px',
+        'padding: 10px 12px',
+        'background: var(--tl-panel-bg)',
+        'color: var(--tl-text)',
+        'border: 1px solid var(--tl-panel-border-color)',
+        'border-radius: 9px',
+        'font-family: inherit',
+        'cursor: pointer',
+        'display: flex',
+        'flex-direction: column',
+        'gap: 3px',
+        'align-items: center',
+        'transition: border-color 0.12s, background 0.12s',
+      ].join(';')
+      const name = document.createElement('div')
+      name.textContent = t(`preset.${preset.key}`)
+      name.style.cssText = 'font-size: 15px; font-weight: 700'
+      const sub = document.createElement('div')
+      sub.textContent = t('preset.sub', { ai: preset.aiCount, wild: preset.wildCount })
+      sub.style.cssText = 'font-size: 11px; opacity: 0.7'
+      card.append(name, sub)
+      card.addEventListener('mouseenter', () => {
+        card.style.borderColor = 'var(--tl-accent)'
+      })
+      card.addEventListener('mouseleave', () => {
+        card.style.borderColor = 'var(--tl-panel-border-color)'
+      })
+      card.addEventListener('click', () => applyPreset(preset))
+      presetRow.appendChild(card)
+    }
+
+    const previewRow = document.createElement('div')
+    previewRow.style.cssText =
+      'display: flex; gap: 14px; align-items: center; margin: 10px 0 4px; justify-content: center'
+    const dice = document.createElement('button')
+    dice.type = 'button'
+    dice.textContent = t('field.reroll')
+    dice.style.cssText = [
+      'padding: 10px 14px',
+      'background: rgba(255,255,255,0.06)',
+      'color: var(--tl-text)',
+      'border: 1px solid var(--tl-panel-border-color)',
+      'border-radius: 8px',
+      'font-family: inherit',
+      'font-size: 14px',
+      'cursor: pointer',
+      'white-space: nowrap',
+    ].join(';')
+    dice.addEventListener('click', () => {
+      if (seedInput !== null) seedInput.value = genSeed()
+      refreshPreview()
+    })
+    previewRow.appendChild(preview.element)
+    previewRow.appendChild(dice)
+    p.appendChild(previewRow)
+
+    // Live aktualisieren, wenn Seed/Größe/Terrain sich ändern.
+    seedInput?.addEventListener('input', refreshPreview)
+    for (const sel of map.element.querySelectorAll('select'))
+      sel.addEventListener('change', refreshPreview)
+    terrain.element.querySelector('select')?.addEventListener('change', refreshPreview)
+    refreshPreview()
 
     playFields = {
       mapW: map.getWidth,

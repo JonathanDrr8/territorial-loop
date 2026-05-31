@@ -97,6 +97,66 @@ export const TERRAIN_OPTIONS: ReadonlyArray<readonly [TerrainChoice, string]> = 
   ['australia', 'Australien (Geo)'],
 ]
 
+/**
+ * Match-Vorgaben (Presets): kuratierte, angenehm spielbare Configs — die Kartengröße wächst mit
+ * der Gegnerzahl, damit es nie gedrängt wird. Alle auf Standard-KI (ELO 1000) & 90% Sieg (der
+ * vereinbarte Anker). `key` ist das i18n-Suffix (`preset.<key>`). Wird im Match-Setup UND in der
+ * Mehrspieler-Lobby angeboten.
+ */
+export interface MatchPreset {
+  readonly key: string
+  readonly mapWidth: number
+  readonly mapHeight: number
+  readonly aiCount: number
+  readonly wildCount: number
+  readonly terrain: TerrainChoice
+  readonly difficulty: Difficulty
+  readonly victoryPct: number
+}
+
+export const MATCH_PRESETS: readonly MatchPreset[] = [
+  {
+    key: 'small',
+    mapWidth: 768,
+    mapHeight: 768,
+    aiCount: 8,
+    wildCount: 25,
+    terrain: 'continents',
+    difficulty: 'standard',
+    victoryPct: 90,
+  },
+  {
+    key: 'standard',
+    mapWidth: 1024,
+    mapHeight: 1024,
+    aiCount: 30,
+    wildCount: 75,
+    terrain: 'continents',
+    difficulty: 'standard',
+    victoryPct: 90,
+  },
+  {
+    key: 'large',
+    mapWidth: 1536,
+    mapHeight: 1536,
+    aiCount: 75,
+    wildCount: 200,
+    terrain: 'continents',
+    difficulty: 'standard',
+    victoryPct: 90,
+  },
+  {
+    key: 'chaos',
+    mapWidth: 2048,
+    mapHeight: 2048,
+    aiCount: 150,
+    wildCount: 400,
+    terrain: 'continents',
+    difficulty: 'standard',
+    victoryPct: 90,
+  },
+]
+
 export const DIFFICULTY_OPTIONS: ReadonlyArray<readonly [Difficulty, string]> = [
   ['beginner', 'Anfänger'],
   ['easy', 'Leicht'],
