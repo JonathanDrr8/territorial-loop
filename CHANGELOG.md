@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.23.0] – 2026-06-01
+
+### Neu
+
+- **Lautstärke-Regler im Einstellungsmenü:** Im neuen Abschnitt „Audio" gibt es jetzt drei
+  Regler — **Gesamt**, **Soundeffekte** und **Musik** — jeweils von 0 bis 100 %. Bei 0 %
+  ist der jeweilige Kanal stumm. Die bisherigen An/Aus-Häkchen für Sound und Musik entfallen
+  damit.
+
+### Geändert
+
+- **Ausgewogenere Kampf-Musik:** Die Schichten, die der Soundtrack bei hoher Spielintensität
+  dazumischt, klingen jetzt leiser und fügen sich besser in den Gesamt-Mix ein.
+
 ## [0.22.2] – 2026-06-01
 
 ### Behoben
