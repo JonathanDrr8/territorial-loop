@@ -468,7 +468,7 @@ export function createMenuShell(
     section(p, t('section.opponents'))
     const ai = makeSliderRow(t('field.aiCount'), 1, 200, 1, values.aiCount)
     p.appendChild(ai.element)
-    const wild = makeSliderRow(t('field.wildCount'), 0, 400, 1, values.wildCount)
+    const wild = makeSliderRow(t('field.wildCount'), 0, 600, 1, values.wildCount)
     p.appendChild(wild.element)
     const difficulty = makeSelectRow<Difficulty>(
       t('field.difficulty'),

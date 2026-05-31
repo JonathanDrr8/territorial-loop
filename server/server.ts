@@ -170,7 +170,7 @@ function clampSettings(s: MatchSettings): MatchSettings {
     terrain,
     seed: typeof s.seed === 'string' ? s.seed.slice(0, 64) : '',
     aiCount: clamp(s.aiCount, 0, 200),
-    wildCount: clamp(s.wildCount, 0, 400),
+    wildCount: clamp(s.wildCount, 0, 600),
     victoryPct: clamp(s.victoryPct, 1, 100),
     difficulty,
     rivers: s.rivers === true,
