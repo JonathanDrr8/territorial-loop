@@ -233,7 +233,9 @@ export function createAI(
         const owner = getOwner(state.map, n)
         if (owner === player.id) continue
         if (owner === 0) {
-          neutralTiles.push(n)
+          // Nur echtes Land als Expansions-Ziel: Wasser (Flüsse/Meer) ist nicht eroberbar
+          // (`applyAttackIntent` lehnt es ab) — sonst verpufft die KI Züge am Flussufer.
+          if (isLand(state.map.terrain, n)) neutralTiles.push(n)
           continue
         }
         // Verbündete nicht angreifen.
@@ -826,6 +828,7 @@ export function createAI(
         if (seen.has(n)) continue
         seen.add(n)
         if (getOwner(state.map, n) !== 0) continue
+        if (!isLand(state.map.terrain, n)) continue // eingeschlossenes Wasser ist kein Krater
         let own = 0
         for (const m of neighbors4(n, width, height)) {
           if (getOwner(state.map, m) === player.id) own++
