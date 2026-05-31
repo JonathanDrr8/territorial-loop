@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.25.0] – 2026-06-01
+
+### Neu
+
+- **Hauptstadt- und Team-Modus jetzt auch im Mehrspieler:** Beide Modi lassen sich in
+  der Mehrspieler-Lobby vom Host einstellen. Mitspieler werden der Reihe nach auf die
+  Teams verteilt, freie Plätze füllt die KI auf. So kann man mit Freunden im Team gegen
+  andere Teams — oder gegen die KI — antreten.
+
 ## [0.24.0] – 2026-06-01
 
 ### Neu
