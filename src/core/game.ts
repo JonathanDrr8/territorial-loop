@@ -1634,6 +1634,13 @@ function applyToggleWarshipNeutralIntent(
   }
 }
 
+/**
+ * Front-Breite (Torus-Tiles), innerhalb der ein neuer Angriffs-Klick in eine bestehende Front gegen
+ * denselben Gegner gebündelt wird. Klicks weiter weg erzeugen einen eigenen Angriff → an einer
+ * langen Grenze sind mehrere Fronten gleichzeitig möglich. Tunable Balance-Wert.
+ */
+const ATTACK_MERGE_RADIUS = 18
+
 function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
   if (player === undefined || !player.isAlive) return
@@ -1698,14 +1705,28 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   if (!reachableByLand(state, player, intent.targetTile)) return
 
   player.troops -= troops
-  // Mehrere Klicks auf dieselbe Front bündeln: existiert schon ein Angriff auf
-  // diesen Gegner, fließen die Truppen in dessen Reserve und der Front-Fokus folgt
-  // dem neuen Klick — statt viele kleine Einzelangriffe (Pillen) zu erzeugen.
-  const existing = player.attacks.find((a) => a.targetPlayerId === targetOwner)
-  if (existing !== undefined) {
-    existing.reserveTroops += troops
-    existing.focusTile = intent.targetTile
-    existing.omni = false // gezielter Klick fokussiert einen evtl. laufenden omni-Angriff wieder
+  // Mehrere Klicks bündeln — aber nur, wenn der neue Klick NAHE an einer bestehenden Front gegen
+  // denselben Gegner liegt (gleiche Front). An einer langen Grenze entsteht so ein EIGENER Angriff,
+  // statt dass alles in einen Angriff verschmilzt und die Truppen von woanders abzieht. Nahe Klicks
+  // bündeln weiter (kein „Pillen"-Spam). `ATTACK_MERGE_RADIUS` ist der Tunable für die Front-Breite.
+  const w = state.map.width
+  const h = state.map.height
+  const cx = intent.targetTile % w
+  const cy = Math.floor(intent.targetTile / w)
+  let nearest: Attack | undefined
+  let nearestDist = Infinity
+  for (const a of player.attacks) {
+    if (a.targetPlayerId !== targetOwner) continue
+    const d = torusDistance(cx, cy, a.frontTile % w, Math.floor(a.frontTile / w), w, h)
+    if (d < nearestDist) {
+      nearestDist = d
+      nearest = a
+    }
+  }
+  if (nearest !== undefined && nearestDist <= ATTACK_MERGE_RADIUS) {
+    nearest.reserveTroops += troops
+    nearest.focusTile = intent.targetTile
+    nearest.omni = false // gezielter Klick fokussiert einen evtl. laufenden omni-Angriff wieder
     return
   }
   player.attacks.push({

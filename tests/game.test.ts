@@ -1162,6 +1162,60 @@ describe('Gold-Beute bei Eroberung', () => {
   })
 })
 
+describe('Angriffs-Bündelung (distanz-begrenzt)', () => {
+  // Minimale Fronten (wenige Tiles) + übermächtiger Verteidiger → pro Tick wird nichts erobert
+  // (wantCapture skaliert mit der Frontbreite → hier ~0), die Reserve bleibt unangetastet. So testet
+  // sich die reine Bündelungs-Entscheidung in applyAttackIntent, ohne dass der Advance stört.
+  function setup(enemyYs: readonly number[]): {
+    state: ReturnType<typeof createGame>
+    T: (x: number, y: number) => number
+  } {
+    const state = createGame(baseConfig({ terrain: 'flat', mapWidth: 96, mapHeight: 96 }))
+    const W = state.map.width
+    const Hgt = state.map.height
+    for (let i = 0; i < state.map.state.length; i++) setOwner(state.map, i, 0)
+    const p1 = state.players.get(1)
+    const p2 = state.players.get(2)
+    if (p1 === undefined || p2 === undefined) throw new Error('players missing')
+    for (const p of state.players.values()) {
+      p.tilesOwned = 0
+      p.frontier = new Set<number>()
+      p.attacks = []
+      p.troops = 0
+    }
+    const T = (x: number, y: number): number => tileRef(x, y, W, Hgt)
+    for (const y of enemyYs) {
+      setOwner(state.map, T(10, y), 1) // eigener Brückenkopf neben dem Gegner-Tile
+      setOwner(state.map, T(11, y), 2)
+      p1.tilesOwned++
+      p2.tilesOwned++
+      p1.frontier.add(T(10, y))
+      p2.frontier.add(T(11, y))
+    }
+    p1.troops = 100_000
+    p2.troops = 5_000_000 // sehr dicht → Angriffsrate ~0 → nichts erobert, Angriffe bleiben bestehen
+    return { state, T }
+  }
+
+  it('weit entfernte Klicks auf denselben Gegner erzeugen getrennte Angriffe', () => {
+    const { state, T } = setup([10, 60])
+    tick(state, [
+      { type: 'attack', playerId: 1, targetTile: T(11, 10), troops: 100 },
+      { type: 'attack', playerId: 1, targetTile: T(11, 60), troops: 100 },
+    ])
+    expect(state.players.get(1)?.attacks.length).toBe(2)
+  })
+
+  it('nahe Klicks auf denselben Gegner bündeln zu einem Angriff', () => {
+    const { state, T } = setup([10, 11])
+    tick(state, [
+      { type: 'attack', playerId: 1, targetTile: T(11, 10), troops: 100 },
+      { type: 'attack', playerId: 1, targetTile: T(11, 11), troops: 100 },
+    ])
+    expect(state.players.get(1)?.attacks.length).toBe(1)
+  })
+})
+
 describe('Eroberung verändert die Beziehung (Gunst weg + Groll)', () => {
   it('löscht vorhandene Gunst und baut Groll proportional zum genommenen Land auf', () => {
     const state = createGame(baseConfig({ terrain: 'flat' }))
