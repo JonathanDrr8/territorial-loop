@@ -243,6 +243,8 @@ export const zh: Record<string, string> = {
   'hud.warshipModeHint': '战舰模式：点击水面目标（需要港口 + 金币）· Esc 结束',
   'hud.attack': '进攻：{pct}%',
   'hud.newMatch': '新对局',
+  'hud.keepWatching': '继续观看',
+  'hud.andMore': '……以及另外 {n} 个',
   'hud.pauseOverlay': '暂停',
   'hud.pause': '暂停',
   'hud.inCombat': '交战中 {n}',

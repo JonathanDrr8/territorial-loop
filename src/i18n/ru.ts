@@ -272,6 +272,8 @@ export const ru: Record<string, string> = {
     'Режим военного корабля: кликни цель на воде (нужен порт + золото) · Esc завершает',
   'hud.attack': 'Атака: {pct}%',
   'hud.newMatch': 'Новый матч',
+  'hud.keepWatching': 'Продолжить просмотр',
+  'hud.andMore': '… и ещё {n}',
   'hud.pauseOverlay': 'ПАУЗА',
   'hud.pause': 'Пауза',
   'hud.inCombat': 'в бою {n}',

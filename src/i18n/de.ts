@@ -284,6 +284,8 @@ export const de: Record<string, string> = {
     'Kriegsschiff-Modus: Wasser-Ziel anklicken (braucht Hafen + Gold) · Esc beendet',
   'hud.attack': 'Angriff: {pct}%',
   'hud.newMatch': 'Neues Match',
+  'hud.keepWatching': 'Weiterspielen',
+  'hud.andMore': '… und {n} weitere',
   'hud.pauseOverlay': 'PAUSE',
   'hud.pause': 'Pause',
   'hud.inCombat': 'im Kampf {n}',

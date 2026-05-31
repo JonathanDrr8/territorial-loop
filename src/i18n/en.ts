@@ -281,6 +281,8 @@ export const en: Record<string, string> = {
   'hud.warshipModeHint': 'Warship mode: click a water target (needs a port + gold) · Esc ends',
   'hud.attack': 'Attack: {pct}%',
   'hud.newMatch': 'New match',
+  'hud.keepWatching': 'Keep watching',
+  'hud.andMore': '… and {n} more',
   'hud.pauseOverlay': 'PAUSED',
   'hud.pause': 'Pause',
   'hud.inCombat': 'in combat {n}',

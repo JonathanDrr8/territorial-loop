@@ -280,6 +280,8 @@ export const it: Record<string, string> = {
     'Modalità nave da guerra: clicca un obiettivo sull’acqua (serve un porto + oro) · Esc termina',
   'hud.attack': 'Attacco: {pct}%',
   'hud.newMatch': 'Nuova partita',
+  'hud.keepWatching': 'Continua a guardare',
+  'hud.andMore': '… e altri {n}',
   'hud.pauseOverlay': 'PAUSA',
   'hud.pause': 'Pausa',
   'hud.inCombat': 'in combattimento {n}',

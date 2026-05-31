@@ -246,6 +246,8 @@ export const ja: Record<string, string> = {
   'hud.warshipModeHint': '軍艦モード：水上の目標をクリック（港 + 金が必要）· Esc で終了',
   'hud.attack': '攻撃：{pct}%',
   'hud.newMatch': '新しい対戦',
+  'hud.keepWatching': '観戦を続ける',
+  'hud.andMore': '……他 {n} 件',
   'hud.pauseOverlay': '一時停止',
   'hud.pause': '一時停止',
   'hud.inCombat': '交戦中 {n}',

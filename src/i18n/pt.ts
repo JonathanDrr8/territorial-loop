@@ -278,6 +278,8 @@ export const pt: Record<string, string> = {
     'Modo navio de guerra: clica num alvo na água (precisa de porto + ouro) · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nova partida',
+  'hud.keepWatching': 'Continuar a ver',
+  'hud.andMore': '… e mais {n}',
   'hud.pauseOverlay': 'PAUSA',
   'hud.pause': 'Pausa',
   'hud.inCombat': 'em combate {n}',

@@ -282,6 +282,8 @@ export const es: Record<string, string> = {
     'Modo buque: haz clic en un objetivo en el agua (necesita puerto + oro) · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
   'hud.newMatch': 'Nueva partida',
+  'hud.keepWatching': 'Seguir viendo',
+  'hud.andMore': '… y {n} más',
   'hud.pauseOverlay': 'PAUSA',
   'hud.pause': 'Pausa',
   'hud.inCombat': 'en combate {n}',

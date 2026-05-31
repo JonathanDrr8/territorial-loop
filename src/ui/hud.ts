@@ -997,49 +997,66 @@ export function createHUD(
   applyLayoutPrefs(getHudPrefs())
   const offHudPrefs = onHudPrefsChange(applyLayoutPrefs)
 
-  /* ---- Game-Over-Banner ---------------------------------------------------- */
+  /* ---- Game-Over-Banner (Theme, mehrspaltiger Endstand) -------------------- */
+  // „Weiterspielen" blendet das Fenster aus, ohne das Match zu verlassen — der Endstand
+  // bleibt geschlossen, auch wenn die Update-Schleife `phase === 'ended'` weiter sieht.
+  let bannerDismissed = false
   const banner = document.createElement('div')
-  banner.style.cssText = [
+  banner.style.cssText = panelStyle([
     'position: absolute',
     'top: 24px',
     'left: 50%',
     'transform: translateX(-50%)',
-    'background: rgba(0,0,0,0.75)',
-    'color: white',
-    'padding: 14px 22px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-    'border-radius: 8px',
-    'box-shadow: 0 4px 20px rgba(0,0,0,0.5)',
+    'padding: 16px 22px',
     'z-index: 20',
     'text-align: center',
-    'pointer-events: none',
+    'max-width: min(92vw, 640px)',
+    'max-height: 78vh',
+    'overflow-y: auto',
+    'pointer-events: auto',
+    'box-shadow: 0 10px 40px rgba(0,0,0,0.5)',
     'display: none',
-  ].join(';')
+  ])
   const bannerText = document.createElement('div')
   banner.appendChild(bannerText)
+
+  const bannerButtons = document.createElement('div')
+  bannerButtons.style.cssText =
+    'margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap'
+  const keepWatchingBtn = document.createElement('button')
+  keepWatchingBtn.textContent = t('hud.keepWatching')
+  keepWatchingBtn.style.cssText = [
+    'padding: 9px 18px',
+    'background: transparent',
+    'color: var(--tl-text)',
+    'border: 1px solid var(--tl-panel-border-color)',
+    'border-radius: 6px',
+    'font-size: 14px',
+    'font-family: var(--tl-font)',
+    'cursor: pointer',
+    'pointer-events: auto',
+  ].join(';')
+  keepWatchingBtn.addEventListener('click', () => {
+    bannerDismissed = true
+    banner.style.display = 'none'
+  })
   const newMatchBtn = document.createElement('button')
   newMatchBtn.textContent = t('hud.newMatch')
   newMatchBtn.style.cssText = [
-    'margin-top: 12px',
-    'padding: 8px 18px',
-    'background: #4a8',
-    'color: white',
+    'padding: 9px 18px',
+    'background: var(--tl-accent)',
+    'color: #0c0c10',
     'border: none',
     'border-radius: 6px',
     'font-size: 14px',
-    'font-family: inherit',
+    'font-family: var(--tl-font)',
     'cursor: pointer',
     'pointer-events: auto',
     'font-weight: bold',
   ].join(';')
-  newMatchBtn.addEventListener('mouseenter', () => {
-    newMatchBtn.style.background = '#5b9'
-  })
-  newMatchBtn.addEventListener('mouseleave', () => {
-    newMatchBtn.style.background = '#4a8'
-  })
   newMatchBtn.addEventListener('click', onNewMatch)
-  banner.appendChild(newMatchBtn)
+  bannerButtons.append(keepWatchingBtn, newMatchBtn)
+  banner.appendChild(bannerButtons)
   container.appendChild(banner)
 
   /* ---- Pause-Overlay ------------------------------------------------------- */
@@ -1394,7 +1411,7 @@ export function createHUD(
       traitorBanner.style.display = 'none'
     }
 
-    if (state.phase === 'ended' && state.winner !== null) {
+    if (state.phase === 'ended' && state.winner !== null && !bannerDismissed) {
       const winner = state.players.get(state.winner)
       if (winner !== undefined) {
         banner.style.display = 'block'
@@ -1403,27 +1420,38 @@ export function createHUD(
         const ranked = [...state.players.values()].sort(
           (a, b) => b.peakTilesOwned - a.peakTilesOwned,
         )
-        const statsRows = ranked
-          .map((p) => {
-            const peakPct = fmtPct((p.peakTilesOwned / totalTiles) * 100)
-            const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
-            return (
-              `<tr>` +
-              `<td style="padding-right: 12px"><span style="color:${rgbaToCss(p.color)}">■</span> ${escapeHtml(p.name)}${dead}</td>` +
-              `<td style="padding-right: 12px; text-align: right">${peakPct}</td>` +
-              `<td style="text-align: right">${p.peakTroops.toLocaleString('de-DE')}T</td>` +
-              `</tr>`
-            )
-          })
-          .join('')
+        // Mehrspaltiger, gedeckelter Endstand (sonst läuft die Liste bei vielen Nationen über).
+        const TOP = 16
+        const shown = ranked.slice(0, TOP)
+        const entry = (p: Player, i: number): string => {
+          const peakPct = fmtPct((p.peakTilesOwned / totalTiles) * 100)
+          const dead = p.isAlive ? '' : ' <span style="opacity:0.5">†</span>'
+          return (
+            `<div style="display:flex;align-items:center;gap:6px;padding:1px 4px;white-space:nowrap">` +
+            `<span style="opacity:0.45;width:18px;text-align:right">${String(i + 1)}</span>` +
+            `<span style="color:${rgbaToCss(p.color)}">■</span>` +
+            `<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.name)}${dead}</span>` +
+            `<span style="opacity:0.8;font-variant-numeric:tabular-nums">${peakPct}</span>` +
+            `</div>`
+          )
+        }
+        const grid =
+          `<div style="display:grid;grid-template-columns:repeat(2, minmax(150px, 1fr));gap:1px 18px;text-align:left;font-size:12px">` +
+          shown.map((p, i) => entry(p, i)).join('') +
+          `</div>`
+        const more =
+          ranked.length > TOP
+            ? `<div style="font-size:11px;opacity:0.55;margin-top:6px">${t('hud.andMore', { n: String(ranked.length - TOP) })}</div>`
+            : ''
         const matchTime = fmtDuration(state.tick / SIM_TICKS_PER_SECOND)
         bannerText.innerHTML =
-          `<div style="font-size: 22px; margin-bottom: 4px">` +
+          `<div style="font-size: 22px; font-weight:700; margin-bottom: 2px">` +
           `${t('hud.victory')}: <span style="color:${rgbaToCss(winner.color)}">${escapeHtml(winner.name)}</span>` +
           `</div>` +
-          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px">${t('hud.matchDuration', { time: matchTime })}</div>` +
-          `<table style="font-size: 12px; margin: 0 auto; border-collapse: collapse"><thead><tr style="opacity: 0.6"><th style="font-weight: normal; padding-right: 12px; text-align: left">${t('hud.colPlayer')}</th><th style="font-weight: normal; padding-right: 12px; text-align: right">${t('hud.colPeakPct')}</th><th style="font-weight: normal; text-align: right">${t('hud.colPeakTroops')}</th></tr></thead><tbody>${statsRows}</tbody></table>` +
-          `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px; font-family: ui-monospace">Seed: ${escapeHtml(state.seed)}</div>`
+          `<div style="font-size: 12px; opacity: 0.7; margin-bottom: 12px">${t('hud.matchDuration', { time: matchTime })}</div>` +
+          grid +
+          more +
+          `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px">Seed: ${escapeHtml(state.seed)}</div>`
       }
     } else {
       banner.style.display = 'none'
