@@ -848,6 +848,10 @@ function startMatch(
     if (recenterPending) {
       recenterPending = false
       renderer.centerOnPlayer(humanId)
+      // Spawn-Puls erst jetzt anstoßen (Kamera sitzt final): kurzes „hier bist du" über dem
+      // eigenen Gebiet. Nicht beim Zuschauen (kein eigenes Land) und nicht im Tutorial
+      // (dort führen eigene Highlights). Reine Präsentation.
+      if (!spectator && tutorial !== true) renderer.pulseSpawn(humanId)
     }
     // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
     if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {

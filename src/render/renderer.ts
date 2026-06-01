@@ -271,6 +271,8 @@ export interface Renderer {
    * nützlich, damit der Start-Spawn nicht vom unteren HUD-Panel verdeckt wird.
    */
   centerOnPlayer(playerId: number, screenOffsetY?: number): void
+  /** Stößt den Match-Start-Puls über dem eigenen Gebiet an (reine Präsentation). */
+  pulseSpawn(playerId: number): void
   destroy(): void
 }
 
@@ -958,6 +960,9 @@ export function createRenderer(
   let hoverTile: { x: number; y: number } | null = null
   // Gehovertes (gesnapptes) Objekt — Ring-Markierung, damit bei mehreren klar ist, was gemeint ist.
   let hoverHighlight: { wx: number; wy: number; kind: 'ship' | 'building' } | null = null
+  // Spawn-Puls (reine Präsentation, ms-Wanduhr): kurzes „hier bist du" beim Match-Start —
+  // gestaffelte Ringe in der Spielerfarbe, expandieren vom eigenen Schwerpunkt und verblassen.
+  let spawnPulse: { wx: number; wy: number; rgb: string; startTime: number } | null = null
   // Kamera-Darstellung steuert das Welt-Blit:
   //  - 'tiles'   → endloses Kacheln (Wrap/Tapete).
   //  - 'period'  → eine Welt, nahtloser Seam-Wrap (Zoom auf eine Periode begrenzt; kein Blit-Sonderfall).
@@ -1154,6 +1159,10 @@ export function createRenderer(
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.lineWidth = 3
+    // Runde Joins/Caps: ohne sie spitzen scharfe Glyphen-Ecken (z. B. der Dezimalpunkt in
+    // „5.6k") unter der dicken Outline aus und sehen wie ein Doppelpunkt/Fransen aus.
+    screenCtx.lineJoin = 'round'
+    screenCtx.lineCap = 'round'
     // Bei vielen Nationen (viele Bots/Wilde) würden alle Labels die Karte zukleistern.
     // Dann werden Neben-Nationen wie Wilde behandelt: erst ab nahem Zoom beschriftet.
     let liveOthers = 0
@@ -1261,6 +1270,8 @@ export function createRenderer(
     const own: Array<{ sx: number; sy: number; label: string }> = []
     const incoming: Array<{ sx: number; sy: number; label: string }> = []
     screenCtx.lineWidth = 3
+    screenCtx.lineJoin = 'round'
+    screenCtx.lineCap = 'round'
     screenCtx.font = 'bold 12px ui-monospace, monospace'
     for (const p of state.players.values()) {
       if (p.attacks.length === 0) continue
@@ -2619,6 +2630,7 @@ export function createRenderer(
     drawBomberPreview()
     drawWarshipPreview()
     drawMarkers()
+    drawSpawnPulse()
     drawLabels()
     drawFlakShots()
     drawBombers() // Bomber fliegen über allem
@@ -2630,6 +2642,85 @@ export function createRenderer(
 
   function addClickMarker(worldX: number, worldY: number): void {
     markers.push({ worldX, worldY, startTime: performance.now() })
+  }
+
+  /** Dauer des Spawn-Pulses (ms). Wanduhr — reine Präsentation, kein Sim-Tick. */
+  const SPAWN_PULSE_MS = 2400
+
+  /**
+   * Stößt den Match-Start-Puls über dem eigenen Gebiet an: Schwerpunkt wie in {@link centerOnPlayer}
+   * (Torus-Mittel über sin/cos), Ringe in der Spielerfarbe. Tut nichts ohne eigenes Land (Zuschauer).
+   */
+  function pulseSpawn(playerId: number): void {
+    const w = state.map.width
+    const h = state.map.height
+    const ms = state.map.state
+    const kx = (2 * Math.PI) / w
+    const ky = (2 * Math.PI) / h
+    let sx = 0
+    let cx = 0
+    let sy = 0
+    let cy = 0
+    let n = 0
+    for (let i = 0; i < ms.length; i++) {
+      if (((ms[i] ?? 0) & OWNER_MASK) !== playerId) continue
+      const x = i % w
+      const y = (i - x) / w
+      sx += Math.sin(x * kx)
+      cx += Math.cos(x * kx)
+      sy += Math.sin(y * ky)
+      cy += Math.cos(y * ky)
+      n++
+    }
+    if (n === 0) return
+    const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
+    const my = (Math.atan2(sy, cy) / (2 * Math.PI)) * h
+    const p = state.players.get(playerId)
+    const color = p?.color ?? 0xffffffff
+    const r = (color >>> 24) & 0xff
+    const g = (color >>> 16) & 0xff
+    const b = (color >>> 8) & 0xff
+    spawnPulse = {
+      wx: (((mx % w) + w) % w) + 0.5,
+      wy: (((my % h) + h) % h) + 0.5,
+      rgb: `${r.toString()},${g.toString()},${b.toString()}`,
+      startTime: performance.now(),
+    }
+  }
+
+  /** Zeichnet den Spawn-Puls: gestaffelte, expandierende + verblassende Ringe (zoom-unabhängig). */
+  function drawSpawnPulse(): void {
+    if (spawnPulse === null) return
+    const t = (performance.now() - spawnPulse.startTime) / SPAWN_PULSE_MS
+    if (t >= 1) {
+      spawnPulse = null
+      return
+    }
+    const { sx, sy } = nearestWrappedScreenPos(spawnPulse.wx, spawnPulse.wy)
+    screenCtx.save()
+    screenCtx.lineCap = 'round'
+    // Drei zeitversetzte Ringe: jeder wächst von ~14px auf ~150px und verblasst dabei.
+    for (let k = 0; k < 3; k++) {
+      const local = t - k * 0.16
+      if (local <= 0 || local >= 1) continue
+      const eased = 1 - (1 - local) * (1 - local) // ease-out
+      const radius = 14 + eased * 138
+      const alpha = (1 - local) * 0.75
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+      screenCtx.strokeStyle = `rgba(${spawnPulse.rgb},${alpha.toFixed(3)})`
+      screenCtx.lineWidth = 3
+      screenCtx.stroke()
+    }
+    // Heller Kern-Punkt am Schwerpunkt (verblasst zuerst) — markiert die exakte Stelle.
+    const coreAlpha = Math.max(0, 1 - t * 2.2) * 0.9
+    if (coreAlpha > 0) {
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, 5, 0, Math.PI * 2)
+      screenCtx.fillStyle = `rgba(255,255,255,${coreAlpha.toFixed(3)})`
+      screenCtx.fill()
+    }
+    screenCtx.restore()
   }
 
   function setHoverTile(worldX: number, worldY: number): void {
@@ -2708,6 +2799,7 @@ export function createRenderer(
     screenToWorld,
     getBitmap,
     addClickMarker,
+    pulseSpawn,
     setHoverTile,
     clearHoverTile,
     setHoverHighlight,

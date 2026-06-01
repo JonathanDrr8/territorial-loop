@@ -141,6 +141,29 @@ function fmtDuration(seconds: number): string {
   return `${String(m)}:${pad(s)}`
 }
 
+/**
+ * Mikrointeraktionen fürs HUD (einmal global injiziert, idempotent über die feste id).
+ * Pseudo-Klassen (`:hover`/`:active`) gehen nicht mit Inline-Styles → ein gescoptes Stylesheet.
+ * Es greift nur auf Buttons in `.tl-fx`-Panels und animiert ausschließlich „sichere" Eigenschaften
+ * (Farbe/Schatten/Helligkeit + button-EIGENES transform). NIEMALS Panel-Position/-scale: der
+ * HUD-Editor (ADR-0024) setzt `transform: scale()`/`left`/`top` auf die Panels — eine Transition
+ * darauf würde das Verschieben/Skalieren ruckeln lassen. Buttons werden vom Editor nie transformiert,
+ * ihr eigenes `translateY` beim Drücken ist also unbedenklich. `prefers-reduced-motion` schaltet ab.
+ */
+function installHudFx(): void {
+  if (document.getElementById('tl-hud-fx') !== null) return
+  const style = document.createElement('style')
+  style.id = 'tl-hud-fx'
+  style.textContent = [
+    '.tl-fx button{transition:background-color .12s ease,border-color .12s ease,' +
+      'box-shadow .12s ease,color .12s ease,filter .12s ease,transform .07s ease}',
+    '.tl-fx button:hover{filter:brightness(1.13);box-shadow:0 2px 9px rgba(0,0,0,0.4)}',
+    '.tl-fx button:active{transform:translateY(1px);filter:brightness(0.95)}',
+    '@media (prefers-reduced-motion: reduce){.tl-fx button{transition:none}}',
+  ].join('')
+  document.head.appendChild(style)
+}
+
 export function createHUD(
   container: HTMLElement,
   state: GameState,
@@ -170,6 +193,8 @@ export function createHUD(
   let goldRatePerSec = 0
   let lastGoldSampleTick = -1
   let lastGoldSampleValue = 0
+
+  installHudFx() // Hover/Press-Mikrointeraktionen fürs HUD (einmal global, gescoptet auf .tl-fx)
 
   /* ---- Oben links: kompakte Info + Steuerungs-Hinweis ---------------------- */
   const infoBox = document.createElement('div')
@@ -359,6 +384,7 @@ export function createHUD(
 
   /* ---- Oben rechts: Rangliste ---------------------------------------------- */
   const rankPanel = document.createElement('div')
+  rankPanel.classList.add('tl-fx') // Hover/Press für Sortier-/Aufklapp-Buttons (siehe installHudFx)
   rankPanel.style.cssText = panelStyle([
     'position: absolute',
     'top: 12px',
@@ -464,6 +490,7 @@ export function createHUD(
 
   /* ---- Unten Mitte: eigenes Spieler-Menü ----------------------------------- */
   const actionBar = document.createElement('div')
+  actionBar.classList.add('tl-fx') // Hover/Press für Bau-/Einheiten-Buttons (siehe installHudFx)
   // Direkt am unteren Bildrand (bündig) — spart Platz; nur oben abgerundet (überschreibt Radius +
   // Schatten des Theme-Panels, damit es bündig sitzt und der Schatten nach oben fällt).
   actionBar.style.cssText = panelStyle([
