@@ -186,6 +186,19 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   // damit das Rad ohne Rechtsklick an der Cursor-Stelle aufgeht (RMB-Workaround). −1 = noch unbekannt.
   let lastPointerClientX = -1
   let lastPointerClientY = -1
+  // Touch-Steuerung (parallel zur Maus): 1 Finger ziehen = Kamera, 2 Finger = Pinch-Zoom,
+  // kurz tippen = Angriff (primaryAction), Long-Press = Kontextrad (onRadialMenu).
+  let touchStartX = 0
+  let touchStartY = 0
+  let touchLastX = 0
+  let touchLastY = 0
+  let touchMoved = false
+  let touchStartTime = 0
+  let pinchDist = 0 // letzte Finger-Distanz beim 2-Finger-Pinch; 0 = kein Pinch aktiv
+  let longPressFired = false
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null
+  const LONG_PRESS_MS = 450
+  const TOUCH_TAP_MAX_MS = 400
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
@@ -437,13 +450,21 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       }
       return
     }
-    // Linke Taste: war es ein Drag (Pan), keine Klick-Aktion.
+    // Linke Taste: war es ein Drag (Pan), keine Klick-Aktion. Sonst Primär-Aktion (s. primaryAction).
     if (wasMoved) return
-    // Zuschauer-Modus: keine Spieler-Aktionen (Angriff/Bau).
-    if (deps.interactive === false) return
+    primaryAction(e.clientX, e.clientY, e.shiftKey)
+  }
 
-    // Klick ins Leere (ohne Shift, kein Bau/Boot) hebt eine Kriegsschiff-Auswahl auf —
-    // statt direkt anzugreifen (verhindert versehentliche Angriffe nach dem Steuern).
+  /**
+   * Primär-Aktion an einer Screen-Position (Client-Koords) — gemeinsam für Linksklick UND
+   * Touch-Tippen, damit beide sich identisch verhalten. Respektiert den aktiven Modus
+   * (Bau/Bomber/Kriegsschiff/Boot), sonst Angriff in Slider-Größe. `shiftKey` nur per Maus
+   * relevant (Rundum-Angriff); Touch übergibt false.
+   */
+  function primaryAction(clientX: number, clientY: number, shiftKey: boolean): void {
+    // Zuschauer-Modus: keine Spieler-Aktionen.
+    if (deps.interactive === false) return
+    // Klick ins Leere (kein Modus) hebt eine Kriegsschiff-Auswahl auf — statt anzugreifen.
     if (
       buildMode === null &&
       !boatMode &&
@@ -456,29 +477,24 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     }
 
     const rect = canvas.getBoundingClientRect()
-    const sx = e.clientX - rect.left
-    const sy = e.clientY - rect.top
+    const sx = clientX - rect.left
+    const sy = clientY - rect.top
     const halfW = canvas.clientWidth / 2
     const halfH = canvas.clientHeight / 2
     const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
     const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
     const target = tileRef(worldX, worldY, mapWidth, mapHeight)
 
-    // Bau-Modus aktiv → Linksklick platziert das Gebäude. Der Modus BLEIBT aktiv (wie Bomber-/
-    // Kriegsschiff-/Boot-Modus), damit man schnell mehrere desselben Typs setzt — Toggle pro
-    // Gebäude. Beendet wird er per Hotkey/Knopf erneut, Rechtsklick oder Esc. Bei ungültiger
-    // Position (Hafen nicht am Wasser, fremdes Tile, zu wenig Gold) bleibt er ebenfalls aktiv.
+    // Bau-Modus aktiv → platziert das Gebäude. Der Modus BLEIBT aktiv (Toggle pro Gebäude), damit
+    // man schnell mehrere desselben Typs setzt. Beenden: Hotkey/Knopf erneut, Rechtsklick oder Esc.
     if (buildMode !== null) {
-      // Auf ein nahes eigenes Gebäude rasten (Upgrade ohne pixelgenaues Treffen).
       const snapped = deps.snapBuildTarget?.(target, buildMode) ?? target
       const placeable = deps.canPlaceBuilding?.(snapped, buildMode) ?? true
       if (!placeable) return
       emit({ type: 'build', playerId: deps.playerId, tile: snapped, buildingType: buildMode })
       return
     }
-
-    // Bomber-Modus aktiv → Linksklick startet einen Bomber (gewählte Route) zum Ziel. Der Modus
-    // bleibt an (mehrere Würfe möglich; der Flughafen-Cooldown drosselt von selbst).
+    // Bomber-Modus → Bomber (gewählte Route) zum Ziel; Modus bleibt (Cooldown drosselt).
     if (bomberMode) {
       emit({
         type: 'launch-bomber',
@@ -488,9 +504,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       })
       return
     }
-
-    // Kriegsschiff-Modus aktiv → Linksklick auf Wasser entsendet ein Kriegsschiff. Die Sim prüft
-    // Hafen/Route/Gold und meldet sonst still zurück. Der Modus bleibt an (Limit drosselt).
+    // Kriegsschiff-Modus → Kriegsschiff zum Ziel; Modus bleibt (Limit drosselt).
     if (warshipMode) {
       emit({ type: 'launch-warship', playerId: deps.playerId, targetTile: target })
       return
@@ -500,8 +514,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     const pct = deps.getSliderPct()
     const sendTroops = Math.floor((troops * pct) / 100)
 
-    // Boot-Modus aktiv → Linksklick schickt EIN Boot (Slider-Truppengröße) zum Ziel.
-    // Der Modus bleibt an, damit man mehrere Boote losschicken kann (Esc/Toggle beendet).
+    // Boot-Modus → ein Boot (Slider-Größe) zum Ziel; Modus bleibt.
     if (boatMode) {
       if (sendTroops > 0) {
         emit({ type: 'boat', playerId: deps.playerId, targetTile: target, troops: sendTroops })
@@ -509,30 +522,28 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
 
-    // Doppelklick auf nur-über-Wasser-erreichbares Land → direkt ein Transportboot (ohne Boot-Modus).
-    // Der erste Klick löst auf solchem Ziel ohnehin keinen wirksamen Land-Angriff aus.
+    // Doppel-Tipp/-Klick auf nur-über-Wasser-erreichbares Land → direkt ein Transportboot.
     const now = performance.now()
     const isDouble =
       lastLeftClick !== null &&
       lastLeftClick.tile === target &&
       now - lastLeftClick.time < DOUBLE_CLICK_MS
     lastLeftClick = { tile: target, time: now }
-    if (isDouble && !e.shiftKey && deps.shouldBoatTo?.(target) === true) {
+    if (isDouble && !shiftKey && deps.shouldBoatTo?.(target) === true) {
       if (sendTroops > 0) {
         emit({ type: 'boat', playerId: deps.playerId, targetTile: target, troops: sendTroops })
       }
       return
     }
 
-    // Sonst: Angriff. Mit Shift → Rundum (omni): auf eigenem Gebiet gleichmäßig in die
-    // Wildnis ausbreiten, auf einer Nation entlang der GANZEN gemeinsamen Grenze angreifen.
+    // Sonst: Angriff. Mit Shift → Rundum (omni).
     if (sendTroops > 0) {
       emit({
         type: 'attack',
         playerId: deps.playerId,
         targetTile: target,
         troops: sendTroops,
-        omni: e.shiftKey,
+        omni: shiftKey,
       })
       deps.onAttackClick?.(worldX, worldY)
     }
@@ -583,6 +594,127 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     const worldYAfter = (sy - halfH) / camera.zoom + camera.y
     camera.x += worldXBefore - worldXAfter
     camera.y += worldYBefore - worldYAfter
+  }
+
+  function clearLongPress(): void {
+    if (longPressTimer !== null) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+    }
+  }
+
+  function onTouchStart(e: TouchEvent): void {
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      if (t === undefined) return
+      touchStartX = touchLastX = t.clientX
+      touchStartY = touchLastY = t.clientY
+      lastPointerClientX = t.clientX
+      lastPointerClientY = t.clientY
+      touchMoved = false
+      longPressFired = false
+      pinchDist = 0
+      touchStartTime = performance.now()
+      clearLongPress()
+      // Long-Press (Finger ruhig halten) → Kontextrad an der Stelle.
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null
+        if (touchMoved || deps.interactive === false || deps.onRadialMenu === undefined) return
+        longPressFired = true
+        const rect = canvas.getBoundingClientRect()
+        deps.onRadialMenu(
+          screenToTile(touchStartX, touchStartY),
+          touchStartX - rect.left,
+          touchStartY - rect.top,
+        )
+      }, LONG_PRESS_MS)
+      e.preventDefault()
+    } else if (e.touches.length === 2) {
+      // Zweiter Finger → Pinch beginnt; Tap/Long-Press verwerfen.
+      clearLongPress()
+      touchMoved = true
+      const a = e.touches[0]
+      const b = e.touches[1]
+      if (a === undefined || b === undefined) return
+      pinchDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+      touchLastX = (a.clientX + b.clientX) / 2
+      touchLastY = (a.clientY + b.clientY) / 2
+      e.preventDefault()
+    }
+  }
+
+  function onTouchMove(e: TouchEvent): void {
+    if (e.touches.length === 1 && pinchDist === 0) {
+      const t = e.touches[0]
+      if (t === undefined) return
+      const dx = t.clientX - touchLastX
+      const dy = t.clientY - touchLastY
+      touchLastX = t.clientX
+      touchLastY = t.clientY
+      lastPointerClientX = t.clientX
+      lastPointerClientY = t.clientY
+      if (
+        Math.abs(t.clientX - touchStartX) > DRAG_THRESHOLD ||
+        Math.abs(t.clientY - touchStartY) > DRAG_THRESHOLD
+      ) {
+        touchMoved = true
+        clearLongPress()
+      }
+      camera.x -= dx / camera.zoom
+      camera.y -= dy / camera.zoom
+      camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
+      camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
+      e.preventDefault()
+    } else if (e.touches.length === 2) {
+      const a = e.touches[0]
+      const b = e.touches[1]
+      if (a === undefined || b === undefined) return
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+      const midX = (a.clientX + b.clientX) / 2
+      const midY = (a.clientY + b.clientY) / 2
+      if (pinchDist > 0 && dist > 0) {
+        // Zoom um den Pinch-Mittelpunkt (wie beim Mausrad), dann Pan per Mittelpunkt-Verschiebung.
+        const rect = canvas.getBoundingClientRect()
+        const sx = midX - rect.left
+        const sy = midY - rect.top
+        const halfW = canvas.clientWidth / 2
+        const halfH = canvas.clientHeight / 2
+        const wxBefore = (sx - halfW) / camera.zoom + camera.x
+        const wyBefore = (sy - halfH) / camera.zoom + camera.y
+        camera.zoom = Math.max(minZoom(), Math.min(ZOOM_MAX, camera.zoom * (dist / pinchDist)))
+        const wxAfter = (sx - halfW) / camera.zoom + camera.x
+        const wyAfter = (sy - halfH) / camera.zoom + camera.y
+        camera.x += wxBefore - wxAfter - (midX - touchLastX) / camera.zoom
+        camera.y += wyBefore - wyAfter - (midY - touchLastY) / camera.zoom
+        camera.x = ((camera.x % mapWidth) + mapWidth) % mapWidth
+        camera.y = ((camera.y % mapHeight) + mapHeight) % mapHeight
+      }
+      pinchDist = dist
+      touchLastX = midX
+      touchLastY = midY
+      e.preventDefault()
+    }
+  }
+
+  function onTouchEnd(e: TouchEvent): void {
+    clearLongPress()
+    // Ein Finger vom Pinch gelöst → Pan-Basis auf den verbliebenen setzen, kein Tap.
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      if (t !== undefined) {
+        touchLastX = t.clientX
+        touchLastY = t.clientY
+      }
+      pinchDist = 0
+      touchMoved = true
+      return
+    }
+    if (e.touches.length === 0) {
+      const wasTap =
+        !touchMoved && !longPressFired && performance.now() - touchStartTime < TOUCH_TAP_MAX_MS
+      pinchDist = 0
+      if (wasTap) primaryAction(touchStartX, touchStartY, false)
+    }
   }
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -646,6 +778,10 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   canvas.addEventListener('mouseleave', onMouseLeave)
   canvas.addEventListener('contextmenu', onContextMenu)
   canvas.addEventListener('wheel', onWheel, { passive: false })
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+  canvas.addEventListener('touchend', onTouchEnd)
+  canvas.addEventListener('touchcancel', onTouchEnd)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('blur', onBlur)
@@ -670,6 +806,11 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       canvas.removeEventListener('mouseleave', onMouseLeave)
       canvas.removeEventListener('contextmenu', onContextMenu)
       canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('touchend', onTouchEnd)
+      canvas.removeEventListener('touchcancel', onTouchEnd)
+      clearLongPress()
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
