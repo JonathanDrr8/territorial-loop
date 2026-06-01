@@ -414,6 +414,8 @@ export const de: Record<string, string> = {
   'wheel.back': 'Zurück',
   'wheel.build': 'Bauen',
   'wheel.ships': 'Schiffe',
+  'minimap.collapse': 'Minimap einklappen',
+  'minimap.expand': 'Minimap ausklappen',
   'hud.boatModeHint': 'Boot-Modus: Küsten-Ziel auf anderer Landmasse klicken · Esc beendet',
   'route.direct': 'direkt',
   'route.arc-left': 'Bogen links',

@@ -618,6 +618,18 @@ function startMatch(
     hud.setSpeed(p ? 0 : speed)
   })
 
+  // Touch/Mobile-Erkennung (steuert Eck-Rad-Sichtbarkeit + Minimap-Position).
+  const touchDevice = ((): boolean => {
+    try {
+      return (
+        navigator.maxTouchPoints > 0 ||
+        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+      )
+    } catch {
+      return false
+    }
+  })()
+
   const minimap = createMinimap({
     container,
     state,
@@ -627,6 +639,7 @@ function startMatch(
       width: renderer.canvas.clientWidth,
       height: renderer.canvas.clientHeight,
     }),
+    mobile: touchDevice,
   })
 
   const tooltip = createHoverTooltip(
@@ -829,16 +842,6 @@ function startMatch(
     'airport',
     'flak',
   ]
-  const touchDevice = ((): boolean => {
-    try {
-      return (
-        navigator.maxTouchPoints > 0 ||
-        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
-      )
-    } catch {
-      return false
-    }
-  })()
   const actionWheel = createActionWheel(container, {
     allowedBuildings: WHEEL_BUILD_ORDER.filter((tp) => config.allowedBuildings?.[tp] !== false),
     onBuild: (tp) => input.toggleBuildMode(tp),
