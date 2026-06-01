@@ -640,6 +640,7 @@ export function createHUD(
   const buildCountEls = new Map<BuildingType, HTMLSpanElement>()
   for (const type of BUILDING_TYPES) {
     const btn = document.createElement('button')
+    btn.dataset.hotkey = BUILDING_HOTKEY[type] // für Tutorial-Highlight ([data-hotkey])
     btn.style.cssText = [
       'position: relative',
       'flex: 1',
@@ -709,6 +710,7 @@ export function createHUD(
     iconSvg = '',
   ): { btn: HTMLButtonElement; costEl: HTMLSpanElement; capEl: HTMLSpanElement } => {
     const btn = document.createElement('button')
+    btn.dataset.hotkey = hotkey // für Tutorial-Highlight ([data-hotkey])
     btn.style.cssText = [
       'position: relative',
       'flex: 1',

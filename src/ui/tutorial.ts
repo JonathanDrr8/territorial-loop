@@ -21,6 +21,8 @@ export interface TutorialStep {
   readonly goal: string
   /** i18n-Key für den Erklärtext in der Pause-Box. */
   readonly text: string
+  /** Optional: Hotkey-Ziffer des HUD-Knopfs, der für diesen Schritt hervorgehoben wird (z.B. '1'). */
+  readonly highlightHotkey?: string
   /** Beim Betreten ausgeführt — Regie (Gold geben, Gegner wecken, Ziel markieren …). */
   readonly onEnter?: (state: GameState, humanId: number) => void
   /**
@@ -107,6 +109,7 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'city',
       goal: k('city', 'goal'),
       text: k('city', 'text'),
+      highlightHotkey: '1',
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBuilding(s, id, 'city'),
     },
@@ -114,6 +117,7 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'factory',
       goal: k('factory', 'goal'),
       text: k('factory', 'text'),
+      highlightHotkey: '4',
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBuilding(s, id, 'factory'),
     },
@@ -130,6 +134,7 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'airport',
       goal: k('airport', 'goal'),
       text: k('airport', 'text'),
+      highlightHotkey: '5',
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT * 2),
       done: (s, id) => hasBuilding(s, id, 'airport'),
     },
@@ -137,6 +142,7 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'bomber',
       goal: k('bomber', 'goal'),
       text: k('bomber', 'text'),
+      highlightHotkey: '7',
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBomber(s, id),
     },
@@ -259,8 +265,32 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
 
   // Beide Elemente in einem Wrapper (vom Aufrufer einmal eingehängt).
   const wrap = document.createElement('div')
+  const pulseStyle = document.createElement('style')
+  pulseStyle.textContent =
+    '@keyframes tl-tut-pulse{0%,100%{box-shadow:0 0 0 2px var(--tl-accent),0 0 8px 2px var(--tl-accent)}50%{box-shadow:0 0 0 3px var(--tl-accent),0 0 16px 6px var(--tl-accent)}}'
+  wrap.appendChild(pulseStyle)
   wrap.appendChild(panel)
   wrap.appendChild(box)
+
+  // Hebt den zum Schritt gehörenden HUD-Knopf hervor (pulsierender Glow über [data-hotkey]).
+  let highlightedEl: HTMLElement | null = null
+  function clearHighlight(): void {
+    if (highlightedEl !== null) {
+      highlightedEl.style.removeProperty('animation')
+      highlightedEl.style.removeProperty('z-index')
+      highlightedEl = null
+    }
+  }
+  function setHighlight(hotkey: string | undefined): void {
+    clearHighlight()
+    if (hotkey === undefined) return
+    const el = document.querySelector(`[data-hotkey="${hotkey}"]`)
+    if (el instanceof HTMLElement) {
+      el.style.animation = 'tl-tut-pulse 1.2s ease-in-out infinite'
+      el.style.zIndex = '45'
+      highlightedEl = el
+    }
+  }
 
   function showBox(text: string, isLast: boolean): void {
     boxText.textContent = text
@@ -274,12 +304,14 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
     index = i
     renderPanel()
     if (i >= opts.steps.length) {
+      clearHighlight()
       opts.setPaused(false)
       opts.onFinish()
       return
     }
     const step = opts.steps[i]
     if (step === undefined) return
+    setHighlight(step.highlightHotkey)
     if (lastState !== null) step.onEnter?.(lastState, opts.humanId)
     showBox(t(step.text), i === opts.steps.length - 1)
   }
@@ -316,6 +348,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
     },
 
     destroy() {
+      clearHighlight()
       wrap.remove()
     },
   }
