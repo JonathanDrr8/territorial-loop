@@ -286,21 +286,46 @@ export function createMultiplayerMenu(
     // Teilnehmerliste
     const list = document.createElement('div')
     list.style.cssText = 'margin-bottom:12px'
+    const teamMode = s.teamMode === 'allied'
+    const teamCount = Math.max(2, s.teamCount ?? 2)
     for (const p of peers) {
       const row = document.createElement('div')
-      row.style.cssText = 'display:flex;justify-content:space-between;font-size:13px;padding:3px 0'
+      row.style.cssText =
+        'display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0'
       const left = document.createElement('span')
       const you = p.playerId === myId ? ` (${t('mp.you')})` : ''
       const host = p.playerId === hostId ? ' ★' : ''
       left.textContent = `• ${p.name}${you}${host}`
+      left.style.cssText = 'flex:1;min-width:0'
+      row.appendChild(left)
+      // Team-Wähler (nur im Team-Modus): eigenes editierbar, fremde nur Anzeige.
+      if (teamMode) {
+        if (p.playerId === myId) {
+          const sel = document.createElement('select')
+          sel.style.cssText = INPUT_STYLE + ';flex:none;width:auto;padding:2px 6px;font-size:12px'
+          for (let i = 0; i < teamCount; i++) {
+            const o = document.createElement('option')
+            o.value = String(i)
+            o.textContent = `${t('mp.team')} ${String(i + 1)}`
+            if (i === (p.teamId ?? 0)) o.selected = true
+            sel.appendChild(o)
+          }
+          sel.addEventListener('change', () => transport?.setTeam(Number(sel.value)))
+          row.appendChild(sel)
+        } else {
+          const teamTag = document.createElement('span')
+          teamTag.textContent = `${t('mp.team')} ${String((p.teamId ?? 0) + 1)}`
+          teamTag.style.cssText = 'flex:none;opacity:0.75;font-size:12px'
+          row.appendChild(teamTag)
+        }
+      }
       const right = document.createElement('span')
       right.textContent = p.connected
         ? p.ready
           ? `${t('mp.ready')} ✓`
           : t('mp.waiting')
         : t('mp.disconnected')
-      right.style.cssText = `opacity:0.8;color:${p.ready ? '#7cffa0' : 'white'}`
-      row.appendChild(left)
+      right.style.cssText = `flex:none;opacity:0.8;color:${p.ready ? '#7cffa0' : 'white'}`
       row.appendChild(right)
       list.appendChild(row)
     }
@@ -480,14 +505,17 @@ export function createMultiplayerMenu(
       ],
       (v) => ({ ...settings, teamMode: v === 'allied' ? 'allied' : 'off' }),
     )
-    numRow(t('field.teamCount'), s.teamCount ?? 2, (v) => ({
-      ...settings,
-      teamCount: Math.max(2, Math.min(8, Math.round(v))),
-    }))
-    numRow(t('field.teamSize'), s.teamSize ?? 2, (v) => ({
-      ...settings,
-      teamSize: Math.max(1, Math.min(6, Math.round(v))),
-    }))
+    // Team-Anzahl/-Größe nur zeigen, wenn Teams aktiv sind.
+    if (s.teamMode === 'allied') {
+      numRow(t('field.teamCount'), s.teamCount ?? 2, (v) => ({
+        ...settings,
+        teamCount: Math.max(2, Math.min(8, Math.round(v))),
+      }))
+      numRow(t('field.teamSize'), s.teamSize ?? 2, (v) => ({
+        ...settings,
+        teamSize: Math.max(1, Math.min(6, Math.round(v))),
+      }))
+    }
     // Gebäude-Toggles: deaktivierte Typen kann im Match niemand bauen (deterministisch übers Netz).
     const setBuilding = (type: BuildingType, on: boolean): MatchSettings => {
       const ab: Partial<Record<BuildingType, boolean>> = { ...(settings.allowedBuildings ?? {}) }

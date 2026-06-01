@@ -45,6 +45,8 @@ export interface PeerInfo {
   readonly playerId: number
   readonly name: string
   readonly connected: boolean
+  /** Gewähltes Team (Team-Modus, ADR-0025). `undefined` außerhalb des Team-Modus. */
+  readonly teamId?: number
 }
 
 /**
@@ -124,6 +126,12 @@ export interface ConfigureMsg {
   readonly settings: MatchSettings
 }
 
+/** Spieler wählt sein Team in der Lobby (Team-Modus, ADR-0025). Jeder setzt nur sein eigenes Team. */
+export interface SetTeamMsg {
+  readonly kind: 'set-team'
+  readonly teamId: number
+}
+
 /** Latenz-Messung: `t` ist ein opaker Client-Zeitstempel, den der Server unverändert zurückwirft. */
 export interface PingMsg {
   readonly kind: 'ping'
@@ -143,6 +151,7 @@ export type ClientMessage =
   | ReadyMsg
   | ResyncRequestMsg
   | ConfigureMsg
+  | SetTeamMsg
   | PingMsg
   | SetPauseMsg
 

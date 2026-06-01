@@ -489,6 +489,7 @@ export const pt: Record<string, string> = {
   'mp.copy': 'Copiar',
   'mp.copied': 'Copiado',
   'mp.you': 'tu',
+  'mp.team': 'Equipe',
   'mp.ready': 'pronto',
   'mp.waiting': 'a aguardar …',
   'mp.disconnected': 'desligado',

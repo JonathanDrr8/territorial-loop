@@ -207,6 +207,8 @@ interface Member {
   name: string
   ready: boolean
   socket: WebSocket | null // null = getrennt (Slot bleibt für Reconnect)
+  /** Gewähltes Team (Team-Modus, ADR-0025); vom Spieler per `set-team` gesetzt. */
+  teamId?: number
 }
 
 interface Room {
@@ -262,6 +264,7 @@ function peerList(room: Room): (PeerInfo & { ready: boolean })[] {
     name: m.name,
     connected: m.socket !== null,
     ready: m.ready,
+    ...(m.teamId !== undefined ? { teamId: m.teamId } : {}),
   }))
 }
 
@@ -278,20 +281,32 @@ function sendLobby(room: Room): void {
 function buildConfig(room: Room): GameConfig {
   const s = room.settings
   const players: PlayerDef[] = []
-  // Team-Modus „allied" (ADR-0025): teamCount Teams à teamSize bestimmen die KI-Anzahl; Menschen
-  // belegen die ersten Slots (per Beitritts-Reihenfolge), der Rest wird mit KI aufgefüllt. teamId
-  // ergibt sich aus dem Slot. Wilde sind teamlos.
+  // Team-Modus „allied" (ADR-0025): teamCount Teams à teamSize. Menschen kommen ins SELBST GEWÄHLTE
+  // Team (`set-team`), sonst ins am wenigsten belegte; die KI füllt jedes Team auf teamSize auf. So
+  // kann man sich gezielt zusammen ins selbe Team setzen. Wilde sind teamlos.
   const teams = s.teamMode === 'allied'
   const teamCount = teams ? Math.max(2, s.teamCount ?? 2) : 0
   const teamSize = teams ? Math.max(1, s.teamSize ?? 2) : 0
-  const humanCount = room.members.size
-  const aiCount = teams ? Math.max(0, teamCount * teamSize - humanCount) : s.aiCount
-  let slot = 0
-  const teamOf = (sl: number): number | undefined => (teams ? Math.floor(sl / teamSize) : undefined)
+  const filled = teams ? new Array<number>(teamCount).fill(0) : []
+  /** Index des am wenigsten belegten Teams, das noch Platz (< teamSize) hat; -1 wenn alle voll. */
+  const leastFilled = (): number => {
+    let best = -1
+    for (let i = 0; i < teamCount; i++) {
+      const f = filled[i] ?? 0
+      if (f < teamSize && (best < 0 || f < (filled[best] ?? 0))) best = i
+    }
+    return best
+  }
 
   let id = 0
   for (const m of room.members.values()) {
-    const t = teamOf(slot++)
+    let t: number | undefined
+    if (teams) {
+      const want = m.teamId !== undefined ? Math.max(0, Math.min(teamCount - 1, m.teamId)) : -1
+      t = want >= 0 && (filled[want] ?? 0) < teamSize ? want : leastFilled()
+      if (t < 0) t = want >= 0 ? want : 0 // alle voll (mehr Menschen als Slots) → Team wächst
+      filled[t] = (filled[t] ?? 0) + 1
+    }
     players.push({
       id: m.playerId,
       name: m.name,
@@ -301,11 +316,18 @@ function buildConfig(room: Room): GameConfig {
     })
     id = Math.max(id, m.playerId)
   }
+  // KI füllt die restlichen Team-Slots auf teamSize auf (sonst: aiCount aus den Settings).
+  const aiCount = teams ? Math.max(0, teamCount * teamSize - room.members.size) : s.aiCount
   // Echte Eigennamen für KI UND Wilde (sprach-neutral); wild-Status markiert das UI via `wild`-Flag.
   const botNames = pickRandomNames(aiCount + s.wildCount)
   let nameIdx = 0
   for (let i = 0; i < aiCount; i++) {
-    const t = teamOf(slot++)
+    let t: number | undefined
+    if (teams) {
+      const lf = leastFilled()
+      t = lf >= 0 ? lf : 0
+      filled[t] = (filled[t] ?? 0) + 1
+    }
     players.push({
       id: ++id,
       name: botNames[nameIdx++] ?? `Nation ${String(i + 1)}`,
@@ -381,6 +403,15 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
         sendLobby(room)
       }
       break
+    case 'set-team': {
+      // Jeder Spieler wählt sein eigenes Team (nur vor Start, nur im Team-Modus).
+      if (room.match === null && room.settings.teamMode === 'allied') {
+        const max = Math.max(2, room.settings.teamCount ?? 2)
+        member.teamId = Math.max(0, Math.min(max - 1, Math.round(msg.teamId)))
+        sendLobby(room)
+      }
+      break
+    }
     case 'submit-intents':
       room.match?.submitIntents(msg.turn, msg.intents, member.playerId)
       break
