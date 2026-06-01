@@ -141,7 +141,7 @@ export const zh: Record<string, string> = {
   'tutorial.step.expand.text': '点击你边界上相邻的灰色区域 —— 你的部队将扩张到那里。',
   'tutorial.step.size.goal': '进攻规模',
   'tutorial.step.size.text':
-    '用鼠标滚轮设置一次进攻投入多少部队。更多部队征服更快，但会让你的核心领土更薄弱。尽管试试吧。',
+    '用 Shift+鼠标滚轮设置一次进攻投入多少部队。更多部队征服更快，但会让你的核心领土更薄弱。尽管试试吧。',
   'tutorial.step.wild.goal': '征服野生国家',
   'tutorial.step.wild.text':
     '灰色的「野生」国家是被动且人口稀少的 —— 非常适合扩张。征服你旁边的野生国家；征服时可以掠夺它们的金币。',

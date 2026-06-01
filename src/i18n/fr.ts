@@ -146,7 +146,7 @@ export const fr: Record<string, string> = {
     "Clique sur une zone grise adjacente à ta frontière — tes troupes s'y étendent.",
   'tutorial.step.size.goal': "Taille de l'attaque",
   'tutorial.step.size.text':
-    "Avec la molette tu règles combien de troupes une attaque engage. Plus de troupes conquièrent plus vite, mais laissent ton territoire central plus vulnérable. N'hésite pas à essayer.",
+    "Avec Maj+molette tu règles combien de troupes une attaque engage. Plus de troupes conquièrent plus vite, mais laissent ton territoire central plus vulnérable. N'hésite pas à essayer.",
   'tutorial.step.wild.goal': 'Conquiers les sauvages',
   'tutorial.step.wild.text':
     'Les nations « sauvages » grises sont passives et peu peuplées — parfaites pour grandir. Conquiers la nation sauvage à côté de toi ; en la conquérant tu récupères son or comme butin.',

@@ -148,7 +148,7 @@ export const de: Record<string, string> = {
     'Klicke ein angrenzendes graues Gebiet an deiner Grenze an — deine Truppen breiten sich dorthin aus.',
   'tutorial.step.size.goal': 'Angriffsgröße',
   'tutorial.step.size.text':
-    'Mit dem Mausrad stellst du ein, wie viel deiner Truppen ein Angriff einsetzt. Mehr Truppen erobern schneller, lassen dein Kerngebiet aber dünner. Probier es ruhig aus.',
+    'Mit Shift+Mausrad stellst du ein, wie viel deiner Truppen ein Angriff einsetzt. Mehr Truppen erobern schneller, lassen dein Kerngebiet aber dünner. Probier es ruhig aus.',
   'tutorial.step.wild.goal': 'Erobere die Wilden',
   'tutorial.step.wild.text':
     'Die grauen „wilden" Nationen sind passiv und schwach besiedelt — perfekt zum Wachsen. Erobere die wilde Nation neben dir; beim Erobern erbeutest du ihr Gold.',

@@ -146,7 +146,7 @@ export const es: Record<string, string> = {
     'Haz clic en una zona gris adyacente en tu frontera — tus tropas se expandirán hasta allí.',
   'tutorial.step.size.goal': 'Tamaño del ataque',
   'tutorial.step.size.text':
-    'Con la rueda del ratón ajustas cuántas tropas emplea un ataque. Más tropas conquistan más rápido, pero dejan tu territorio central más débil. Pruébalo tranquilamente.',
+    'Con Shift+rueda del ratón ajustas cuántas tropas emplea un ataque. Más tropas conquistan más rápido, pero dejan tu territorio central más débil. Pruébalo tranquilamente.',
   'tutorial.step.wild.goal': 'Conquista a los salvajes',
   'tutorial.step.wild.text':
     'Las naciones «salvajes» grises son pasivas y están poco pobladas — perfectas para crecer. Conquista la nación salvaje junto a ti; al conquistarla recibirás su oro como botín.',

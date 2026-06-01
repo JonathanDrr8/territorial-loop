@@ -149,7 +149,7 @@ export const en: Record<string, string> = {
     'Click an adjacent gray area along your border — your troops spread there.',
   'tutorial.step.size.goal': 'Attack size',
   'tutorial.step.size.text':
-    'With the mouse wheel you set how much of your troops an attack commits. More troops conquer faster but leave your core thinner. Feel free to try it.',
+    'With Shift+mouse wheel you set how much of your troops an attack commits. More troops conquer faster but leave your core thinner. Feel free to try it.',
   'tutorial.step.wild.goal': 'Conquer the wild',
   'tutorial.step.wild.text':
     'The gray "wild" nations are passive and thinly settled — perfect for growing. Conquer the wild nation next to you; conquering loots its gold.',

@@ -146,7 +146,7 @@ export const it: Record<string, string> = {
     'Clicca su una zona grigia adiacente al tuo confine — le tue truppe si espanderanno lì.',
   'tutorial.step.size.goal': "Dimensione dell'attacco",
   'tutorial.step.size.text':
-    'Con la rotella del mouse imposti quante truppe impiega un attacco. Più truppe conquistano più in fretta, ma lasciano il tuo territorio centrale più esposto. Provalo pure.',
+    'Con Shift+rotella del mouse imposti quante truppe impiega un attacco. Più truppe conquistano più in fretta, ma lasciano il tuo territorio centrale più esposto. Provalo pure.',
   'tutorial.step.wild.goal': 'Conquista i selvaggi',
   'tutorial.step.wild.text':
     'Le nazioni «selvagge» grigie sono passive e poco popolate — perfette per crescere. Conquista la nazione selvaggia accanto a te; conquistandola saccheggerai il suo oro.',

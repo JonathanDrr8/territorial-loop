@@ -146,7 +146,7 @@ export const pt: Record<string, string> = {
     'Clica numa zona cinzenta adjacente na tua fronteira — as tuas tropas expandem-se para lá.',
   'tutorial.step.size.goal': 'Tamanho do ataque',
   'tutorial.step.size.text':
-    'Com a roda do rato defines quantas tropas um ataque emprega. Mais tropas conquistam mais rápido, mas deixam o teu território central mais fraco. Experimenta à vontade.',
+    'Com Shift+roda do rato defines quantas tropas um ataque emprega. Mais tropas conquistam mais rápido, mas deixam o teu território central mais fraco. Experimenta à vontade.',
   'tutorial.step.wild.goal': 'Conquista os selvagens',
   'tutorial.step.wild.text':
     'As nações «selvagens» cinzentas são passivas e pouco populosas — perfeitas para crescer. Conquista a nação selvagem ao teu lado; ao conquistá-la receberás o ouro dela como espólio.',
