@@ -588,6 +588,36 @@ export function createHUD(
   // Balken voll breit direkt unter der Zahl (kein gequetschtes Flex-Row mehr).
   troopBadge.appendChild(barWrap)
 
+  // Alternative Truppen-Anzeige: füllende Kugel (HUD-Pref troopStyle='orb', Default auf Touch).
+  // Liegt im selben Split-Teil wie der Balken (partBar); applyLayoutPrefs zeigt eins von beiden.
+  // Aus denselben Werten gespeist wie der Balken (idle solide, im Kampf texturiert, von unten).
+  const orbWrap = document.createElement('div')
+  orbWrap.style.cssText = [
+    'position: relative',
+    'width: 88px',
+    'height: 88px',
+    'border-radius: 50%',
+    'overflow: hidden',
+    'margin: 2px auto 6px',
+    'background: rgba(0,0,0,0.3)',
+    'border: 2px solid var(--tl-panel-border-color)',
+    'box-shadow: inset 0 2px 8px rgba(0,0,0,0.55)',
+    'display: none',
+  ].join(';')
+  const orbIdle = document.createElement('div')
+  orbIdle.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:0'
+  const orbCombat = document.createElement('div')
+  orbCombat.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:0'
+  const orbGloss = document.createElement('div')
+  orbGloss.style.cssText =
+    'position:absolute;left:16%;top:12%;width:34%;height:22%;border-radius:50%;' +
+    'background:radial-gradient(circle,rgba(255,255,255,0.22),transparent 70%);pointer-events:none'
+  const orbPct = document.createElement('div')
+  orbPct.style.cssText =
+    'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+    'font:700 18px var(--tl-num-font);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.85);pointer-events:none'
+  orbWrap.append(orbIdle, orbCombat, orbGloss, orbPct)
+
   const barLegend = document.createElement('div')
   barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; min-height: 0'
   troopBadge.appendChild(barLegend)
@@ -876,7 +906,7 @@ export function createHUD(
   const partNum = document.createElement('div')
   partNum.append(troopBig, barLegend)
   const partBar = document.createElement('div')
-  partBar.append(barWrap)
+  partBar.append(barWrap, orbWrap)
   const partGold = document.createElement('div')
   partGold.append(goldEl, goldDetail)
   // Aktions-Teile (Inhalt wird je nach Numpad/Split umgehängt).
@@ -993,6 +1023,11 @@ export function createHUD(
   }
 
   function applyLayoutPrefs(p: HudPrefs): void {
+    // 0) Truppen-Anzeige-Stil: Balken oder Kugel (beide liegen in partBar; nur Sichtbarkeit).
+    const orbMode = p.troopStyle === 'orb'
+    barWrap.style.display = orbMode ? 'none' : ''
+    orbWrap.style.display = orbMode ? 'block' : 'none'
+
     // 1) Slider-Heimat.
     if (p.sliderHome === 'resource') troopBadge.appendChild(sliderWrap)
     else actionBar.insertBefore(sliderWrap, actionBar.firstChild)
@@ -1163,6 +1198,13 @@ export function createHUD(
     troopNumEl.innerHTML =
       `<span style="font-size:28px;font-weight:700;color:${stateColor};font-family:var(--tl-num-font);font-variant-numeric:tabular-nums">${fmtCompact(total)}</span>` +
       `<span style="font-size:12px;opacity:0.75"> / ${fmtCompact(cap)} ${t('hud.troops')} · ${pct.toString()}%</span>`
+    // Kugel-Anzeige (falls aktiv) aus denselben Werten: idle solide von unten, im Kampf darüber.
+    orbIdle.style.height = pctW(idle)
+    orbIdle.style.background = color
+    orbCombat.style.bottom = pctW(idle)
+    orbCombat.style.height = pctW(combat)
+    orbCombat.style.background = `repeating-linear-gradient(45deg, ${color} 0 5px, rgba(0,0,0,0.4) 5px 10px)`
+    orbPct.textContent = `${pct.toString()}%`
     // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
     // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
     sliderLabel.textContent = `${t('hud.attack', { pct: currentSliderPct })} · ≈${fmtCompact(attackAmt)}`

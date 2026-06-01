@@ -11,6 +11,8 @@
 export type SliderHome = 'action' | 'resource'
 /** Anordnung der Kauf-Knöpfe: zwei Reihen (Default) oder 3×3-Numpad auf den Hotkey-Positionen. */
 export type ButtonsLayout = 'row' | 'numpad'
+/** Darstellung der Truppen-Anzeige: klassischer Balken oder füllende Kugel. */
+export type TroopStyle = 'bar' | 'orb'
 
 export interface HudPrefs {
   sliderHome: SliderHome
@@ -19,14 +21,30 @@ export interface HudPrefs {
   resourceSplit: boolean
   /** Aktions-Block in Einzelteile (Käufe / Boot) aufgeteilt? */
   actionSplit: boolean
+  /** Truppen-Anzeige-Stil (Balken/Kugel). Default Kugel auf Touch-Geräten, sonst Balken. */
+  troopStyle: TroopStyle
 }
 
 const KEY = 'territorial-loop:hud-prefs:v1'
+
+/** Touch-Gerät? (grobe Heuristik — bestimmt den Default-Truppen-Stil.) */
+function isTouchDevice(): boolean {
+  try {
+    return (
+      navigator.maxTouchPoints > 0 ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+    )
+  } catch {
+    return false
+  }
+}
+
 const DEFAULTS: HudPrefs = {
   sliderHome: 'action',
   buttonsLayout: 'row',
   resourceSplit: false,
   actionSplit: false,
+  troopStyle: 'bar',
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -41,12 +59,21 @@ function load(): HudPrefs {
         buttonsLayout: parsed.buttonsLayout === 'numpad' ? 'numpad' : 'row',
         resourceSplit: parsed.resourceSplit === true,
         actionSplit: parsed.actionSplit === true,
+        // Ohne gespeicherten Wert: Kugel auf Touch (Mobile-Default), sonst Balken.
+        troopStyle:
+          parsed.troopStyle === 'orb'
+            ? 'orb'
+            : parsed.troopStyle === 'bar'
+              ? 'bar'
+              : isTouchDevice()
+                ? 'orb'
+                : 'bar',
       }
     }
   } catch {
     /* ignore */
   }
-  return { ...DEFAULTS }
+  return { ...DEFAULTS, troopStyle: isTouchDevice() ? 'orb' : 'bar' }
 }
 
 let prefs = load()
