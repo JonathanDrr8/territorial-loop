@@ -36,6 +36,28 @@ export interface AccountRow {
   readonly wins: number
   readonly losses: number
   readonly peak: number
+  /** Gewählter Benutzername, falls der Gast zu einem echten Account aufgewertet wurde (sonst null). */
+  readonly username: string | null
+}
+
+/** Auth-Felder eines Accounts (nie an Clients ausliefern) — für Login/Recovery-Prüfung. */
+export interface AccountAuth {
+  readonly guestToken: string
+  readonly pwHash: string
+  readonly pwSalt: string
+  readonly recoveryHash: string
+  readonly recoverySalt: string
+}
+
+/** Eingangsdaten zum Aufwerten eines Gasts zu einem echten Account (Phase 2). */
+export interface RegisterInput {
+  readonly guestToken: string
+  readonly username: string
+  readonly pwHash: string
+  readonly pwSalt: string
+  readonly email: string | null
+  readonly recoveryHash: string
+  readonly recoverySalt: string
 }
 
 /** Ein Ranglisten-Eintrag (öffentlich, ohne Token). */
@@ -71,6 +93,8 @@ const MIGRATIONS: readonly string[] = [
   `,
   // v2 — Selbst-Ausblenden: versteckte Accounts erscheinen nicht in der öffentlichen Rangliste.
   `ALTER TABLE accounts ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;`,
+  // v3 — Eigener Account (Phase 2): Salt zum Recovery-Code-Hash (pw_salt existiert bereits aus v1).
+  `ALTER TABLE accounts ADD COLUMN recovery_salt TEXT;`,
 ]
 
 const clampElo = (v: number): number =>
@@ -112,6 +136,19 @@ export interface AccountDb {
   leaderboard(limit: number): LeaderboardEntry[]
   /** Rohzugriff auf den Account zum Token (oder null). */
   getByToken(guestToken: string): AccountRow | null
+  /** Ist dieser Benutzername (case-insensitiv) bereits vergeben? */
+  usernameTaken(username: string): boolean
+  /**
+   * Wertet einen Gast zu einem echten Account auf (setzt Username/Passwort/Email/Recovery). Legt
+   * den Gast bei Bedarf an. Gibt `false`, wenn der Username vergeben ist oder der Gast schon einen hat.
+   */
+  registerAccount(input: RegisterInput): boolean
+  /** Auth-Daten zu einem Benutzernamen (case-insensitiv) — für Login/Recovery. Null wenn unbekannt. */
+  authByUsername(username: string): AccountAuth | null
+  /** Account zu einem Benutzernamen (öffentliche Felder). */
+  getByUsername(username: string): AccountRow | null
+  /** Setzt ein neues Passwort (per Benutzername) — für die Recovery. */
+  setPassword(username: string, pwHash: string, pwSalt: string): void
   /** Schließt die DB (Tests/Shutdown). */
   close(): void
 }
@@ -125,6 +162,7 @@ function rowToAccount(r: Record<string, unknown>): AccountRow {
     wins: r.wins as number,
     losses: r.losses as number,
     peak: r.peak as number,
+    username: (r.username as string | null) ?? null,
   }
 }
 
@@ -159,6 +197,15 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
   )
   const selTop = db.prepare(
     'SELECT display_name, elo, wins, losses FROM accounts WHERE hidden = 0 ORDER BY elo DESC, wins DESC, id ASC LIMIT ?',
+  )
+  const selByUsername = db.prepare('SELECT * FROM accounts WHERE username = ? COLLATE NOCASE')
+  const updRegister = db.prepare(
+    `UPDATE accounts SET username = @username, pw_hash = @pwHash, pw_salt = @pwSalt,
+       email = @email, recovery_hash = @recoveryHash, recovery_salt = @recoverySalt, updated_at = @ts
+     WHERE guest_token = @token AND username IS NULL`,
+  )
+  const updPassword = db.prepare(
+    'UPDATE accounts SET pw_hash = @pwHash, pw_salt = @pwSalt, updated_at = @ts WHERE username = @username COLLATE NOCASE',
   )
 
   return {
@@ -214,6 +261,49 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
     getByToken(guestToken) {
       const row = selByToken.get(guestToken) as Record<string, unknown> | undefined
       return row === undefined ? null : rowToAccount(row)
+    },
+
+    usernameTaken(username) {
+      return selByUsername.get(username) !== undefined
+    },
+
+    registerAccount(input) {
+      if (selByUsername.get(input.username) !== undefined) return false // Username vergeben
+      if (selByToken.get(input.guestToken) === undefined) {
+        insGuest.run({ token: input.guestToken, name: input.username, ts: now() })
+      }
+      const res = updRegister.run({
+        token: input.guestToken,
+        username: input.username,
+        pwHash: input.pwHash,
+        pwSalt: input.pwSalt,
+        email: input.email,
+        recoveryHash: input.recoveryHash,
+        recoverySalt: input.recoverySalt,
+        ts: now(),
+      })
+      return res.changes > 0
+    },
+
+    authByUsername(username) {
+      const r = selByUsername.get(username) as Record<string, unknown> | undefined
+      if (r === undefined) return null
+      return {
+        guestToken: r.guest_token as string,
+        pwHash: (r.pw_hash as string | null) ?? '',
+        pwSalt: (r.pw_salt as string | null) ?? '',
+        recoveryHash: (r.recovery_hash as string | null) ?? '',
+        recoverySalt: (r.recovery_salt as string | null) ?? '',
+      }
+    },
+
+    getByUsername(username) {
+      const r = selByUsername.get(username) as Record<string, unknown> | undefined
+      return r === undefined ? null : rowToAccount(r)
+    },
+
+    setPassword(username, pwHash, pwSalt) {
+      updPassword.run({ username, pwHash, pwSalt, ts: now() })
     },
 
     close() {
