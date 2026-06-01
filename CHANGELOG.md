@@ -4,6 +4,49 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.32.0] – 2026-06-01
+
+### Neu
+
+- **Touch- und Handy-Steuerung:** Das Spiel läuft jetzt vollständig auf Smartphones und
+  Tablets. Ein Finger zieht die Karte, zwei Finger zoomen (Pinch), kurzes Tippen löst
+  einen Angriff aus, Gedrückthalten öffnet das Kontextmenü direkt an der Berührstelle.
+
+- **Aktions-Rad auf Touch:** Auf Touch-Geräten erscheint unten rechts dauerhaft ein
+  rundes Rad. Darüber lassen sich alle Gebäude und Schiffe (Boot, Bomber, Kriegsschiff)
+  per Daumen erreichen — **Zurück** in der Mitte bringt eine Ebene zurück.
+
+- **Füll-Kugel als Truppen-Anzeige:** Neben dem klassischen Balken gibt es jetzt eine
+  Kugel, die sich entsprechend der Truppenstärke füllt. Auf Touch-Geräten ist sie
+  Standard; am Desktop lässt sie sich im **„HUD anpassen"**-Menü aktivieren.
+
+- **Tastenkürzel E:** Wer lieber mit der Tastatur arbeitet, kann mit **E** das
+  Aktionsmenü direkt an der Mausposition öffnen — praktisch als Alternative zum Rechtsklick.
+
+- **Einstellungen mitten im Spiel:** Das Esc-/Pause-Menü enthält jetzt einen
+  **„Einstellungen"**-Eintrag. Lautstärken — Gesamt, Soundeffekte, Musik — lassen sich
+  so anpassen, ohne die Partie verlassen zu müssen. Auch die Größe des Radialmenüs
+  (Klein / Normal / Groß) ist dort wählbar.
+
+### Geändert
+
+- **Steuerungs-Modus wählbar:** Im **„HUD anpassen"**-Menü kann man zwischen
+  **Auto**, **Desktop** und **Touch** wählen. Touch-Modus zeigt das Mobile-Layout
+  auch am Desktop — nützlich, wer auf einem Touchscreen mit Windows spielt oder
+  das Touch-Layout einfach bevorzugt.
+
+- **Minimap einklappbar:** Ein kleiner Knopf an der Minimap blendet sie aus und
+  wieder ein. Auf Touch-Geräten sitzt die Minimap oben rechts, wo der Daumen sie
+  leichter erreicht.
+
+- **Schnelleres Bauen:** Nach dem Platzieren eines Gebäudes bleibt der Bau-Modus
+  aktiv, sodass man direkt mehrere Gebäude desselben Typs hintereinander setzen kann,
+  ohne das Menü erneut öffnen zu müssen.
+
+- **Aufgeräumtes Rechtsklick-Menü:** Das Radialmenü hat ein neues, ruhigeres Aussehen —
+  nahtloses Zifferblatt, Icon und Beschriftung nebeneinander, **Zurück** in der Mitte.
+  Schneller zu lesen, weniger visuelles Rauschen.
+
 ## [0.31.0] – 2026-06-01
 
 ### Neu
