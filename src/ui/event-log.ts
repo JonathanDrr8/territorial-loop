@@ -22,7 +22,12 @@ export interface EventLogApi {
   destroy(): void
 }
 
-const MAX_VISIBLE = 7
+// Standard-Zeilenzahl, wenn die Feed-Spalte content-getrieben ist (kein Höhen-Override).
+const DEFAULT_VISIBLE = 7
+// Obergrenze, falls jemand das Panel sehr groß zieht (kein endloses DOM).
+const MAX_VISIBLE = 40
+// Grobe Pixel-Höhe einer Log-Zeile (Schrift 12 + Padding + Gap) — für die Zeilen-nach-Höhe-Rechnung.
+const ROW_PX = 23
 const FADE_START_TICKS = 60
 const FADE_END_TICKS = 300
 
@@ -205,9 +210,20 @@ export function createEventLog(
       for (const p of state.players.values())
         if (!colorToId.has(p.color)) colorToId.set(p.color, p.id)
     }
+    // Hat die Feed-Spalte eine gesetzte Höhe (Editor-Resize), füllt der Log sie und zeigt so viele
+    // Zeilen, wie reinpassen. Ohne Override bleibt er content-getrieben (Standard-Anzahl, sauberer
+    // Default). Behebt „beim Größerziehen wird nur die Box länger, nicht der Log".
+    const col = box.parentElement
+    const constrained = col !== null && col.style.height !== ''
+    box.style.flex = constrained ? '1 1 0' : '0 1 auto'
+    let limit = DEFAULT_VISIBLE
+    if (constrained) {
+      const avail = box.clientHeight - head.offsetHeight
+      limit = Math.max(3, Math.min(MAX_VISIBLE, Math.floor(avail / ROW_PX)))
+    }
     const html: string[] = []
-    // Von hinten (neueste zuerst) nach vorne, bis MAX_VISIBLE sichtbare gesammelt sind.
-    for (let i = events.length - 1; i >= 0 && html.length < MAX_VISIBLE; i--) {
+    // Von hinten (neueste zuerst) nach vorne, bis `limit` sichtbare gesammelt sind.
+    for (let i = events.length - 1; i >= 0 && html.length < limit; i--) {
       const e = events[i]
       if (e === undefined) continue
       const cat = categoryOf(e.key)
