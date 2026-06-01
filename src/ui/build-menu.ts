@@ -164,12 +164,14 @@ export function createBuildMenu(
     titleColor: string,
     screenX: number,
     screenY: number,
+    /** Gesetzt in Untermenüs: macht die Mitte zum Zurück-Knopf (ruft das Eltern-Menü neu auf). */
+    onBack?: () => void,
   ): void {
     panel.textContent = ''
     const n = actions.length
-    const rIn = 44
-    const rOut = n <= 4 ? 116 : 132
-    const pad = 4
+    const rIn = 64
+    const rOut = n <= 6 ? 158 : 176
+    const pad = 6
     const size = 2 * (rOut + pad)
     const c = size / 2
     panel.style.width = `${String(size)}px`
@@ -181,15 +183,15 @@ export function createBuildMenu(
     svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible'
     panel.appendChild(svg)
 
-    // Mittige Kontext-Info (Titel + dynamische Detailzeile bei Hover) im Totbereich.
+    // Mitte: im Untermenü ein klickbarer Zurück-Knopf, sonst Kontext-Info (Titel + Hover-Detail).
     const info = document.createElement('div')
     info.style.cssText = [
       'position: absolute',
       'left: 50%',
       'top: 50%',
       'transform: translate(-50%,-50%)',
-      `width: ${String(rIn * 2.05)}px`,
-      `height: ${String(rIn * 2.05)}px`,
+      `width: ${String(rIn * 1.96)}px`,
+      `height: ${String(rIn * 1.96)}px`,
       'box-sizing: border-box',
       'border-radius: 50%',
       'display: flex',
@@ -198,21 +200,46 @@ export function createBuildMenu(
       'justify-content: center',
       'padding: 6px',
       'text-align: center',
-      'pointer-events: none',
-      'color: white',
-      'background: rgba(10,12,18,0.92)',
+      `pointer-events: ${onBack !== undefined ? 'auto' : 'none'}`,
+      `cursor: ${onBack !== undefined ? 'pointer' : 'default'}`,
+      'color: var(--tl-text)',
+      'background: var(--tl-panel-bg)',
+      'border: 1px solid var(--tl-panel-border-color)',
+      'box-shadow: inset 0 2px 8px rgba(0,0,0,0.5)',
+      'transition: filter 0.1s',
     ].join(';')
     const titleEl = document.createElement('div')
-    titleEl.textContent = title
-    titleEl.style.cssText = `font-weight: bold; font-size: 11px; line-height: 1.2; color: ${titleColor}`
     const detailEl = document.createElement('div')
-    detailEl.textContent = t('menu.chooseAction')
-    detailEl.style.cssText = 'font-size: 9px; opacity: 0.65; margin-top: 3px; line-height: 1.2'
+    if (onBack !== undefined) {
+      // Zurück-Knopf: Chevron + Name des aktuellen Untermenüs.
+      titleEl.textContent = '‹'
+      titleEl.style.cssText = `font-weight: bold; font-size: 28px; line-height: 1; color: ${titleColor}`
+      detailEl.textContent = title
+      detailEl.style.cssText =
+        'font-size: 12px; font-weight: 600; margin-top: 2px; line-height: 1.2; color: var(--tl-text)'
+      info.addEventListener('mouseenter', () => (info.style.filter = 'brightness(1.2)'))
+      info.addEventListener('mouseleave', () => (info.style.filter = 'none'))
+      info.addEventListener('click', (e) => {
+        e.stopPropagation()
+        onBack()
+      })
+    } else {
+      titleEl.textContent = title
+      titleEl.style.cssText = `font-weight: bold; font-size: 13px; line-height: 1.2; color: ${titleColor}`
+      detailEl.textContent = t('menu.chooseAction')
+      detailEl.style.cssText =
+        'font-size: 10px; opacity: 0.65; margin-top: 3px; line-height: 1.2; color: var(--tl-text)'
+    }
     info.appendChild(titleEl)
     info.appendChild(detailEl)
 
-    const gap = n > 1 ? 0.05 : 0
-    const idle = 'rgba(14,16,22,0.92)'
+    const gap = 0 // nahtloses Zifferblatt — keine toten Zonen, ruhigerer Look
+    // Konkrete Farben fürs SVG (var(--tl-…) löst in style.fill/stroke NICHT auf): dunkles,
+    // theme-neutrales Zifferblatt, das über der bunten Karte in jedem Theme lesbar bleibt. Den
+    // Theme-Bezug tragen die Mitte (Theme-Panel-div), die Wortlabels (var(--tl-text)) und die
+    // Akzentfarben der Aktionen.
+    const idleFill = 'rgba(22,18,14,0.92)'
+    const idleStroke = 'rgba(196,168,120,0.30)'
 
     actions.forEach((a, i) => {
       const clickable = a.enabled && (a.costText === '' || a.affordable)
@@ -225,39 +252,54 @@ export function createBuildMenu(
         n === 1 ? ringPath(c, rIn, rOut) : sectorPath(c, rIn, rOut, mid - half, mid + half),
       )
       if (n === 1) path.setAttribute('fill-rule', 'evenodd')
-      path.setAttribute('fill', idle)
-      path.setAttribute('stroke', a.accent)
-      path.setAttribute('stroke-width', '2')
-      path.setAttribute('stroke-linejoin', 'round')
-      path.style.cssText = [
-        `pointer-events: ${clickable ? 'auto' : 'none'}`,
-        `opacity: ${clickable ? '1' : '0.4'}`,
-        `cursor: ${clickable ? 'pointer' : 'default'}`,
-        'transition: fill 0.08s',
-      ].join(';')
+      // Nahtloses Zifferblatt: einheitliche Theme-Füllung + dünne neutrale Trenner. Die Akzentfarbe
+      // trägt das Icon; beim Hover leuchtet das Segment in seiner Farbe auf. (Fill/Stroke über
+      // style → CSS-Variablen var(--tl-…) lösen auf; setAttribute('fill', 'var(…)') täte das nicht.)
+      path.style.fill = idleFill
+      path.style.stroke = idleStroke
+      path.style.strokeWidth = '1'
+      path.style.strokeLinejoin = 'round'
+      path.style.pointerEvents = clickable ? 'auto' : 'none'
+      path.style.opacity = clickable ? '1' : '0.4'
+      path.style.cursor = clickable ? 'pointer' : 'default'
+      path.style.transition = 'filter 0.1s, stroke 0.1s'
 
       path.addEventListener('mouseenter', () => {
-        const head = a.costText !== '' ? `${a.label} · ${a.costText}` : a.label
-        detailEl.textContent = a.detail !== '' ? `${head} — ${a.detail}` : head
-        detailEl.style.opacity = '1'
-        if (clickable) path.setAttribute('fill', 'rgba(40,44,54,0.97)')
+        if (onBack === undefined) {
+          const head = a.costText !== '' ? `${a.label} · ${a.costText}` : a.label
+          detailEl.textContent = a.detail !== '' ? `${head} — ${a.detail}` : head
+          detailEl.style.opacity = '1'
+        }
+        if (clickable) {
+          path.style.filter = 'brightness(1.32)'
+          path.style.stroke = a.accent
+          path.style.strokeWidth = '1.6'
+        }
       })
       path.addEventListener('mouseleave', () => {
-        detailEl.textContent = t('menu.chooseAction')
-        detailEl.style.opacity = '0.65'
-        path.setAttribute('fill', idle)
+        if (onBack === undefined) {
+          detailEl.textContent = t('menu.chooseAction')
+          detailEl.style.opacity = '0.65'
+        }
+        path.style.filter = 'none'
+        path.style.stroke = idleStroke
+        path.style.strokeWidth = '1'
       })
       if (clickable) {
         path.addEventListener('click', (e) => {
           e.stopPropagation()
           // Untermenü (ADR-0022): an Ort und Stelle in die Kind-Aktionen wechseln statt auszuführen.
-          if (a.submenu !== undefined) renderRadial(a.submenu, a.label, a.accent, screenX, screenY)
-          else a.run()
+          // `back` kehrt zu DIESER Ebene zurück (Mitte = Zurück); tiefere Ebenen erben es.
+          if (a.submenu !== undefined) {
+            const back = (): void =>
+              renderRadial(actions, title, titleColor, screenX, screenY, onBack)
+            renderRadial(a.submenu, a.label, a.accent, screenX, screenY, back)
+          } else a.run()
         })
       }
       svg.appendChild(path)
 
-      // Glyph (+ Kosten) mittig im Segment — rein visuell, fängt keine Klicks ab.
+      // Icon (in Akzentfarbe) + Wortlabel (+ Kosten), mittig im Segment — rein visuell.
       const gr = (rIn + rOut) / 2
       const lbl = document.createElement('div')
       lbl.style.cssText = [
@@ -266,21 +308,32 @@ export function createBuildMenu(
         `top: ${(c + gr * Math.sin(mid)).toFixed(1)}px`,
         'transform: translate(-50%,-50%)',
         'pointer-events: none',
+        'display: flex',
+        'flex-direction: column',
+        'align-items: center',
+        'gap: 3px',
         'text-align: center',
-        'color: white',
         `opacity: ${clickable ? '1' : '0.5'}`,
       ].join(';')
       const glyphEl = document.createElement('div')
       // Glyph ist ein vertrauenswürdiger interner String (Icon-SVG oder einzelnes Symbol) → innerHTML,
-      // damit die Inline-SVG-Icons rendern.
+      // damit die Inline-SVG-Icons rendern. `color` färbt die currentColor-Icons in die Akzentfarbe.
       glyphEl.innerHTML = a.glyph
-      glyphEl.style.cssText =
-        'font-size: 19px; font-weight: bold; line-height: 1; display:flex; align-items:center; justify-content:center'
+      glyphEl.style.cssText = `font-size: 23px; line-height: 1; display:flex; align-items:center; justify-content:center; color: ${a.accent}`
       lbl.appendChild(glyphEl)
+      // Wortlabel nur, wenn genug Platz (bei >7 Segmenten würden Wörter benachbarter Segmente kollidieren
+      // → dann Icon-only, der Name erscheint per Hover in der Mitte).
+      if (n <= 7) {
+        const wordEl = document.createElement('div')
+        wordEl.textContent = a.label
+        wordEl.style.cssText =
+          'font-size: 12px; font-weight: 600; line-height: 1.1; color: var(--tl-text); max-width: 86px'
+        lbl.appendChild(wordEl)
+      }
       if (a.costText !== '') {
         const costEl = document.createElement('div')
         costEl.textContent = a.costText
-        costEl.style.cssText = `font-size: 10px; font-weight: bold; margin-top: 2px; color: ${a.affordable ? '#5dd75d' : '#ef5350'}`
+        costEl.style.cssText = `font-size: 10px; font-weight: bold; color: ${a.affordable ? 'var(--tl-good, #5dd75d)' : '#ef5350'}`
         lbl.appendChild(costEl)
       }
       panel.appendChild(lbl)

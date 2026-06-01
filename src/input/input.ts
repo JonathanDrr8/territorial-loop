@@ -182,6 +182,10 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let lastDragY = 0
   let dragMoved = false
   const DRAG_THRESHOLD = 6
+  // Letzte bekannte Maus-Position (Client-Koords) — für den Tasten-Aufruf des Aktionsmenüs (E),
+  // damit das Rad ohne Rechtsklick an der Cursor-Stelle aufgeht (RMB-Workaround). −1 = noch unbekannt.
+  let lastPointerClientX = -1
+  let lastPointerClientY = -1
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
@@ -309,6 +313,8 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   }
 
   function onMouseMove(e: MouseEvent): void {
+    lastPointerClientX = e.clientX
+    lastPointerClientY = e.clientY
     if (boxStart !== null) {
       const rect = canvas.getBoundingClientRect()
       deps.onSelectionBox?.({
@@ -458,16 +464,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
     const target = tileRef(worldX, worldY, mapWidth, mapHeight)
 
-    // Bau-Modus aktiv → Linksklick platziert das Gebäude. Bei ungültiger Position
-    // (z.B. Hafen nicht am Wasser, fremdes Tile, zu wenig Gold) bleibt der Modus
-    // aktiv, damit man einfach ein anderes Tile wählen kann.
+    // Bau-Modus aktiv → Linksklick platziert das Gebäude. Der Modus BLEIBT aktiv (wie Bomber-/
+    // Kriegsschiff-/Boot-Modus), damit man schnell mehrere desselben Typs setzt — Toggle pro
+    // Gebäude. Beendet wird er per Hotkey/Knopf erneut, Rechtsklick oder Esc. Bei ungültiger
+    // Position (Hafen nicht am Wasser, fremdes Tile, zu wenig Gold) bleibt er ebenfalls aktiv.
     if (buildMode !== null) {
       // Auf ein nahes eigenes Gebäude rasten (Upgrade ohne pixelgenaues Treffen).
       const snapped = deps.snapBuildTarget?.(target, buildMode) ?? target
       const placeable = deps.canPlaceBuilding?.(snapped, buildMode) ?? true
       if (!placeable) return
       emit({ type: 'build', playerId: deps.playerId, tile: snapped, buildingType: buildMode })
-      setBuildMode(null)
       return
     }
 
@@ -602,6 +608,17 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       setWarshipMode(!warshipMode)
     } else if (key === 'r' && deps.interactive !== false) {
       deps.onToggleShipRanges?.()
+    } else if (key === 'e' && deps.interactive !== false) {
+      // Aktionsmenü an der Mausposition öffnen — Alternative zum Rechtsklick (bei manchen
+      // Browsern/Setups kommt RMB nicht an). Öffnet dasselbe Radialmenü wie ein Rechtsklick.
+      if (deps.onRadialMenu !== undefined && lastPointerClientX >= 0) {
+        const rect = canvas.getBoundingClientRect()
+        deps.onRadialMenu(
+          screenToTile(lastPointerClientX, lastPointerClientY),
+          lastPointerClientX - rect.left,
+          lastPointerClientY - rect.top,
+        )
+      }
     } else if (key === 'c') {
       events.recenterSelf?.()
     } else if (e.key === 'Escape') {
