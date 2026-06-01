@@ -18,6 +18,8 @@ import '@fontsource/saira-condensed/600.css'
 import '@fontsource/saira-condensed/700.css'
 import '@fontsource/saira-semi-condensed/500.css'
 import '@fontsource/saira-semi-condensed/600.css'
+
+import { notifySettingsChanged } from './account-settings'
 import '@fontsource/saira-semi-condensed/700.css'
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace'
@@ -211,6 +213,7 @@ export function setTheme(name: string): void {
   } catch {
     /* ignore */
   }
+  notifySettingsChanged()
 }
 
 /** Einmalig zu App-Start: gespeichertes (oder Default-) Theme anwenden. Idempotent. */

@@ -23,6 +23,8 @@ export interface PanelOverride {
   hidden?: boolean
 }
 
+import { notifySettingsChanged } from './account-settings'
+
 const KEY = 'territorial-loop:hud-layout:v1'
 
 let layout: Record<string, PanelOverride> = load()
@@ -44,6 +46,7 @@ function save(): void {
   } catch {
     /* ignore */
   }
+  notifySettingsChanged()
 }
 
 /** Wendet den (evtl. vorhandenen) Override eines Panels auf sein DOM-Element an. */

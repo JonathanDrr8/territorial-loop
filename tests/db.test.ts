@@ -98,6 +98,15 @@ describe('AccountDb', () => {
     db.close()
   })
 
+  it('speichert und liest einen Einstellungs-Blob am Account', () => {
+    const db = freshDb()
+    db.getOrCreateGuest('tok-1', 'Merkur')
+    expect(db.getSettings('tok-1')).toBeNull()
+    db.setSettings('tok-1', '{"theme":"kriegskarte"}')
+    expect(db.getSettings('tok-1')).toBe('{"theme":"kriegskarte"}')
+    db.close()
+  })
+
   it('Migrationen sind idempotent (zweites Öffnen wirft nicht)', () => {
     // Datei-DB wäre nötig für echtes Reopen; hier prüfen wir, dass open + Schema mehrfach geht.
     const db1 = freshDb()

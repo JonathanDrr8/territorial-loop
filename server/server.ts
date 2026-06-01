@@ -795,6 +795,39 @@ export function startServer(port: number = PORT, dbPath?: string): Promise<Runni
       })
       return
     }
+    // Geräteübergreifende Einstellungen (HUD-Layout/Theme/Audio/Vorgaben/Sprache) am Konto.
+    if (req.url?.startsWith('/account/settings')) {
+      if (req.method === 'POST') {
+        readJsonBody(req, res, 20000, (d) => {
+          const token = String(d.token ?? '')
+          if (!TOKEN_RE.test(token)) {
+            sendJson(res, 400, { error: 'token' })
+            return Promise.resolve()
+          }
+          if (db.getByToken(token) === null) {
+            sendJson(res, 404, { error: 'unknown' })
+            return Promise.resolve()
+          }
+          // Nur ein begrenzter JSON-Blob (Schutz vor Müll/Riesen-Payloads).
+          db.setSettings(token, JSON.stringify(d.settings ?? {}).slice(0, 16000))
+          sendJson(res, 200, { ok: true })
+          return Promise.resolve()
+        })
+        return
+      }
+      const q = new URL(req.url, 'http://x').searchParams
+      const raw = db.getSettings(q.get('token') ?? '')
+      let settings: unknown = null
+      if (raw !== null) {
+        try {
+          settings = JSON.parse(raw)
+        } catch {
+          settings = null
+        }
+      }
+      sendJson(res, 200, { settings })
+      return
+    }
     // Kann (room, name) wieder beitreten? = Raum existiert, Match läuft, ein getrennter Slot
     // dieses Namens wartet. Damit zeigt das Hauptmenü den „Wieder verbinden"-Knopf nur, wenn er
     // wirklich funktioniert (keine „Leiche" für längst beendete/verlassene Räume).

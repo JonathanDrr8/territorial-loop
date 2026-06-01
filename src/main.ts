@@ -10,6 +10,7 @@ import { createAI, type AI } from './ai/ai'
 import { profileForElo } from './ai/strength'
 import { loadRanked, recordResult, resetRanked } from './ui/ranked'
 import { submitRank, isRankHidden } from './ui/rank-online'
+import { initAccountSync } from './ui/account-settings'
 import {
   canBuildAt,
   canReachByLand,
@@ -1377,6 +1378,9 @@ function main(): void {
         })
     }
   }
+
+  // Geräteübergreifenden Einstellungs-Sync verdrahten (ADR-0027): Push-Ziel für eingeloggte Spieler.
+  initAccountSync(loadServerUrl(defaultServerUrl()))
 
   // Einladungslink → direkt in die Lobby dieses Raums (auch für private Lobbys). Bevorzugt das
   // pfad-basierte Schema `/r/CODE` (hübsch teilbar), mit `?room=CODE` als Fallback (Alt-Links).
