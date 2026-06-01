@@ -4,6 +4,23 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.28.0] – 2026-06-01
+
+### Neu
+
+- **Online-Rangliste:** Im Hauptmenü gibt es einen neuen Tab **„Rangliste"**. Dein ELO aus
+  Solo-Matches gegen die KI wird weltweit gespeichert und in einer Bestenliste angezeigt —
+  dein eigener Eintrag ist hervorgehoben. Mehrspieler-Partien fließen nicht in die Wertung
+  ein. Die Rangliste funktioniert ohne Konto (als Gast). Wer nicht in der öffentlichen Liste
+  auftauchen möchte, kann sich dort ausblenden.
+
+- **Optionales Konto:** Im Menü-Header gibt es einen neuen **Konto-Knopf**. Mit Benutzername
+  und Passwort kann man sich registrieren und anmelden — dann ist die Wertung
+  geräteübergreifend (Handy, PC) und bleibt auch bei einem Browser-Wechsel erhalten. Beim
+  Registrieren erhält man einmalig einen **Wiederherstellungs-Code**, mit dem man das
+  Passwort ohne E-Mail zurücksetzen kann. E-Mail-Adresse ist optional. Wer kein Konto anlegt,
+  spielt ganz normal als Gast weiter — eine Anmeldung ist nie Pflicht.
+
 ## [0.27.0] – 2026-06-01
 
 ### Neu
