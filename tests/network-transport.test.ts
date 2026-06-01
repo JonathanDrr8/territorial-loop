@@ -9,7 +9,7 @@ import { hashState } from '../src/core/hash'
 let server: RunningServer
 
 beforeEach(async () => {
-  server = await startServer(0)
+  server = await startServer(0, ':memory:')
 })
 
 afterEach(async () => {

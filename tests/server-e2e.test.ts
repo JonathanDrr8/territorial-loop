@@ -9,7 +9,7 @@ import { decodeServer, encode } from '../src/net/protocol'
 let server: RunningServer
 
 beforeEach(async () => {
-  server = await startServer(0) // ephemerer Port
+  server = await startServer(0, ':memory:') // ephemerer Port, DB im RAM
 })
 
 afterEach(async () => {

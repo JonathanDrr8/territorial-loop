@@ -14,6 +14,15 @@
 import { getLocale, LOCALES, onLocaleChange, setLocale, t, type Locale } from '../i18n'
 import { PRESET_ELO } from '../ai/strength'
 import { loadRanked } from './ranked'
+import {
+  fetchLeaderboard,
+  isRankHidden,
+  setRankHiddenLocal,
+  submitRank,
+  type OnlineRankEntry,
+} from './rank-online'
+import { currentUsername } from './account'
+import { createAccountDialog, type AccountDialogApi } from './account-dialog'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
@@ -72,11 +81,12 @@ export interface MenuShellCallbacks {
   onRanked(values: StartMenuValues): void
 }
 
-type TabId = 'play' | 'multiplayer' | 'settings' | 'changelog' | 'help'
+type TabId = 'play' | 'multiplayer' | 'ranking' | 'settings' | 'changelog' | 'help'
 
 const TABS: ReadonlyArray<readonly [TabId, string]> = [
   ['play', 'nav.play'],
   ['multiplayer', 'nav.multiplayer'],
+  ['ranking', 'nav.ranking'],
   ['settings', 'nav.settings'],
   ['changelog', 'nav.changelog'],
   ['help', 'nav.help'],
@@ -125,12 +135,15 @@ export function createMenuShell(
 
   let overlay: HTMLDivElement | null = null
   let lobbyBrowser: LobbyBrowserApi | null = null
+  let accountDialog: AccountDialogApi | null = null
   let bannerSlot: HTMLDivElement | null = null
   let tipTimer: ReturnType<typeof setInterval> | null = null
 
   const teardown = (): void => {
     lobbyBrowser?.destroy()
     lobbyBrowser = null
+    accountDialog?.destroy()
+    accountDialog = null
     if (tipTimer !== null) {
       clearInterval(tipTimer)
       tipTimer = null
@@ -279,6 +292,25 @@ export function createMenuShell(
     nameWrap.appendChild(nameInput)
     right.appendChild(nameWrap)
 
+    // Konto-Knopf (ADR-0027 Phase 2): zeigt den Login-Status, öffnet den Account-Dialog.
+    const accountBtn = document.createElement('button')
+    accountBtn.className = 'tl-tab'
+    const refreshAccountBtn = (): void => {
+      const u = currentUsername()
+      accountBtn.textContent = u !== null ? u : t('account.signIn')
+      accountBtn.style.color = u !== null ? ACCENT : ''
+      accountBtn.title = u !== null ? t('account.loggedInAs', { name: u }) : t('account.signIn')
+    }
+    refreshAccountBtn()
+    accountBtn.addEventListener('click', () => {
+      accountDialog?.destroy()
+      accountDialog = createAccountDialog({
+        serverUrl: serverUrl ?? '',
+        onChange: refreshAccountBtn,
+      })
+    })
+    right.appendChild(accountBtn)
+
     const langSelect = document.createElement('select')
     langSelect.style.cssText = SELECT_STYLE + ';width: auto'
     langSelect.title = t('lang.label')
@@ -389,6 +421,8 @@ export function createMenuShell(
         return buildPlayTab()
       case 'multiplayer':
         return buildMultiplayerTab()
+      case 'ranking':
+        return buildRankingTab()
       case 'settings':
         return buildSettingsTab()
       case 'changelog':
@@ -978,6 +1012,103 @@ export function createMenuShell(
       wrap.appendChild(browser)
     }
 
+    return wrap
+  }
+
+  function buildRankingTab(): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.cssText =
+      'display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%'
+
+    const p = panel()
+    section(p, t('ranking.title'))
+
+    const intro = document.createElement('div')
+    intro.textContent = t('ranking.intro')
+    intro.style.cssText = 'opacity: 0.7; font-size: 13px; margin-bottom: 14px; line-height: 1.5'
+    p.appendChild(intro)
+
+    // Eigenes ELO/Bilanz (aus dem lokalen Ranglisten-Stand) — Orientierung „wo stehe ich".
+    const me = loadRanked()
+    const mine = document.createElement('div')
+    mine.style.cssText =
+      'display: flex; gap: 18px; font-size: 14px; margin-bottom: 14px; opacity: 0.92'
+    mine.innerHTML =
+      `<span><b style="color:${ACCENT}">${t('ranking.myElo')}:</b> ${String(me.elo)}</span>` +
+      `<span><b style="color:${ACCENT}">${t('ranking.myPeak')}:</b> ${String(me.peak)}</span>` +
+      `<span>${String(me.wins)}&thinsp;/&thinsp;${String(me.losses)}</span>`
+    p.appendChild(mine)
+
+    // Liste (asynchron geladen).
+    const list = document.createElement('div')
+    list.style.cssText = 'width: 100%; min-height: 60px'
+    list.textContent = t('ranking.loading')
+    list.style.opacity = '0.6'
+    list.style.fontSize = '13px'
+    p.appendChild(list)
+
+    const myName = values.playerName.trim()
+
+    function renderList(entries: readonly OnlineRankEntry[]): void {
+      list.textContent = ''
+      list.style.opacity = '1'
+      if (entries.length === 0) {
+        list.textContent = t('ranking.empty')
+        list.style.opacity = '0.6'
+        return
+      }
+      const head = ['#', t('ranking.colName'), t('ranking.colElo'), t('ranking.colRecord')]
+      const grid = document.createElement('div')
+      grid.style.cssText =
+        'display: grid; grid-template-columns: 32px 1fr auto auto; gap: 4px 14px; align-items: center; font-size: 14px'
+      for (const [i, h] of head.entries()) {
+        const c = document.createElement('div')
+        c.textContent = h
+        c.style.cssText = `font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.5; ${i >= 2 ? 'text-align: right' : ''}`
+        grid.appendChild(c)
+      }
+      for (const e of entries) {
+        const mineRow = e.displayName === myName
+        const cells = [
+          String(e.rank),
+          e.displayName,
+          String(e.elo),
+          `${String(e.wins)}/${String(e.losses)}`,
+        ]
+        for (const [i, val] of cells.entries()) {
+          const c = document.createElement('div')
+          c.textContent = val
+          c.style.cssText = `padding: 3px 0; ${i >= 2 ? 'text-align: right; font-variant-numeric: tabular-nums' : ''} ${mineRow ? `color: ${ACCENT}; font-weight: 700` : ''}`
+          if (i === 1)
+            c.style.cssText += ';overflow: hidden; text-overflow: ellipsis; white-space: nowrap'
+          grid.appendChild(c)
+        }
+      }
+      list.appendChild(grid)
+    }
+
+    const refresh = (): void => {
+      void fetchLeaderboard(serverUrl ?? '', 100).then(renderList)
+    }
+    refresh()
+
+    // „Mich ausblenden": lokale Präferenz + sofort an den Server melden (wirkt ohne Match).
+    const hideRow = makeCheckRow(
+      t('ranking.hideMe'),
+      isRankHidden(),
+      t('ranking.hidden'),
+      t('ranking.visible'),
+    )
+    hideRow.element.style.marginTop = '18px'
+    const checkInput = hideRow.element.querySelector('input')
+    checkInput?.addEventListener('change', () => {
+      const hidden = hideRow.getValue()
+      setRankHiddenLocal(hidden)
+      void submitRank(serverUrl ?? '', values.playerName, loadRanked(), hidden).then(refresh)
+    })
+    p.appendChild(hideRow.element)
+
+    wrap.appendChild(p)
     return wrap
   }
 

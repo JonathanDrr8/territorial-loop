@@ -21,6 +21,14 @@ import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
 
 import { ServerMatch } from './match'
+import { openDb, type AccountDb } from './db'
+import {
+  generateRecoveryCode,
+  hashPassword,
+  hashRecoveryCode,
+  verifyPassword,
+  verifyRecoveryCode,
+} from './auth'
 import { DIFFICULTIES, type Difficulty } from '../src/ai/ai'
 import type { BuildingType } from '../src/core/buildings'
 import type { GameConfig, PlayerDef } from '../src/core/game'
@@ -93,6 +101,164 @@ function handleFeedback(req: IncomingMessage, res: ServerResponse): void {
       res.end()
     }
   })
+}
+
+/**
+ * Nimmt einen Ranglisten-Stand entgegen (ADR-0027): `{ token, name, elo, wins, losses, peak }` als
+ * JSON-POST. Bindet den Stand an das (clientseitig erzeugte) Gast-Token und persistiert ihn
+ * server-geklemmt. **Ehrenbasis** — das Solo-ELO läuft im Client, ist also vertrauensbasiert; der
+ * Server klemmt nur an die ELO-Grenzen (kein Sim-/MP-Bezug). Antwortet mit dem gespeicherten Stand.
+ */
+function handleRankSubmit(req: IncomingMessage, res: ServerResponse, db: AccountDb): void {
+  let body = ''
+  req.on('data', (c: Buffer) => {
+    body += c.toString()
+    if (body.length > 2000) req.destroy()
+  })
+  req.on('end', () => {
+    const fail = (code: number): void => {
+      res.writeHead(code, { 'access-control-allow-origin': '*' })
+      res.end()
+    }
+    try {
+      const p = JSON.parse(body) as Record<string, unknown>
+      const token = String(p.token ?? '').slice(0, 64)
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(token)) return fail(400)
+      const name = String(p.name ?? '').slice(0, 24)
+      const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+      db.getOrCreateGuest(token, name)
+      const acc = db.setRanked(token, num(p.elo), num(p.wins), num(p.losses), num(p.peak))
+      if (acc === null) return fail(400)
+      if (typeof p.hidden === 'boolean') db.setHidden(token, p.hidden)
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*',
+      })
+      res.end(JSON.stringify({ elo: acc.elo, wins: acc.wins, losses: acc.losses, peak: acc.peak }))
+    } catch {
+      fail(400)
+    }
+  })
+}
+
+/** JSON-Antwort mit offenem CORS (Dev-Seite 5173 ruft den Server 8787 cross-origin). */
+function sendJson(res: ServerResponse, code: number, obj: unknown): void {
+  res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+  res.end(JSON.stringify(obj))
+}
+
+/** Liest einen JSON-POST-Body (längenbegrenzt) und reicht ihn an einen (ggf. async) Handler. */
+function readJsonBody(
+  req: IncomingMessage,
+  res: ServerResponse,
+  maxLen: number,
+  handler: (data: Record<string, unknown>) => Promise<void>,
+): void {
+  let body = ''
+  req.on('data', (c: Buffer) => {
+    body += c.toString()
+    if (body.length > maxLen) req.destroy()
+  })
+  req.on('end', () => {
+    let data: Record<string, unknown>
+    try {
+      data = JSON.parse(body) as Record<string, unknown>
+    } catch {
+      sendJson(res, 400, { error: 'bad-json' })
+      return
+    }
+    handler(data).catch(() => {
+      try {
+        sendJson(res, 500, { error: 'server' })
+      } catch {
+        /* Antwort evtl. schon raus */
+      }
+    })
+  })
+}
+
+const USERNAME_RE = /^[A-Za-z0-9_-]{3,24}$/
+const TOKEN_RE = /^[A-Za-z0-9_-]{8,64}$/
+
+/** Account-Registrierung (ADR-0027 Phase 2): wertet den Gast zu username+Passwort auf. */
+async function handleRegister(
+  data: Record<string, unknown>,
+  res: ServerResponse,
+  db: AccountDb,
+): Promise<void> {
+  const token = String(data.token ?? '')
+  const username = String(data.username ?? '').trim()
+  const password = String(data.password ?? '')
+  const emailRaw = String(data.email ?? '').trim()
+  if (!TOKEN_RE.test(token)) return sendJson(res, 400, { error: 'token' })
+  if (!USERNAME_RE.test(username)) return sendJson(res, 400, { error: 'username' })
+  if (password.length < 6 || password.length > 200) return sendJson(res, 400, { error: 'password' })
+  const email = emailRaw.length > 0 && emailRaw.includes('@') ? emailRaw.slice(0, 120) : null
+  if (db.usernameTaken(username)) return sendJson(res, 409, { error: 'taken' })
+
+  const recoveryCode = generateRecoveryCode()
+  const pw = await hashPassword(password)
+  const rec = await hashRecoveryCode(recoveryCode)
+  const ok = db.registerAccount({
+    guestToken: token,
+    username,
+    pwHash: pw.hash,
+    pwSalt: pw.salt,
+    email,
+    recoveryHash: rec.hash,
+    recoverySalt: rec.salt,
+  })
+  if (!ok) return sendJson(res, 409, { error: 'taken' })
+  // Recovery-Code EINMALIG zurückgeben (wird nur gehasht gespeichert).
+  sendJson(res, 200, { ok: true, recoveryCode })
+}
+
+/** Login: prüft username+Passwort, gibt das Gast-Token des Accounts zurück (Cross-Device-Kennung). */
+async function handleLogin(
+  data: Record<string, unknown>,
+  res: ServerResponse,
+  db: AccountDb,
+): Promise<void> {
+  const username = String(data.username ?? '').trim()
+  const password = String(data.password ?? '')
+  const auth = db.authByUsername(username)
+  // Auch bei unbekanntem User einmal hashen wäre ideal (Timing); hier pragmatisch generische Antwort.
+  if (auth === null || auth.pwHash.length === 0) return sendJson(res, 401, { error: 'invalid' })
+  if (!(await verifyPassword(password, auth.pwHash, auth.pwSalt)))
+    return sendJson(res, 401, { error: 'invalid' })
+  const acc = db.getByUsername(username)
+  if (acc === null) return sendJson(res, 401, { error: 'invalid' })
+  sendJson(res, 200, {
+    ok: true,
+    token: auth.guestToken,
+    username: acc.username,
+    displayName: acc.displayName,
+    elo: acc.elo,
+    wins: acc.wins,
+    losses: acc.losses,
+    peak: acc.peak,
+  })
+}
+
+/** Passwort-Reset per Recovery-Code: prüft Code, setzt neues Passwort, gibt das Gast-Token zurück. */
+async function handleRecover(
+  data: Record<string, unknown>,
+  res: ServerResponse,
+  db: AccountDb,
+): Promise<void> {
+  const username = String(data.username ?? '').trim()
+  const code = String(data.recoveryCode ?? '')
+  const newPassword = String(data.newPassword ?? '')
+  if (newPassword.length < 6 || newPassword.length > 200)
+    return sendJson(res, 400, { error: 'password' })
+  const auth = db.authByUsername(username)
+  if (auth === null || auth.recoveryHash.length === 0)
+    return sendJson(res, 401, { error: 'invalid' })
+  if (!(await verifyRecoveryCode(code, auth.recoveryHash, auth.recoverySalt)))
+    return sendJson(res, 401, { error: 'invalid' })
+  const pw = await hashPassword(newPassword)
+  db.setPassword(username, pw.hash, pw.salt)
+  sendJson(res, 200, { ok: true, token: auth.guestToken })
 }
 
 const MIME: Record<string, string> = {
@@ -512,7 +678,8 @@ export interface RunningServer {
  * Startet HTTP (Health) + WebSocket-Server auf `port` (0 = ephemerer Port). Gibt ein Handle
  * mit dem tatsächlichen Port und einer `close()`-Funktion zurück.
  */
-export function startServer(port: number = PORT): Promise<RunningServer> {
+export function startServer(port: number = PORT, dbPath?: string): Promise<RunningServer> {
+  const db = dbPath === undefined ? openDb() : openDb(dbPath)
   const httpServer = createServer((req, res) => {
     if (req.url === '/health') {
       res.writeHead(200, { 'content-type': 'text/plain' })
@@ -569,6 +736,63 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     if (req.url === '/version') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
       res.end(JSON.stringify({ version: APP_VERSION }))
+      return
+    }
+    // Online-Rangliste (ADR-0027): Top-N nach ELO als JSON. `?limit=N` (Default 100, max 500).
+    if (req.url?.startsWith('/leaderboard')) {
+      const q = new URL(req.url, 'http://x').searchParams
+      const limit = Number(q.get('limit') ?? 100)
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ entries: db.leaderboard(Number.isFinite(limit) ? limit : 100) }))
+      return
+    }
+    // Ranglisten-Stand einreichen (ADR-0027): POST { token, name, elo, wins, losses, peak }.
+    if (req.url === '/rank/submit' && req.method === 'POST') {
+      handleRankSubmit(req, res, db)
+      return
+    }
+    // CORS-Preflight für JSON-POSTs (application/json triggert Preflight).
+    if (
+      req.method === 'OPTIONS' &&
+      (req.url === '/rank/submit' || req.url?.startsWith('/account/'))
+    ) {
+      res.writeHead(204, {
+        'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': 'content-type',
+      })
+      res.end()
+      return
+    }
+    // Account-System (ADR-0027 Phase 2): Registrieren / Login / Passwort-Reset.
+    if (req.url === '/account/register' && req.method === 'POST') {
+      readJsonBody(req, res, 2000, (d) => handleRegister(d, res, db))
+      return
+    }
+    if (req.url === '/account/login' && req.method === 'POST') {
+      readJsonBody(req, res, 2000, (d) => handleLogin(d, res, db))
+      return
+    }
+    if (req.url === '/account/recover' && req.method === 'POST') {
+      readJsonBody(req, res, 2000, (d) => handleRecover(d, res, db))
+      return
+    }
+    // „Wer bin ich" zum gespeicherten Gast-Token (username gesetzt = eingeloggt).
+    if (req.url?.startsWith('/account/me')) {
+      const q = new URL(req.url, 'http://x').searchParams
+      const acc = db.getByToken(q.get('token') ?? '')
+      if (acc === null) {
+        sendJson(res, 404, { error: 'unknown' })
+        return
+      }
+      sendJson(res, 200, {
+        username: acc.username,
+        displayName: acc.displayName,
+        elo: acc.elo,
+        wins: acc.wins,
+        losses: acc.losses,
+        peak: acc.peak,
+      })
       return
     }
     // Kann (room, name) wieder beitreten? = Raum existiert, Match läuft, ein getrennter Slot
@@ -739,6 +963,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
           new Promise<void>((res) => {
             for (const r of rooms.values()) if (r.clock !== null) clearInterval(r.clock)
             rooms.clear()
+            db.close()
             wss.close(() => httpServer.close(() => res()))
           }),
       })

@@ -12,6 +12,15 @@ build/
 coverage/
 .vitest/
 
+# Account-/Ranglisten-Datenbank (Nutzerdaten — NIEMALS ins Git! ADR-0027)
+# Nur Schema/Migrationen liegen im Code (server/db.ts), nie die Daten.
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
 # Logs
 *.log
 npm-debug.log*
