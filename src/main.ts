@@ -34,6 +34,8 @@ import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
+import { createActionWheel } from './ui/action-wheel'
+import type { BuildingType } from './core/buildings'
 import { pickDistinctColors } from './ui/colors'
 import { createConfirmDialog } from './ui/confirm-dialog'
 import { createEventLog } from './ui/event-log'
@@ -817,6 +819,35 @@ function startMatch(
 
   inputHandler = input
 
+  // Immer sichtbares Action-Rad (nur Touch/Mobile erstmal): primäre Steuerung ohne Tastatur —
+  // Bauen/Schiffe wählen → Modus scharf → auf die Karte tippen/ziehen zum Platzieren.
+  const WHEEL_BUILD_ORDER: BuildingType[] = [
+    'city',
+    'defense',
+    'port',
+    'factory',
+    'airport',
+    'flak',
+  ]
+  const touchDevice = ((): boolean => {
+    try {
+      return (
+        navigator.maxTouchPoints > 0 ||
+        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+      )
+    } catch {
+      return false
+    }
+  })()
+  const actionWheel = createActionWheel(container, {
+    allowedBuildings: WHEEL_BUILD_ORDER.filter((tp) => config.allowedBuildings?.[tp] !== false),
+    onBuild: (tp) => input.toggleBuildMode(tp),
+    onBoat: () => input.toggleBoatMode(),
+    onBomber: () => input.toggleBomberMode(),
+    onWarship: () => input.toggleWarshipMode(),
+  })
+  actionWheel.setVisible(touchDevice && !spectator)
+
   hud.setSpeed(speed)
 
   // Tutorial-Drehbuch (geführtes Match, Option im Menü): steuert die Sim-Pause und hängt sein
@@ -979,6 +1010,7 @@ function startMatch(
       unregisterPanel('feed')
       feedColumn.remove()
       buildMenu.destroy()
+      actionWheel.destroy()
       confirmDialog.destroy()
       pauseMenu.destroy()
       renderer.destroy()
