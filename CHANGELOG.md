@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.29.1] – 2026-06-01
+
+### Geändert
+
+- **E-Mail-Feld beim Registrieren ausgeblendet:** Solange es keinen Mail-Versand gibt, hätte
+  eine E-Mail-Adresse keinen Nutzen. Das Zurücksetzen des Passworts läuft weiter über den
+  Wiederherstellungs-Code. (Das Feld kommt zurück, sobald der Mail-Versand eingerichtet ist.)
+
 ## [0.29.0] – 2026-06-01
 
 ### Neu
