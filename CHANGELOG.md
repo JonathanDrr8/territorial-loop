@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.26.1] – 2026-06-01
+
+### Behoben
+
+- **Hauptstadt ist jetzt eine echte Stadt:** Im Hauptstadt-Modus gibt die Hauptstadt nun
+  den Truppen-Limit-Bonus wie jede andere **Stadt** und zählt als deine erste Stadt — der
+  **Stern** bleibt weiterhin als Markierung sichtbar. Wer die Hauptstadt erobert, übernimmt
+  damit auch die Stadt.
+
 ## [0.26.0] – 2026-06-01
 
 ### Neu
