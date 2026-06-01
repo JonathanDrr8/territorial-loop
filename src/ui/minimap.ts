@@ -19,6 +19,8 @@ import { t } from '../i18n'
 
 export interface MinimapApi {
   update(): void
+  /** Position live umschalten (Steuerungs-Modus). */
+  setMobile(on: boolean): void
   destroy(): void
 }
 
@@ -163,6 +165,16 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
 
   return {
     update,
+    /** Position live umschalten (Steuerungs-Modus): Mobile = oben rechts, sonst unten rechts. */
+    setMobile(on: boolean): void {
+      if (on) {
+        wrapper.style.top = `${String(MARGIN)}px`
+        wrapper.style.bottom = 'auto'
+      } else {
+        wrapper.style.bottom = `${String(MARGIN)}px`
+        wrapper.style.top = 'auto'
+      }
+    },
     destroy(): void {
       unregisterPanel('minimap')
       wrapper.remove()

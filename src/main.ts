@@ -49,6 +49,7 @@ import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { registerPanel, unregisterPanel } from './ui/hud-layout'
+import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
 import { createHudEditor } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
@@ -629,6 +630,12 @@ function startMatch(
       return false
     }
   })()
+  // Effektives Mobile-Layout aus dem Steuerungs-Modus (HUD-Editor): auto folgt der Geräte-Erkennung,
+  // `touch`/`desktop` erzwingen es. Live umschaltbar (siehe onHudPrefsChange weiter unten).
+  const isMobileLayout = (): boolean => {
+    const cm = getHudPrefs().controlMode
+    return cm === 'touch' || (cm === 'auto' && touchDevice)
+  }
 
   const minimap = createMinimap({
     container,
@@ -639,7 +646,7 @@ function startMatch(
       width: renderer.canvas.clientWidth,
       height: renderer.canvas.clientHeight,
     }),
-    mobile: touchDevice,
+    mobile: isMobileLayout(),
   })
 
   const tooltip = createHoverTooltip(
@@ -849,7 +856,13 @@ function startMatch(
     onBomber: () => input.toggleBomberMode(),
     onWarship: () => input.toggleWarshipMode(),
   })
-  actionWheel.setVisible(touchDevice && !spectator)
+  actionWheel.setVisible(isMobileLayout() && !spectator)
+  // Steuerungs-Modus live (HUD-Editor): Eck-Rad ein/aus + Minimap oben/unten umschalten.
+  const offControlMode = onHudPrefsChange(() => {
+    const m = isMobileLayout()
+    actionWheel.setVisible(m && !spectator)
+    minimap.setMobile(m)
+  })
 
   hud.setSpeed(speed)
 
@@ -1014,6 +1027,7 @@ function startMatch(
       feedColumn.remove()
       buildMenu.destroy()
       actionWheel.destroy()
+      offControlMode()
       confirmDialog.destroy()
       pauseMenu.destroy()
       renderer.destroy()

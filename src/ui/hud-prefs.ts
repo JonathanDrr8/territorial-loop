@@ -13,6 +13,12 @@ export type SliderHome = 'action' | 'resource'
 export type ButtonsLayout = 'row' | 'numpad'
 /** Darstellung der Truppen-Anzeige: klassischer Balken oder füllende Kugel. */
 export type TroopStyle = 'bar' | 'orb'
+/**
+ * Steuerungs-Modus: `auto` erkennt Touch-Geräte selbst; `touch` erzwingt das Mobile-Layout
+ * (immer sichtbares Eck-Rad + Minimap oben rechts) auch am Desktop; `desktop` erzwingt das
+ * klassische Layout (Tastatur + Rechtsklick/E, kein Eck-Rad).
+ */
+export type ControlMode = 'auto' | 'desktop' | 'touch'
 
 export interface HudPrefs {
   sliderHome: SliderHome
@@ -23,6 +29,8 @@ export interface HudPrefs {
   actionSplit: boolean
   /** Truppen-Anzeige-Stil (Balken/Kugel). Default Kugel auf Touch-Geräten, sonst Balken. */
   troopStyle: TroopStyle
+  /** Steuerungs-Modus (siehe [[ControlMode]]). Default `auto`. */
+  controlMode: ControlMode
 }
 
 const KEY = 'territorial-loop:hud-prefs:v1'
@@ -45,6 +53,7 @@ const DEFAULTS: HudPrefs = {
   resourceSplit: false,
   actionSplit: false,
   troopStyle: 'bar',
+  controlMode: 'auto',
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -68,6 +77,10 @@ function load(): HudPrefs {
               : isTouchDevice()
                 ? 'orb'
                 : 'bar',
+        controlMode:
+          parsed.controlMode === 'touch' || parsed.controlMode === 'desktop'
+            ? parsed.controlMode
+            : 'auto',
       }
     }
   } catch {
