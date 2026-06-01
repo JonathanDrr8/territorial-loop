@@ -12,13 +12,14 @@
 
 import type { GameState } from '../core/game'
 import type { BuildingType } from '../core/buildings'
+import { t } from '../i18n'
 
 /** Ein Drehbuch-Schritt: Erklärung + (optional) Auslöser zum Weiterkommen + (optional) Regie. */
 export interface TutorialStep {
   readonly id: string
-  /** Überschrift im Ziel-Panel (kurz). */
+  /** i18n-Key für die kurze Überschrift im Ziel-Panel. */
   readonly goal: string
-  /** Erklärtext in der Pause-Box. */
+  /** i18n-Key für den Erklärtext in der Pause-Box. */
   readonly text: string
   /** Beim Betreten ausgeführt — Regie (Gold geben, Gegner wecken, Ziel markieren …). */
   readonly onEnter?: (state: GameState, humanId: number) => void
@@ -76,31 +77,24 @@ const giveGold = (s: GameState, id: number, amount: number): void => {
 export function defaultTutorialSteps(): readonly TutorialStep[] {
   let tilesAtExpand = 0
   let wildAtStart = 0
+  const k = (id: string, part: 'goal' | 'text'): string => `tutorial.step.${id}.${part}`
 
   return [
-    {
-      id: 'welcome',
-      goal: 'Willkommen',
-      text: 'Willkommen bei territorial-loop! Das farbige Gebiet in der Mitte ist dein Reich. Dein Ziel: dich ausbreiten und die Insel erobern. Wir gehen die Grundlagen Schritt für Schritt durch.',
-    },
+    { id: 'welcome', goal: k('welcome', 'goal'), text: k('welcome', 'text') },
     {
       id: 'expand',
-      goal: 'Breite dich aus',
-      text: 'Klicke ein angrenzendes graues Gebiet an deiner Grenze an — deine Truppen breiten sich dorthin aus.',
+      goal: k('expand', 'goal'),
+      text: k('expand', 'text'),
       onEnter: (s, id) => {
         tilesAtExpand = myTiles(s, id)
       },
       done: (s, id) => myTiles(s, id) > tilesAtExpand,
     },
-    {
-      id: 'size',
-      goal: 'Angriffsgröße',
-      text: 'Mit dem Mausrad stellst du ein, wie viel deiner Truppen ein Angriff einsetzt. Mehr Truppen erobern schneller, lassen dein Kerngebiet aber dünner. Probier es ruhig aus.',
-    },
+    { id: 'size', goal: k('size', 'goal'), text: k('size', 'text') },
     {
       id: 'wild',
-      goal: 'Erobere die Wilden',
-      text: 'Die grauen „wilden" Nationen sind passiv und schwach besiedelt — perfekt zum Wachsen. Erobere die wilde Nation neben dir; beim Erobern erbeutest du ihr Gold.',
+      goal: k('wild', 'goal'),
+      text: k('wild', 'text'),
       onEnter: (s) => {
         wildAtStart = livingWild(s)
       },
@@ -108,43 +102,39 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
     },
     {
       id: 'city',
-      goal: 'Baue eine Stadt',
-      text: 'Mit Gold baust du Gebäude. Wir schenken dir etwas Gold zum Üben. Drücke Taste 1 und setze eine Stadt auf dein Gebiet — eine Stadt hebt dein Truppen-Limit, du kannst also mehr Truppen halten.',
+      goal: k('city', 'goal'),
+      text: k('city', 'text'),
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBuilding(s, id, 'city'),
     },
     {
       id: 'factory',
-      goal: 'Baue eine Fabrik',
-      text: 'Gold ist der Schlüssel zu allem. Baue eine Fabrik (Taste 4) — sie verbindet sich mit deinen Städten und produziert laufend Gold. Fabriken sind das Rückgrat deiner Wirtschaft. Hier ist Gold dafür.',
+      goal: k('factory', 'goal'),
+      text: k('factory', 'text'),
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBuilding(s, id, 'factory'),
     },
     {
       id: 'grow',
-      goal: 'Wachse weiter',
-      text: 'Stark! Wachsen ist das Wichtigste. Breite dich weiter aus und erobere mehr Gebiet — je größer dein Reich, desto mehr Truppen und Gold.',
+      goal: k('grow', 'goal'),
+      text: k('grow', 'text'),
       done: (s, id) => myTiles(s, id) >= 45,
     },
     {
       id: 'airport',
-      goal: 'Baue einen Flughafen',
-      text: 'Zeit für Luftmacht. Baue einen Flughafen (Taste 5) — von hier starten Bomber. Wir schenken dir das Gold dafür.',
+      goal: k('airport', 'goal'),
+      text: k('airport', 'text'),
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT * 2),
       done: (s, id) => hasBuilding(s, id, 'airport'),
     },
     {
       id: 'bomber',
-      goal: 'Starte einen Bomber',
-      text: 'Drücke Taste 7, um einen Bomber zu bauen, und klicke dann ein feindliches (graues) Gebiet an. Der Bomber fliegt hin und wirft eine Bombe, die Truppen tötet, Gebiet neutralisiert und Gebäude zerstört — Vorsicht, sie verschont niemanden, auch Verbündete nicht.',
+      goal: k('bomber', 'goal'),
+      text: k('bomber', 'text'),
       onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBomber(s, id),
     },
-    {
-      id: 'finish',
-      goal: 'Geschafft',
-      text: 'Geschafft! Du beherrschst die Grundlagen: ausbreiten, erobern, Wirtschaft (Städte + Fabriken) und Luftkrieg. Häfen und Schiffe, Diplomatie und die Spielmodi lernst du am besten direkt in einer echten Partie kennen. Viel Erfolg!',
-    },
+    { id: 'finish', goal: k('finish', 'goal'), text: k('finish', 'text') },
   ]
 }
 
@@ -173,7 +163,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
   ].join(';')
 
   const panelTitle = document.createElement('div')
-  panelTitle.textContent = 'Tutorial'
+  panelTitle.textContent = t('tutorial.title')
   panelTitle.style.cssText = `font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; margin-bottom: 8px`
   panel.appendChild(panelTitle)
 
@@ -208,7 +198,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
       ].join(';')
 
       const label = document.createElement('span')
-      label.textContent = step.goal
+      label.textContent = t(step.goal)
       label.style.cssText = [
         `opacity: ${isDone ? '0.5' : isActive ? '1' : '0.45'}`,
         isActive ? `color: ${ACCENT}; font-weight: 700` : '',
@@ -245,7 +235,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
   box.appendChild(boxText)
 
   const contBtn = document.createElement('button')
-  contBtn.textContent = 'Weiter'
+  contBtn.textContent = t('tutorial.btn.next')
   contBtn.style.cssText = [
     'padding: 9px 18px',
     `background: ${ACCENT}`,
@@ -268,7 +258,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
 
   function showBox(text: string, isLast: boolean): void {
     boxText.textContent = text
-    contBtn.textContent = isLast ? 'Fertig' : 'Weiter'
+    contBtn.textContent = isLast ? t('tutorial.btn.finish') : t('tutorial.btn.next')
     box.style.display = 'block'
     awaitingContinue = true
     opts.setPaused(true)
@@ -285,7 +275,7 @@ export function createTutorial(opts: TutorialOptions): TutorialApi {
     const step = opts.steps[i]
     if (step === undefined) return
     if (lastState !== null) step.onEnter?.(lastState, opts.humanId)
-    showBox(step.text, i === opts.steps.length - 1)
+    showBox(t(step.text), i === opts.steps.length - 1)
   }
 
   /** „Weiter" gedrückt: Box weg, Spiel läuft. Info-Schritte (ohne Auslöser) springen direkt weiter. */

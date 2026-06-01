@@ -134,6 +134,41 @@ export const fr: Record<string, string> = {
   'account.error.password': 'Mot de passe : au moins 6 caractères.',
   'account.error.offline': 'Serveur injoignable.',
 
+  // Tutoriel (partie guidée)
+  'tutorial.title': 'Tutoriel',
+  'tutorial.btn.next': 'Suivant',
+  'tutorial.btn.finish': 'Terminer',
+  'tutorial.step.welcome.goal': 'Bienvenue',
+  'tutorial.step.welcome.text':
+    "Bienvenue dans territorial-loop ! Le territoire coloré au centre est ton royaume. Ton objectif : t'étendre et conquérir l'île. Nous allons parcourir les bases étape par étape.",
+  'tutorial.step.expand.goal': 'Étends-toi',
+  'tutorial.step.expand.text':
+    "Clique sur une zone grise adjacente à ta frontière — tes troupes s'y étendent.",
+  'tutorial.step.size.goal': "Taille de l'attaque",
+  'tutorial.step.size.text':
+    "Avec la molette tu règles combien de troupes une attaque engage. Plus de troupes conquièrent plus vite, mais laissent ton territoire central plus vulnérable. N'hésite pas à essayer.",
+  'tutorial.step.wild.goal': 'Conquiers les sauvages',
+  'tutorial.step.wild.text':
+    'Les nations « sauvages » grises sont passives et peu peuplées — parfaites pour grandir. Conquiers la nation sauvage à côté de toi ; en la conquérant tu récupères son or comme butin.',
+  'tutorial.step.city.goal': 'Construis une ville',
+  'tutorial.step.city.text':
+    "Avec de l'or tu construis des bâtiments. Nous te donnons un peu d'or pour t'entraîner. Appuie sur la touche 1 et pose une ville sur ton territoire — une ville augmente ta limite de troupes, tu peux donc en garder davantage.",
+  'tutorial.step.factory.goal': 'Construis une usine',
+  'tutorial.step.factory.text':
+    "L'or est la clé de tout. Construis une usine (touche 4) — elle se relie à tes villes et produit de l'or en continu. Les usines sont le pilier de ton économie. Voici de l'or pour ça.",
+  'tutorial.step.grow.goal': 'Continue de grandir',
+  'tutorial.step.grow.text':
+    "Parfait ! Grandir est ce qui compte le plus. Continue de t'étendre et de conquérir davantage de territoire — plus ton royaume est grand, plus tu as de troupes et d'or.",
+  'tutorial.step.airport.goal': 'Construis un aéroport',
+  'tutorial.step.airport.text':
+    "Place à la puissance aérienne. Construis un aéroport (touche 5) — les bombardiers décollent depuis là. Nous te donnons l'or nécessaire.",
+  'tutorial.step.bomber.goal': 'Lance un bombardier',
+  'tutorial.step.bomber.text':
+    "Appuie sur la touche 7 pour construire un bombardier, puis clique sur un territoire ennemi (gris). Le bombardier s'y rend et lâche une bombe qui tue des troupes, neutralise le territoire et détruit des bâtiments — attention, elle n'épargne personne, pas même les alliés.",
+  'tutorial.step.finish.goal': 'Terminé',
+  'tutorial.step.finish.text':
+    "Bravo ! Tu maîtrises les bases : s'étendre, conquérir, l'économie (villes + usines) et la guerre aérienne. Les ports et navires, la diplomatie et les modes de jeu s'apprennent mieux directement dans une vraie partie. Bonne chance !",
+
   'lobby.openTitle': 'Salons ouverts',
   'lobby.runningTitle': 'Parties en cours',
   'lobby.refresh': '↻ Actualiser',

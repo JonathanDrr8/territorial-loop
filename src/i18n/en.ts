@@ -137,6 +137,41 @@ export const en: Record<string, string> = {
   'account.error.password': 'Password: at least 6 characters.',
   'account.error.offline': 'Server unreachable.',
 
+  // Tutorial (guided match)
+  'tutorial.title': 'Tutorial',
+  'tutorial.btn.next': 'Next',
+  'tutorial.btn.finish': 'Done',
+  'tutorial.step.welcome.goal': 'Welcome',
+  'tutorial.step.welcome.text':
+    'Welcome to territorial-loop! The colored area in the middle is your nation. Your goal: spread out and conquer the island. We will go through the basics step by step.',
+  'tutorial.step.expand.goal': 'Spread out',
+  'tutorial.step.expand.text':
+    'Click an adjacent gray area along your border — your troops spread there.',
+  'tutorial.step.size.goal': 'Attack size',
+  'tutorial.step.size.text':
+    'With the mouse wheel you set how much of your troops an attack commits. More troops conquer faster but leave your core thinner. Feel free to try it.',
+  'tutorial.step.wild.goal': 'Conquer the wild',
+  'tutorial.step.wild.text':
+    'The gray "wild" nations are passive and thinly settled — perfect for growing. Conquer the wild nation next to you; conquering loots its gold.',
+  'tutorial.step.city.goal': 'Build a city',
+  'tutorial.step.city.text':
+    'With gold you construct buildings. We are giving you some gold to practice. Press key 1 and place a city on your territory — a city raises your troop limit, so you can hold more troops.',
+  'tutorial.step.factory.goal': 'Build a factory',
+  'tutorial.step.factory.text':
+    'Gold is the key to everything. Build a factory (key 4) — it links to your cities and produces gold continuously. Factories are the backbone of your economy. Here is gold for it.',
+  'tutorial.step.grow.goal': 'Keep growing',
+  'tutorial.step.grow.text':
+    'Strong! Growing is what matters most. Keep spreading out and conquering more land — the bigger your nation, the more troops and gold.',
+  'tutorial.step.airport.goal': 'Build an airport',
+  'tutorial.step.airport.text':
+    'Time for air power. Build an airport (key 5) — bombers launch from here. We are giving you the gold for it.',
+  'tutorial.step.bomber.goal': 'Launch a bomber',
+  'tutorial.step.bomber.text':
+    'Press key 7 to build a bomber, then click an enemy (gray) area. The bomber flies there and drops a bomb that kills troops, neutralizes territory and destroys buildings — careful, it spares no one, not even allies.',
+  'tutorial.step.finish.goal': 'Done',
+  'tutorial.step.finish.text':
+    'Done! You have the basics: spreading out, conquering, economy (cities + factories) and air war. Ports and ships, diplomacy and the game modes are best learned in a real match. Good luck!',
+
   // Lobby browser (open lobbies + live games)
   'lobby.openTitle': 'Open lobbies',
   'lobby.runningTitle': 'Live games',

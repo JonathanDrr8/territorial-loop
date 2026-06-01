@@ -130,6 +130,40 @@ export const zh: Record<string, string> = {
   'account.error.password': '密码：至少 6 个字符。',
   'account.error.offline': '服务器不可达。',
 
+  // 教程（引导对局）
+  'tutorial.title': '教程',
+  'tutorial.btn.next': '下一步',
+  'tutorial.btn.finish': '完成',
+  'tutorial.step.welcome.goal': '欢迎',
+  'tutorial.step.welcome.text':
+    '欢迎来到 territorial-loop！中间彩色区域是你的王国。你的目标：扩张并征服这座岛屿。我们将一步步介绍基础知识。',
+  'tutorial.step.expand.goal': '扩张',
+  'tutorial.step.expand.text': '点击你边界上相邻的灰色区域 —— 你的部队将扩张到那里。',
+  'tutorial.step.size.goal': '进攻规模',
+  'tutorial.step.size.text':
+    '用鼠标滚轮设置一次进攻投入多少部队。更多部队征服更快，但会让你的核心领土更薄弱。尽管试试吧。',
+  'tutorial.step.wild.goal': '征服野生国家',
+  'tutorial.step.wild.text':
+    '灰色的「野生」国家是被动且人口稀少的 —— 非常适合扩张。征服你旁边的野生国家；征服时可以掠夺它们的金币。',
+  'tutorial.step.city.goal': '建造城市',
+  'tutorial.step.city.text':
+    '用金币可以建造建筑。我们送你一些金币用于练习。按下数字键 1，在你的领土上放置一座城市 —— 城市可以提升你的兵力上限，让你能容纳更多部队。',
+  'tutorial.step.factory.goal': '建造工厂',
+  'tutorial.step.factory.text':
+    '金币是一切的关键。建造一座工厂（数字键 4）—— 它会与你的城市相连并持续产出金币。工厂是你经济的支柱。这里有金币供你使用。',
+  'tutorial.step.grow.goal': '继续成长',
+  'tutorial.step.grow.text':
+    '很好！成长是最重要的事。继续扩张并征服更多领土 —— 你的王国越大，拥有的部队和金币就越多。',
+  'tutorial.step.airport.goal': '建造机场',
+  'tutorial.step.airport.text':
+    '是时候发展空中力量了。建造一座机场（数字键 5）—— 轰炸机从这里起飞。我们送你所需的金币。',
+  'tutorial.step.bomber.goal': '派出轰炸机',
+  'tutorial.step.bomber.text':
+    '按下数字键 7 建造一架轰炸机，然后点击一个敌方（灰色）区域。轰炸机飞过去投下炸弹，炸弹会杀伤部队、中立化领土并摧毁建筑 —— 注意，它不会放过任何人，包括盟友。',
+  'tutorial.step.finish.goal': '完成',
+  'tutorial.step.finish.text':
+    '做到了！你已掌握基础：扩张、征服、经济（城市 + 工厂）和空战。港口与船只、外交以及游戏模式，最好直接在真实对局中学习。祝你好运！',
+
   'lobby.openTitle': '开放房间',
   'lobby.runningTitle': '进行中的对局',
   'lobby.refresh': '↻ 刷新',

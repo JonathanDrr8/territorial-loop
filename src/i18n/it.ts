@@ -134,6 +134,41 @@ export const it: Record<string, string> = {
   'account.error.password': 'Password: almeno 6 caratteri.',
   'account.error.offline': 'Server non raggiungibile.',
 
+  // Tutorial (partita guidata)
+  'tutorial.title': 'Tutorial',
+  'tutorial.btn.next': 'Avanti',
+  'tutorial.btn.finish': 'Fatto',
+  'tutorial.step.welcome.goal': 'Benvenuto',
+  'tutorial.step.welcome.text':
+    "Benvenuto in territorial-loop! Il territorio colorato al centro è il tuo regno. Il tuo obiettivo: espanderti e conquistare l'isola. Percorreremo le basi passo dopo passo.",
+  'tutorial.step.expand.goal': 'Espanditi',
+  'tutorial.step.expand.text':
+    'Clicca su una zona grigia adiacente al tuo confine — le tue truppe si espanderanno lì.',
+  'tutorial.step.size.goal': "Dimensione dell'attacco",
+  'tutorial.step.size.text':
+    'Con la rotella del mouse imposti quante truppe impiega un attacco. Più truppe conquistano più in fretta, ma lasciano il tuo territorio centrale più esposto. Provalo pure.',
+  'tutorial.step.wild.goal': 'Conquista i selvaggi',
+  'tutorial.step.wild.text':
+    'Le nazioni «selvagge» grigie sono passive e poco popolate — perfette per crescere. Conquista la nazione selvaggia accanto a te; conquistandola saccheggerai il suo oro.',
+  'tutorial.step.city.goal': 'Costruisci una città',
+  'tutorial.step.city.text':
+    "Con l'oro costruisci edifici. Ti diamo un po' d'oro per fare pratica. Premi il tasto 1 e posiziona una città sul tuo territorio — una città aumenta il tuo limite di truppe, così puoi tenerne di più.",
+  'tutorial.step.factory.goal': 'Costruisci una fabbrica',
+  'tutorial.step.factory.text':
+    "L'oro è la chiave di tutto. Costruisci una fabbrica (tasto 4) — si collega alle tue città e produce oro in modo continuo. Le fabbriche sono il pilastro della tua economia. Ecco dell'oro per farlo.",
+  'tutorial.step.grow.goal': 'Continua a crescere',
+  'tutorial.step.grow.text':
+    'Ottimo! Crescere è la cosa più importante. Continua a espanderti e a conquistare altro territorio — più grande è il tuo regno, più truppe e oro avrai.',
+  'tutorial.step.airport.goal': 'Costruisci un aeroporto',
+  'tutorial.step.airport.text':
+    "Ora tocca al potere aereo. Costruisci un aeroporto (tasto 5) — da qui partono i bombardieri. Ti diamo l'oro necessario.",
+  'tutorial.step.bomber.goal': 'Lancia un bombardiere',
+  'tutorial.step.bomber.text':
+    'Premi il tasto 7 per costruire un bombardiere, poi clicca su un territorio nemico (grigio). Il bombardiere vola là e sgancia una bomba che uccide truppe, neutralizza il territorio e distrugge gli edifici — attenzione, non risparmia nessuno, nemmeno gli alleati.',
+  'tutorial.step.finish.goal': 'Completato',
+  'tutorial.step.finish.text':
+    "Ce l'hai fatta! Padroneggi le basi: espanderti, conquistare, l'economia (città + fabbriche) e la guerra aerea. Porti e navi, diplomazia e modalità di gioco li imparerai meglio direttamente in una partita vera. Buona fortuna!",
+
   'lobby.openTitle': 'Stanze aperte',
   'lobby.runningTitle': 'Partite in corso',
   'lobby.refresh': '↻ Aggiorna',

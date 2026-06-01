@@ -133,6 +133,41 @@ export const ja: Record<string, string> = {
   'account.error.password': 'パスワード：6 文字以上必要です。',
   'account.error.offline': 'サーバーに接続できません。',
 
+  // チュートリアル（ガイド付き対戦）
+  'tutorial.title': 'チュートリアル',
+  'tutorial.btn.next': '次へ',
+  'tutorial.btn.finish': '完了',
+  'tutorial.step.welcome.goal': 'ようこそ',
+  'tutorial.step.welcome.text':
+    'territorial-loop へようこそ！中央の色つきエリアがあなたの王国です。目標：広がって島を征服しましょう。基本を一歩ずつ学んでいきます。',
+  'tutorial.step.expand.goal': '拡張する',
+  'tutorial.step.expand.text':
+    '自分の国境沿いの灰色のエリアをクリックしましょう —— 部隊がそこへ広がります。',
+  'tutorial.step.size.goal': '攻撃規模',
+  'tutorial.step.size.text':
+    'マウスホイールで攻撃に投入する兵力を調整できます。兵力が多いほど速く征服できますが、中心領土が手薄になります。気軽に試してみましょう。',
+  'tutorial.step.wild.goal': '野生国家を征服',
+  'tutorial.step.wild.text':
+    '灰色の「野生」国家は受動的で人口が少なく —— 成長に最適です。隣の野生国家を征服しましょう。征服するとその金を略奪できます。',
+  'tutorial.step.city.goal': '都市を建てる',
+  'tutorial.step.city.text':
+    '金で建物を建てられます。練習用に少し金をプレゼントします。数字キー 1 を押して自分の領土に都市を置きましょう —— 都市は兵力上限を上げるので、より多くの部隊を維持できます。',
+  'tutorial.step.factory.goal': '工場を建てる',
+  'tutorial.step.factory.text':
+    '金はすべての鍵です。工場を建てましょう（数字キー 4）—— 都市と繋がって継続的に金を産出します。工場は経済の基盤です。ここに金を用意しました。',
+  'tutorial.step.grow.goal': '成長を続ける',
+  'tutorial.step.grow.text':
+    'すばらしい！成長が最も大切です。さらに広がって多くの領土を征服しましょう —— 王国が大きいほど部隊と金が増えます。',
+  'tutorial.step.airport.goal': '空港を建てる',
+  'tutorial.step.airport.text':
+    '航空戦力の出番です。空港を建てましょう（数字キー 5）—— ここから爆撃機が出撃します。必要な金をプレゼントします。',
+  'tutorial.step.bomber.goal': '爆撃機を発進',
+  'tutorial.step.bomber.text':
+    '数字キー 7 を押して爆撃機を建造し、敵（灰色）のエリアをクリックしましょう。爆撃機が飛んでいき爆弾を投下します。爆弾は部隊を殺傷し、領土を中立化し、建物を破壊します —— 注意：同盟国も含め誰も容赦しません。',
+  'tutorial.step.finish.goal': '完了',
+  'tutorial.step.finish.text':
+    'やりました！基本をマスターしました：拡張、征服、経済（都市 + 工場）、そして航空戦です。港と船、外交、各ゲームモードは実際の対戦で学ぶのが一番です。頑張ってください！',
+
   'lobby.openTitle': '公開部屋',
   'lobby.runningTitle': '進行中の対戦',
   'lobby.refresh': '↻ 更新',
