@@ -210,7 +210,7 @@ export function createMultiplayerMenu(
         settings = srvSettings
         renderLobby(currentRoom, peers, srvSettings)
       },
-      onStart: (config) => {
+      onStart: (config, youAre) => {
         started = true
         const tr = transport
         if (tr === null) return
@@ -220,7 +220,9 @@ export function createMultiplayerMenu(
           room: currentRoom,
           name: connectedName,
         })
-        opts.onMatchStart(config, tr, myId, myId === hostId)
+        // `youAre` = die gesteuerte Nation (im geteilten Modus ≠ eigene Lobby-ID); Host-Rechte
+        // bleiben aber an der Mitglieds-ID (`myId`) hängen.
+        opts.onMatchStart(config, tr, youAre ?? myId, myId === hostId)
       },
     })
     // Verbindungsfehler/Abbruch vor dem Join → zurück zum Formular (Timeout-basiert, da der
@@ -286,7 +288,8 @@ export function createMultiplayerMenu(
     // Teilnehmerliste
     const list = document.createElement('div')
     list.style.cssText = 'margin-bottom:12px'
-    const teamMode = s.teamMode === 'allied'
+    // Team-Wähler bei „verbündet" UND „geteilt" (bei „geteilt" = welche Nation man mitsteuert).
+    const teamMode = s.teamMode === 'allied' || s.teamMode === 'shared'
     const teamCount = Math.max(2, s.teamCount ?? 2)
     for (const p of peers) {
       const row = document.createElement('div')
@@ -502,15 +505,21 @@ export function createMultiplayerMenu(
       [
         ['off', t('teamMode.off')],
         ['allied', t('teamMode.allied')],
+        ['shared', t('teamMode.shared')],
       ],
-      (v) => ({ ...settings, teamMode: v === 'allied' ? 'allied' : 'off' }),
+      (v) => ({
+        ...settings,
+        teamMode: v === 'allied' ? 'allied' : v === 'shared' ? 'shared' : 'off',
+      }),
     )
-    // Team-Anzahl/-Größe nur zeigen, wenn Teams aktiv sind.
-    if (s.teamMode === 'allied') {
+    // Team-Anzahl bei „verbündet" & „geteilt" (= Nationen); Team-Größe nur bei „verbündet".
+    if (s.teamMode === 'allied' || s.teamMode === 'shared') {
       numRow(t('field.teamCount'), s.teamCount ?? 2, (v) => ({
         ...settings,
         teamCount: Math.max(2, Math.min(8, Math.round(v))),
       }))
+    }
+    if (s.teamMode === 'allied') {
       numRow(t('field.teamSize'), s.teamSize ?? 2, (v) => ({
         ...settings,
         teamSize: Math.max(1, Math.min(6, Math.round(v))),

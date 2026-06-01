@@ -21,6 +21,7 @@ export const zh: Record<string, string> = {
   'field.teamMode': '队伍',
   'teamMode.off': '关闭（自由混战）',
   'teamMode.allied': '队伍（结盟）',
+  'teamMode.shared': '共享国家',
   'field.teamCount': '队伍数量',
   'field.teamSize': '队伍规模',
   'section.match': '对局',

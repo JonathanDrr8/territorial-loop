@@ -21,6 +21,7 @@ export const ja: Record<string, string> = {
   'field.teamMode': 'チーム',
   'teamMode.off': 'なし（全員乱戦）',
   'teamMode.allied': 'チーム（同盟）',
+  'teamMode.shared': '共有国家',
   'field.teamCount': 'チーム数',
   'field.teamSize': 'チーム規模',
   'section.match': '対戦',

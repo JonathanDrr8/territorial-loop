@@ -108,7 +108,8 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     )
       result.riverDensity = parsed.riverDensity
     if (typeof parsed.captureMode === 'boolean') result.captureMode = parsed.captureMode
-    if (parsed.teamMode === 'off' || parsed.teamMode === 'allied') result.teamMode = parsed.teamMode
+    if (parsed.teamMode === 'off' || parsed.teamMode === 'allied' || parsed.teamMode === 'shared')
+      result.teamMode = parsed.teamMode
     if (typeof parsed.teamCount === 'number' && parsed.teamCount >= 2 && parsed.teamCount <= 8)
       result.teamCount = Math.round(parsed.teamCount)
     if (typeof parsed.teamSize === 'number' && parsed.teamSize >= 1 && parsed.teamSize <= 6)

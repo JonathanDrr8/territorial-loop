@@ -76,8 +76,8 @@ export interface MatchSettings {
   readonly public: boolean
   /** Hauptstadt-Modus (ADR-0026). Optional für Alt-Clients (Default false). */
   readonly captureMode?: boolean
-  /** Team-Modus (ADR-0025): `off` oder `allied`. Optional für Alt-Clients (Default `off`). */
-  readonly teamMode?: 'off' | 'allied'
+  /** Team-Modus (ADR-0025): `off`, `allied` oder `shared`. Optional für Alt-Clients (Default `off`). */
+  readonly teamMode?: 'off' | 'allied' | 'shared'
   /** Anzahl Teams (nur bei `teamMode==='allied'`). */
   readonly teamCount?: number
   /** Nationen pro Team (nur bei `teamMode==='allied'`). */
@@ -176,6 +176,12 @@ export interface LobbyMsg {
 export interface StartMsg {
   readonly kind: 'start'
   readonly config: GameConfig
+  /**
+   * Welche Nation dieser Client steuert. Normalerweise = die eigene `playerId` aus `joined`; im
+   * GETEILTEN Team-Modus (ADR-0025) steuern mehrere Clients dieselbe Nation, dann weicht das ab.
+   * Fehlt das Feld (Alt-Server), nutzt der Client weiter seine `joined`-ID.
+   */
+  readonly youAre?: number
 }
 
 /** Committeter Turn: das gebündelte Intent-Set (inkl. KI) in Anwendungsreihenfolge. */

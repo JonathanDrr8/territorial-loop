@@ -38,12 +38,19 @@ Solo-Spiel verfügbar.
   mit KI auf und vergibt `teamId = floor(slot / teamSize)`.
 - Komponiert mit dem Hauptstadt-Modus (ADR-0026): `checkCaptureVictory` ist team-bewusst.
 
-### Modus „shared" (offen)
+### Modus „shared" (umgesetzt)
 
-Eine geteilte Nation = EIN Spieler-Entity mit mehreren Controllern. Das ist primär ein
-Mehrspieler-Thema (zwei Clients mit derselben `humanId` → beide Intents wirken auf dieselbe Nation)
-und braucht Lobby-Slot-Zuweisung. Im Solo ergibt „geteilt" wenig Sinn (Co-op-KI auf der eigenen
-Nation wäre chaotisch). **Bewusst zurückgestellt**, bis die MP-Lobby Team-/Slot-Zuweisung kann.
+Eine geteilte Nation = ein Team IST EINE Nation (ein Land statt mehrere — gleiche Logik wie „allied",
+nur kollabiert jedes Team zu einer Nation). `teamCount` = Anzahl Nationen; jedes von Menschen gewählte
+Team ist eine gemeinsam gesteuerte Nation, ungewählte sind KI. `teamSize` entfällt im geteilten Modus.
+
+- **MP:** Der Server mappt mehrere Mitglieder → dieselbe Nation-ID (`Member.nationId`, in `buildConfig`
+  gesetzt), **routet ihre Intents dorthin** (`submitIntents(..., member.nationId)`; `submitIntents`
+  filtert ohnehin auf `intent.playerId === nationId`, und jeder Client baut Intents mit seiner
+  `humanId`). Beim Start bekommt jeder Client per-Socket `start.youAre` = seine Nation (≠ Lobby-ID).
+  Verifiziert mit zwei Tabs: beide steuern Nation 1, KI ist Nation 2, Lockstep sauber.
+- **Solo:** kein echtes Teilen (nur ein Mensch) → einfach ein Spiel mit `teamCount` Nationen, der
+  Mensch steuert eine, der Rest KI. Keine Allianzen (jede shared-Nation ist eine eigene Seite).
 
 ### MP-Team-Zuweisung (umgesetzt)
 
