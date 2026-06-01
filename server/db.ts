@@ -95,6 +95,8 @@ const MIGRATIONS: readonly string[] = [
   `ALTER TABLE accounts ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;`,
   // v3 — Eigener Account (Phase 2): Salt zum Recovery-Code-Hash (pw_salt existiert bereits aus v1).
   `ALTER TABLE accounts ADD COLUMN recovery_salt TEXT;`,
+  // v4 — Geräteübergreifende Einstellungen (HUD-Layout/Theme/Audio/Vorgaben/Sprache) als JSON-Blob.
+  `ALTER TABLE accounts ADD COLUMN settings TEXT;`,
 ]
 
 const clampElo = (v: number): number =>
@@ -149,6 +151,10 @@ export interface AccountDb {
   getByUsername(username: string): AccountRow | null
   /** Setzt ein neues Passwort (per Benutzername) — für die Recovery. */
   setPassword(username: string, pwHash: string, pwSalt: string): void
+  /** Speichert den geräteübergreifenden Einstellungs-Blob (JSON-String) am Account. */
+  setSettings(guestToken: string, settingsJson: string): void
+  /** Liest den Einstellungs-Blob (JSON-String) oder null. */
+  getSettings(guestToken: string): string | null
   /** Schließt die DB (Tests/Shutdown). */
   close(): void
 }
@@ -207,6 +213,10 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
   const updPassword = db.prepare(
     'UPDATE accounts SET pw_hash = @pwHash, pw_salt = @pwSalt, updated_at = @ts WHERE username = @username COLLATE NOCASE',
   )
+  const updSettings = db.prepare(
+    'UPDATE accounts SET settings = @settings, updated_at = @ts WHERE guest_token = @token',
+  )
+  const selSettings = db.prepare('SELECT settings FROM accounts WHERE guest_token = ?')
 
   return {
     getOrCreateGuest(guestToken, displayName) {
@@ -304,6 +314,15 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
 
     setPassword(username, pwHash, pwSalt) {
       updPassword.run({ username, pwHash, pwSalt, ts: now() })
+    },
+
+    setSettings(guestToken, settingsJson) {
+      updSettings.run({ token: guestToken, settings: settingsJson, ts: now() })
+    },
+
+    getSettings(guestToken) {
+      const r = selSettings.get(guestToken) as Record<string, unknown> | undefined
+      return r === undefined ? null : ((r.settings as string | null) ?? null)
     },
 
     close() {

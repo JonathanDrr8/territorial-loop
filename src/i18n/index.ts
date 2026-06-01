@@ -17,6 +17,7 @@ import { pt } from './pt'
 import { ru } from './ru'
 import { zh } from './zh'
 import { ja } from './ja'
+import { notifySettingsChanged } from '../ui/account-settings'
 
 export type Locale = 'de' | 'en' | 'es' | 'fr' | 'it' | 'pt' | 'ru' | 'zh' | 'ja'
 
@@ -73,6 +74,7 @@ export function setLocale(locale: Locale): void {
   } catch {
     /* ignore */
   }
+  notifySettingsChanged()
   for (const cb of listeners) cb()
 }
 

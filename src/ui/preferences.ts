@@ -18,6 +18,7 @@ import type {
   TerrainChoice,
 } from './start-menu'
 import { DIFFICULTIES as AI_DIFFICULTIES } from '../ai/ai'
+import { notifySettingsChanged } from './account-settings'
 
 const STORAGE_KEY = 'territorial-loop:menu-prefs:v1'
 
@@ -143,6 +144,7 @@ export function saveMenuPrefs(values: StartMenuValues): void {
   } catch {
     // Privacy-Modus / Quota überschritten — silent ignore
   }
+  notifySettingsChanged()
 }
 
 const SERVER_URL_KEY = 'territorial-loop:server-url:v1'
@@ -206,6 +208,7 @@ export function saveAudioVolumes(v: AudioVolumes): void {
   } catch {
     // silent ignore
   }
+  notifySettingsChanged()
 }
 
 const ACTIVE_SESSION_KEY = 'territorial-loop:active-mp:v1'

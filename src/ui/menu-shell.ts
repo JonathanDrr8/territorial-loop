@@ -242,9 +242,9 @@ export function createMenuShell(
       'flex-wrap: wrap',
     ].join(';')
 
-    // Logo + Version
+    // Logo + Version (linke Seite — gleich gewichtet wie rechts, damit die Tabs mittig bleiben)
     const brand = document.createElement('div')
-    brand.style.cssText = 'display: flex; flex-direction: column; line-height: 1.1'
+    brand.style.cssText = 'flex: 1 1 0; display: flex; flex-direction: column; line-height: 1.1'
     const title = document.createElement('div')
     title.innerHTML = `territorial-<span style="color:${ACCENT}">loop</span>`
     title.style.cssText = 'font-size: 24px; font-weight: bold; letter-spacing: 0.5px'
@@ -257,7 +257,8 @@ export function createMenuShell(
 
     // Tabs (mittig, nimmt den freien Platz)
     const nav = document.createElement('nav')
-    nav.style.cssText = 'flex: 1; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap'
+    nav.style.cssText =
+      'flex: 0 0 auto; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap'
     for (const [id, labelKey] of TABS) {
       const btn = document.createElement('button')
       btn.className = id === activeTab ? 'tl-tab tl-tab-active' : 'tl-tab'
@@ -271,9 +272,10 @@ export function createMenuShell(
     }
     header.appendChild(nav)
 
-    // Name + Sprache (rechts)
+    // Name + Konto + Sprache (rechts — gleich gewichtet wie das Logo, rechtsbündig)
     const right = document.createElement('div')
-    right.style.cssText = 'display: flex; align-items: center; gap: 12px'
+    right.style.cssText =
+      'flex: 1 1 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px'
 
     const nameWrap = document.createElement('label')
     nameWrap.style.cssText =

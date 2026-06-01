@@ -97,6 +97,35 @@ describe('Account: Login', () => {
   })
 })
 
+describe('Account: geräteübergreifende Einstellungen', () => {
+  it('speichert Einstellungen und gibt sie als Objekt zurück', async () => {
+    await post('/account/register', { token: TOKEN, username: 'Merkur', password: 'geheim123' })
+    const save = await post('/account/settings', {
+      token: TOKEN,
+      settings: { 'territorial-loop:theme:v1': 'kriegskarte', 'territorial-loop:locale:v1': 'de' },
+    })
+    expect(save.status).toBe(200)
+
+    const got = (await (await fetch(`${base()}/account/settings?token=${TOKEN}`)).json()) as {
+      settings: Record<string, string> | null
+    }
+    expect(got.settings).toMatchObject({ 'territorial-loop:theme:v1': 'kriegskarte' })
+  })
+
+  it('liefert null, solange keine Einstellungen gespeichert sind', async () => {
+    await post('/account/register', { token: TOKEN, username: 'Merkur', password: 'geheim123' })
+    const got = (await (await fetch(`${base()}/account/settings?token=${TOKEN}`)).json()) as {
+      settings: unknown
+    }
+    expect(got.settings).toBeNull()
+  })
+
+  it('weist Einstellungen für ein unbekanntes Token ab', async () => {
+    const res = await post('/account/settings', { token: 'guest-unbekannt00', settings: { x: 1 } })
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('Account: Passwort-Reset per Recovery-Code', () => {
   it('setzt mit gültigem Code ein neues Passwort, danach Login mit dem neuen', async () => {
     const reg = (await (

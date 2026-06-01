@@ -8,6 +8,7 @@
 
 import { guestToken, setGuestToken, resetGuestToken } from './rank-online'
 import { overwriteRanked, resetRanked } from './ranked'
+import { pullSettings, pushSettings } from './account-settings'
 
 const USERNAME_KEY = 'territorial-loop:account-username:v1'
 
@@ -105,6 +106,8 @@ export async function registerAccount(
     })
     if (status === 200 && json.ok === true) {
       setUsernameLocal(username)
+      // Neues Konto: aktuelle lokale Einstellungen hochladen (kein Reload — Recovery-Code bleibt sichtbar).
+      void pushSettings(serverWsUrl)
       return {
         ok: true,
         recoveryCode: typeof json.recoveryCode === 'string' ? json.recoveryCode : '',
@@ -127,6 +130,10 @@ export async function loginAccount(
     if (status === 200 && json.ok === true && typeof json.token === 'string') {
       setGuestToken(json.token)
       await syncFromServer(serverWsUrl)
+      // Konto-Einstellungen aufs Gerät holen → bei Treffer Reload (UI übernimmt Theme/Sprache/HUD);
+      // sonst erstes Login → lokale Einstellungen hochladen.
+      if (await pullSettings(serverWsUrl)) window.location.reload()
+      else void pushSettings(serverWsUrl)
       return { ok: true, username: typeof json.username === 'string' ? json.username : username }
     }
     return { ok: false, error: typeof json.error === 'string' ? json.error : 'invalid' }
@@ -151,6 +158,8 @@ export async function recoverAccount(
     if (status === 200 && json.ok === true && typeof json.token === 'string') {
       setGuestToken(json.token)
       await syncFromServer(serverWsUrl)
+      if (await pullSettings(serverWsUrl)) window.location.reload()
+      else void pushSettings(serverWsUrl)
       return { ok: true, username }
     }
     return { ok: false, error: typeof json.error === 'string' ? json.error : 'invalid' }
