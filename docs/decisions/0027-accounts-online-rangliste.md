@@ -43,13 +43,22 @@ Leitplanken aus dem Design-Gespräch:
 3. **Online mit Login (optional)** — bindet das Gast-Token an einen echten Account (Username +
    Passwort, Email optional) → wiederherstellbar + geräteübergreifend.
 
-### ELO baut auf Bestehendem auf
+### ELO = Solo-Ranglisten-ELO, Mehrspieler bewegt es NICHT
 
 Das vorhandene `ranked.ts` (ELO/Bilanz/Peak, Standard-Formel, Match-Verbuchung gegen skalierende
-KI) bleibt die ELO-Mechanik. Accounts ersetzen nur die **localStorage-Persistenz** durch
+KI) bleibt die einzige ELO-Mechanik. Accounts ersetzen nur die **localStorage-Persistenz** durch
 **Server-Persistenz pro Account/Gast** und liefern eine **Online-Bestenliste** (HTTP-Endpoint).
-Die FFA-/Mensch-gegen-Mensch-Wertung echter MP-Matches ist **bewusst nicht Teil von Phase 1**
-(siehe offene Punkte).
+
+**Entscheidung (Jonathan):** Das Online-ELO ist schlicht das Solo-Ranglisten-ELO. **Mehrspieler-Matches
+verändern das ELO nicht** — sie sind sozialer Spielplatz ohne Wertung. Begründung: Echtes
+Mensch-gegen-Mensch-ELO bräuchte mehrere Menschen pro Match; real sind MP-Matches aber meist wenige
+Menschen + viele Bots → FFA-Wertung (paarweise Zerlegung wie `elo.ts` oder Platzierungs-ELO) wäre
+kaum aussagekräftig. Solo gegen kalibrierte Bots ist das sauberere Können-Maß. MP-Wertung bleibt eine
+spätere Option, falls echte Menschen-Lobbys zur Norm werden.
+
+**Vertrauensmodell:** Da der Solo-Modus clientseitig läuft, ist das gemeldete ELO theoretisch
+fälschbar (Ehrenbasis). Für ein kleines Spiel unter Bekannten akzeptiert; auf server-validierte
+MP-Wertung umstellbar, sobald das Spiel kompetitiv/öffentlich wird.
 
 ### Rechtliches (pragmatisch, da privates Hobby-Projekt)
 
@@ -73,8 +82,8 @@ Die FFA-/Mensch-gegen-Mensch-Wertung echter MP-Matches ist **bewusst nicht Teil 
 - **SMTP für Phase 2:** In der Homelab-Doku ist **kein eigener Mailserver** dokumentiert; `jarhost.de`
   liegt bei INWX. Konkrete SMTP-Zugangsdaten für den transaktionalen Versand (Passwort-Reset) sind
   vor Phase 2 zu klären (inkl. SPF/DKIM/DMARC, sonst landen Mails im Spam). **Phase 1 braucht keine Mail.**
-- **MP-Match-Wertung:** Ob/wie echte Mensch-gegen-Mensch-Online-Matches das ELO bewegen (FFA-Wertung
-  bei vielen Nationen + Bots) ist eine spätere Game-Design-Entscheidung — nicht Phase 1.
+- **MP-Match-Wertung:** Vorerst **entschieden, dass MP das ELO NICHT bewegt** (s.o.). Eine spätere
+  Umstellung auf server-validierte FFA-Wertung bleibt möglich, wenn echte Menschen-Lobbys zur Norm werden.
 - **Missbrauch:** Smurfs, ELO-Farmen, unschöne Profilnamen — simple Moderation später.
 - **DB-Persistenz über Deploy:** Deploy-Skript darf die DB-Datei nicht überschreiben/löschen
   (fester Pfad außerhalb Repo) + Backup-Cron einrichten.

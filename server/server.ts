@@ -21,6 +21,7 @@ import { pathToFileURL } from 'node:url'
 import { WebSocketServer, WebSocket } from 'ws'
 
 import { ServerMatch } from './match'
+import { openDb, type AccountDb } from './db'
 import { DIFFICULTIES, type Difficulty } from '../src/ai/ai'
 import type { BuildingType } from '../src/core/buildings'
 import type { GameConfig, PlayerDef } from '../src/core/game'
@@ -91,6 +92,43 @@ function handleFeedback(req: IncomingMessage, res: ServerResponse): void {
     } catch {
       res.writeHead(400, { 'access-control-allow-origin': '*' })
       res.end()
+    }
+  })
+}
+
+/**
+ * Nimmt einen Ranglisten-Stand entgegen (ADR-0027): `{ token, name, elo, wins, losses, peak }` als
+ * JSON-POST. Bindet den Stand an das (clientseitig erzeugte) Gast-Token und persistiert ihn
+ * server-geklemmt. **Ehrenbasis** — das Solo-ELO läuft im Client, ist also vertrauensbasiert; der
+ * Server klemmt nur an die ELO-Grenzen (kein Sim-/MP-Bezug). Antwortet mit dem gespeicherten Stand.
+ */
+function handleRankSubmit(req: IncomingMessage, res: ServerResponse, db: AccountDb): void {
+  let body = ''
+  req.on('data', (c: Buffer) => {
+    body += c.toString()
+    if (body.length > 2000) req.destroy()
+  })
+  req.on('end', () => {
+    const fail = (code: number): void => {
+      res.writeHead(code, { 'access-control-allow-origin': '*' })
+      res.end()
+    }
+    try {
+      const p = JSON.parse(body) as Record<string, unknown>
+      const token = String(p.token ?? '').slice(0, 64)
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(token)) return fail(400)
+      const name = String(p.name ?? '').slice(0, 24)
+      const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+      db.getOrCreateGuest(token, name)
+      const acc = db.setRanked(token, num(p.elo), num(p.wins), num(p.losses), num(p.peak))
+      if (acc === null) return fail(400)
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'access-control-allow-origin': '*',
+      })
+      res.end(JSON.stringify({ elo: acc.elo, wins: acc.wins, losses: acc.losses, peak: acc.peak }))
+    } catch {
+      fail(400)
     }
   })
 }
@@ -512,7 +550,8 @@ export interface RunningServer {
  * Startet HTTP (Health) + WebSocket-Server auf `port` (0 = ephemerer Port). Gibt ein Handle
  * mit dem tatsächlichen Port und einer `close()`-Funktion zurück.
  */
-export function startServer(port: number = PORT): Promise<RunningServer> {
+export function startServer(port: number = PORT, dbPath?: string): Promise<RunningServer> {
+  const db = dbPath === undefined ? openDb() : openDb(dbPath)
   const httpServer = createServer((req, res) => {
     if (req.url === '/health') {
       res.writeHead(200, { 'content-type': 'text/plain' })
@@ -569,6 +608,29 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
     if (req.url === '/version') {
       res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
       res.end(JSON.stringify({ version: APP_VERSION }))
+      return
+    }
+    // Online-Rangliste (ADR-0027): Top-N nach ELO als JSON. `?limit=N` (Default 100, max 500).
+    if (req.url?.startsWith('/leaderboard')) {
+      const q = new URL(req.url, 'http://x').searchParams
+      const limit = Number(q.get('limit') ?? 100)
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' })
+      res.end(JSON.stringify({ entries: db.leaderboard(Number.isFinite(limit) ? limit : 100) }))
+      return
+    }
+    // Ranglisten-Stand einreichen (ADR-0027): POST { token, name, elo, wins, losses, peak }.
+    if (req.url === '/rank/submit' && req.method === 'POST') {
+      handleRankSubmit(req, res, db)
+      return
+    }
+    // CORS-Preflight für /rank/submit (application/json triggert Preflight).
+    if (req.url === '/rank/submit' && req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': 'content-type',
+      })
+      res.end()
       return
     }
     // Kann (room, name) wieder beitreten? = Raum existiert, Match läuft, ein getrennter Slot
@@ -739,6 +801,7 @@ export function startServer(port: number = PORT): Promise<RunningServer> {
           new Promise<void>((res) => {
             for (const r of rooms.values()) if (r.clock !== null) clearInterval(r.clock)
             rooms.clear()
+            db.close()
             wss.close(() => httpServer.close(() => res()))
           }),
       })

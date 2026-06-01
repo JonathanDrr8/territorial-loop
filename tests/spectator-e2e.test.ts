@@ -10,7 +10,7 @@ import { decodeServer, encode, type GameListing } from '../src/net/protocol'
 let server: RunningServer
 
 beforeEach(async () => {
-  server = await startServer(0)
+  server = await startServer(0, ':memory:')
 })
 
 afterEach(async () => {
