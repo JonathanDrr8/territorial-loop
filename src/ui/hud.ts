@@ -44,7 +44,7 @@ import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
 import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
-import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
+import { getHudPrefs, onHudPrefsChange, setHudPref, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
 import { getUiScale, registerScalable } from './ui-scale'
 
@@ -544,6 +544,8 @@ export function createHUD(
     'align-items: baseline',
     'gap: 8px',
     'line-height: 1.05',
+    // Platz oben rechts für den Anzeige-Umschalter (Balken ↔ Kugel), damit die Rate nicht kollidiert.
+    'padding-right: 26px',
   ].join(';')
   // Eigenes Zahl-Element (wird per innerHTML aktualisiert), damit das Rate-Element daneben bleibt.
   // nowrap → die Zeile bricht nie um (feste Box-Breite, einzeilig).
@@ -551,6 +553,44 @@ export function createHUD(
   troopNumEl.style.cssText = 'white-space: nowrap'
   troopBig.appendChild(troopNumEl)
   troopBadge.appendChild(troopBig)
+
+  // Kleiner Umschalter direkt am Truppen-Widget: Anzeige Balken ↔ Kugel (vorher nur im HUD-Editor
+  // versteckt). `setHudPref` feuert `onHudPrefsChange` → applyLayoutPrefs blendet live um.
+  const troopStyleToggle = document.createElement('button')
+  troopStyleToggle.type = 'button'
+  troopStyleToggle.innerHTML = icon.swap
+  troopStyleToggle.title = t('hud.troopStyleToggle')
+  troopStyleToggle.style.cssText = [
+    'position: absolute',
+    'top: 7px',
+    'right: 8px',
+    'width: 22px',
+    'height: 22px',
+    'padding: 0',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'background: rgba(255,255,255,0.06)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 5px',
+    'color: var(--tl-text)',
+    'opacity: 0.55',
+    'cursor: pointer',
+    'transition: opacity 0.12s, background 0.12s',
+    'z-index: 3',
+  ].join(';')
+  troopStyleToggle.addEventListener('mouseenter', () => {
+    troopStyleToggle.style.opacity = '1'
+    troopStyleToggle.style.background = 'rgba(255,255,255,0.16)'
+  })
+  troopStyleToggle.addEventListener('mouseleave', () => {
+    troopStyleToggle.style.opacity = '0.55'
+    troopStyleToggle.style.background = 'rgba(255,255,255,0.06)'
+  })
+  troopStyleToggle.addEventListener('click', () => {
+    setHudPref('troopStyle', getHudPrefs().troopStyle === 'orb' ? 'bar' : 'orb')
+  })
+  troopBadge.appendChild(troopStyleToggle)
 
   // (Balken-Beschriftung entfällt — die Zahl steht jetzt groß in troopBig.)
   const barCaption = document.createElement('div')

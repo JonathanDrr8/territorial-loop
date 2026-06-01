@@ -380,6 +380,7 @@ export const zh: Record<string, string> = {
   'hud.keepSpectating': '继续旁观',
   'hud.defeatTitle': '你已被击败',
   'hud.defeatSub': '你的国家已被完全占领。',
+  'hud.troopStyleToggle': '切换显示方式：条形 ↔ 球形',
   'hud.andMore': '……以及另外 {n} 个',
   'hud.pauseOverlay': '暂停',
   'hud.pause': '暂停',

@@ -434,6 +434,7 @@ export const en: Record<string, string> = {
   'hud.keepSpectating': 'Keep spectating',
   'hud.defeatTitle': 'You were defeated',
   'hud.defeatSub': 'Your nation was completely conquered.',
+  'hud.troopStyleToggle': 'Toggle display: bar ↔ ball',
   'hud.andMore': '… and {n} more',
   'hud.pauseOverlay': 'PAUSED',
   'hud.pause': 'Pause',

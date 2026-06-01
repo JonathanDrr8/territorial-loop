@@ -387,6 +387,7 @@ export const ja: Record<string, string> = {
   'hud.keepSpectating': '観戦を継続する',
   'hud.defeatTitle': '敗北しました',
   'hud.defeatSub': 'あなたの国は完全に征服されました。',
+  'hud.troopStyleToggle': '表示を切り替え：バー ↔ 球',
   'hud.andMore': '……他 {n} 件',
   'hud.pauseOverlay': '一時停止',
   'hud.pause': '一時停止',

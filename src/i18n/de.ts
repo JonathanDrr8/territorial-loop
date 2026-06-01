@@ -440,6 +440,7 @@ export const de: Record<string, string> = {
   'hud.keepSpectating': 'Weiter zuschauen',
   'hud.defeatTitle': 'Du wurdest besiegt',
   'hud.defeatSub': 'Dein Reich wurde vollständig erobert.',
+  'hud.troopStyleToggle': 'Anzeige umschalten: Balken ↔ Kugel',
   'hud.andMore': '… und {n} weitere',
   'hud.pauseOverlay': 'PAUSE',
   'hud.pause': 'Pause',

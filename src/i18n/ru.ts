@@ -427,6 +427,7 @@ export const ru: Record<string, string> = {
   'hud.keepSpectating': 'Продолжить наблюдение',
   'hud.defeatTitle': 'Вы потерпели поражение',
   'hud.defeatSub': 'Ваша нация была полностью завоёвана.',
+  'hud.troopStyleToggle': 'Переключить вид: полоса ↔ шар',
   'hud.andMore': '… и ещё {n}',
   'hud.pauseOverlay': 'ПАУЗА',
   'hud.pause': 'Пауза',

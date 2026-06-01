@@ -438,6 +438,7 @@ export const fr: Record<string, string> = {
   'hud.keepSpectating': 'Continuer à observer',
   'hud.defeatTitle': 'Vous avez été vaincu',
   'hud.defeatSub': 'Votre nation a été entièrement conquise.',
+  'hud.troopStyleToggle': 'Changer l’affichage : barre ↔ sphère',
   'hud.andMore': '… et {n} de plus',
   'hud.pauseOverlay': 'PAUSE',
   'hud.pause': 'Pause',
