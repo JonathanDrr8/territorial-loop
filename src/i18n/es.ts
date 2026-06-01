@@ -407,6 +407,10 @@ export const es: Record<string, string> = {
   'hud.bomber': 'Bombardero',
   'hud.warship': 'Buque',
   'hud.boatHintShort': 'objetivo en otra isla',
+  'wheel.title': 'Acciones',
+  'wheel.back': 'Volver',
+  'wheel.build': 'Construir',
+  'wheel.ships': 'Barcos',
   'hud.boatModeHint':
     'Modo barco: haz clic en un objetivo costero de otra masa de tierra · Esc termina',
   'route.direct': 'directo',
