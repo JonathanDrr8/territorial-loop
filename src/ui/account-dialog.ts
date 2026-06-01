@@ -205,13 +205,12 @@ export function createAccountDialog(opts: AccountDialogOptions): AccountDialogAp
       panel.appendChild(intro)
       const user = field('account.username', 'text', 'username')
       const pass = field('account.password', 'password', 'new-password')
-      const email = field('account.email', 'email', 'email')
+      // E-Mail-Feld vorerst ausgeblendet: ohne Mail-Versand (Recovery läuft über den Code) hätte es
+      // keinen Nutzen. Backend/DB akzeptieren weiter eine E-Mail — wieder einblenden, sobald
+      // transaktionaler Versand (SMTP) eingerichtet ist. Vorerst leer übergeben.
       primaryButton('account.btn.register', () => {
         if (busy) return
-        void submit(
-          () => registerAccount(opts.serverUrl, user.value.trim(), pass.value, email.value.trim()),
-          true,
-        )
+        void submit(() => registerAccount(opts.serverUrl, user.value.trim(), pass.value, ''), true)
       })
       linkRow([['account.switch.toLogin', () => switchTo('login')]])
     } else {
