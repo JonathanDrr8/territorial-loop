@@ -98,6 +98,8 @@ export type SpeedMultiplier = 0 | 1 | 2 | 5 // 0 = Pause
 
 export interface HUDApi {
   update(): void
+  /** Zeigt das Niederlage-Fenster, wenn der eigene Spieler eliminiert wurde (Match läuft weiter). */
+  showDefeat(): void
   /** Update the speed indicator (0 = Pause, 1/2/5 = Sim-Speed-Multiplier). */
   setSpeed(speed: SpeedMultiplier): void
   /** Markiert den aktiven Bau-Modus-Button. `null` = kein Bau-Modus aktiv. */
@@ -1074,6 +1076,10 @@ export function createHUD(
   // „Weiterspielen" blendet das Fenster aus, ohne das Match zu verlassen — der Endstand
   // bleibt geschlossen, auch wenn die Update-Schleife `phase === 'ended'` weiter sieht.
   let bannerDismissed = false
+  // Niederlage durch Elimination: gesetzt, sobald der eigene Spieler eliminiert wurde, während das
+  // Match noch läuft. Eigener Pfad, damit das Banner nicht jeden Frame vom phase-Check (s. update)
+  // wieder ausgeblendet wird (phase ist dann noch 'running', nicht 'ended').
+  let eliminatedBanner = false
   const banner = document.createElement('div')
   banner.style.cssText = panelStyle([
     'position: absolute',
@@ -1132,6 +1138,23 @@ export function createHUD(
   banner.appendChild(bannerButtons)
   container.appendChild(banner)
 
+  /**
+   * Niederlage-Fenster, wenn der eigene Spieler eliminiert wurde, das Match aber weiterläuft
+   * (Standard-Modus endet sonst erst, wenn eine andere Seite die Sieg-Schwelle erreicht). Nutzt
+   * dasselbe Banner-Element wie der Sieg-Endstand; „Weiter zuschauen" blendet es aus, „Neues Match"
+   * verlässt die Runde.
+   */
+  function showDefeat(): void {
+    if (eliminatedBanner || bannerDismissed) return
+    eliminatedBanner = true
+    keepWatchingBtn.textContent = t('hud.keepSpectating')
+    bannerText.innerHTML =
+      `<div style="font-size: 22px; font-weight:700; margin-bottom: 4px; color:#ff8080">` +
+      `${escapeHtml(t('hud.defeatTitle'))}</div>` +
+      `<div style="font-size: 13px; opacity: 0.75">${escapeHtml(t('hud.defeatSub'))}</div>`
+    banner.style.display = 'block'
+  }
+
   /* ---- Pause-Overlay ------------------------------------------------------- */
   const pauseOverlay = document.createElement('div')
   pauseOverlay.style.cssText = [
@@ -1165,7 +1188,10 @@ export function createHUD(
   function updateActionBar(): void {
     const human = findHuman()
     if (human === undefined || !human.isAlive) {
+      // Toter/eliminierter Spieler (oder Zuschauer): Aktions-Leiste UND Truppen/Gold-Panel weg —
+      // sonst blieben eingefrorene Werte (Truppen/Gold) stehen, obwohl kein Gebiet mehr da ist.
       actionBar.style.display = 'none'
+      troopBadge.style.display = 'none'
       return
     }
     actionBar.style.display = 'block'
@@ -1533,6 +1559,9 @@ export function createHUD(
           more +
           `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px">Seed: ${escapeHtml(state.seed)}</div>`
       }
+    } else if (eliminatedBanner && !bannerDismissed) {
+      // Niederlage-Banner bleibt sichtbar (Inhalt in showDefeat gesetzt), solange das Match läuft.
+      banner.style.display = 'block'
     } else {
       banner.style.display = 'none'
     }
@@ -1540,6 +1569,7 @@ export function createHUD(
 
   return {
     update,
+    showDefeat,
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
       pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'
