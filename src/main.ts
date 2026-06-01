@@ -50,6 +50,7 @@ import { registerPanel, unregisterPanel } from './ui/hud-layout'
 import { createHudEditor } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
+import { createTutorial, defaultTutorialSteps, type TutorialApi } from './ui/tutorial'
 import { clearScalables, registerScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
@@ -134,6 +135,24 @@ const DEFAULT_MENU: StartMenuValues = {
   teamCount: 2,
   teamSize: 2,
 }
+
+/**
+ * Match-Vorgaben fürs Tutorial: kleine, ruhige Karte ohne Wasser, keine echte KI, ein paar passive
+ * Wilde zum Erobern, fester Seed (reproduzierbar). Wird über die aktuellen Menü-Werte gelegt, damit
+ * Name/Sprache/Design erhalten bleiben.
+ */
+const TUTORIAL_OVERRIDES = {
+  mapWidth: 256,
+  mapHeight: 256,
+  aiCount: 0,
+  wildCount: 20, // dicht → der Spieler hat immer nahe Wilde zum Erobern und Bombardieren
+  terrain: 'flat',
+  rivers: false,
+  captureMode: false,
+  teamMode: 'off',
+  victoryPct: 95, // hoch → das Match endet während des Tutorials nicht versehentlich
+  seed: 'tutorial-1',
+} satisfies Partial<StartMenuValues>
 
 /** Gedämpfte Einheitsfarbe für wilde Nationen (neutral, hebt sich von Spielern ab). */
 const WILD_COLOR = 0x8f8a78ff
@@ -378,6 +397,8 @@ function startMatch(
   rankedElo?: number,
   /** HUD-Sandbox: Match nur zum HUD-Einrichten — pausiert starten + Editor sofort öffnen. */
   hudSandbox?: boolean,
+  /** Tutorial-Match: geführtes Drehbuch (Ziel-Panel + pausieren/erklären) statt freies Spiel. */
+  tutorial?: boolean,
 ): MatchSession {
   clearScalables() // UI-Größen-Registry leeren — die HUD-Panels dieses Matches melden sich neu an
   const config = net?.config ?? buildConfig(menu, spectator)
@@ -798,8 +819,30 @@ function startMatch(
 
   hud.setSpeed(speed)
 
+  // Tutorial-Drehbuch (geführtes Match, Option im Menü): steuert die Sim-Pause und hängt sein
+  // Ziel-Panel + die Erklärbox ins Match-DOM. Nur Solo (humanId > 0).
+  let tutorialApi: TutorialApi | null = null
+  if (tutorial === true && humanId > 0) {
+    tutorialApi = createTutorial({
+      steps: defaultTutorialSteps(),
+      humanId,
+      setPaused: (p) => {
+        paused = p
+        transport.setRunning(!p)
+        hud.setSpeed(p ? 0 : speed)
+      },
+      onFinish: () => {
+        // Drehbuch durch → Panel weg, der Spieler kann das Match frei weiterspielen oder verlassen.
+        tutorialApi?.destroy()
+        tutorialApi = null
+      },
+    })
+    container.appendChild(tutorialApi.element)
+  }
+
   function renderLoop(): void {
     if (destroyed) return
+    tutorialApi?.tick(state)
     // Erste Zentrierung wiederholen, sobald das Canvas garantiert final dimensioniert
     // ist (initialer Aufruf kann vor dem finalen Layout passieren).
     if (recenterPending) {
@@ -922,6 +965,7 @@ function startMatch(
         renderRafId = null
       }
       input.destroy()
+      tutorialApi?.destroy()
       hudEditor.destroy()
       hud.destroy()
       minimap.destroy()
@@ -1306,6 +1350,36 @@ function main(): void {
           spectate(code)
         },
         onFeedback: () => feedbackUi.open(),
+        // Tutorial (Option): geführtes Match auf kleiner ruhiger Karte; das Drehbuch erklärt die
+        // Grundlagen (pausieren → erklären → weiter). Nutzt die Match-Maschinerie mit `tutorial=true`.
+        onTutorial: (values) => {
+          saveMenuPrefs(values)
+          clearActiveSession()
+          menu.destroy()
+          if (session !== null) {
+            session.destroy()
+            session = null
+          }
+          const removeLoading = showLoadingOverlay(container)
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              try {
+                session = startMatch(
+                  container,
+                  { ...values, ...TUTORIAL_OVERRIDES },
+                  backToMenu,
+                  false,
+                  undefined,
+                  undefined,
+                  undefined,
+                  true,
+                )
+              } finally {
+                removeLoading()
+              }
+            })
+          })
+        },
         // Ranglisten-Modus (ADR-0022): ELO-Screen öffnen; „Spielen" startet ein Match auf
         // Spieler-Stärke (alle KI = dein ELO), das Ergebnis bewegt das ELO.
         onRanked: (values) => {

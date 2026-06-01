@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.30.0] – 2026-06-01
+
+### Neu
+
+- **Tutorial:** Im **Spielen**-Tab gibt es einen neuen, freiwilligen **„Tutorial"**-Knopf.
+  Er startet ein geführtes Match auf einer kleinen, ruhigen Karte. Das Spiel hält an festen
+  Punkten an, zeigt eine Erklär-Box und läuft danach weiter — pausieren, erklären, weiter.
+  Ein angeheftetes **Ziel-Panel** auf der linken Seite zeigt den Fortschritt mit Haken an.
+  Das Tutorial führt durch die Grundlagen: Gebiet ausbreiten, Angriffsgröße einstellen,
+  wilde Nationen erobern, **Stadt** und **Fabrik** bauen (Wirtschaft), weiter wachsen,
+  **Flughafen** und **Bomber** einsetzen (Luftkrieg). Der jeweils gemeinte Knopf wird
+  hervorgehoben; für die Bauschritte bekommt man Gold geschenkt. Wer das Spiel schon kennt,
+  ignoriert den Knopf einfach — das Tutorial ist nie Pflicht. Verfügbar in allen 9 Sprachen.
+
 ## [0.29.1] – 2026-06-01
 
 ### Geändert

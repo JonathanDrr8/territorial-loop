@@ -57,6 +57,7 @@ export const de: Record<string, string> = {
   'play.start': 'Match starten',
   'play.spectate': 'Zuschauen',
   'play.ranked': 'Ranglisten',
+  'play.tutorial': 'Tutorial',
 
   // ── Tab „Einstellungen" ────────────────────────────────────────────────────
   'settings.intro': 'Darstellung & optionale Features. Wirken sich aufs nächste Match aus.',
@@ -134,6 +135,41 @@ export const de: Record<string, string> = {
   'account.error.username': 'Benutzername: 3–24 Zeichen (Buchstaben, Ziffern, _ und -).',
   'account.error.password': 'Passwort: mindestens 6 Zeichen.',
   'account.error.offline': 'Server nicht erreichbar.',
+
+  // Tutorial (geführtes Match)
+  'tutorial.title': 'Tutorial',
+  'tutorial.btn.next': 'Weiter',
+  'tutorial.btn.finish': 'Fertig',
+  'tutorial.step.welcome.goal': 'Willkommen',
+  'tutorial.step.welcome.text':
+    'Willkommen bei territorial-loop! Das farbige Gebiet in der Mitte ist dein Reich. Dein Ziel: dich ausbreiten und die Insel erobern. Wir gehen die Grundlagen Schritt für Schritt durch.',
+  'tutorial.step.expand.goal': 'Breite dich aus',
+  'tutorial.step.expand.text':
+    'Klicke ein angrenzendes graues Gebiet an deiner Grenze an — deine Truppen breiten sich dorthin aus.',
+  'tutorial.step.size.goal': 'Angriffsgröße',
+  'tutorial.step.size.text':
+    'Mit Shift+Mausrad stellst du ein, wie viel deiner Truppen ein Angriff einsetzt. Mehr Truppen erobern schneller, lassen dein Kerngebiet aber dünner. Probier es ruhig aus.',
+  'tutorial.step.wild.goal': 'Erobere die Wilden',
+  'tutorial.step.wild.text':
+    'Die grauen „wilden" Nationen sind passiv und schwach besiedelt — perfekt zum Wachsen. Erobere die wilde Nation neben dir; beim Erobern erbeutest du ihr Gold.',
+  'tutorial.step.city.goal': 'Baue eine Stadt',
+  'tutorial.step.city.text':
+    'Mit Gold baust du Gebäude. Wir schenken dir etwas Gold zum Üben. Drücke Taste 1 und setze eine Stadt auf dein Gebiet — eine Stadt hebt dein Truppen-Limit, du kannst also mehr Truppen halten.',
+  'tutorial.step.factory.goal': 'Baue eine Fabrik',
+  'tutorial.step.factory.text':
+    'Gold ist der Schlüssel zu allem. Baue eine Fabrik (Taste 4) — sie verbindet sich mit deinen Städten und produziert laufend Gold. Fabriken sind das Rückgrat deiner Wirtschaft. Hier ist Gold dafür.',
+  'tutorial.step.grow.goal': 'Wachse weiter',
+  'tutorial.step.grow.text':
+    'Stark! Wachsen ist das Wichtigste. Breite dich weiter aus und erobere mehr Gebiet — je größer dein Reich, desto mehr Truppen und Gold.',
+  'tutorial.step.airport.goal': 'Baue einen Flughafen',
+  'tutorial.step.airport.text':
+    'Zeit für Luftmacht. Baue einen Flughafen (Taste 5) — von hier starten Bomber. Wir schenken dir das Gold dafür.',
+  'tutorial.step.bomber.goal': 'Starte einen Bomber',
+  'tutorial.step.bomber.text':
+    'Drücke Taste 7, um einen Bomber zu bauen, und klicke dann ein feindliches (graues) Gebiet an. Der Bomber fliegt hin und wirft eine Bombe, die Truppen tötet, Gebiet neutralisiert und Gebäude zerstört — Vorsicht, sie verschont niemanden, auch Verbündete nicht.',
+  'tutorial.step.finish.goal': 'Geschafft',
+  'tutorial.step.finish.text':
+    'Geschafft! Du beherrschst die Grundlagen: ausbreiten, erobern, Wirtschaft (Städte + Fabriken) und Luftkrieg. Häfen und Schiffe, Diplomatie und die Spielmodi lernst du am besten direkt in einer echten Partie kennen. Viel Erfolg!',
 
   // Lobby-Browser (offene Lobbys + laufende Spiele)
   'lobby.openTitle': 'Offene Lobbys',
