@@ -1,6 +1,6 @@
 # ADR-0027: Accounts + Online-Rangliste
 
-**Status:** Proposed (Phase 1 in Arbeit, Branch `feature/accounts`)
+**Status:** Accepted — Phase 1 + 2 umgesetzt (Branch `feature/accounts`, noch nicht gemergt/deployed)
 **Datum:** 2026-06-01
 
 ## Kontext
