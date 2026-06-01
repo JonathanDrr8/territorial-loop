@@ -1,98 +1,63 @@
-# Morning Brief — Nacht-Session 2026-05-27/28
+# Morgen-Brief — Nacht-Session 2026-06-02
 
-Stand bei deinem Reinkommen morgens. **43 Commits** seit du schlafen gegangen
-bist, alle 154 Tests grün, Lint + Typecheck clean, Production-Build clean
-(17 kB gzipped Bundle).
-
-## Was du sofort testen kannst
-
-`http://localhost:5173/` ist offen — der Vite-Dev-Server läuft die ganze Nacht.
-
-Das **Start-Menü** ist neu und merkt sich die Einstellungen zwischen Sessions
-(LocalStorage). Probier mal verschiedene Kombinationen:
-
-- **Kontinente** oder **Inseln** als Karten-Typ
-- **Belagerung** als Tempo (Welle fließt langsamer, OpenFront weniger frantic)
-- **Schwer** als KI-Schwierigkeit
-- 1024×1024 für ein episches Match
-- Seed-Feld füllen für reproduzierbare Matches
-
-## Größte sichtbare Änderungen
-
-1. **Terrain (Land/Wasser)** — tileable noise via Cosinus-Summen, keine sichtbare
-   Naht am Torus-Rand. Spawn-Platzierung, Wave-Expansion, Sieg-Check respektieren
-   Wasser.
-2. **Start-Menü** mit allen Match-Parametern + LocalStorage-Persistence.
-3. **Belagerungs-Modus light** — `tilesPerTick × 0.3`, Wave langsam, Angriff hält
-   länger an. Adressiert dein "OpenFront zu schnell"-Anliegen.
-4. **Minimap** unten rechts mit Torus-Wrap-Indikator (Viewport-Box wird 3×3
-   getilt — du siehst direkt wenn dein Sichtfeld einen Wrap überschreitet).
-5. **Sound** (Web Audio, keine Assets nötig) — Klick beim Angriff, Sieg/Niederlage-Chime.
-6. **HUD** zeigt jetzt Spielzeit + aktuelle Sim-Geschwindigkeit + Live-%-Stand.
-7. **Game-Over-Banner mit Statistik** — Sieger, Match-Dauer, pro Spieler:
-   Peak-%-Stand, Peak-Truppen, Match-Seed (für Wiederholung).
-8. **Hover-Tooltip** über fremden Tiles zeigt Spielername, Bevölkerung, %.
-9. **Hover-Tile-Outline** macht klar wo dein nächster Klick landet.
-10. **Pulsierendes Crosshair** auf jedem deiner aktiven Attack-Foci.
-11. **Klick-Animation** — expandierender Ring beim Angriffsklick.
-12. **Direktionale Angriffe** — der Klick-Punkt bestimmt die Richtung der Welle.
-13. **KI-Schwierigkeitsgrade** Einfach / Normal / Schwer.
-14. **Random Spieler-Namen** aus einem 48-Namen-Pool, distinkte Farben pro Match.
-15. **Esc** = zurück zum Start-Menü, jederzeit.
-16. **Pause-Overlay** ("PAUSE" in groß) wenn die Sim pausiert ist.
-17. **Match-Seed** wird im Game-Over-Banner angezeigt → kannst du copy-paste-en
-    um exakt dasselbe Match nochmal zu spielen.
-18. **Tile-Capture-Flash** — jedes Tile blitzt kurz weiß auf, wenn es erobert
-    wird. Macht den Fluss der Wellen viel "lebendiger".
-19. **README.md, CLAUDE.md, Architecture.md** sind alle auf Stand. Pixi-
-    Dependency entfernt, Build funktioniert sauber.
-
-## Was unter der Haube passiert ist
-
-- `main.ts` wurde refactort — HUD, Hover-Tooltip, Minimap, Sound, Start-Menü,
-  Color-Utils, Preferences sind eigene Module unter `src/ui/`.
-- WebGL-Renderer (Pixi) wurde gegen Canvas-2D ersetzt — Pixi rendert bei dir
-  auf Hyprland nicht zuverlässig (siehe ADR-0005).
-- Render-Performance: Bitmap wird nur einmal pro Sim-Tick gemalt (statt jedes
-  Frame), erspart 6/7 der Pixel-Writes bei 60fps Render + 10 Hz Sim.
-- Performance bei 1024×1024-Maps validiert (Sim hält 10 Hz, kein Frame-Drop).
-- Module-READMEs (ai, input, render, ui, world) sind alle aktuell.
-- Test-Suite ging von 71 auf 154 Tests, alle grün. Coverage neu: terrain,
-  player-names, colors, preferences.
-- ADR-0005 dokumentiert die Pixi→Canvas2D-Entscheidung.
-- Vite-Config aufgeräumt — pixi.js komplett raus, Bundle 17 kB gzipped.
-
-## Offene Fragen
-
-`docs/morning-questions.md` ist leer — alles was du vor dem Schlafen geklärt
-hast, ist eingebaut.
-
-## Wenn etwas dramatisch schiefläuft
+Hi Jonathan! Während du geschlafen hast, habe ich erst die aktuellen Features durchgetestet
+und dann deine HUD-Wünsche umgesetzt. **Alles liegt auf dem Branch `fix/niederlage-overlay-bau-feel`
+— nichts ist nach `main` gemergt und nichts deployed** (wie besprochen). Zum Testen:
 
 ```bash
-git log --oneline -40      # Übersicht aller Nacht-Commits
-git revert <hash>          # einzelnen Commit rückgängig
-git reset --hard <hash>    # zu früherem Zustand zurück (vorsichtig)
+git checkout fix/niederlage-overlay-bau-feel
+npm run dev   # läuft sonst schon auf :5173
 ```
 
-Alle Commits sind klein und fokussiert — Reverts sollten chirurgisch möglich
-sein ohne dass anderes mitleidet.
+## Was neu ist (5 Commits)
 
-## Was noch nicht getan ist (Stretch goals für später)
+1. **Niederlage-Bildschirm.** Wird dein Reich komplett erobert, kommt jetzt sofort
+   „Du wurdest besiegt" mit _Weiter zuschauen_ / _Neues Match_ — vorher lief das Spiel ohne
+   Rückmeldung weiter und die Anzeigen blieben auf alten Werten eingefroren. Truppen-/Gold-Panel
+   und Bau-Leiste verschwinden jetzt sauber, sobald du raus bist. (Ranglisten-Spiele werten die
+   Niederlage sofort.)
+2. **Wilde Nationen haben wieder eine Nummer** („wild 3") — so erkennst du, welcher getrennte
+   Fleck zu welcher wilden Nation gehört. Außerdem kleben Wilde nicht mehr als Label am
+   Bildschirmrand (das hatte bei vielen Nationen den Rand zugekleistert).
+3. **Bauen trifft besser.** Klickst du knapp neben dein (kleines) Reich, rastet das Gebäude
+   aufs nächste eigene Feld, statt ins Leere zu gehen — direkt nach dem Spawn nervt das sonst.
+4. **Balken/Kugel-Umschalter direkt am Truppen-Widget** (kleiner Knopf oben rechts) — vorher nur
+   im HUD-Editor versteckt.
+5. **HUD-Editor umgebaut** (dein Hauptwunsch):
+   - **Ereignis-Log füllt sich jetzt richtig:** ziehst du das Panel höher, erscheinen mehr
+     Zeilen (statt nur die Box zu zoomen). Getestet: Standard 7 Zeilen → hochgezogen 21.
+   - **Editor-Leiste als Reiter** (Design / Layout / Elemente) — viel aufgeräumter, jeder Reiter
+     zeigt nur seine eigenen Regler.
+   - **Quick-Config-Dropdown** mit Steuerungs-Presets: **Standard / Maus / Navigations-Rad**.
+     „Navigations-Rad" schaltet z. B. live aufs Touch/Rad-Layout um, „Standard" setzt alles zurück.
 
-- Echtes Capture-Progress-System (Tiles mit N-Tick-Countdown statt Speed-
-  Multiplier). Siehe `feature-idea-belagerung.md` im memory.
-- Animationen für einzelne Tile-Eroberungen (Aufblitzen)
-- Mehrere Spieler-Profile / KI-Persönlichkeiten (defensiv vs. aggressiv)
-- Mehr Spieler-Limit (aktuell max 7 KI + 1 Mensch = 8)
-- Pixi-Dependency entfernen (in `package.json` noch drin, wird nicht genutzt)
+Das ganze Spiel ist weiter in allen 9 Sprachen (neue Texte mit übersetzt).
 
-## Memory-Updates
+## Geprüft
 
-Im memory-System wurden folgende Files aktualisiert oder neu angelegt:
+- `npm run typecheck`, `npm run lint`, **466 Tests** — alles grün (4 neue Tests fürs Bau-Snapping).
+- Im Browser live verifiziert: Niederlage-Overlay, Wild-Nummern, Log-Reflow (7→21 Zeilen),
+  Editor-Reiter, Quick-Configs, Reset. **0 Konsolen-Fehler** über die ganze Session.
 
-- `feature-idea-belagerung.md` — Belagerungs-Idee ist als matchSpeed umgesetzt,
-  vollständiges capture-progress als Erweiterung-Idee gemerkt
-- Alle anderen MVP-bezogenen Memory-Dateien sind weiterhin gültig
+## Bitte mal selbst anschauen / offen
 
-_Letztes Update: 2026-05-28, Ende der Nacht-Session_
+- **Angriffe-Panel ziehbar:** Die Resize-Mechanik (Kanten höher/breiter ziehen) funktioniert
+  jetzt samt Höhen-Override; für den Log konnte ich es eindeutig beweisen. Beim Angriffe-Panel
+  zieh im Editor bitte mal an den Kanten und sag mir, ob sich das jetzt gut anfühlt.
+- **Quick-Configs** habe ich bewusst auf die _Steuerungs-Modi_ fokussiert (kein fragiles
+  Pixel-Verschieben je Bildschirmgröße). Wenn du eher feste Panel-Anordnungen pro Preset willst,
+  bauen wir das als nächsten Schritt.
+- **Farb-Kontrast** (manche Nationsfarben verschwimmen mit dem Terrain) — hast du diesmal bewusst
+  weggelassen; liegt als Befund bereit, falls du ihn doch willst.
+- **Merge/Deploy** mache ich erst auf deine Ansage. Plan-Details: `docs/decisions/0028-hud-editor-umbau.md`.
+
+## Wenn etwas schieflaufen sollte
+
+```bash
+git log --oneline 1751834..HEAD   # die 5 Commits dieser Session
+git revert <hash>                 # einzelnen Commit zurücknehmen
+```
+
+Alle Commits sind klein und fokussiert. Der PC wird jetzt heruntergefahren — bis später!
+
+_Letztes Update: 2026-06-02, Ende der Nacht-Session_
