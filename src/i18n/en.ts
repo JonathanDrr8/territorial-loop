@@ -4,6 +4,7 @@ export const en: Record<string, string> = {
 
   'nav.play': 'Play',
   'nav.multiplayer': 'Multiplayer',
+  'nav.ranking': 'Ranking',
   'nav.settings': 'Settings',
   'nav.changelog': 'Changelog',
   'nav.help': 'Help',
@@ -87,6 +88,21 @@ export const en: Record<string, string> = {
   'mp.intro': 'Join an open game or create your own lobby.',
   'mp.openDialog': 'Create lobby / join by code',
   'mp.reconnect': '⟳ Reconnect — room {room}',
+
+  // Online ranking (ADR-0027)
+  'ranking.title': 'Online ranking',
+  'ranking.intro':
+    'Your ranked ELO from solo matches against the AI, saved worldwide. Multiplayer games do not change it.',
+  'ranking.myElo': 'Your ELO',
+  'ranking.myPeak': 'Best',
+  'ranking.loading': 'Loading …',
+  'ranking.empty': 'No entries yet — play a ranked match!',
+  'ranking.colName': 'Name',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'W/L',
+  'ranking.hideMe': 'Hide me from the ranking',
+  'ranking.hidden': 'Hidden',
+  'ranking.visible': 'Visible',
 
   // Lobby browser (open lobbies + live games)
   'lobby.openTitle': 'Open lobbies',

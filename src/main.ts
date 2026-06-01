@@ -9,6 +9,7 @@
 import { createAI, type AI } from './ai/ai'
 import { profileForElo } from './ai/strength'
 import { loadRanked, recordResult, resetRanked } from './ui/ranked'
+import { submitRank, isRankHidden } from './ui/rank-online'
 import {
   canBuildAt,
   canReachByLand,
@@ -817,6 +818,13 @@ function startMatch(
       if (rankedElo !== undefined && !spectator) {
         const res = recordResult(rankedElo, won)
         showRankedResultOverlay(container, rankedElo, won, res.before, res.after.elo)
+        // Online-Rangliste (ADR-0027): neuen Stand ans Gast-Token melden (fire-and-forget, offline-tolerant).
+        void submitRank(
+          loadServerUrl(defaultServerUrl()),
+          menu.playerName,
+          res.after,
+          isRankHidden(),
+        )
       }
     }
     lastPhase = state.phase

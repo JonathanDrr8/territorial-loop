@@ -4,6 +4,7 @@ export const it: Record<string, string> = {
 
   'nav.play': 'Gioca',
   'nav.multiplayer': 'Multigiocatore',
+  'nav.ranking': 'Classifica',
   'nav.settings': 'Impostazioni',
   'nav.changelog': 'Novità',
   'nav.help': 'Aiuto',
@@ -84,6 +85,21 @@ export const it: Record<string, string> = {
   'mp.intro': 'Unisciti a una partita aperta o crea la tua stanza.',
   'mp.openDialog': 'Crea stanza / entra con codice',
   'mp.reconnect': '⟳ Riconnetti — stanza {room}',
+
+  // Classifica online (ADR-0027)
+  'ranking.title': 'Classifica online',
+  'ranking.intro':
+    'Il tuo ELO di classifica dalle partite in solitaria contro l’IA, salvato nel mondo. Le partite multigiocatore non lo modificano.',
+  'ranking.myElo': 'Il tuo ELO',
+  'ranking.myPeak': 'Record',
+  'ranking.loading': 'Caricamento …',
+  'ranking.empty': 'Nessuna voce ancora — gioca una partita classificata!',
+  'ranking.colName': 'Nome',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'V/S',
+  'ranking.hideMe': 'Nascondimi dalla classifica',
+  'ranking.hidden': 'Nascosto',
+  'ranking.visible': 'Visibile',
 
   'lobby.openTitle': 'Stanze aperte',
   'lobby.runningTitle': 'Partite in corso',

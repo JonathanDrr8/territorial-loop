@@ -4,6 +4,7 @@ export const zh: Record<string, string> = {
 
   'nav.play': '游戏',
   'nav.multiplayer': '多人',
+  'nav.ranking': '排行榜',
   'nav.settings': '设置',
   'nav.changelog': '更新',
   'nav.help': '帮助',
@@ -83,6 +84,20 @@ export const zh: Record<string, string> = {
   'mp.intro': '加入一个开放对局，或创建你自己的房间。',
   'mp.openDialog': '创建房间 / 用代码加入',
   'mp.reconnect': '⟳ 重新连接 —— 房间 {room}',
+
+  // 在线排行榜（ADR-0027）
+  'ranking.title': '在线排行榜',
+  'ranking.intro': '你在单人对战 AI 的排位对局中获得的 ELO，全球保存。多人对战不会影响此 ELO。',
+  'ranking.myElo': '你的 ELO',
+  'ranking.myPeak': '最高值',
+  'ranking.loading': '加载中 …',
+  'ranking.empty': '暂无记录 —— 快去打一场排位赛吧！',
+  'ranking.colName': '名字',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': '胜/负',
+  'ranking.hideMe': '从排行榜中隐藏我',
+  'ranking.hidden': '已隐藏',
+  'ranking.visible': '可见',
 
   'lobby.openTitle': '开放房间',
   'lobby.runningTitle': '进行中的对局',

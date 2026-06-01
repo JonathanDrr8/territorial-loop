@@ -4,6 +4,7 @@ export const fr: Record<string, string> = {
 
   'nav.play': 'Jouer',
   'nav.multiplayer': 'Multijoueur',
+  'nav.ranking': 'Classement',
   'nav.settings': 'Réglages',
   'nav.changelog': 'Nouveautés',
   'nav.help': 'Aide',
@@ -84,6 +85,21 @@ export const fr: Record<string, string> = {
   'mp.intro': 'Rejoins une partie ouverte ou crée ton propre salon.',
   'mp.openDialog': 'Créer un salon / rejoindre par code',
   'mp.reconnect': '⟳ Se reconnecter — salon {room}',
+
+  // Classement en ligne (ADR-0027)
+  'ranking.title': 'Classement en ligne',
+  'ranking.intro':
+    'Ton ELO de classement issu des parties en solo contre l’IA, enregistré dans le monde entier. Les parties multijoueur ne le modifient pas.',
+  'ranking.myElo': 'Ton ELO',
+  'ranking.myPeak': 'Record',
+  'ranking.loading': 'Chargement …',
+  'ranking.empty': 'Aucune entrée pour l’instant — joue une partie classée !',
+  'ranking.colName': 'Nom',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'V/D',
+  'ranking.hideMe': 'Me masquer du classement',
+  'ranking.hidden': 'Masqué',
+  'ranking.visible': 'Visible',
 
   'lobby.openTitle': 'Salons ouverts',
   'lobby.runningTitle': 'Parties en cours',

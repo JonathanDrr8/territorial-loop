@@ -4,6 +4,7 @@ export const de: Record<string, string> = {
 
   'nav.play': 'Spielen',
   'nav.multiplayer': 'Mehrspieler',
+  'nav.ranking': 'Rangliste',
   'nav.settings': 'Einstellungen',
   'nav.changelog': 'Changelog',
   'nav.help': 'Hilfe',
@@ -86,6 +87,21 @@ export const de: Record<string, string> = {
   'mp.intro': 'Tritt einem offenen Spiel bei oder erstelle deine eigene Lobby.',
   'mp.openDialog': 'Lobby erstellen / per Code beitreten',
   'mp.reconnect': '⟳ Wieder verbinden — Raum {room}',
+
+  // Online-Rangliste (ADR-0027)
+  'ranking.title': 'Online-Rangliste',
+  'ranking.intro':
+    'Dein Ranglisten-ELO aus Solo-Matches gegen die KI, weltweit gespeichert. Mehrspieler-Partien verändern es nicht.',
+  'ranking.myElo': 'Dein ELO',
+  'ranking.myPeak': 'Bestwert',
+  'ranking.loading': 'Lädt …',
+  'ranking.empty': 'Noch keine Einträge — spiel ein Ranglisten-Match!',
+  'ranking.colName': 'Name',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'S/N',
+  'ranking.hideMe': 'Mich aus der Rangliste ausblenden',
+  'ranking.hidden': 'Ausgeblendet',
+  'ranking.visible': 'Sichtbar',
 
   // Lobby-Browser (offene Lobbys + laufende Spiele)
   'lobby.openTitle': 'Offene Lobbys',

@@ -4,6 +4,7 @@ export const ru: Record<string, string> = {
 
   'nav.play': 'Игра',
   'nav.multiplayer': 'Мультиплеер',
+  'nav.ranking': 'Рейтинг',
   'nav.settings': 'Настройки',
   'nav.changelog': 'Что нового',
   'nav.help': 'Помощь',
@@ -83,6 +84,21 @@ export const ru: Record<string, string> = {
   'mp.intro': 'Присоединись к открытому матчу или создай свою комнату.',
   'mp.openDialog': 'Создать комнату / войти по коду',
   'mp.reconnect': '⟳ Переподключиться — комната {room}',
+
+  // Онлайн-рейтинг (ADR-0027)
+  'ranking.title': 'Онлайн-рейтинг',
+  'ranking.intro':
+    'Твой рейтинговый ELO из одиночных матчей против ИИ, хранящийся по всему миру. Матчи мультиплеера его не меняют.',
+  'ranking.myElo': 'Твой ELO',
+  'ranking.myPeak': 'Рекорд',
+  'ranking.loading': 'Загрузка …',
+  'ranking.empty': 'Записей пока нет — сыграй рейтинговый матч!',
+  'ranking.colName': 'Имя',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'П/П',
+  'ranking.hideMe': 'Скрыть меня из рейтинга',
+  'ranking.hidden': 'Скрыто',
+  'ranking.visible': 'Видно',
 
   'lobby.openTitle': 'Открытые комнаты',
   'lobby.runningTitle': 'Идущие матчи',

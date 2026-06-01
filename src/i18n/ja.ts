@@ -4,6 +4,7 @@ export const ja: Record<string, string> = {
 
   'nav.play': 'プレイ',
   'nav.multiplayer': 'マルチ',
+  'nav.ranking': 'ランキング',
   'nav.settings': '設定',
   'nav.changelog': '更新情報',
   'nav.help': 'ヘルプ',
@@ -83,6 +84,21 @@ export const ja: Record<string, string> = {
   'mp.intro': '公開中の対戦に参加するか、自分の部屋を作成しましょう。',
   'mp.openDialog': '部屋を作成 / コードで参加',
   'mp.reconnect': '⟳ 再接続 —— 部屋 {room}',
+
+  // オンラインランキング（ADR-0027）
+  'ranking.title': 'オンラインランキング',
+  'ranking.intro':
+    'AI とのソロ対戦で獲得したランク ELO です。世界規模で保存されます。マルチプレイの対戦では変動しません。',
+  'ranking.myElo': 'あなたの ELO',
+  'ranking.myPeak': '最高値',
+  'ranking.loading': '読み込み中 …',
+  'ranking.empty': 'まだ記録がありません —— ランク戦をプレイしましょう！',
+  'ranking.colName': '名前',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': '勝/負',
+  'ranking.hideMe': 'ランキングから非表示にする',
+  'ranking.hidden': '非表示',
+  'ranking.visible': '表示',
 
   'lobby.openTitle': '公開部屋',
   'lobby.runningTitle': '進行中の対戦',

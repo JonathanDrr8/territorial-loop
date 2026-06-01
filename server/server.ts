@@ -122,6 +122,7 @@ function handleRankSubmit(req: IncomingMessage, res: ServerResponse, db: Account
       db.getOrCreateGuest(token, name)
       const acc = db.setRanked(token, num(p.elo), num(p.wins), num(p.losses), num(p.peak))
       if (acc === null) return fail(400)
+      if (typeof p.hidden === 'boolean') db.setHidden(token, p.hidden)
       res.writeHead(200, {
         'content-type': 'application/json',
         'access-control-allow-origin': '*',

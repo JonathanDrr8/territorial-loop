@@ -69,6 +69,8 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_accounts_elo ON accounts (elo DESC);
   `,
+  // v2 — Selbst-Ausblenden: versteckte Accounts erscheinen nicht in der öffentlichen Rangliste.
+  `ALTER TABLE accounts ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;`,
 ]
 
 const clampElo = (v: number): number =>
@@ -104,6 +106,8 @@ export interface AccountDb {
   ): AccountRow | null
   /** Aktualisiert nur den Anzeigenamen. */
   setName(guestToken: string, displayName: string): void
+  /** Blendet den Account aus der öffentlichen Rangliste aus (true) bzw. wieder ein (false). */
+  setHidden(guestToken: string, hidden: boolean): void
   /** Top-N nach ELO (öffentlich, ohne Token). */
   leaderboard(limit: number): LeaderboardEntry[]
   /** Rohzugriff auf den Account zum Token (oder null). */
@@ -150,8 +154,11 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
     `UPDATE accounts SET elo = @elo, wins = @wins, losses = @losses, peak = @peak, updated_at = @ts
      WHERE guest_token = @token`,
   )
+  const updHidden = db.prepare(
+    'UPDATE accounts SET hidden = @hidden, updated_at = @ts WHERE guest_token = @token',
+  )
   const selTop = db.prepare(
-    'SELECT display_name, elo, wins, losses FROM accounts ORDER BY elo DESC, wins DESC, id ASC LIMIT ?',
+    'SELECT display_name, elo, wins, losses FROM accounts WHERE hidden = 0 ORDER BY elo DESC, wins DESC, id ASC LIMIT ?',
   )
 
   return {
@@ -184,6 +191,10 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
 
     setName(guestToken, displayName) {
       updName.run({ token: guestToken, name: clampName(displayName), ts: now() })
+    },
+
+    setHidden(guestToken, hidden) {
+      updHidden.run({ token: guestToken, hidden: hidden ? 1 : 0, ts: now() })
     },
 
     leaderboard(limit) {

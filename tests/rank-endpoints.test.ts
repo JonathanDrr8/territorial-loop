@@ -117,6 +117,45 @@ describe('Ranglisten-Endpoints', () => {
     expect(saved.elo).toBe(2000) // ELO_MAX
   })
 
+  it('hidden=true blendet den Eintrag aus der öffentlichen Rangliste aus', async () => {
+    await submit({
+      token: 'guest-visible1',
+      name: 'Sicht',
+      elo: 1200,
+      wins: 2,
+      losses: 0,
+      peak: 1200,
+    })
+    await submit({
+      token: 'guest-hidden01',
+      name: 'Versteckt',
+      elo: 1500,
+      wins: 9,
+      losses: 0,
+      peak: 1500,
+      hidden: true,
+    })
+    const board = (await (await fetch(`${base()}/leaderboard`)).json()) as {
+      entries: { displayName: string }[]
+    }
+    expect(board.entries.map((e) => e.displayName)).toEqual(['Sicht'])
+
+    // Wieder einblenden → erscheint (und steht wegen höherem ELO oben).
+    await submit({
+      token: 'guest-hidden01',
+      name: 'Versteckt',
+      elo: 1500,
+      wins: 9,
+      losses: 0,
+      peak: 1500,
+      hidden: false,
+    })
+    const board2 = (await (await fetch(`${base()}/leaderboard`)).json()) as {
+      entries: { displayName: string }[]
+    }
+    expect(board2.entries.map((e) => e.displayName)).toEqual(['Versteckt', 'Sicht'])
+  })
+
   it('ungültiges/kurzes Token wird abgewiesen', async () => {
     expect((await submit({ token: 'x', name: 'Y', elo: 1000 })).status).toBe(400)
     expect((await submit({ name: 'Y', elo: 1000 })).status).toBe(400)

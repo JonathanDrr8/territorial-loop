@@ -83,6 +83,21 @@ describe('AccountDb', () => {
     db.close()
   })
 
+  it('ausgeblendete Accounts erscheinen nicht in der Rangliste', () => {
+    const db = freshDb()
+    db.getOrCreateGuest('a', 'Anton')
+    db.getOrCreateGuest('b', 'Berta')
+    db.setRanked('a', 1100, 1, 0, 1100)
+    db.setRanked('b', 1400, 4, 0, 1400)
+
+    db.setHidden('b', true)
+    expect(db.leaderboard(10).map((e) => e.displayName)).toEqual(['Anton'])
+
+    db.setHidden('b', false) // wieder einblenden
+    expect(db.leaderboard(10).map((e) => e.displayName)).toEqual(['Berta', 'Anton'])
+    db.close()
+  })
+
   it('Migrationen sind idempotent (zweites Öffnen wirft nicht)', () => {
     // Datei-DB wäre nötig für echtes Reopen; hier prüfen wir, dass open + Schema mehrfach geht.
     const db1 = freshDb()

@@ -4,6 +4,7 @@ export const pt: Record<string, string> = {
 
   'nav.play': 'Jogar',
   'nav.multiplayer': 'Multijogador',
+  'nav.ranking': 'Classificação',
   'nav.settings': 'Ajustes',
   'nav.changelog': 'Novidades',
   'nav.help': 'Ajuda',
@@ -84,6 +85,21 @@ export const pt: Record<string, string> = {
   'mp.intro': 'Entre em uma partida aberta ou crie sua própria sala.',
   'mp.openDialog': 'Criar sala / entrar por código',
   'mp.reconnect': '⟳ Reconectar — sala {room}',
+
+  // Classificação online (ADR-0027)
+  'ranking.title': 'Classificação online',
+  'ranking.intro':
+    'O teu ELO de classificação de partidas a solo contra a IA, guardado globalmente. As partidas multijogador não o alteram.',
+  'ranking.myElo': 'O teu ELO',
+  'ranking.myPeak': 'Recorde',
+  'ranking.loading': 'A carregar …',
+  'ranking.empty': 'Nenhuma entrada ainda — joga uma partida ranqueada!',
+  'ranking.colName': 'Nome',
+  'ranking.colElo': 'ELO',
+  'ranking.colRecord': 'V/D',
+  'ranking.hideMe': 'Ocultar-me da classificação',
+  'ranking.hidden': 'Oculto',
+  'ranking.visible': 'Visível',
 
   'lobby.openTitle': 'Salas abertas',
   'lobby.runningTitle': 'Partidas em andamento',
