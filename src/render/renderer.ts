@@ -211,6 +211,34 @@ function rgbaToCssLocal(rgba: number): string {
   return `rgb(${r},${g},${b})`
 }
 
+/**
+ * Strich-Icons fürs Canvas (24×24-Pfadraum) — dieselben Vektorformen wie das DOM-Icon-Set in
+ * `src/ui/icons.ts`, hier aber per `Path2D`/`arc` direkt auf die Karte gezeichnet (statt Emojis,
+ * die es in Canvas-Text sonst bräuchte). `paths` = SVG-`d`-Strings, `circles` = [cx,cy,r].
+ */
+const MAP_GLYPHS: Record<
+  'warning' | 'swords' | 'ban' | 'alliance',
+  { paths: readonly string[]; circles?: readonly (readonly [number, number, number])[] }
+> = {
+  warning: { paths: ['M12 3.5L2.3 20.5h19.4L12 3.5z', 'M12 9.5v4.5', 'M12 17.4v.2'] },
+  swords: {
+    paths: [
+      'M3 4l11 11',
+      'M3 7V4h3',
+      'M21 4L10 15',
+      'M21 7V4h-3',
+      'M7 16l1.5 1.5',
+      'M17 16l-1.5 1.5',
+    ],
+  },
+  ban: { paths: ['M6.3 6.3l11.4 11.4'], circles: [[12, 12, 8]] },
+  alliance: {
+    paths: [
+      'M12 20.5C7 17 3.5 13.6 3.5 9.8 3.5 7 5.6 5 8 5c1.7 0 3 1 4 2.4C13 6 14.3 5 16 5c2.4 0 4.5 2 4.5 4.8 0 3.8-3.5 7.2-8.5 10.7z',
+    ],
+  },
+}
+
 export interface Camera {
   /** Welt-Koord die am Screen-Center erscheint. */
   x: number
@@ -1223,28 +1251,33 @@ export function createRenderer(
       if (offscreen && !isHuman && !allied && !traitor && !attackingHuman.has(p.id)) continue
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
-      // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
       // Wilde Nationen tragen KEINEN Eigennamen (verwirrt — sähe aus wie eine echte Nation),
-      // sondern überall nur das lokalisierte „wild".
-      const name = (traitor ? '⚠ ' : '') + (p.wild ? t('nation.wild') : p.name)
+      // sondern überall nur das lokalisierte „wild". Verräter: roter Name + Warndreieck links.
+      const name = p.wild ? t('nation.wild') : p.name
       const troopsLabel = fmtCompactRender(p.troops)
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
+      const nameColor = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - gap)
       screenCtx.strokeText(troopsLabel, lx, ly + gap)
-      screenCtx.fillStyle = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
+      screenCtx.fillStyle = nameColor
       screenCtx.fillText(name, lx, ly - gap)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
       screenCtx.fillText(troopsLabel, lx, ly + gap)
-      // Diplo-Marker über dem Namen: 🤝 = bietet dir ein Bündnis, ⛔ = hat dich embargoiert.
+      // Verräter-Warndreieck links vom (zentrierten) Namen, in derselben roten Farbe.
+      if (traitor) {
+        const gs = Math.round(fontSize * 0.95)
+        const nameW = screenCtx.measureText(name).width
+        drawMapGlyph('warning', lx - nameW / 2 - gs * 0.62, ly - gap, gs, nameColor)
+      }
+      // Diplo-Marker über dem Namen: Herz = bietet dir ein Bündnis, Verbots-Schild = embargoiert dich.
       if (flagged) {
-        const marker = (offersAlliance ? '🤝' : '') + (embargoesYou ? '⛔' : '')
+        const gs = Math.round(fontSize * 1.1)
         const my = ly - gap - Math.round(fontSize * 1.05)
-        screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
-        screenCtx.strokeText(marker, lx, my)
-        screenCtx.fillStyle = '#ffffff'
-        screenCtx.fillText(marker, lx, my)
+        const both = offersAlliance && embargoesYou
+        if (offersAlliance) drawMapGlyph('alliance', both ? lx - gs * 0.6 : lx, my, gs, '#ffffff')
+        if (embargoesYou) drawMapGlyph('ban', both ? lx + gs * 0.6 : lx, my, gs, '#ffffff')
       }
     }
     screenCtx.globalAlpha = 1
@@ -1305,10 +1338,12 @@ export function createRenderer(
     screenCtx.restore()
   }
 
-  /** Zeichnet eine abgerundete Pille mit Schwert + Label an (sx,sy). */
+  /** Zeichnet eine abgerundete Pille mit gekreuzten Klingen + Label an (sx,sy). */
   function drawAttackPill(sx: number, sy: number, label: string, fill: string): void {
-    const text = `⚔ ${label}`
-    const w = screenCtx.measureText(text).width + 14
+    const gs = 14 // Klingen-Icon
+    const labelW = screenCtx.measureText(label).width
+    const inner = gs + 4 + labelW
+    const w = inner + 12
     const h = 20
     screenCtx.fillStyle = fill
     screenCtx.strokeStyle = 'rgba(0,0,0,0.6)'
@@ -1316,8 +1351,12 @@ export function createRenderer(
     roundRect(screenCtx, sx - w / 2, sy - h / 2, w, h, 6)
     screenCtx.fill()
     screenCtx.stroke()
+    const left = sx - inner / 2
+    drawMapGlyph('swords', left + gs / 2, sy, gs, '#ffffff')
     screenCtx.fillStyle = '#ffffff'
-    screenCtx.fillText(text, sx, sy + 0.5)
+    screenCtx.textAlign = 'left'
+    screenCtx.fillText(label, left + gs + 4, sy + 0.5)
+    screenCtx.textAlign = 'center'
   }
 
   /** Pfad eines abgerundeten Rechtecks (kein Stroke/Fill — Aufrufer entscheidet). */
@@ -1337,6 +1376,52 @@ export function createRenderer(
     ctx.arcTo(x, y + h, x, y, rad)
     ctx.arcTo(x, y, x + w, y, rad)
     ctx.closePath()
+  }
+
+  // Path2D je SVG-`d`-String einmal bauen (Path2D ist im Browser, nicht in jsdom → lazy halten).
+  const glyphPathCache = new Map<string, Path2D>()
+  function glyphPath(d: string): Path2D {
+    let p = glyphPathCache.get(d)
+    if (p === undefined) {
+      p = new Path2D(d)
+      glyphPathCache.set(d, p)
+    }
+    return p
+  }
+
+  /**
+   * Zeichnet ein {@link MAP_GLYPHS}-Strich-Icon zentriert bei (cx,cy) in `size` px — mit dunklem
+   * Halo (Lesbarkeit über Terrain), dann in `color`. Ersetzt die früheren Emoji-Marker.
+   */
+  function drawMapGlyph(
+    name: keyof typeof MAP_GLYPHS,
+    cx: number,
+    cy: number,
+    size: number,
+    color: string,
+  ): void {
+    const g = MAP_GLYPHS[name]
+    const s = size / 24
+    screenCtx.save()
+    screenCtx.translate(cx - size / 2, cy - size / 2)
+    screenCtx.scale(s, s)
+    screenCtx.lineCap = 'round'
+    screenCtx.lineJoin = 'round'
+    // Zwei Durchgänge: dunkler Halo (dick), dann die Farbe — wie die Text-Outline der Labels.
+    for (const [stroke, lw] of [
+      ['rgba(0,0,0,0.82)', 4.6],
+      [color, 2.1],
+    ] as const) {
+      screenCtx.strokeStyle = stroke
+      screenCtx.lineWidth = lw
+      for (const c of g.circles ?? []) {
+        screenCtx.beginPath()
+        screenCtx.arc(c[0], c[1], c[2], 0, Math.PI * 2)
+        screenCtx.stroke()
+      }
+      for (const d of g.paths) screenCtx.stroke(glyphPath(d))
+    }
+    screenCtx.restore()
   }
 
   // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert).
