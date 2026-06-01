@@ -614,7 +614,12 @@ function handleMessage(socket: WebSocket, room: Room, member: Member, msg: Clien
       break
     case 'set-team': {
       // Jeder Spieler wählt sein eigenes Team (nur vor Start, nur im Team-Modus).
-      if (room.match === null && room.settings.teamMode === 'allied') {
+      // „shared": die Wahl bestimmt, welche gemeinsame Nation man mitsteuert (gleiches Team =
+      // gleiche Nation). Ohne diese Annahme landeten alle auf Team 0 → derselben Nation.
+      if (
+        room.match === null &&
+        (room.settings.teamMode === 'allied' || room.settings.teamMode === 'shared')
+      ) {
         const max = Math.max(2, room.settings.teamCount ?? 2)
         member.teamId = Math.max(0, Math.min(max - 1, Math.round(msg.teamId)))
         sendLobby(room)

@@ -4,7 +4,7 @@ import { WebSocket } from 'ws'
 import { startServer, type RunningServer } from '../server/server'
 import { createGame, tick, type GameState } from '../src/core/game'
 import { hashState } from '../src/core/hash'
-import { decodeServer, encode } from '../src/net/protocol'
+import { decodeServer, encode, type MatchSettings } from '../src/net/protocol'
 
 let server: RunningServer
 
@@ -89,6 +89,92 @@ describe('Lockstep-Server end-to-end (ADR-0009 Phase 4)', () => {
     expect(lobbies[0].players).toBe(1)
     ws.close()
   }, 10000)
+
+  // Geteilter Modus (ADR-0025): die Team-Wahl bestimmt, welche gemeinsame Nation man mitsteuert.
+  // Verbindet einen Client, der (als Host) die Settings konfiguriert, sein Team wählt, „ready" meldet
+  // und N Commits anwendet. Resolved mit seiner gesteuerten Nation (`youAre`) + End-Hash.
+  const SHARED_SETTINGS: MatchSettings = {
+    mapWidth: 96,
+    mapHeight: 96,
+    terrain: 'continents',
+    seed: 'SHARED-E2E',
+    aiCount: 0,
+    wildCount: 0,
+    victoryPct: 80,
+    difficulty: 'standard',
+    rivers: false,
+    public: false,
+    teamMode: 'shared',
+    teamCount: 2,
+  }
+  function runSharedClient(
+    name: string,
+    room: string,
+    team: number,
+    isHost: boolean,
+    targetCommits: number,
+  ): Promise<{ youAre: number | undefined; hash: number }> {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(`ws://localhost:${String(server.port)}`)
+      let state: GameState | null = null
+      let youAre: number | undefined
+      let turns = 0
+      let configured = false
+      let setup = false
+      ws.on('open', () => ws.send(encode({ kind: 'join', room, name })))
+      ws.on('message', (data: Buffer) => {
+        const msg = decodeServer(data.toString())
+        if (msg.kind === 'lobby') {
+          // Nur der Host setzt die Match-Settings (geteilter Modus, 2 Nationen).
+          if (isHost && !configured) {
+            configured = true
+            ws.send(encode({ kind: 'configure', settings: SHARED_SETTINGS }))
+          }
+          // Sobald beide da sind: Team wählen, dann „ready". set-team muss im shared-Modus greifen.
+          if (msg.peers.length >= 2 && !setup) {
+            setup = true
+            ws.send(encode({ kind: 'set-team', teamId: team }))
+            ws.send(encode({ kind: 'ready', ready: true }))
+          }
+        } else if (msg.kind === 'start') {
+          youAre = msg.youAre
+          state = createGame(msg.config)
+        } else if (msg.kind === 'commit' && state !== null) {
+          tick(state, msg.intents)
+          turns++
+          if (turns >= targetCommits) {
+            const hash = hashState(state)
+            ws.close()
+            resolve({ youAre, hash })
+          }
+        }
+      })
+      ws.on('error', reject)
+    })
+  }
+
+  it('geteilter Modus: verschiedene Teams → verschiedene Nationen, Lockstep sauber (ADR-0025)', async () => {
+    const a = runSharedClient('Alice', 'SHARED-A', 0, true, 20)
+    await new Promise((r) => setTimeout(r, 120)) // Host erstellt den Raum + konfiguriert zuerst
+    const b = runSharedClient('Bob', 'SHARED-A', 1, false, 20)
+    const [ra, rb] = await Promise.all([a, b])
+    // Team 0 → Nation 1, Team 1 → Nation 2 (set-team wird im shared-Modus respektiert).
+    expect(ra.youAre).toBe(1)
+    expect(rb.youAre).toBe(2)
+    // Beide simulieren bit-genau denselben State.
+    expect(ra.hash).toBe(rb.hash)
+  }, 15000)
+
+  it('geteilter Modus: gleiches Team → dieselbe gemeinsam gesteuerte Nation (ADR-0025)', async () => {
+    const a = runSharedClient('Alice', 'SHARED-B', 0, true, 20)
+    await new Promise((r) => setTimeout(r, 120))
+    const b = runSharedClient('Bob', 'SHARED-B', 0, false, 20)
+    const [ra, rb] = await Promise.all([a, b])
+    // Beide wählen Team 0 → beide steuern Nation 1 (echtes „shared nation"); Nation 2 ist KI.
+    expect(ra.youAre).toBe(1)
+    expect(rb.youAre).toBe(1)
+    expect(ra.hash).toBe(rb.hash)
+  }, 15000)
 
   it('Host pausiert das Match (Server-Uhr hält an); Nicht-Host wird ignoriert', async () => {
     interface Client {

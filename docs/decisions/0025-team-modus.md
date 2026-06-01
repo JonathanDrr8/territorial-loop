@@ -1,6 +1,6 @@
 # ADR-0025: Team-Modus
 
-**Status:** Accepted (Phase 1 — „allied" — umgesetzt; „shared" offen)
+**Status:** Accepted (Phase 1 „allied" + Phase 2 „shared" umgesetzt)
 **Datum:** 2026-06-01
 
 ## Kontext
@@ -61,9 +61,18 @@ Team ist eine gemeinsam gesteuerte Nation, ungewählte sind KI. `teamSize` entf�
   `Member.teamId` und vergibt in `buildConfig` die Teams: Menschen ins gewählte Team (sonst ins am
   wenigsten belegte), **KI füllt jedes Team auf `teamSize` auf**. Verifiziert: zwei Tabs, gezielte
   Team-Wahl übernommen, Lockstep läuft.
+- **`set-team` gilt für `allied` UND `shared`.** Anfangs nahm der Handler nur `allied` an — im
+  geteilten Modus wurde die Team-Wahl still verworfen, sodass alle Menschen auf Team 0 → derselben
+  Nation landeten und sich nicht gezielt auf verschiedene Nationen aufteilen konnten. Behoben; per
+  E2E-Test abgesichert (`tests/server-e2e.test.ts`): verschiedene Teams → Nation 1 vs. 2, gleiches
+  Team → gemeinsame Nation, Lockstep in beiden Fällen sauber. **Geteiltes Gold/Truppen/Gebiet kommen
+  gratis**, weil eine geteilte Nation buchstäblich EIN `Player`-Objekt ist — kein Pooling-Code nötig.
+  Mehrere Mitglieder reichen pro Turn Intents auf dieselbe `nationId` ein; `submitIntents` hängt sie
+  an (überschreibt nicht), die autoritative Commit-Reihenfolge des Servers hält den Lockstep.
 
 ## Konsequenzen
 
 - Solo- UND MP-Team-Spiel (allied) funktioniert, deterministisch, MP-sicher (Player-Felder via
   `...rest` serialisiert; Config server-autoritativ).
-- `shared`-Modus ist noch nicht wählbar (nur `off`/`allied`).
+- Beide Modi (`allied` + `shared`) sind in Solo und Mehrspieler wählbar und verifiziert. Offen als
+  optionale Politur (nicht blockierend): HUD-Hinweis, mit wem man eine geteilte Nation steuert.
