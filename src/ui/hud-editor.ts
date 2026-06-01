@@ -623,6 +623,9 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     return wrap
   }
 
+  // Aktiver Reiter der Werkzeugleiste (bleibt über Neuaufbauten erhalten).
+  let activeEditorTab: 'design' | 'layout' | 'elements' = 'layout'
+
   // ---- Theme-Auswahl + Aktionen in der Werkzeugleiste ----------------------------------------
   function buildToolbar(): void {
     toolbar.textContent = ''
@@ -646,6 +649,87 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       startToolbarDrag(e)
     })
     toolbar.appendChild(dragHandle)
+
+    // ---- Reiter (Design / Layout / Elemente) — entzerrt die früher überladene Leiste. ----------
+    const tabBar = document.createElement('div')
+    tabBar.style.cssText =
+      'display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap'
+    const paneDesign = document.createElement('div')
+    const paneLayout = document.createElement('div')
+    const paneElements = document.createElement('div')
+    const tabDefs: Array<['design' | 'layout' | 'elements', string, HTMLElement]> = [
+      ['design', t('hud.editor.theme'), paneDesign],
+      ['layout', t('hud.editor.tab.layout'), paneLayout],
+      ['elements', t('hud.editor.elements'), paneElements],
+    ]
+    const tabBtns = new Map<string, HTMLButtonElement>()
+    const styleTab = (b: HTMLButtonElement, active: boolean): void => {
+      b.style.cssText = [
+        'padding:4px 12px',
+        'font-size:12px',
+        'font-weight:600',
+        'cursor:pointer',
+        'border-radius:6px 6px 0 0',
+        `border:1px solid ${active ? 'var(--tl-accent)' : 'var(--tl-panel-border-color)'}`,
+        'border-bottom:none',
+        active
+          ? 'background:var(--tl-accent);color:#0c0c10'
+          : 'background:transparent;color:var(--tl-text);opacity:0.7',
+      ].join(';')
+    }
+    const setActiveTab = (name: 'design' | 'layout' | 'elements'): void => {
+      activeEditorTab = name
+      for (const [key, , pane] of tabDefs) pane.style.display = key === name ? 'block' : 'none'
+      for (const [key, btn] of tabBtns) styleTab(btn, key === name)
+    }
+    for (const [key, label] of tabDefs) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      b.addEventListener('click', () => {
+        setActiveTab(key)
+      })
+      tabBtns.set(key, b)
+      tabBar.appendChild(b)
+    }
+    // Quick-Configs (Steuerungs-Modus-Presets) rechts in der Reiter-Leiste.
+    const quickWrap = document.createElement('div')
+    quickWrap.style.cssText = 'margin-left:auto;display:flex;align-items:center;gap:5px'
+    const quickLabel = document.createElement('span')
+    quickLabel.textContent = `${t('hud.editor.quickConfig')}:`
+    quickLabel.style.cssText = 'font-size:11px;opacity:0.7'
+    const quickSel = document.createElement('select')
+    quickSel.style.cssText = [
+      'font-size:11px',
+      'padding:3px 6px',
+      'border-radius:5px',
+      'border:1px solid var(--tl-panel-border-color)',
+      'background:rgba(0,0,0,0.3)',
+      'color:var(--tl-text)',
+      'cursor:pointer',
+    ].join(';')
+    const quickOpts: ReadonlyArray<readonly [string, string]> = [
+      ['', '—'],
+      ['standard', t('quickcfg.standard')],
+      ['mouse', t('quickcfg.mouse')],
+      ['wheel', t('quickcfg.wheel')],
+    ]
+    for (const [val, label] of quickOpts) {
+      const o = document.createElement('option')
+      o.value = val
+      o.textContent = label
+      quickSel.appendChild(o)
+    }
+    quickSel.addEventListener('change', () => {
+      applyQuickConfig(quickSel.value)
+      quickSel.value = '' // wieder auf Platzhalter — es ist eine Aktion, kein Status.
+    })
+    quickWrap.append(quickLabel, quickSel)
+    tabBar.appendChild(quickWrap)
+    toolbar.appendChild(tabBar)
+    toolbar.appendChild(paneDesign)
+    toolbar.appendChild(paneLayout)
+    toolbar.appendChild(paneElements)
 
     const themeRow = document.createElement('div')
     themeRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center'
@@ -678,7 +762,7 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       themeBtns.set(key, b)
       themeRow.appendChild(b)
     }
-    toolbar.appendChild(themeRow)
+    paneDesign.appendChild(themeRow)
 
     // Layout-Schalter: Slider-Heimat + Knopf-Anordnung (über hud-prefs, live).
     const layoutRow = document.createElement('div')
@@ -753,10 +837,12 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
         (v) => setHudPref('controlMode', v),
       ),
     )
-    toolbar.appendChild(layoutRow)
+    paneLayout.appendChild(layoutRow)
 
-    toolbar.appendChild(elementsRow)
+    paneElements.appendChild(elementsRow)
     refreshElementList()
+    // Anfangs nur der aktive Reiter sichtbar.
+    setActiveTab(activeEditorTab)
 
     // Untere Knopf-Zeile: Hinweis + Standard + Fertig.
     const actions = document.createElement('div')
@@ -866,6 +952,24 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     for (const [id, el] of panelMap) arm(id, el)
     for (const id of panelMap.keys()) layoutFrame(id)
     refreshElementList()
+  }
+
+  // ---- Quick-Configs: Steuerungs-Modus-Presets ----------------------------------------------
+  // Setzen den Steuerungs-Modus (+ passende Knopf-Anordnung) auf einen Schlag. Reine hud-prefs →
+  // greifen live (onHudPrefsChange) und sind multiplayer-sicher. „Standard" stellt zusätzlich das
+  // Layout zurück. Bewusst KEIN fragiles Pixel-Repositionieren je Bildschirmgröße.
+  function applyQuickConfig(name: string): void {
+    if (name === 'standard') {
+      doReset()
+      setHudPref('controlMode', 'auto')
+    } else if (name === 'mouse') {
+      setHudPref('controlMode', 'desktop')
+      setHudPref('buttonsLayout', 'row')
+    } else if (name === 'wheel') {
+      setHudPref('controlMode', 'touch')
+    }
+    // Toolbar neu aufbauen, damit die Segment-Schalter (z. B. Steuerung) den neuen Stand zeigen.
+    buildToolbar()
   }
 
   // Panels, die der Editor nur fürs Bearbeiten sichtbar gemacht hat (zustandsbedingt leer wie
