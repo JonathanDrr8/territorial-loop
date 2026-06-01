@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.29.0] – 2026-06-01
+
+### Neu
+
+- **Einstellungen folgen dem Konto:** Wer angemeldet ist, hat sein **HUD-Layout**, das
+  gewählte **Design**, die **Lautstärken**, die **Match-Vorgaben** und die **Sprache**
+  jetzt geräteübergreifend gespeichert — auf einem anderen Gerät ist alles sofort so
+  eingerichtet wie gewohnt. Als Gast bleibt alles wie bisher nur lokal.
+
+### Behoben
+
+- **Menüleiste wieder mittig:** Der neue Konto-Knopf hatte die Menüleiste im Header leicht
+  aus der Mitte verschoben — das ist korrigiert.
+
 ## [0.28.0] – 2026-06-01
 
 ### Neu
