@@ -104,6 +104,38 @@ export const en: Record<string, string> = {
   'ranking.hidden': 'Hidden',
   'ranking.visible': 'Visible',
 
+  // Account / login (ADR-0027 phase 2)
+  'account.signIn': 'Sign in',
+  'account.title.account': 'Account',
+  'account.title.login': 'Sign in',
+  'account.title.register': 'Create account',
+  'account.title.recover': 'Reset password',
+  'account.loggedInAs': 'Signed in as {name}',
+  'account.intro':
+    'Optional: keep your ELO across devices. Without an account you keep playing as a guest.',
+  'account.username': 'Username',
+  'account.password': 'Password',
+  'account.newPassword': 'New password',
+  'account.email': 'Email (optional)',
+  'account.recoveryCode': 'Recovery code',
+  'account.btn.login': 'Sign in',
+  'account.btn.register': 'Create account',
+  'account.btn.recover': 'Reset',
+  'account.btn.logout': 'Sign out',
+  'account.btn.close': 'Close',
+  'account.btn.savedIt': "I've saved it",
+  'account.switch.toRegister': 'No account yet? Create one',
+  'account.switch.toLogin': 'Already have an account? Sign in',
+  'account.switch.toRecover': 'Forgot password?',
+  'account.recoveryTitle': 'Your recovery code',
+  'account.recoveryHint':
+    'Keep it safe — it is the only way to reset your password without email. It is shown only this once.',
+  'account.error.invalid': 'Wrong username or password.',
+  'account.error.taken': 'That username is already taken.',
+  'account.error.username': 'Username: 3–24 characters (letters, digits, _ and -).',
+  'account.error.password': 'Password: at least 6 characters.',
+  'account.error.offline': 'Server unreachable.',
+
   // Lobby browser (open lobbies + live games)
   'lobby.openTitle': 'Open lobbies',
   'lobby.runningTitle': 'Live games',

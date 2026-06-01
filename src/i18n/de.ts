@@ -103,6 +103,38 @@ export const de: Record<string, string> = {
   'ranking.hidden': 'Ausgeblendet',
   'ranking.visible': 'Sichtbar',
 
+  // Account / Login (ADR-0027 Phase 2)
+  'account.signIn': 'Anmelden',
+  'account.title.account': 'Konto',
+  'account.title.login': 'Anmelden',
+  'account.title.register': 'Konto erstellen',
+  'account.title.recover': 'Passwort zurücksetzen',
+  'account.loggedInAs': 'Angemeldet als {name}',
+  'account.intro':
+    'Optional: Sichere dein ELO geräteübergreifend. Ohne Anmeldung spielst du als Gast weiter.',
+  'account.username': 'Benutzername',
+  'account.password': 'Passwort',
+  'account.newPassword': 'Neues Passwort',
+  'account.email': 'E-Mail (optional)',
+  'account.recoveryCode': 'Wiederherstellungs-Code',
+  'account.btn.login': 'Anmelden',
+  'account.btn.register': 'Konto erstellen',
+  'account.btn.recover': 'Zurücksetzen',
+  'account.btn.logout': 'Abmelden',
+  'account.btn.close': 'Schließen',
+  'account.btn.savedIt': 'Habe ich gespeichert',
+  'account.switch.toRegister': 'Noch kein Konto? Erstellen',
+  'account.switch.toLogin': 'Schon ein Konto? Anmelden',
+  'account.switch.toRecover': 'Passwort vergessen?',
+  'account.recoveryTitle': 'Dein Wiederherstellungs-Code',
+  'account.recoveryHint':
+    'Bewahre ihn sicher auf — nur damit kannst du dein Passwort ohne E-Mail zurücksetzen. Er wird nur dieses eine Mal angezeigt.',
+  'account.error.invalid': 'Benutzername oder Passwort falsch.',
+  'account.error.taken': 'Dieser Benutzername ist schon vergeben.',
+  'account.error.username': 'Benutzername: 3–24 Zeichen (Buchstaben, Ziffern, _ und -).',
+  'account.error.password': 'Passwort: mindestens 6 Zeichen.',
+  'account.error.offline': 'Server nicht erreichbar.',
+
   // Lobby-Browser (offene Lobbys + laufende Spiele)
   'lobby.openTitle': 'Offene Lobbys',
   'lobby.runningTitle': 'Laufende Spiele',

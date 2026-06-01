@@ -42,6 +42,28 @@ export function guestToken(): string {
   }
 }
 
+/**
+ * Übernimmt ein vom Server geliefertes Gast-Token (nach Login/Recovery): ab jetzt gehören alle
+ * ELO-Meldungen dieses Geräts zum angemeldeten Account (Cross-Device, ADR-0027 Phase 2).
+ */
+export function setGuestToken(token: string): void {
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(token)) return
+  try {
+    window.localStorage.setItem(TOKEN_KEY, token)
+  } catch {
+    // localStorage gesperrt — Token bleibt flüchtig für diese Sitzung.
+  }
+}
+
+/** Verwirft das aktuelle Gast-Token und erzeugt ein frisches (Logout → wieder anonymer Gast). */
+export function resetGuestToken(): void {
+  try {
+    window.localStorage.setItem(TOKEN_KEY, newToken())
+  } catch {
+    // silent ignore
+  }
+}
+
 /** Hat der Spieler sich aus der öffentlichen Rangliste ausgeblendet? (lokale Präferenz) */
 export function isRankHidden(): boolean {
   try {

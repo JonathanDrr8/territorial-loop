@@ -92,3 +92,24 @@ export function resetRanked(): RankedState {
   saveRanked({ ...DEFAULT_STATE })
   return { ...DEFAULT_STATE }
 }
+
+/**
+ * Überschreibt den lokalen Ranked-Stand (für Login/Account-Sync, ADR-0027 Phase 2): nach dem
+ * Anmelden auf einem neuen Gerät übernimmt der Client den Server-Stand des Accounts, geklemmt.
+ */
+export function overwriteRanked(state: {
+  elo: number
+  wins: number
+  losses: number
+  peak: number
+}): RankedState {
+  const elo = Math.max(ELO_MIN, Math.min(ELO_MAX, Math.round(state.elo)))
+  const next: RankedState = {
+    elo,
+    wins: Math.max(0, Math.round(state.wins)),
+    losses: Math.max(0, Math.round(state.losses)),
+    peak: Math.max(elo, Math.round(state.peak)),
+  }
+  saveRanked(next)
+  return next
+}

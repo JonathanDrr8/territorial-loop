@@ -21,6 +21,8 @@ import {
   submitRank,
   type OnlineRankEntry,
 } from './rank-online'
+import { currentUsername } from './account'
+import { createAccountDialog, type AccountDialogApi } from './account-dialog'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
@@ -133,12 +135,15 @@ export function createMenuShell(
 
   let overlay: HTMLDivElement | null = null
   let lobbyBrowser: LobbyBrowserApi | null = null
+  let accountDialog: AccountDialogApi | null = null
   let bannerSlot: HTMLDivElement | null = null
   let tipTimer: ReturnType<typeof setInterval> | null = null
 
   const teardown = (): void => {
     lobbyBrowser?.destroy()
     lobbyBrowser = null
+    accountDialog?.destroy()
+    accountDialog = null
     if (tipTimer !== null) {
       clearInterval(tipTimer)
       tipTimer = null
@@ -286,6 +291,25 @@ export function createMenuShell(
     nameGetter = (): string => nameInput.value.trim() || values.playerName
     nameWrap.appendChild(nameInput)
     right.appendChild(nameWrap)
+
+    // Konto-Knopf (ADR-0027 Phase 2): zeigt den Login-Status, öffnet den Account-Dialog.
+    const accountBtn = document.createElement('button')
+    accountBtn.className = 'tl-tab'
+    const refreshAccountBtn = (): void => {
+      const u = currentUsername()
+      accountBtn.textContent = u !== null ? u : t('account.signIn')
+      accountBtn.style.color = u !== null ? ACCENT : ''
+      accountBtn.title = u !== null ? t('account.loggedInAs', { name: u }) : t('account.signIn')
+    }
+    refreshAccountBtn()
+    accountBtn.addEventListener('click', () => {
+      accountDialog?.destroy()
+      accountDialog = createAccountDialog({
+        serverUrl: serverUrl ?? '',
+        onChange: refreshAccountBtn,
+      })
+    })
+    right.appendChild(accountBtn)
 
     const langSelect = document.createElement('select')
     langSelect.style.cssText = SELECT_STYLE + ';width: auto'
