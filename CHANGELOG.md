@@ -4,6 +4,31 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.31.0] – 2026-06-01
+
+### Neu
+
+- **Orientierungs-Puls beim Spielstart:** Sobald eine Partie beginnt, erscheint kurz ein
+  pulsierender Ring in deiner Farbe über deinem Startgebiet. Auf großen Karten findet
+  man so sofort, wo man steckt — ohne langes Suchen.
+
+### Geändert
+
+- **Einheitliche Karten-Marker:** Die kleinen Symbole auf der Karte, die auf ein
+  Bündnis-Angebot, einen Verrat, ein Embargo oder einen laufenden Angriff hinweisen,
+  sind jetzt gezeichnete Strich-Symbole im Stil des restlichen Spiels. Vorher waren
+  es bunte Emojis, die optisch aus dem Rahmen fielen.
+
+- **Weicheres Knopf-Feedback im HUD:** Die Knöpfe im Aktionsmenü (Bauen, Einheiten,
+  Sortieren) reagieren jetzt mit einem sanften Aufhellen beim Drüberfahren und einem
+  kurzen Eindrücken beim Klicken.
+
+### Behoben
+
+- **Kein Doppelpunkt mehr in Beschriftungen:** Truppenzahlen und Namen auf der Karte
+  zeigten in seltenen Fällen durch einen Darstellungsfehler einen doppelten Punkt.
+  Das ist korrigiert.
+
 ## [0.30.1] – 2026-06-01
 
 ### Behoben
