@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.27.0] – 2026-06-01
+
+### Neu
+
+- **Geteilte Nation (Team-Modus):** Neuer Team-Modus, bei dem mehrere Spieler gemeinsam
+  dieselbe Nation steuern — ein Land, eine Farbe, gemeinsames Gold und gemeinsame Truppen.
+  Jeder Mitspieler kann angreifen und bauen. In der Mehrspieler-Lobby wählt man über das
+  Team-Dropdown, welche Nation man mitsteuert: gleiche Nummer bedeutet zusammen spielen.
+  Nicht besetzte Nationen übernimmt die KI. Die Team-Anzahl legt fest, wie viele Nationen
+  es insgesamt gibt.
+
 ## [0.26.1] – 2026-06-01
 
 ### Behoben
