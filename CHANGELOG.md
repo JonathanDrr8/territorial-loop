@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.30.1] – 2026-06-01
+
+### Behoben
+
+- **Geteilte Nation im Mehrspieler funktioniert jetzt richtig:** In der Lobby kann jeder
+  Spieler gezielt wählen, welche gemeinsame Nation er mitsteuert. Vorher landeten alle
+  automatisch auf derselben Nation, sodass sich Menschteams nicht sauber aufteilen ließen.
+  Jetzt spielen Mitspieler mit gleicher Team-Nummer wirklich zusammen — geteiltes Gold,
+  Truppen und Gebiet — während verschiedene Teams gegeneinander antreten.
+
 ## [0.30.0] – 2026-06-01
 
 ### Neu
