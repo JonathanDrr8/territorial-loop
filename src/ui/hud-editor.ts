@@ -728,6 +728,31 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
         (v) => setHudPref('actionSplit', v === 'split'),
       ),
     )
+    // Truppen-Anzeige: klassischer Balken oder füllende Kugel (live über hud-prefs).
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.troopStyle'),
+        getHudPrefs().troopStyle,
+        [
+          ['bar', t('hud.editor.troopStyle.bar')],
+          ['orb', t('hud.editor.troopStyle.orb')],
+        ],
+        (v) => setHudPref('troopStyle', v),
+      ),
+    )
+    // Steuerungs-Modus: auto / Desktop (klassisch) / Touch (Eck-Rad). Live umschaltbar.
+    layoutRow.appendChild(
+      segmented(
+        t('hud.editor.control'),
+        getHudPrefs().controlMode,
+        [
+          ['auto', t('hud.editor.control.auto')],
+          ['desktop', t('hud.editor.control.desktop')],
+          ['touch', t('hud.editor.control.touch')],
+        ],
+        (v) => setHudPref('controlMode', v),
+      ),
+    )
     toolbar.appendChild(layoutRow)
 
     toolbar.appendChild(elementsRow)

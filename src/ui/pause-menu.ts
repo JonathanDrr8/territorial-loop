@@ -14,6 +14,8 @@ export interface PauseMenuCallbacks {
   onResume: () => void
   /** HUD-Editor öffnen. */
   onCustomizeHud: () => void
+  /** In-Game-Einstellungen öffnen (Audio, Radialmenü-Größe …). */
+  onSettings: () => void
   /** Runde verlassen (zurück ins Hauptmenü). */
   onLeave: () => void
 }
@@ -86,6 +88,12 @@ export function createPauseMenu(
     makeBtn(t('hud.editor.open'), false, () => {
       close()
       callbacks.onCustomizeHud()
+    }),
+  )
+  box.appendChild(
+    makeBtn(t('pause.settings'), false, () => {
+      setOpen(false) // Pause-Overlay schließen, OHNE onResume (Sim bleibt pausiert hinter Settings)
+      callbacks.onSettings()
     }),
   )
   const leaveBtn = makeBtn(t('pause.leave'), false, () => {

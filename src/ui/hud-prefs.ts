@@ -11,6 +11,19 @@
 export type SliderHome = 'action' | 'resource'
 /** Anordnung der Kauf-Knöpfe: zwei Reihen (Default) oder 3×3-Numpad auf den Hotkey-Positionen. */
 export type ButtonsLayout = 'row' | 'numpad'
+/** Darstellung der Truppen-Anzeige: klassischer Balken oder füllende Kugel. */
+export type TroopStyle = 'bar' | 'orb'
+/**
+ * Steuerungs-Modus: `auto` erkennt Touch-Geräte selbst; `touch` erzwingt das Mobile-Layout
+ * (immer sichtbares Eck-Rad + Minimap oben rechts) auch am Desktop; `desktop` erzwingt das
+ * klassische Layout (Tastatur + Rechtsklick/E, kein Eck-Rad).
+ */
+export type ControlMode = 'auto' | 'desktop' | 'touch'
+/** Größe des radialen Kontextmenüs (Rechtsklick/Long-Press) + Eck-Rad. */
+export type RadialSize = 'small' | 'normal' | 'large'
+
+/** Skalierungsfaktor je Radialgröße. */
+export const RADIAL_SCALE: Record<RadialSize, number> = { small: 0.82, normal: 1, large: 1.25 }
 
 export interface HudPrefs {
   sliderHome: SliderHome
@@ -19,14 +32,36 @@ export interface HudPrefs {
   resourceSplit: boolean
   /** Aktions-Block in Einzelteile (Käufe / Boot) aufgeteilt? */
   actionSplit: boolean
+  /** Truppen-Anzeige-Stil (Balken/Kugel). Default Kugel auf Touch-Geräten, sonst Balken. */
+  troopStyle: TroopStyle
+  /** Steuerungs-Modus (siehe [[ControlMode]]). Default `auto`. */
+  controlMode: ControlMode
+  /** Größe des radialen Menüs (Rechtsklick/Long-Press + Eck-Rad). Default `normal`. */
+  radialSize: RadialSize
 }
 
 const KEY = 'territorial-loop:hud-prefs:v1'
+
+/** Touch-Gerät? (grobe Heuristik — bestimmt den Default-Truppen-Stil.) */
+function isTouchDevice(): boolean {
+  try {
+    return (
+      navigator.maxTouchPoints > 0 ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+    )
+  } catch {
+    return false
+  }
+}
+
 const DEFAULTS: HudPrefs = {
   sliderHome: 'action',
   buttonsLayout: 'row',
   resourceSplit: false,
   actionSplit: false,
+  troopStyle: 'bar',
+  controlMode: 'auto',
+  radialSize: 'normal',
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -41,12 +76,29 @@ function load(): HudPrefs {
         buttonsLayout: parsed.buttonsLayout === 'numpad' ? 'numpad' : 'row',
         resourceSplit: parsed.resourceSplit === true,
         actionSplit: parsed.actionSplit === true,
+        // Ohne gespeicherten Wert: Kugel auf Touch (Mobile-Default), sonst Balken.
+        troopStyle:
+          parsed.troopStyle === 'orb'
+            ? 'orb'
+            : parsed.troopStyle === 'bar'
+              ? 'bar'
+              : isTouchDevice()
+                ? 'orb'
+                : 'bar',
+        controlMode:
+          parsed.controlMode === 'touch' || parsed.controlMode === 'desktop'
+            ? parsed.controlMode
+            : 'auto',
+        radialSize:
+          parsed.radialSize === 'small' || parsed.radialSize === 'large'
+            ? parsed.radialSize
+            : 'normal',
       }
     }
   } catch {
     /* ignore */
   }
-  return { ...DEFAULTS }
+  return { ...DEFAULTS, troopStyle: isTouchDevice() ? 'orb' : 'bar' }
 }
 
 let prefs = load()

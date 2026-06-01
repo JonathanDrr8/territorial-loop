@@ -15,9 +15,12 @@ import type { GameState } from '../core/game'
 import type { Camera } from '../render/renderer'
 import { registerPanel, unregisterPanel } from './hud-layout'
 import { registerScalable } from './ui-scale'
+import { t } from '../i18n'
 
 export interface MinimapApi {
   update(): void
+  /** Position live umschalten (Steuerungs-Modus). */
+  setMobile(on: boolean): void
   destroy(): void
 }
 
@@ -35,10 +38,13 @@ export interface MinimapDeps {
   readonly getBitmap: () => HTMLCanvasElement
   /** Aktuelle CSS-Pixel-Größe des Haupt-Viewports. */
   readonly getViewportSize: () => { readonly width: number; readonly height: number }
+  /** Touch/Mobile: Minimap oben rechts (sonst überlappt das Eck-Rad unten rechts). */
+  readonly mobile?: boolean
 }
 
 export function createMinimap(deps: MinimapDeps): MinimapApi {
   const { container, state, camera, getBitmap, getViewportSize } = deps
+  const mobile = deps.mobile === true
 
   const mapW = state.map.width
   const mapH = state.map.height
@@ -47,10 +53,11 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   const h = aspect >= 1 ? Math.round(TARGET_SIZE / aspect) : TARGET_SIZE
 
   const wrapper = document.createElement('div')
+  // Mobile: oben rechts (sonst überlappt das immer sichtbare Eck-Rad unten rechts).
   wrapper.style.cssText = [
     'position: absolute',
-    `bottom: ${MARGIN}px`,
-    `right: ${MARGIN}px`,
+    mobile ? `top: ${String(MARGIN)}px` : `bottom: ${String(MARGIN)}px`,
+    `right: ${String(MARGIN)}px`,
     'padding: 4px',
     `background: ${BG_COLOR}`,
     'border-radius: 6px',
@@ -64,6 +71,41 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   canvas.height = h
   canvas.style.cssText = `display: block; width: ${w}px; height: ${h}px`
   wrapper.appendChild(canvas)
+
+  // Einklapp-Knopf (oben links auf der Karte): blendet die Karte aus → nur der Knopf bleibt.
+  let collapsed = false
+  const collapseBtn = document.createElement('button')
+  collapseBtn.type = 'button'
+  collapseBtn.style.cssText = [
+    'position: absolute',
+    'top: 2px',
+    'left: 2px',
+    'width: 20px',
+    'height: 20px',
+    'padding: 0',
+    'font: 700 13px/1 var(--tl-font, monospace)',
+    'color: var(--tl-text, #fff)',
+    'background: rgba(0,0,0,0.5)',
+    'border: 1px solid var(--tl-panel-border-color, rgba(255,255,255,0.3))',
+    'border-radius: 4px',
+    'cursor: pointer',
+    'z-index: 1',
+  ].join(';')
+  const applyCollapsed = (): void => {
+    canvas.style.display = collapsed ? 'none' : 'block'
+    collapseBtn.textContent = collapsed ? '+' : '–'
+    collapseBtn.title = collapsed ? t('minimap.expand') : t('minimap.collapse')
+    // Eingeklappt: Rahmen-Padding raus, nur der Knopf bleibt sichtbar.
+    wrapper.style.padding = collapsed ? '0' : '4px'
+  }
+  collapseBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    collapsed = !collapsed
+    applyCollapsed()
+  })
+  wrapper.appendChild(collapseBtn)
+  applyCollapsed()
+
   container.appendChild(wrapper)
   registerScalable(wrapper)
   registerPanel('minimap', wrapper)
@@ -123,6 +165,16 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
 
   return {
     update,
+    /** Position live umschalten (Steuerungs-Modus): Mobile = oben rechts, sonst unten rechts. */
+    setMobile(on: boolean): void {
+      if (on) {
+        wrapper.style.top = `${String(MARGIN)}px`
+        wrapper.style.bottom = 'auto'
+      } else {
+        wrapper.style.bottom = `${String(MARGIN)}px`
+        wrapper.style.top = 'auto'
+      }
+    },
     destroy(): void {
       unregisterPanel('minimap')
       wrapper.remove()

@@ -34,6 +34,9 @@ import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
+import { createActionWheel } from './ui/action-wheel'
+import { createGameSettings } from './ui/game-settings'
+import type { BuildingType } from './core/buildings'
 import { pickDistinctColors } from './ui/colors'
 import { createConfirmDialog } from './ui/confirm-dialog'
 import { createEventLog } from './ui/event-log'
@@ -47,6 +50,7 @@ import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { registerPanel, unregisterPanel } from './ui/hud-layout'
+import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
 import { createHudEditor } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
@@ -616,6 +620,24 @@ function startMatch(
     hud.setSpeed(p ? 0 : speed)
   })
 
+  // Touch/Mobile-Erkennung (steuert Eck-Rad-Sichtbarkeit + Minimap-Position).
+  const touchDevice = ((): boolean => {
+    try {
+      return (
+        navigator.maxTouchPoints > 0 ||
+        (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+      )
+    } catch {
+      return false
+    }
+  })()
+  // Effektives Mobile-Layout aus dem Steuerungs-Modus (HUD-Editor): auto folgt der Geräte-Erkennung,
+  // `touch`/`desktop` erzwingen es. Live umschaltbar (siehe onHudPrefsChange weiter unten).
+  const isMobileLayout = (): boolean => {
+    const cm = getHudPrefs().controlMode
+    return cm === 'touch' || (cm === 'auto' && touchDevice)
+  }
+
   const minimap = createMinimap({
     container,
     state,
@@ -625,6 +647,7 @@ function startMatch(
       width: renderer.canvas.clientWidth,
       height: renderer.canvas.clientHeight,
     }),
+    mobile: isMobileLayout(),
   })
 
   const tooltip = createHoverTooltip(
@@ -694,11 +717,21 @@ function startMatch(
 
   // Pause-/Esc-Menü: „Weiter / HUD anpassen / Runde verlassen". Ersetzt den direkten Verlassen-
   // Bestätigungsdialog bei Esc — das Menü ist selbst die Hürde gegen versehentliches Beenden.
+  // In-Game-Einstellungen (über Pause-Menü): Audio live auf Sound-/Musik-Engine + Radialmenü-Größe.
+  const gameSettings = createGameSettings(container, {
+    onAudio: (v) => {
+      sound.setEnabled(v.master > 0 && v.sfx > 0)
+      sound.setVolume(v.master * v.sfx)
+      music?.setVolume(v.master * v.music)
+    },
+  })
+
   const pauseMenu = createPauseMenu(container, {
     onResume: () => {
       /* nichts weiter — Overlay schließt sich selbst */
     },
     onCustomizeHud: () => hudEditor.open(),
+    onSettings: () => gameSettings.open(),
     onLeave: onRequestNewMatch,
   })
 
@@ -797,6 +830,10 @@ function startMatch(
         if (humanId > 0) renderer.centerOnPlayer(humanId)
       },
       escape(): void {
+        if (gameSettings.isOpen()) {
+          gameSettings.close()
+          return
+        }
         if (buildMenu.isOpen()) {
           buildMenu.close()
           return
@@ -816,6 +853,31 @@ function startMatch(
   })
 
   inputHandler = input
+
+  // Immer sichtbares Action-Rad (nur Touch/Mobile erstmal): primäre Steuerung ohne Tastatur —
+  // Bauen/Schiffe wählen → Modus scharf → auf die Karte tippen/ziehen zum Platzieren.
+  const WHEEL_BUILD_ORDER: BuildingType[] = [
+    'city',
+    'defense',
+    'port',
+    'factory',
+    'airport',
+    'flak',
+  ]
+  const actionWheel = createActionWheel(container, {
+    allowedBuildings: WHEEL_BUILD_ORDER.filter((tp) => config.allowedBuildings?.[tp] !== false),
+    onBuild: (tp) => input.toggleBuildMode(tp),
+    onBoat: () => input.toggleBoatMode(),
+    onBomber: () => input.toggleBomberMode(),
+    onWarship: () => input.toggleWarshipMode(),
+  })
+  actionWheel.setVisible(isMobileLayout() && !spectator)
+  // Steuerungs-Modus live (HUD-Editor): Eck-Rad ein/aus + Minimap oben/unten umschalten.
+  const offControlMode = onHudPrefsChange(() => {
+    const m = isMobileLayout()
+    actionWheel.setVisible(m && !spectator)
+    minimap.setMobile(m)
+  })
 
   hud.setSpeed(speed)
 
@@ -979,6 +1041,9 @@ function startMatch(
       unregisterPanel('feed')
       feedColumn.remove()
       buildMenu.destroy()
+      actionWheel.destroy()
+      offControlMode()
+      gameSettings.destroy()
       confirmDialog.destroy()
       pauseMenu.destroy()
       renderer.destroy()
