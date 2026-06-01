@@ -650,10 +650,22 @@ function placeSpawns(state: GameState): void {
     // ist es das Tile; sonst das erste beanspruchte Tile (Wasser-/Block-Zentrum, selten).
     if (captureMode && !player.wild) {
       const center = tileRef(cx, cy, width, height)
-      player.capitalTile =
+      const capital =
         getOwner(state.map, center) === player.id
           ? center
           : (player.frontier.values().next().value ?? center)
+      player.capitalTile = capital
+      // Die Hauptstadt ist eine ECHTE, fertige Stadt (Truppen-Cap-Bonus etc.) — der Stern ist nur
+      // die Markierung obendrauf. Bei Eroberung übernimmt der Gegner sie wie jede andere Stadt.
+      if (getOwner(state.map, capital) === player.id && !state.buildings.has(capital)) {
+        state.buildings.set(capital, {
+          type: 'city',
+          ownerId: player.id,
+          tile: capital,
+          level: 1,
+          completesAtTick: 0,
+        })
+      }
     }
   }
 }

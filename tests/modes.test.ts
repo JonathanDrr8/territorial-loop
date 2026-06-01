@@ -30,6 +30,11 @@ describe('Hauptstadt-Modus (ADR-0026)', () => {
       expect(p.capitalTile).toBeTypeOf('number')
       // Hauptstadt gehört zu Spielbeginn dem Spieler selbst.
       expect(getOwner(state.map, p.capitalTile ?? -1)).toBe(p.id)
+      // … und ist eine ECHTE, fertige Stadt (funktioniert wie eine Stadt).
+      const b = state.buildings.get(p.capitalTile ?? -1)
+      expect(b?.type).toBe('city')
+      expect(b?.ownerId).toBe(p.id)
+      expect(b?.level).toBe(1)
     }
   })
 
