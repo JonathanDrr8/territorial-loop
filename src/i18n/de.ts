@@ -22,6 +22,7 @@ export const de: Record<string, string> = {
   'field.teamMode': 'Teams',
   'teamMode.off': 'Aus (jeder gegen jeden)',
   'teamMode.allied': 'Teams (verbündet)',
+  'teamMode.shared': 'Geteilte Nation',
   'field.teamCount': 'Anzahl Teams',
   'field.teamSize': 'Team-Größe',
   'section.match': 'Match',

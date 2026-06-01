@@ -82,8 +82,14 @@ export interface StartMenuValues {
   teamSize: number
 }
 
-/** Team-Modus: aus, oder „allied" (Teams aus mehreren verbündeten Nationen mit gemeinsamem Sieg). */
-export type TeamMode = 'off' | 'allied'
+/**
+ * Team-Modus:
+ *  - `off`    → jeder gegen jeden.
+ *  - `allied` → Teams aus mehreren VERBÜNDETEN Nationen (permanente Allianz), Sieg zählt zusammen.
+ *  - `shared` → wie `allied`, aber jedes Team ist EINE gemeinsam gesteuerte Nation (ein Land statt
+ *               mehrere). Mehrere Spieler steuern dieselbe Nation; primär ein Mehrspieler-Modus.
+ */
+export type TeamMode = 'off' | 'allied' | 'shared'
 
 // Ausbreitungs-Tempo (multipliziert die Eroberungs-Rate). Unter 0.5 entsättigt sich
 // die Welle (Rate < verfügbare Front-Tiles) → spürbar langsamer UND Terrain prägt die

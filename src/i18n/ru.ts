@@ -21,6 +21,7 @@ export const ru: Record<string, string> = {
   'field.teamMode': 'Команды',
   'teamMode.off': 'Нет (каждый сам за себя)',
   'teamMode.allied': 'Команды (союзники)',
+  'teamMode.shared': 'Общая нация',
   'field.teamCount': 'Число команд',
   'field.teamSize': 'Размер команды',
   'section.match': 'Матч',

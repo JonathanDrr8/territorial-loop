@@ -21,6 +21,7 @@ export const pt: Record<string, string> = {
   'field.teamMode': 'Times',
   'teamMode.off': 'Não (todos contra todos)',
   'teamMode.allied': 'Times (aliados)',
+  'teamMode.shared': 'Nação compartilhada',
   'field.teamCount': 'Número de times',
   'field.teamSize': 'Tamanho do time',
   'section.match': 'Partida',

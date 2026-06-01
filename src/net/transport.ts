@@ -189,7 +189,7 @@ export interface NetworkTransportOptions {
   /** Als reiner Zuschauer beitreten (kein Spieler-Slot): nur start/commit/snapshot empfangen. */
   spectate?: boolean
   /** Match-Start: der Server schickt die Config — der Verbraucher baut `createGame(config)`. */
-  onStart: (config: GameConfig) => void
+  onStart: (config: GameConfig, youAre?: number) => void
   /** Voller Snapshot (Resync nach Desync / Reconnect) — Verbraucher lädt `deserializeState`. */
   onSnapshot?: (turn: number, state: SerializedGameState) => void
   /** Beitritt bestätigt (eigene Spieler-ID + tatsächlicher Raum-Code). */
@@ -390,7 +390,7 @@ export class NetworkTransport implements IntentTransport {
         this.opts.onLobby?.(msg.peers, msg.settings, msg.hostId)
         break
       case 'start':
-        this.opts.onStart(msg.config)
+        this.opts.onStart(msg.config, msg.youAre)
         break
       case 'commit':
         this.lastCommittedTurn = msg.turn

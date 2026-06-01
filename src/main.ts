@@ -159,15 +159,23 @@ interface MatchSession {
 
 function buildConfig(menu: StartMenuValues, spectator: boolean): GameConfig {
   const humanCount = spectator ? 0 : 1
-  // Team-Modus „allied" (ADR-0025): teamCount Teams à teamSize → so viele reguläre Nationen wie
-  // Team-Slots (die KI-Anzahl wird davon bestimmt, der Mensch belegt Slot 0). Sonst: KI-Slider.
-  const teams = menu.teamMode === 'allied'
-  const teamCount = teams ? Math.max(2, menu.teamCount) : 0
-  const teamSize = teams ? Math.max(1, menu.teamSize) : 0
+  // Team-Modus (ADR-0025):
+  //  - „allied": teamCount Teams à teamSize → so viele Nationen wie Team-Slots (KI füllt auf).
+  //  - „shared": teamCount Nationen, der Mensch steuert EINE, der Rest ist KI (echtes Teilen gibt es
+  //    nur im Mehrspieler — im Solo ist es einfach ein Spiel mit teamCount Nationen, ohne Allianzen).
+  const allied = menu.teamMode === 'allied'
+  const shared = menu.teamMode === 'shared'
+  const teamCount = allied || shared ? Math.max(2, menu.teamCount) : 0
+  const teamSize = allied ? Math.max(1, menu.teamSize) : 0
   const baseAi = spectator ? 1 + menu.aiCount : menu.aiCount // im Spectator ist der „erste" auch KI
-  const aiCount = teams ? Math.max(0, teamCount * teamSize - humanCount) : baseAi
+  const aiCount = allied
+    ? Math.max(0, teamCount * teamSize - humanCount)
+    : shared
+      ? Math.max(0, teamCount - humanCount)
+      : baseAi
+  // Nur „allied" vergibt Team-IDs (Allianzen). „shared"-Nationen sind je eine eigene Seite.
   const teamOf = (slot: number): number | undefined =>
-    teams ? Math.floor(slot / teamSize) : undefined
+    allied ? Math.floor(slot / teamSize) : undefined
 
   const colors = pickDistinctColors(humanCount + aiCount) // Wilde nutzen WILD_COLOR-Varianten
   // Echte Eigennamen für KI UND Wilde aus demselben Pool (sprach-neutral, keine Doppelte) —

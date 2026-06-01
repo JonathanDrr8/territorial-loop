@@ -512,6 +512,7 @@ export function createMenuShell(
       [
         ['off', t('teamMode.off')],
         ['allied', t('teamMode.allied')],
+        ['shared', t('teamMode.shared')],
       ],
       values.teamMode,
     )
@@ -521,9 +522,10 @@ export function createMenuShell(
     p.appendChild(teamCount.element)
     p.appendChild(teamSize.element)
     const syncTeamVisible = (): void => {
-      const on = teamMode.getValue() === 'allied'
-      teamCount.element.style.display = on ? '' : 'none'
-      teamSize.element.style.display = on ? '' : 'none'
+      const mode = teamMode.getValue()
+      // Team-Anzahl bei „verbündet" & „geteilt" (= Nationen-Anzahl); Team-Größe nur bei „verbündet".
+      teamCount.element.style.display = mode === 'off' ? 'none' : ''
+      teamSize.element.style.display = mode === 'allied' ? '' : 'none'
     }
     teamMode.element.querySelector('select')?.addEventListener('change', syncTeamVisible)
     syncTeamVisible()
