@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.26.0] – 2026-06-01
+
+### Neu
+
+- **Team gezielt wählen im Mehrspieler:** In der Mehrspieler-Lobby kann jeder Spieler über
+  ein Dropdown sein Team selbst wählen — so lässt sich gezielt mit Freunden ins selbe Team
+  setzen. Freie Plätze füllt die KI auf, damit alle Teams gleich groß bleiben.
+
+### Geändert
+
+- **Aufgeräumtes Match-Setup:** Die Einstellungen für Team-Anzahl und Team-Größe erscheinen
+  nur noch, wenn der Team-Modus aktiv ist — sowohl im Solo-Match-Setup als auch in der
+  Mehrspieler-Lobby.
+
 ## [0.25.0] – 2026-06-01
 
 ### Neu
