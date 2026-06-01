@@ -142,10 +142,10 @@ const DEFAULT_MENU: StartMenuValues = {
  * Name/Sprache/Design erhalten bleiben.
  */
 const TUTORIAL_OVERRIDES = {
-  mapWidth: 384,
-  mapHeight: 384,
+  mapWidth: 256,
+  mapHeight: 256,
   aiCount: 0,
-  wildCount: 14,
+  wildCount: 20, // dicht → der Spieler hat immer nahe Wilde zum Erobern und Bombardieren
   terrain: 'flat',
   rivers: false,
   captureMode: false,

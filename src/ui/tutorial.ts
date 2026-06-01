@@ -77,6 +77,9 @@ const giveGold = (s: GameState, id: number, amount: number): void => {
 export function defaultTutorialSteps(): readonly TutorialStep[] {
   let tilesAtExpand = 0
   let wildAtStart = 0
+  let tilesAtGrow = 0
+  /** Wie viele Felder der „Wachse weiter"-Schritt zusätzlich verlangt (relativ zum Schritt-Beginn). */
+  const GROW_GAIN = 30
   const k = (id: string, part: 'goal' | 'text'): string => `tutorial.step.${id}.${part}`
 
   return [
@@ -118,7 +121,10 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'grow',
       goal: k('grow', 'goal'),
       text: k('grow', 'text'),
-      done: (s, id) => myTiles(s, id) >= 45,
+      onEnter: (s, id) => {
+        tilesAtGrow = myTiles(s, id)
+      },
+      done: (s, id) => myTiles(s, id) >= tilesAtGrow + GROW_GAIN,
     },
     {
       id: 'airport',
