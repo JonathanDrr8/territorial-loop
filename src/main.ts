@@ -142,15 +142,15 @@ const DEFAULT_MENU: StartMenuValues = {
  * Name/Sprache/Design erhalten bleiben.
  */
 const TUTORIAL_OVERRIDES = {
-  mapWidth: 256,
-  mapHeight: 256,
+  mapWidth: 384,
+  mapHeight: 384,
   aiCount: 0,
-  wildCount: 6,
+  wildCount: 14,
   terrain: 'flat',
   rivers: false,
   captureMode: false,
   teamMode: 'off',
-  victoryPct: 60,
+  victoryPct: 95, // hoch → das Match endet während des Tutorials nicht versehentlich
   seed: 'tutorial-1',
 } satisfies Partial<StartMenuValues>
 

@@ -56,6 +56,17 @@ const livingWild = (s: GameState): number =>
   [...s.players.values()].filter((p) => p.wild && p.isAlive).length
 const hasBuilding = (s: GameState, id: number, type: BuildingType): boolean =>
   [...s.buildings.values()].some((b) => b.ownerId === id && b.type === type)
+/** Hat der Spieler einen Bomber gebaut (geparkt im Hangar) oder bereits gestartet (in der Luft)? */
+const hasBomber = (s: GameState, id: number): boolean =>
+  s.bombers.some((b) => b.ownerId === id) ||
+  [...s.buildings.values()].some(
+    (b) => b.ownerId === id && b.type === 'airport' && (b.aircraft ?? 0) > 0,
+  )
+/** Schenkt dem Spieler Gold (Regie), damit er den nächsten Bau ohne Grinden ausprobieren kann. */
+const giveGold = (s: GameState, id: number, amount: number): void => {
+  const p = s.players.get(id)
+  if (p !== undefined) p.gold += amount
+}
 
 /**
  * Drehbuch Teil 1 — die Kern-Schleife (ausbreiten → erobern → bauen → wachsen). Schwellen sind
@@ -99,22 +110,40 @@ export function defaultTutorialSteps(): readonly TutorialStep[] {
       id: 'city',
       goal: 'Baue eine Stadt',
       text: 'Mit Gold baust du Gebäude. Wir schenken dir etwas Gold zum Üben. Drücke Taste 1 und setze eine Stadt auf dein Gebiet — eine Stadt hebt dein Truppen-Limit, du kannst also mehr Truppen halten.',
-      onEnter: (s, id) => {
-        const p = s.players.get(id)
-        if (p !== undefined) p.gold += TUTORIAL_GOLD_GIFT
-      },
+      onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
       done: (s, id) => hasBuilding(s, id, 'city'),
+    },
+    {
+      id: 'factory',
+      goal: 'Baue eine Fabrik',
+      text: 'Gold ist der Schlüssel zu allem. Baue eine Fabrik (Taste 4) — sie verbindet sich mit deinen Städten und produziert laufend Gold. Fabriken sind das Rückgrat deiner Wirtschaft. Hier ist Gold dafür.',
+      onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
+      done: (s, id) => hasBuilding(s, id, 'factory'),
     },
     {
       id: 'grow',
       goal: 'Wachse weiter',
-      text: 'Stark! Jetzt das Wichtigste: wachsen. Breite dich weiter aus und erobere mehr Gebiet, bis dir ein großer Teil der Insel gehört.',
-      done: (s, id) => myTiles(s, id) >= 60,
+      text: 'Stark! Wachsen ist das Wichtigste. Breite dich weiter aus und erobere mehr Gebiet — je größer dein Reich, desto mehr Truppen und Gold.',
+      done: (s, id) => myTiles(s, id) >= 45,
+    },
+    {
+      id: 'airport',
+      goal: 'Baue einen Flughafen',
+      text: 'Zeit für Luftmacht. Baue einen Flughafen (Taste 5) — von hier starten Bomber. Wir schenken dir das Gold dafür.',
+      onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT * 2),
+      done: (s, id) => hasBuilding(s, id, 'airport'),
+    },
+    {
+      id: 'bomber',
+      goal: 'Starte einen Bomber',
+      text: 'Drücke Taste 7, um einen Bomber zu bauen, und klicke dann ein feindliches (graues) Gebiet an. Der Bomber fliegt hin und wirft eine Bombe, die Truppen tötet, Gebiet neutralisiert und Gebäude zerstört — Vorsicht, sie verschont niemanden, auch Verbündete nicht.',
+      onEnter: (s, id) => giveGold(s, id, TUTORIAL_GOLD_GIFT),
+      done: (s, id) => hasBomber(s, id),
     },
     {
       id: 'finish',
       goal: 'Geschafft',
-      text: 'Geschafft! Das ist die Grundschleife: ausbreiten, erobern, bauen, wachsen. Häfen, Fabriken, Schiffe, Flugzeuge und Diplomatie lernst du am besten direkt im Spiel kennen. Viel Erfolg!',
+      text: 'Geschafft! Du beherrschst die Grundlagen: ausbreiten, erobern, Wirtschaft (Städte + Fabriken) und Luftkrieg. Häfen und Schiffe, Diplomatie und die Spielmodi lernst du am besten direkt in einer echten Partie kennen. Viel Erfolg!',
     },
   ]
 }
