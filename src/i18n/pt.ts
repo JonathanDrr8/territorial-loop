@@ -56,6 +56,7 @@ export const pt: Record<string, string> = {
   'play.start': 'Iniciar partida',
   'play.spectate': 'Assistir',
   'play.ranked': 'Ranqueado',
+  'play.tutorial': 'Tutorial',
 
   'settings.intro': 'Exibição e recursos opcionais. Valem para a próxima partida.',
   'settings.display': 'Exibição',

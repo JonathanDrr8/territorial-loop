@@ -56,6 +56,7 @@ export const fr: Record<string, string> = {
   'play.start': 'Lancer la partie',
   'play.spectate': 'Observer',
   'play.ranked': 'Classé',
+  'play.tutorial': 'Tutoriel',
 
   'settings.intro': "Affichage et fonctions optionnelles. S'appliquent à la prochaine partie.",
   'settings.display': 'Affichage',

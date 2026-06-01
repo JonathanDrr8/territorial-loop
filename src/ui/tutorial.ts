@@ -11,6 +11,7 @@
  */
 
 import type { GameState } from '../core/game'
+import type { BuildingType } from '../core/buildings'
 
 /** Ein Drehbuch-Schritt: Erklärung + (optional) Auslöser zum Weiterkommen + (optional) Regie. */
 export interface TutorialStep {
@@ -46,6 +47,77 @@ export interface TutorialOptions {
 }
 
 const ACCENT = 'var(--tl-accent)'
+
+/** Geschenktes Gold im Bau-Schritt, damit der Spieler ohne Grinden eine Stadt setzen kann. */
+const TUTORIAL_GOLD_GIFT = 80_000
+
+const myTiles = (s: GameState, id: number): number => s.players.get(id)?.tilesOwned ?? 0
+const livingWild = (s: GameState): number =>
+  [...s.players.values()].filter((p) => p.wild && p.isAlive).length
+const hasBuilding = (s: GameState, id: number, type: BuildingType): boolean =>
+  [...s.buildings.values()].some((b) => b.ownerId === id && b.type === type)
+
+/**
+ * Drehbuch Teil 1 — die Kern-Schleife (ausbreiten → erobern → bauen → wachsen). Schwellen sind
+ * auf die kleine Tutorial-Karte abgestimmt und beim Testen justierbar. Closure-State merkt sich
+ * Startwerte je Schritt.
+ */
+export function defaultTutorialSteps(): readonly TutorialStep[] {
+  let tilesAtExpand = 0
+  let wildAtStart = 0
+
+  return [
+    {
+      id: 'welcome',
+      goal: 'Willkommen',
+      text: 'Willkommen bei territorial-loop! Das farbige Gebiet in der Mitte ist dein Reich. Dein Ziel: dich ausbreiten und die Insel erobern. Wir gehen die Grundlagen Schritt für Schritt durch.',
+    },
+    {
+      id: 'expand',
+      goal: 'Breite dich aus',
+      text: 'Klicke ein angrenzendes graues Gebiet an deiner Grenze an — deine Truppen breiten sich dorthin aus.',
+      onEnter: (s, id) => {
+        tilesAtExpand = myTiles(s, id)
+      },
+      done: (s, id) => myTiles(s, id) > tilesAtExpand,
+    },
+    {
+      id: 'size',
+      goal: 'Angriffsgröße',
+      text: 'Mit dem Mausrad stellst du ein, wie viel deiner Truppen ein Angriff einsetzt. Mehr Truppen erobern schneller, lassen dein Kerngebiet aber dünner. Probier es ruhig aus.',
+    },
+    {
+      id: 'wild',
+      goal: 'Erobere die Wilden',
+      text: 'Die grauen „wilden" Nationen sind passiv und schwach besiedelt — perfekt zum Wachsen. Erobere die wilde Nation neben dir; beim Erobern erbeutest du ihr Gold.',
+      onEnter: (s) => {
+        wildAtStart = livingWild(s)
+      },
+      done: (s) => livingWild(s) < wildAtStart,
+    },
+    {
+      id: 'city',
+      goal: 'Baue eine Stadt',
+      text: 'Mit Gold baust du Gebäude. Wir schenken dir etwas Gold zum Üben. Drücke Taste 1 und setze eine Stadt auf dein Gebiet — eine Stadt hebt dein Truppen-Limit, du kannst also mehr Truppen halten.',
+      onEnter: (s, id) => {
+        const p = s.players.get(id)
+        if (p !== undefined) p.gold += TUTORIAL_GOLD_GIFT
+      },
+      done: (s, id) => hasBuilding(s, id, 'city'),
+    },
+    {
+      id: 'grow',
+      goal: 'Wachse weiter',
+      text: 'Stark! Jetzt das Wichtigste: wachsen. Breite dich weiter aus und erobere mehr Gebiet, bis dir ein großer Teil der Insel gehört.',
+      done: (s, id) => myTiles(s, id) >= 60,
+    },
+    {
+      id: 'finish',
+      goal: 'Geschafft',
+      text: 'Geschafft! Das ist die Grundschleife: ausbreiten, erobern, bauen, wachsen. Häfen, Fabriken, Schiffe, Flugzeuge und Diplomatie lernst du am besten direkt im Spiel kennen. Viel Erfolg!',
+    },
+  ]
+}
 
 export function createTutorial(opts: TutorialOptions): TutorialApi {
   let index = -1

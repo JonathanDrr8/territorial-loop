@@ -56,6 +56,7 @@ export const ru: Record<string, string> = {
   'play.start': 'Начать матч',
   'play.spectate': 'Смотреть',
   'play.ranked': 'Рейтинг',
+  'play.tutorial': 'Обучение',
 
   'settings.intro': 'Отображение и дополнительные функции. Применяются к следующему матчу.',
   'settings.display': 'Отображение',

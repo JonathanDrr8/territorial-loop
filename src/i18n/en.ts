@@ -57,6 +57,7 @@ export const en: Record<string, string> = {
   'play.start': 'Start match',
   'play.spectate': 'Spectate',
   'play.ranked': 'Ranked',
+  'play.tutorial': 'Tutorial',
 
   // ── Tab "Settings" ─────────────────────────────────────────────────────────
   'settings.intro': 'Display & optional features. They apply to the next match.',

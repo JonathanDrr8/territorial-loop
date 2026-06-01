@@ -57,6 +57,7 @@ export const de: Record<string, string> = {
   'play.start': 'Match starten',
   'play.spectate': 'Zuschauen',
   'play.ranked': 'Ranglisten',
+  'play.tutorial': 'Tutorial',
 
   // ── Tab „Einstellungen" ────────────────────────────────────────────────────
   'settings.intro': 'Darstellung & optionale Features. Wirken sich aufs nächste Match aus.',

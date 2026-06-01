@@ -56,6 +56,7 @@ export const zh: Record<string, string> = {
   'play.start': '开始对局',
   'play.spectate': '观战',
   'play.ranked': '排位',
+  'play.tutorial': '教程',
 
   'settings.intro': '显示与可选功能。将在下一局生效。',
   'settings.display': '显示',

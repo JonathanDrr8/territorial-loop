@@ -79,6 +79,8 @@ export interface MenuShellCallbacks {
   onCustomizeHud?(): void
   /** Ranglisten-Modus öffnen (ADR-0022) — Match auf Spieler-ELO, Ergebnis bewegt das ELO. */
   onRanked(values: StartMenuValues): void
+  /** Tutorial starten — geführtes Match, das die Grundlagen erklärt (Option, kein Zwang). */
+  onTutorial(values: StartMenuValues): void
 }
 
 type TabId = 'play' | 'multiplayer' | 'ranking' | 'settings' | 'changelog' | 'help'
@@ -721,6 +723,13 @@ export function createMenuShell(
     rankedBtn.style.cssText = secondaryButtonStyle()
     rankedBtn.addEventListener('click', () => callbacks.onRanked(collect()))
     p.appendChild(rankedBtn)
+
+    // Tutorial (Option, kein Zwang): geführtes Match, das die Grundlagen erklärt.
+    const tutorialBtn = document.createElement('button')
+    tutorialBtn.textContent = t('play.tutorial')
+    tutorialBtn.style.cssText = secondaryButtonStyle()
+    tutorialBtn.addEventListener('click', () => callbacks.onTutorial(collect()))
+    p.appendChild(tutorialBtn)
 
     // Drei zentrierte Spalten: Lobby-Browser links (230) · Setup-Panel mittig (auto) · Tipps
     // rechts (230), je 20 px Abstand. `justify-content: center` zentriert den ganzen Block →
