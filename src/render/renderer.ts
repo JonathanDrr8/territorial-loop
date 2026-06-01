@@ -211,6 +211,34 @@ function rgbaToCssLocal(rgba: number): string {
   return `rgb(${r},${g},${b})`
 }
 
+/**
+ * Strich-Icons fürs Canvas (24×24-Pfadraum) — dieselben Vektorformen wie das DOM-Icon-Set in
+ * `src/ui/icons.ts`, hier aber per `Path2D`/`arc` direkt auf die Karte gezeichnet (statt Emojis,
+ * die es in Canvas-Text sonst bräuchte). `paths` = SVG-`d`-Strings, `circles` = [cx,cy,r].
+ */
+const MAP_GLYPHS: Record<
+  'warning' | 'swords' | 'ban' | 'alliance',
+  { paths: readonly string[]; circles?: readonly (readonly [number, number, number])[] }
+> = {
+  warning: { paths: ['M12 3.5L2.3 20.5h19.4L12 3.5z', 'M12 9.5v4.5', 'M12 17.4v.2'] },
+  swords: {
+    paths: [
+      'M3 4l11 11',
+      'M3 7V4h3',
+      'M21 4L10 15',
+      'M21 7V4h-3',
+      'M7 16l1.5 1.5',
+      'M17 16l-1.5 1.5',
+    ],
+  },
+  ban: { paths: ['M6.3 6.3l11.4 11.4'], circles: [[12, 12, 8]] },
+  alliance: {
+    paths: [
+      'M12 20.5C7 17 3.5 13.6 3.5 9.8 3.5 7 5.6 5 8 5c1.7 0 3 1 4 2.4C13 6 14.3 5 16 5c2.4 0 4.5 2 4.5 4.8 0 3.8-3.5 7.2-8.5 10.7z',
+    ],
+  },
+}
+
 export interface Camera {
   /** Welt-Koord die am Screen-Center erscheint. */
   x: number
@@ -271,6 +299,8 @@ export interface Renderer {
    * nützlich, damit der Start-Spawn nicht vom unteren HUD-Panel verdeckt wird.
    */
   centerOnPlayer(playerId: number, screenOffsetY?: number): void
+  /** Stößt den Match-Start-Puls über dem eigenen Gebiet an (reine Präsentation). */
+  pulseSpawn(playerId: number): void
   destroy(): void
 }
 
@@ -958,6 +988,9 @@ export function createRenderer(
   let hoverTile: { x: number; y: number } | null = null
   // Gehovertes (gesnapptes) Objekt — Ring-Markierung, damit bei mehreren klar ist, was gemeint ist.
   let hoverHighlight: { wx: number; wy: number; kind: 'ship' | 'building' } | null = null
+  // Spawn-Puls (reine Präsentation, ms-Wanduhr): kurzes „hier bist du" beim Match-Start —
+  // gestaffelte Ringe in der Spielerfarbe, expandieren vom eigenen Schwerpunkt und verblassen.
+  let spawnPulse: { wx: number; wy: number; rgb: string; startTime: number } | null = null
   // Kamera-Darstellung steuert das Welt-Blit:
   //  - 'tiles'   → endloses Kacheln (Wrap/Tapete).
   //  - 'period'  → eine Welt, nahtloser Seam-Wrap (Zoom auf eine Periode begrenzt; kein Blit-Sonderfall).
@@ -1154,6 +1187,10 @@ export function createRenderer(
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.lineWidth = 3
+    // Runde Joins/Caps: ohne sie spitzen scharfe Glyphen-Ecken (z. B. der Dezimalpunkt in
+    // „5.6k") unter der dicken Outline aus und sehen wie ein Doppelpunkt/Fransen aus.
+    screenCtx.lineJoin = 'round'
+    screenCtx.lineCap = 'round'
     // Bei vielen Nationen (viele Bots/Wilde) würden alle Labels die Karte zukleistern.
     // Dann werden Neben-Nationen wie Wilde behandelt: erst ab nahem Zoom beschriftet.
     let liveOthers = 0
@@ -1214,28 +1251,33 @@ export function createRenderer(
       if (offscreen && !isHuman && !allied && !traitor && !attackingHuman.has(p.id)) continue
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
-      // Verräter mit ⚠ und rotem Namen markieren (gleiche Farbe wie Rangliste/Tooltip).
       // Wilde Nationen tragen KEINEN Eigennamen (verwirrt — sähe aus wie eine echte Nation),
-      // sondern überall nur das lokalisierte „wild".
-      const name = (traitor ? '⚠ ' : '') + (p.wild ? t('nation.wild') : p.name)
+      // sondern überall nur das lokalisierte „wild". Verräter: roter Name + Warndreieck links.
+      const name = p.wild ? t('nation.wild') : p.name
       const troopsLabel = fmtCompactRender(p.troops)
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
+      const nameColor = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - gap)
       screenCtx.strokeText(troopsLabel, lx, ly + gap)
-      screenCtx.fillStyle = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
+      screenCtx.fillStyle = nameColor
       screenCtx.fillText(name, lx, ly - gap)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
       screenCtx.fillText(troopsLabel, lx, ly + gap)
-      // Diplo-Marker über dem Namen: 🤝 = bietet dir ein Bündnis, ⛔ = hat dich embargoiert.
+      // Verräter-Warndreieck links vom (zentrierten) Namen, in derselben roten Farbe.
+      if (traitor) {
+        const gs = Math.round(fontSize * 0.95)
+        const nameW = screenCtx.measureText(name).width
+        drawMapGlyph('warning', lx - nameW / 2 - gs * 0.62, ly - gap, gs, nameColor)
+      }
+      // Diplo-Marker über dem Namen: Herz = bietet dir ein Bündnis, Verbots-Schild = embargoiert dich.
       if (flagged) {
-        const marker = (offersAlliance ? '🤝' : '') + (embargoesYou ? '⛔' : '')
+        const gs = Math.round(fontSize * 1.1)
         const my = ly - gap - Math.round(fontSize * 1.05)
-        screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
-        screenCtx.strokeText(marker, lx, my)
-        screenCtx.fillStyle = '#ffffff'
-        screenCtx.fillText(marker, lx, my)
+        const both = offersAlliance && embargoesYou
+        if (offersAlliance) drawMapGlyph('alliance', both ? lx - gs * 0.6 : lx, my, gs, '#ffffff')
+        if (embargoesYou) drawMapGlyph('ban', both ? lx + gs * 0.6 : lx, my, gs, '#ffffff')
       }
     }
     screenCtx.globalAlpha = 1
@@ -1261,6 +1303,8 @@ export function createRenderer(
     const own: Array<{ sx: number; sy: number; label: string }> = []
     const incoming: Array<{ sx: number; sy: number; label: string }> = []
     screenCtx.lineWidth = 3
+    screenCtx.lineJoin = 'round'
+    screenCtx.lineCap = 'round'
     screenCtx.font = 'bold 12px ui-monospace, monospace'
     for (const p of state.players.values()) {
       if (p.attacks.length === 0) continue
@@ -1294,10 +1338,12 @@ export function createRenderer(
     screenCtx.restore()
   }
 
-  /** Zeichnet eine abgerundete Pille mit Schwert + Label an (sx,sy). */
+  /** Zeichnet eine abgerundete Pille mit gekreuzten Klingen + Label an (sx,sy). */
   function drawAttackPill(sx: number, sy: number, label: string, fill: string): void {
-    const text = `⚔ ${label}`
-    const w = screenCtx.measureText(text).width + 14
+    const gs = 14 // Klingen-Icon
+    const labelW = screenCtx.measureText(label).width
+    const inner = gs + 4 + labelW
+    const w = inner + 12
     const h = 20
     screenCtx.fillStyle = fill
     screenCtx.strokeStyle = 'rgba(0,0,0,0.6)'
@@ -1305,8 +1351,12 @@ export function createRenderer(
     roundRect(screenCtx, sx - w / 2, sy - h / 2, w, h, 6)
     screenCtx.fill()
     screenCtx.stroke()
+    const left = sx - inner / 2
+    drawMapGlyph('swords', left + gs / 2, sy, gs, '#ffffff')
     screenCtx.fillStyle = '#ffffff'
-    screenCtx.fillText(text, sx, sy + 0.5)
+    screenCtx.textAlign = 'left'
+    screenCtx.fillText(label, left + gs + 4, sy + 0.5)
+    screenCtx.textAlign = 'center'
   }
 
   /** Pfad eines abgerundeten Rechtecks (kein Stroke/Fill — Aufrufer entscheidet). */
@@ -1326,6 +1376,52 @@ export function createRenderer(
     ctx.arcTo(x, y + h, x, y, rad)
     ctx.arcTo(x, y, x + w, y, rad)
     ctx.closePath()
+  }
+
+  // Path2D je SVG-`d`-String einmal bauen (Path2D ist im Browser, nicht in jsdom → lazy halten).
+  const glyphPathCache = new Map<string, Path2D>()
+  function glyphPath(d: string): Path2D {
+    let p = glyphPathCache.get(d)
+    if (p === undefined) {
+      p = new Path2D(d)
+      glyphPathCache.set(d, p)
+    }
+    return p
+  }
+
+  /**
+   * Zeichnet ein {@link MAP_GLYPHS}-Strich-Icon zentriert bei (cx,cy) in `size` px — mit dunklem
+   * Halo (Lesbarkeit über Terrain), dann in `color`. Ersetzt die früheren Emoji-Marker.
+   */
+  function drawMapGlyph(
+    name: keyof typeof MAP_GLYPHS,
+    cx: number,
+    cy: number,
+    size: number,
+    color: string,
+  ): void {
+    const g = MAP_GLYPHS[name]
+    const s = size / 24
+    screenCtx.save()
+    screenCtx.translate(cx - size / 2, cy - size / 2)
+    screenCtx.scale(s, s)
+    screenCtx.lineCap = 'round'
+    screenCtx.lineJoin = 'round'
+    // Zwei Durchgänge: dunkler Halo (dick), dann die Farbe — wie die Text-Outline der Labels.
+    for (const [stroke, lw] of [
+      ['rgba(0,0,0,0.82)', 4.6],
+      [color, 2.1],
+    ] as const) {
+      screenCtx.strokeStyle = stroke
+      screenCtx.lineWidth = lw
+      for (const c of g.circles ?? []) {
+        screenCtx.beginPath()
+        screenCtx.arc(c[0], c[1], c[2], 0, Math.PI * 2)
+        screenCtx.stroke()
+      }
+      for (const d of g.paths) screenCtx.stroke(glyphPath(d))
+    }
+    screenCtx.restore()
   }
 
   // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert).
@@ -2619,6 +2715,7 @@ export function createRenderer(
     drawBomberPreview()
     drawWarshipPreview()
     drawMarkers()
+    drawSpawnPulse()
     drawLabels()
     drawFlakShots()
     drawBombers() // Bomber fliegen über allem
@@ -2630,6 +2727,85 @@ export function createRenderer(
 
   function addClickMarker(worldX: number, worldY: number): void {
     markers.push({ worldX, worldY, startTime: performance.now() })
+  }
+
+  /** Dauer des Spawn-Pulses (ms). Wanduhr — reine Präsentation, kein Sim-Tick. */
+  const SPAWN_PULSE_MS = 2400
+
+  /**
+   * Stößt den Match-Start-Puls über dem eigenen Gebiet an: Schwerpunkt wie in {@link centerOnPlayer}
+   * (Torus-Mittel über sin/cos), Ringe in der Spielerfarbe. Tut nichts ohne eigenes Land (Zuschauer).
+   */
+  function pulseSpawn(playerId: number): void {
+    const w = state.map.width
+    const h = state.map.height
+    const ms = state.map.state
+    const kx = (2 * Math.PI) / w
+    const ky = (2 * Math.PI) / h
+    let sx = 0
+    let cx = 0
+    let sy = 0
+    let cy = 0
+    let n = 0
+    for (let i = 0; i < ms.length; i++) {
+      if (((ms[i] ?? 0) & OWNER_MASK) !== playerId) continue
+      const x = i % w
+      const y = (i - x) / w
+      sx += Math.sin(x * kx)
+      cx += Math.cos(x * kx)
+      sy += Math.sin(y * ky)
+      cy += Math.cos(y * ky)
+      n++
+    }
+    if (n === 0) return
+    const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
+    const my = (Math.atan2(sy, cy) / (2 * Math.PI)) * h
+    const p = state.players.get(playerId)
+    const color = p?.color ?? 0xffffffff
+    const r = (color >>> 24) & 0xff
+    const g = (color >>> 16) & 0xff
+    const b = (color >>> 8) & 0xff
+    spawnPulse = {
+      wx: (((mx % w) + w) % w) + 0.5,
+      wy: (((my % h) + h) % h) + 0.5,
+      rgb: `${r.toString()},${g.toString()},${b.toString()}`,
+      startTime: performance.now(),
+    }
+  }
+
+  /** Zeichnet den Spawn-Puls: gestaffelte, expandierende + verblassende Ringe (zoom-unabhängig). */
+  function drawSpawnPulse(): void {
+    if (spawnPulse === null) return
+    const t = (performance.now() - spawnPulse.startTime) / SPAWN_PULSE_MS
+    if (t >= 1) {
+      spawnPulse = null
+      return
+    }
+    const { sx, sy } = nearestWrappedScreenPos(spawnPulse.wx, spawnPulse.wy)
+    screenCtx.save()
+    screenCtx.lineCap = 'round'
+    // Drei zeitversetzte Ringe: jeder wächst von ~14px auf ~150px und verblasst dabei.
+    for (let k = 0; k < 3; k++) {
+      const local = t - k * 0.16
+      if (local <= 0 || local >= 1) continue
+      const eased = 1 - (1 - local) * (1 - local) // ease-out
+      const radius = 14 + eased * 138
+      const alpha = (1 - local) * 0.75
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+      screenCtx.strokeStyle = `rgba(${spawnPulse.rgb},${alpha.toFixed(3)})`
+      screenCtx.lineWidth = 3
+      screenCtx.stroke()
+    }
+    // Heller Kern-Punkt am Schwerpunkt (verblasst zuerst) — markiert die exakte Stelle.
+    const coreAlpha = Math.max(0, 1 - t * 2.2) * 0.9
+    if (coreAlpha > 0) {
+      screenCtx.beginPath()
+      screenCtx.arc(sx, sy, 5, 0, Math.PI * 2)
+      screenCtx.fillStyle = `rgba(255,255,255,${coreAlpha.toFixed(3)})`
+      screenCtx.fill()
+    }
+    screenCtx.restore()
   }
 
   function setHoverTile(worldX: number, worldY: number): void {
@@ -2708,6 +2884,7 @@ export function createRenderer(
     screenToWorld,
     getBitmap,
     addClickMarker,
+    pulseSpawn,
     setHoverTile,
     clearHoverTile,
     setHoverHighlight,
