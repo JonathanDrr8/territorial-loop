@@ -19,6 +19,11 @@ export type TroopStyle = 'bar' | 'orb'
  * klassische Layout (Tastatur + Rechtsklick/E, kein Eck-Rad).
  */
 export type ControlMode = 'auto' | 'desktop' | 'touch'
+/** Größe des radialen Kontextmenüs (Rechtsklick/Long-Press) + Eck-Rad. */
+export type RadialSize = 'small' | 'normal' | 'large'
+
+/** Skalierungsfaktor je Radialgröße. */
+export const RADIAL_SCALE: Record<RadialSize, number> = { small: 0.82, normal: 1, large: 1.25 }
 
 export interface HudPrefs {
   sliderHome: SliderHome
@@ -31,6 +36,8 @@ export interface HudPrefs {
   troopStyle: TroopStyle
   /** Steuerungs-Modus (siehe [[ControlMode]]). Default `auto`. */
   controlMode: ControlMode
+  /** Größe des radialen Menüs (Rechtsklick/Long-Press + Eck-Rad). Default `normal`. */
+  radialSize: RadialSize
 }
 
 const KEY = 'territorial-loop:hud-prefs:v1'
@@ -54,6 +61,7 @@ const DEFAULTS: HudPrefs = {
   actionSplit: false,
   troopStyle: 'bar',
   controlMode: 'auto',
+  radialSize: 'normal',
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -81,6 +89,10 @@ function load(): HudPrefs {
           parsed.controlMode === 'touch' || parsed.controlMode === 'desktop'
             ? parsed.controlMode
             : 'auto',
+        radialSize:
+          parsed.radialSize === 'small' || parsed.radialSize === 'large'
+            ? parsed.radialSize
+            : 'normal',
       }
     }
   } catch {

@@ -35,6 +35,7 @@ import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
 import { createActionWheel } from './ui/action-wheel'
+import { createGameSettings } from './ui/game-settings'
 import type { BuildingType } from './core/buildings'
 import { pickDistinctColors } from './ui/colors'
 import { createConfirmDialog } from './ui/confirm-dialog'
@@ -716,11 +717,21 @@ function startMatch(
 
   // Pause-/Esc-Menü: „Weiter / HUD anpassen / Runde verlassen". Ersetzt den direkten Verlassen-
   // Bestätigungsdialog bei Esc — das Menü ist selbst die Hürde gegen versehentliches Beenden.
+  // In-Game-Einstellungen (über Pause-Menü): Audio live auf Sound-/Musik-Engine + Radialmenü-Größe.
+  const gameSettings = createGameSettings(container, {
+    onAudio: (v) => {
+      sound.setEnabled(v.master > 0 && v.sfx > 0)
+      sound.setVolume(v.master * v.sfx)
+      music?.setVolume(v.master * v.music)
+    },
+  })
+
   const pauseMenu = createPauseMenu(container, {
     onResume: () => {
       /* nichts weiter — Overlay schließt sich selbst */
     },
     onCustomizeHud: () => hudEditor.open(),
+    onSettings: () => gameSettings.open(),
     onLeave: onRequestNewMatch,
   })
 
@@ -819,6 +830,10 @@ function startMatch(
         if (humanId > 0) renderer.centerOnPlayer(humanId)
       },
       escape(): void {
+        if (gameSettings.isOpen()) {
+          gameSettings.close()
+          return
+        }
         if (buildMenu.isOpen()) {
           buildMenu.close()
           return
@@ -1028,6 +1043,7 @@ function startMatch(
       buildMenu.destroy()
       actionWheel.destroy()
       offControlMode()
+      gameSettings.destroy()
       confirmDialog.destroy()
       pauseMenu.destroy()
       renderer.destroy()

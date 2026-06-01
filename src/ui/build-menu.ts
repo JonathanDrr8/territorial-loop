@@ -28,6 +28,7 @@ import { isLand, isPassable } from '../world/terrain'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
+import { getHudPrefs, RADIAL_SCALE } from './hud-prefs'
 
 /** Übersetzter Anzeige-Name eines Gebäudetyps. */
 function buildingLabel(type: BuildingType): string {
@@ -169,8 +170,10 @@ export function createBuildMenu(
   ): void {
     panel.textContent = ''
     const n = actions.length
-    const rIn = 64
-    const rOut = n <= 6 ? 158 : 176
+    // Größe aus den HUD-Prefs (Einstellung „Radialmenü-Größe"): skaliert Ring + Schriften.
+    const s = RADIAL_SCALE[getHudPrefs().radialSize]
+    const rIn = Math.round(64 * s)
+    const rOut = Math.round((n <= 6 ? 158 : 176) * s)
     const pad = 6
     const size = 2 * (rOut + pad)
     const c = size / 2
@@ -319,15 +322,14 @@ export function createBuildMenu(
       // Glyph ist ein vertrauenswürdiger interner String (Icon-SVG oder einzelnes Symbol) → innerHTML,
       // damit die Inline-SVG-Icons rendern. `color` färbt die currentColor-Icons in die Akzentfarbe.
       glyphEl.innerHTML = a.glyph
-      glyphEl.style.cssText = `font-size: 23px; line-height: 1; display:flex; align-items:center; justify-content:center; color: ${a.accent}`
+      glyphEl.style.cssText = `font-size: ${String(Math.round(23 * s))}px; line-height: 1; display:flex; align-items:center; justify-content:center; color: ${a.accent}`
       lbl.appendChild(glyphEl)
       // Wortlabel nur, wenn genug Platz (bei >7 Segmenten würden Wörter benachbarter Segmente kollidieren
       // → dann Icon-only, der Name erscheint per Hover in der Mitte).
       if (n <= 7) {
         const wordEl = document.createElement('div')
         wordEl.textContent = a.label
-        wordEl.style.cssText =
-          'font-size: 12px; font-weight: 600; line-height: 1.1; color: var(--tl-text); max-width: 86px'
+        wordEl.style.cssText = `font-size: ${String(Math.round(12 * s))}px; font-weight: 600; line-height: 1.1; color: var(--tl-text); max-width: 86px`
         lbl.appendChild(wordEl)
       }
       if (a.costText !== '') {
