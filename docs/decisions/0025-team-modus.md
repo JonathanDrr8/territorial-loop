@@ -45,9 +45,18 @@ Mehrspieler-Thema (zwei Clients mit derselben `humanId` → beide Intents wirken
 und braucht Lobby-Slot-Zuweisung. Im Solo ergibt „geteilt" wenig Sinn (Co-op-KI auf der eigenen
 Nation wäre chaotisch). **Bewusst zurückgestellt**, bis die MP-Lobby Team-/Slot-Zuweisung kann.
 
+### MP-Team-Zuweisung (umgesetzt)
+
+- `MatchSettings` trägt `captureMode`/`teamMode`/`teamCount`/`teamSize`; der **Server** baut daraus
+  die Config (single source → kein Client/Server-Mismatch).
+- **Gezielte Team-Wahl:** `PeerInfo.teamId` + Client-Nachricht `set-team`. In der Lobby wählt jeder
+  Spieler sein Team über ein Dropdown (eigenes editierbar, fremde als Anzeige). Der Server speichert
+  `Member.teamId` und vergibt in `buildConfig` die Teams: Menschen ins gewählte Team (sonst ins am
+  wenigsten belegte), **KI füllt jedes Team auf `teamSize` auf**. Verifiziert: zwei Tabs, gezielte
+  Team-Wahl übernommen, Lockstep läuft.
+
 ## Konsequenzen
 
-- Solo-Team-Spiel (allied) funktioniert sofort, deterministisch, MP-sicher (nur Player-Felder, die via
-  `...rest` serialisiert werden).
-- MP-Team-Spiel braucht noch: Team-Settings in `MatchSettings` + Lobby-Team-Zuweisung (offen).
+- Solo- UND MP-Team-Spiel (allied) funktioniert, deterministisch, MP-sicher (Player-Felder via
+  `...rest` serialisiert; Config server-autoritativ).
 - `shared`-Modus ist noch nicht wählbar (nur `off`/`allied`).

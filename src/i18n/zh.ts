@@ -437,6 +437,7 @@ export const zh: Record<string, string> = {
   'mp.copy': '复制',
   'mp.copied': '已复制',
   'mp.you': '你',
+  'mp.team': '队伍',
   'mp.ready': '就绪',
   'mp.waiting': '等待中 …',
   'mp.disconnected': '已断开',

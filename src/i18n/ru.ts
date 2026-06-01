@@ -481,6 +481,7 @@ export const ru: Record<string, string> = {
   'mp.copy': 'Копировать',
   'mp.copied': 'Скопировано',
   'mp.you': 'ты',
+  'mp.team': 'Команда',
   'mp.ready': 'готов',
   'mp.waiting': 'ожидание …',
   'mp.disconnected': 'отключён',

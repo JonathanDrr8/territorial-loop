@@ -495,6 +495,7 @@ export const fr: Record<string, string> = {
   'mp.copy': 'Copier',
   'mp.copied': 'Copié',
   'mp.you': 'toi',
+  'mp.team': 'Équipe',
   'mp.ready': 'prêt',
   'mp.waiting': 'en attente …',
   'mp.disconnected': 'déconnecté',

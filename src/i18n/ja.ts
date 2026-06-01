@@ -441,6 +441,7 @@ export const ja: Record<string, string> = {
   'mp.copy': 'コピー',
   'mp.copied': 'コピーしました',
   'mp.you': 'あなた',
+  'mp.team': 'チーム',
   'mp.ready': '準備完了',
   'mp.waiting': '待機中 …',
   'mp.disconnected': '切断',

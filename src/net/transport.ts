@@ -329,6 +329,11 @@ export class NetworkTransport implements IntentTransport {
     this.sendMsg({ kind: 'configure', settings })
   }
 
+  /** Eigenes Team in der Lobby wählen (Team-Modus, ADR-0025). */
+  setTeam(teamId: number): void {
+    this.sendMsg({ kind: 'set-team', teamId })
+  }
+
   /** Eigenen State-Hash zu einem Turn melden — der Server prüft auf Desync (→ Snapshot). */
   reportHash(turn: number, hash: number): void {
     this.sendMsg({ kind: 'state-hash', turn, hash })
