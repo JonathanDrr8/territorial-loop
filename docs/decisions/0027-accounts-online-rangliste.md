@@ -88,6 +88,31 @@ MP-Wertung umstellbar, sobald das Spiel kompetitiv/öffentlich wird.
 - **DB-Persistenz über Deploy:** Deploy-Skript darf die DB-Datei nicht überschreiben/löschen
   (fester Pfad außerhalb Repo) + Backup-Cron einrichten.
 
+## Deploy-Setup (Phase 1)
+
+Der Server läuft als Docker-Container (LXC 307, `/opt/territorial`, `docker compose`). Damit die
+Accounts ein `--build`/Recreate überleben, sind **zwei Dinge nötig** (einmalig auf dem Server):
+
+1. **Volumes** in `/opt/territorial/docker-compose.yml` beim Service ergänzen:
+
+   ```yaml
+   volumes:
+     - ./data:/app/data # Account-/Ranglisten-DB (ADR-0027) — MUSS persistent sein
+     - ./backups:/app/backups # Ziel der täglichen DB-Backups
+     # - ./feedback:/app/feedback  # (bereits vorhanden)
+   ```
+
+   Das Image setzt `DATA_DIR=/app/data`; ohne den Mount landet die DB im Container-Layer und ist
+   nach jedem Deploy weg.
+
+2. **Backup-Cron** auf dem LXC (`scripts/backup-db.sh`, WAL-konsistent über die SQLite-Backup-API):
+   ```cron
+   0 4 * * *  cd /opt/territorial && ./scripts/backup-db.sh >> /var/log/tl-backup.log 2>&1
+   ```
+
+**Build-Tools:** `better-sqlite3` hat für `node:20-slim` kein Prebuild → das Dockerfile installiert
+`python3/make/g++` vor `npm ci` (verifiziert: ohne sie schlägt der Build fehl).
+
 ## Konsequenzen
 
 **Positiv:** Persistente Online-Rangliste auf vorhandener ELO-Mechanik; Login optional → keine
