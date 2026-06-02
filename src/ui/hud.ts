@@ -1454,10 +1454,11 @@ export function createHUD(
     const rows: string[] = []
     // Ausgehende Angriffe — ZEILE springt zum Kampf; das ✕ rechts bricht ab (Reserve fließt ~2.5s zurück).
     human.attacks.forEach((atk, i) => {
+      // Wilde Nationen erscheinen im Log als „Wildnis" (nicht mit ihrem internen Eigennamen) —
+      // genau wie herrenloses Land (targetPlayerId 0).
+      const tp = state.players.get(atk.targetPlayerId)
       const target =
-        atk.targetPlayerId === 0
-          ? t('hud.wilderness')
-          : (state.players.get(atk.targetPlayerId)?.name ?? '?')
+        atk.targetPlayerId === 0 || tp?.wild === true ? t('hud.wilderness') : (tp?.name ?? '?')
       const cancelling = atk.cancelStartTick !== undefined
       const action = cancelling
         ? `<span style="margin-left:auto;color:#e8b84a;opacity:0.9">${t('hud.cancelling')}</span>`

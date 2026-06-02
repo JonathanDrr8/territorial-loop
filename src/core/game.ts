@@ -2042,7 +2042,10 @@ function tryLaunchBoat(
   // (wie bei einem Angriff) — in seiner Farbe, damit „dein Land wird angegriffen" auffällt.
   const defenderId = getOwner(state.map, landingTile)
   const defender = defenderId === player.id ? undefined : state.players.get(defenderId)
-  if (defender !== undefined && defender.isAlive) {
+  // Wilde Nationen nicht namentlich als angegriffene „Nation" loggen (es gibt niemanden zu warnen,
+  // und ihr interner Eigenname wäre im Log irreführend) → wie bei herrenlosem Ziel nur „Boot
+  // losgeschickt".
+  if (defender !== undefined && defender.isAlive && defender.wild !== true) {
     emitEvent(
       state,
       'event.boatAttack',

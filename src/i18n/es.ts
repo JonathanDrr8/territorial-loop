@@ -96,6 +96,7 @@ export const es: Record<string, string> = {
   'ranking.myPeak': 'Récord',
   'ranking.loading': 'Cargando …',
   'ranking.empty': 'Aún no hay entradas — ¡juega una partida clasificatoria!',
+  'ranking.offline': 'Sin conexión — no se puede contactar con el servidor de clasificación.',
   'ranking.colName': 'Nombre',
   'ranking.colElo': 'ELO',
   'ranking.colRecord': 'V/D',

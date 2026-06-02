@@ -95,6 +95,7 @@ export const ja: Record<string, string> = {
   'ranking.myPeak': '最高値',
   'ranking.loading': '読み込み中 …',
   'ranking.empty': 'まだ記録がありません —— ランク戦をプレイしましょう！',
+  'ranking.offline': 'オフライン —— ランキングサーバーに接続できません。',
   'ranking.colName': '名前',
   'ranking.colElo': 'ELO',
   'ranking.colRecord': '勝/負',
