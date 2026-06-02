@@ -2062,16 +2062,19 @@ describe('Anti-Zersplitterung: eingeschlossene Fragmente (ADR-0017)', () => {
     assertTileCountConsistency(state)
   })
 
-  it('Regel 2: das Kerngebiet bleibt ohne 25× Kapazitäts-Übermacht', () => {
-    // (5,5) ist das einzige (= größte) Stück → Kerngebiet. p1 hat nur leicht mehr Cap (kein 25×).
+  it('Regel 2: das Kerngebiet bleibt ohne 25× aktuelle-Truppen-Übermacht', () => {
+    // (5,5) ist das einzige (= größte) Stück → Kerngebiet. p1 hat zu wenig STEHENDE Truppen
+    // (~15k < 25× p2-Cap ≈ 99k) → das Kerngebiet ist geschützt (Metrik = aktuelle Truppen).
     const state = setupEnclosed({ p1Troops: 15_000, p1Weighted: 50, p2Weighted: 1 })
     captureHole(state, 7000)
     expect(getOwner(state.map, T(5, 5))).toBe(2) // geschützt
     expect(state.players.get(2)?.isAlive).toBe(true)
   })
 
-  it('Regel 2: das Kerngebiet fällt mit 25× Kapazitäts-Übermacht (Nation ausgelöscht)', () => {
-    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1 })
+  it('Regel 2: das Kerngebiet fällt mit 25× aktuelle-Truppen-Übermacht (Nation ausgelöscht)', () => {
+    // p1 hat massive STEHENDE Übermacht (400k ≫ 25× p2-Cap ≈ 99k) → Kerngebiet fällt. Hoher
+    // p1Weighted hält den Cap hoch, damit die 400k nicht über die Capture-Ticks abschmelzen.
+    const state = setupEnclosed({ p1Troops: 400_000, p1Weighted: 40_000, p2Weighted: 1 })
     captureHole(state, 8000)
     expect(getOwner(state.map, T(5, 5))).toBe(1) // geschluckt
     expect(state.players.get(2)?.tilesOwned).toBe(0)
@@ -2079,16 +2082,21 @@ describe('Anti-Zersplitterung: eingeschlossene Fragmente (ADR-0017)', () => {
   })
 
   it('Verbündete werden nicht geschluckt', () => {
-    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1, allied: true })
+    const state = setupEnclosed({
+      p1Troops: 400_000,
+      p1Weighted: 40_000,
+      p2Weighted: 1,
+      allied: true,
+    })
     captureHole(state, 8000)
-    expect(getOwner(state.map, T(5, 5))).toBe(2) // Allianz schützt
+    expect(getOwner(state.map, T(5, 5))).toBe(2) // Allianz schützt (trotz Truppen-Übermacht)
   })
 
   it('zwei verschiedene Umschließer → kein Schlucken', () => {
     // (6,5) gehört p3 → (5,5) ist nicht von GENAU EINEM Spieler umschlossen.
     const state = setupEnclosed({
-      p1Troops: 60_000,
-      p1Weighted: 3000,
+      p1Troops: 400_000,
+      p1Weighted: 40_000,
       p2Weighted: 1,
       thirdEncloser: true,
     })
@@ -2097,8 +2105,8 @@ describe('Anti-Zersplitterung: eingeschlossene Fragmente (ADR-0017)', () => {
   })
 
   it('an der Küste „umzingelt" → wird NICHT annektiert (offenes Wasser = Fluchtweg)', () => {
-    // Massive p1-Übermacht (würde sonst sogar das Kerngebiet schlucken, Regel 2).
-    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1 })
+    // Massive p1-Truppen-Übermacht (würde sonst sogar das Kerngebiet schlucken, Regel 2).
+    const state = setupEnclosed({ p1Troops: 400_000, p1Weighted: 40_000, p2Weighted: 1 })
     // Einen Land-Nachbarn des Fragments (5,5) zu Wasser machen → (5,5) liegt an der Küste.
     const water = T(4, 5)
     state.map.terrain[water] = 0 // IS_LAND_BIT raus = Wasser

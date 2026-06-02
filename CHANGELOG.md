@@ -4,6 +4,21 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.49.0] – 2026-06-02
+
+### Geändert
+
+- **KI baut ihre Wirtschaft aus:** Die KI wertet jetzt bestehende Gebäude auf (Stadt/Fabrik/Hafen,
+  und bei Bedrohung Verteidigung/Flak), statt nur immer neue zu bauen — ihre Wirtschaft wird mit der
+  Zeit spürbar tiefer und stärker.
+- **KI räumt mit wilden Nationen auf:** Beim Expandieren frisst die KI bevorzugt schwache wilde
+  Nachbarn, statt sie ewig dümpeln zu lassen. Kleine, von einer Nation eingekesselte wilde Reste
+  werden aufgeräumt (auch wenn noch ein Schlupfloch offen ist) — frische, große Wilde bleiben aber
+  bestehen.
+- **Faireres Annektieren eingeschlossener Gegner:** Ob ein komplett eingekreistes Kerngebiet
+  geschluckt wird, hängt jetzt an den tatsächlich **stehenden Truppen** des Angreifers — nicht mehr
+  an der bloßen Reichsgröße. Ein gerade leergekämpftes Reich bekommt kein Kerngebiet mehr geschenkt.
+
 ## [0.48.1] – 2026-06-02
 
 ### Behoben
