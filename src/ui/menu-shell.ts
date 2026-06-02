@@ -729,13 +729,7 @@ export function createMenuShell(
     rankedBtn.style.cssText = secondaryButtonStyle()
     rankedBtn.addEventListener('click', () => callbacks.onRanked(collect()))
     p.appendChild(rankedBtn)
-
-    // Tutorial (Option, kein Zwang): geführtes Match, das die Grundlagen erklärt.
-    const tutorialBtn = document.createElement('button')
-    tutorialBtn.textContent = t('play.tutorial')
-    tutorialBtn.style.cssText = secondaryButtonStyle()
-    tutorialBtn.addEventListener('click', () => callbacks.onTutorial(collect()))
-    p.appendChild(tutorialBtn)
+    // Tutorial-Knopf steht jetzt prominent unter den Lobbys (linke Spalte) — war hier zu versteckt.
 
     // Drei zentrierte Spalten: Lobby-Browser links (230) · Setup-Panel mittig (auto) · Tipps
     // rechts (230), je 20 px Abstand. `justify-content: center` zentriert den ganzen Block →
@@ -745,11 +739,31 @@ export function createMenuShell(
     p.addEventListener('change', persist)
     p.addEventListener('input', persist)
 
+    // Linke Spalte: Lobby-Browser + darunter der Tutorial-Knopf (prominent, gut sichtbar).
+    const leftCol = document.createElement('div')
+    leftCol.style.cssText = 'display: flex; flex-direction: column; gap: 12px; width: 250px'
+    if (browser !== null) leftCol.appendChild(browser)
+    const tutorialBtn = document.createElement('button')
+    tutorialBtn.textContent = t('play.tutorial')
+    tutorialBtn.style.cssText = [
+      'padding: 12px 14px',
+      'font-family: var(--tl-font)',
+      'font-size: 15px',
+      'font-weight: 700',
+      'cursor: pointer',
+      'border-radius: 10px',
+      'border: 1px solid var(--tl-accent)',
+      'background: rgba(70,217,230,0.12)',
+      'color: var(--tl-accent)',
+    ].join(';')
+    tutorialBtn.addEventListener('click', () => callbacks.onTutorial(collect()))
+    leftCol.appendChild(tutorialBtn)
+
     const tips = buildTipsPanel()
     const row = document.createElement('div')
     row.style.cssText =
       'display: grid; grid-template-columns: 250px auto 250px; gap: 22px; align-items: start; justify-content: center; width: 100%'
-    row.appendChild(browser ?? document.createElement('div'))
+    row.appendChild(leftCol)
     row.appendChild(p)
     row.appendChild(tips)
     return row
