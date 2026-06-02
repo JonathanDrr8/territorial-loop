@@ -4,6 +4,42 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.37.0] – 2026-06-02
+
+### Neu
+
+- **Menü-Knopf auf dem Desktop:** Oben links gibt es jetzt einen sichtbaren Knopf, der das
+  Spielmenü öffnet — praktisch für alle, die gerade keine Tastatur griffbereit haben. Menü-
+  und Feedback-Knopf lassen sich im HUD-Editor frei verschieben.
+
+- **Gebäude per Ziehen platzieren (Handy):** Im Bau-Modus tippt man ein Gebäude im Rad an,
+  zieht den Finger auf das gewünschte Feld — die Vorschau folgt direkt — und beim Loslassen
+  wird gebaut. Das gewählte Gebäude bleibt im Rad markiert, damit man immer sieht, was gerade
+  scharf ist.
+
+- **Ausbreiten per Tippen (Handy):** Ein einfacher Tipp ins eigene Gebiet breitet die Truppen
+  entlang der ganzen Grenze aus — entspricht dem **Shift+Linksklick** am Desktop.
+
+- **Cockpit-Rad und Top-Leiste im HUD-Editor:** Der Maus-/Rad-Steuerungsmodus (ohne Tastatur)
+  ist jetzt vollwertig im HUD-Editor editierbar. Rad und Top-Leiste lassen sich verschieben,
+  skalieren und ein- oder ausblenden. Der Editor zeigt im Maus-Modus auch nur diese beiden
+  Elemente, damit keine Desktop-Panels den Blick verstellen.
+
+### Geändert
+
+- **Bündnis-Anfragen auf dem Handy** erscheinen jetzt kompakt oben mittig statt groß unten
+  rechts — sie blockieren nicht mehr den unteren Bildschirmbereich beim Spielen.
+
+- **Rangliste:** Die Sortierung nach **Land** (Territorium-Anteil) ist jetzt die Standardansicht.
+
+### Behoben
+
+- **HUD-Editor-Panel** lässt sich jetzt frei in der Größe ziehen und startet zentriert auf dem
+  Bildschirm statt in einer festen Ecke.
+
+- **Panels mit Maximalbreite** (z. B. das Angriffs-Panel) ließen sich im HUD-Editor nicht über
+  ihre Mindestbreite hinaus verbreitern — das ist jetzt behoben.
+
 ## [0.36.0] – 2026-06-02
 
 ### Neu
