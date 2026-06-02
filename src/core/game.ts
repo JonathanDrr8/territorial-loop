@@ -1330,6 +1330,13 @@ export const BUILD_SNAP_RADIUS = 2
 export const PORT_COAST_SNAP_RADIUS = 4
 
 /**
+ * Snap-Radius (Tiles) für den allgemeinen „Nähe-Snap": klickt man knapp NEBEN das eigene Gebiet,
+ * rastet der Bau aufs nächste eigene, baubare Tile. Wichtig auf winzigen Reichen (frischer Spawn),
+ * wo der Nations-Name größer ist als die paar besessenen Tiles und man sonst ständig daneben trifft.
+ */
+export const BUILD_NEARMISS_RADIUS = 4
+
+/**
  * „Snapping" beim Bauen/Upgraden: liegt nahe `tile` (≤ [[BUILD_SNAP_RADIUS]], Torus) ein
  * EIGENES Gebäude desselben `type`, liefert dessen Tile (→ Klick upgradet es, ohne pixelgenaues
  * Treffen). Sonst `tile` unverändert. Wird für Vorschau UND Platzierung genutzt (konsistent).
@@ -1375,6 +1382,27 @@ export function snapBuildTile(
       }
     }
     if (cBest >= 0) return cBest
+  }
+  // 3) Allgemeiner Nähe-Snap (nicht für Häfen — die haben oben ihren Küsten-Snap): gehört das
+  //    Klick-Tile NICHT dir, rastet der Bau aufs nächste eigene, freie, baubare Tile im Umkreis.
+  //    So trifft man auf einem frisch gespawnten Mini-Reich nicht ständig ins angrenzende Neutral.
+  if (type !== 'port' && getOwner(state.map, tile) !== playerId) {
+    const r = BUILD_NEARMISS_RADIUS
+    let nBest = -1
+    let nDist = r + 0.0001
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const ref = tileRef(tx + dx, ty + dy, width, height)
+        if (getOwner(state.map, ref) !== playerId) continue
+        if (state.buildings.has(ref) || !isPassable(state.map.terrain, ref)) continue
+        const d = torusDistance(tx, ty, ref % width, Math.floor(ref / width), width, height)
+        if (d < nDist) {
+          nDist = d
+          nBest = ref
+        }
+      }
+    }
+    if (nBest >= 0) return nBest
   }
   return tile
 }

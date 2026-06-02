@@ -71,7 +71,12 @@ function apply(id: string): void {
     el.style.transform = `scale(${o.s.toString()})`
   }
   if (o.w !== undefined) el.style.width = `${o.w.toString()}px`
-  if (o.h !== undefined) el.style.height = `${o.h.toString()}px`
+  if (o.h !== undefined) {
+    el.style.height = `${o.h.toString()}px`
+    // Hartkodierte max-height mancher Panels (z. B. die Feed-Spalte: 300px) nicht den Override
+    // deckeln lassen — sonst lässt sich das Panel gar nicht höher ziehen.
+    el.style.maxHeight = `${o.h.toString()}px`
+  }
   if (o.hidden === true) el.style.display = 'none'
 }
 
@@ -125,6 +130,7 @@ export function resetLayout(): void {
     el.style.removeProperty('zoom')
     el.style.removeProperty('width')
     el.style.removeProperty('height')
+    el.style.removeProperty('max-height')
     el.style.removeProperty('display')
   }
 }

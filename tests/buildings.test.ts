@@ -12,6 +12,8 @@ import {
   createGame,
   tick,
   effectiveMaxTroops,
+  snapBuildTile,
+  BUILD_NEARMISS_RADIUS,
   type GameConfig,
 } from '../src/core/game'
 import { getOwner, setOwner } from '../src/world/map'
@@ -152,6 +154,72 @@ describe('build intent', () => {
     // … erst nach der Bauzeit.
     for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, [])
     expect(effectiveMaxTroops(state, 1)).toBe(capBefore + CITY_CAP_BONUS)
+  })
+})
+
+describe('snapBuildTile — Nähe-Snap (Bau knapp neben das eigene Gebiet)', () => {
+  /** Alle Eigentums-Bits von Spieler 1 entfernen → kontrollierte Ausgangslage (Spawn stört nicht). */
+  function clearOwnership(state: ReturnType<typeof createGame>, playerId: number): void {
+    for (let i = 0; i < state.map.state.length; i++) {
+      if (getOwner(state.map, i) === playerId) setOwner(state.map, i, 0)
+    }
+  }
+
+  it('rastet einen Klick knapp neben eigenes Land aufs nächste eigene baubare Tile', () => {
+    const state = createGame(cfg())
+    clearOwnership(state, 1)
+    const w = state.map.width
+    const own = 10 * w + 10 // (x=10, y=10)
+    setOwner(state.map, own, 1)
+    const nearMiss = 10 * w + 12 // 2 Tiles rechts daneben, NICHT besessen
+    expect(getOwner(state.map, nearMiss)).not.toBe(1)
+    const snapped = snapBuildTile(state, 1, nearMiss, 'city')
+    expect(snapped).toBe(own)
+    expect(getOwner(state.map, snapped)).toBe(1)
+  })
+
+  it('rastet NICHT, wenn das nächste eigene Tile weiter als der Radius entfernt ist', () => {
+    const state = createGame(cfg())
+    clearOwnership(state, 1)
+    const w = state.map.width
+    setOwner(state.map, 5 * w + 5, 1)
+    const far = 5 * w + (5 + BUILD_NEARMISS_RADIUS + 2) // jenseits des Snap-Radius
+    const snapped = snapBuildTile(state, 1, far, 'city')
+    expect(snapped).toBe(far)
+  })
+
+  it('rastet nicht auf ein Tile, das bereits ein Gebäude trägt (sucht das nächste freie)', () => {
+    const state = createGame(cfg())
+    clearOwnership(state, 1)
+    const w = state.map.width
+    const occupied = 20 * w + 20
+    const free = 20 * w + 21
+    setOwner(state.map, occupied, 1)
+    setOwner(state.map, free, 1)
+    // Anderer Gebäude-Typ als der gebaute (factory ≠ city) → der Upgrade-Snap (Schritt 1, nur
+    // gleicher Typ) greift NICHT, sodass wirklich der allgemeine Nähe-Snap getestet wird.
+    state.buildings.set(occupied, {
+      type: 'factory',
+      ownerId: 1,
+      tile: occupied,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // Klick 1 Tile rechts vom freien Tile (= 2 Tiles vom belegten): muss aufs freie rasten.
+    const nearMiss = 20 * w + 22
+    const snapped = snapBuildTile(state, 1, nearMiss, 'city')
+    expect(snapped).toBe(free)
+  })
+
+  it('greift nicht bei Häfen (die haben ihren eigenen Küsten-Snap)', () => {
+    const state = createGame(cfg())
+    clearOwnership(state, 1)
+    const w = state.map.width
+    setOwner(state.map, 30 * w + 30, 1)
+    const nearMiss = 30 * w + 32
+    // Für Häfen NICHT der allgemeine Nähe-Snap → Tile bleibt (Küsten-Snap findet hier kein Wasser).
+    const snapped = snapBuildTile(state, 1, nearMiss, 'port')
+    expect(snapped).toBe(nearMiss)
   })
 })
 

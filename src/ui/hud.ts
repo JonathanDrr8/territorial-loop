@@ -44,7 +44,7 @@ import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
 import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
-import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
+import { getHudPrefs, onHudPrefsChange, setHudPref, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
 import { getUiScale, registerScalable } from './ui-scale'
 
@@ -98,6 +98,8 @@ export type SpeedMultiplier = 0 | 1 | 2 | 5 // 0 = Pause
 
 export interface HUDApi {
   update(): void
+  /** Zeigt das Niederlage-Fenster, wenn der eigene Spieler eliminiert wurde (Match läuft weiter). */
+  showDefeat(): void
   /** Update the speed indicator (0 = Pause, 1/2/5 = Sim-Speed-Multiplier). */
   setSpeed(speed: SpeedMultiplier): void
   /** Markiert den aktiven Bau-Modus-Button. `null` = kein Bau-Modus aktiv. */
@@ -542,6 +544,8 @@ export function createHUD(
     'align-items: baseline',
     'gap: 8px',
     'line-height: 1.05',
+    // Platz oben rechts für den Anzeige-Umschalter (Balken ↔ Kugel), damit die Rate nicht kollidiert.
+    'padding-right: 26px',
   ].join(';')
   // Eigenes Zahl-Element (wird per innerHTML aktualisiert), damit das Rate-Element daneben bleibt.
   // nowrap → die Zeile bricht nie um (feste Box-Breite, einzeilig).
@@ -549,6 +553,44 @@ export function createHUD(
   troopNumEl.style.cssText = 'white-space: nowrap'
   troopBig.appendChild(troopNumEl)
   troopBadge.appendChild(troopBig)
+
+  // Kleiner Umschalter direkt am Truppen-Widget: Anzeige Balken ↔ Kugel (vorher nur im HUD-Editor
+  // versteckt). `setHudPref` feuert `onHudPrefsChange` → applyLayoutPrefs blendet live um.
+  const troopStyleToggle = document.createElement('button')
+  troopStyleToggle.type = 'button'
+  troopStyleToggle.innerHTML = icon.swap
+  troopStyleToggle.title = t('hud.troopStyleToggle')
+  troopStyleToggle.style.cssText = [
+    'position: absolute',
+    'top: 7px',
+    'right: 8px',
+    'width: 22px',
+    'height: 22px',
+    'padding: 0',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'background: rgba(255,255,255,0.06)',
+    'border: 1px solid rgba(255,255,255,0.15)',
+    'border-radius: 5px',
+    'color: var(--tl-text)',
+    'opacity: 0.55',
+    'cursor: pointer',
+    'transition: opacity 0.12s, background 0.12s',
+    'z-index: 3',
+  ].join(';')
+  troopStyleToggle.addEventListener('mouseenter', () => {
+    troopStyleToggle.style.opacity = '1'
+    troopStyleToggle.style.background = 'rgba(255,255,255,0.16)'
+  })
+  troopStyleToggle.addEventListener('mouseleave', () => {
+    troopStyleToggle.style.opacity = '0.55'
+    troopStyleToggle.style.background = 'rgba(255,255,255,0.06)'
+  })
+  troopStyleToggle.addEventListener('click', () => {
+    setHudPref('troopStyle', getHudPrefs().troopStyle === 'orb' ? 'bar' : 'orb')
+  })
+  troopBadge.appendChild(troopStyleToggle)
 
   // (Balken-Beschriftung entfällt — die Zahl steht jetzt groß in troopBig.)
   const barCaption = document.createElement('div')
@@ -1074,6 +1116,10 @@ export function createHUD(
   // „Weiterspielen" blendet das Fenster aus, ohne das Match zu verlassen — der Endstand
   // bleibt geschlossen, auch wenn die Update-Schleife `phase === 'ended'` weiter sieht.
   let bannerDismissed = false
+  // Niederlage durch Elimination: gesetzt, sobald der eigene Spieler eliminiert wurde, während das
+  // Match noch läuft. Eigener Pfad, damit das Banner nicht jeden Frame vom phase-Check (s. update)
+  // wieder ausgeblendet wird (phase ist dann noch 'running', nicht 'ended').
+  let eliminatedBanner = false
   const banner = document.createElement('div')
   banner.style.cssText = panelStyle([
     'position: absolute',
@@ -1132,6 +1178,23 @@ export function createHUD(
   banner.appendChild(bannerButtons)
   container.appendChild(banner)
 
+  /**
+   * Niederlage-Fenster, wenn der eigene Spieler eliminiert wurde, das Match aber weiterläuft
+   * (Standard-Modus endet sonst erst, wenn eine andere Seite die Sieg-Schwelle erreicht). Nutzt
+   * dasselbe Banner-Element wie der Sieg-Endstand; „Weiter zuschauen" blendet es aus, „Neues Match"
+   * verlässt die Runde.
+   */
+  function showDefeat(): void {
+    if (eliminatedBanner || bannerDismissed) return
+    eliminatedBanner = true
+    keepWatchingBtn.textContent = t('hud.keepSpectating')
+    bannerText.innerHTML =
+      `<div style="font-size: 22px; font-weight:700; margin-bottom: 4px; color:#ff8080">` +
+      `${escapeHtml(t('hud.defeatTitle'))}</div>` +
+      `<div style="font-size: 13px; opacity: 0.75">${escapeHtml(t('hud.defeatSub'))}</div>`
+    banner.style.display = 'block'
+  }
+
   /* ---- Pause-Overlay ------------------------------------------------------- */
   const pauseOverlay = document.createElement('div')
   pauseOverlay.style.cssText = [
@@ -1165,7 +1228,10 @@ export function createHUD(
   function updateActionBar(): void {
     const human = findHuman()
     if (human === undefined || !human.isAlive) {
+      // Toter/eliminierter Spieler (oder Zuschauer): Aktions-Leiste UND Truppen/Gold-Panel weg —
+      // sonst blieben eingefrorene Werte (Truppen/Gold) stehen, obwohl kein Gebiet mehr da ist.
       actionBar.style.display = 'none'
+      troopBadge.style.display = 'none'
       return
     }
     actionBar.style.display = 'block'
@@ -1533,6 +1599,9 @@ export function createHUD(
           more +
           `<div style="font-size: 11px; opacity: 0.5; margin-top: 8px">Seed: ${escapeHtml(state.seed)}</div>`
       }
+    } else if (eliminatedBanner && !bannerDismissed) {
+      // Niederlage-Banner bleibt sichtbar (Inhalt in showDefeat gesetzt), solange das Match läuft.
+      banner.style.display = 'block'
     } else {
       banner.style.display = 'none'
     }
@@ -1540,6 +1609,7 @@ export function createHUD(
 
   return {
     update,
+    showDefeat,
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
       pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'

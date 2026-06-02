@@ -1173,6 +1173,21 @@ export function createRenderer(
     }
   }
 
+  // Stabile Anzeige-Nummer je wilder Nation (1..N, nach id sortiert) — einmal berechnet, da die
+  // Spieler-Liste pro Match fix ist. So tragen alle getrennten Fetzen derselben wilden Nation
+  // dieselbe Nummer und man weiß, welcher Fleck zu wem gehört.
+  let wildOrdinals: Map<number, number> | null = null
+  function wildOrdinal(id: number): number {
+    if (wildOrdinals === null) {
+      const ids = [...state.players.values()]
+        .filter((p) => p.wild)
+        .map((p) => p.id)
+        .sort((a, b) => a - b)
+      wildOrdinals = new Map(ids.map((wid, i) => [wid, i + 1]))
+    }
+    return wildOrdinals.get(id) ?? id
+  }
+
   function drawLabels(): void {
     maybeRecomputeCentroids()
     const cssW = container.clientWidth
@@ -1246,14 +1261,17 @@ export function createRenderer(
       if (sx < -cssW || sx > 2 * cssW || sy < -cssH || sy > 2 * cssH) continue
       const offscreen = sx < 0 || sx > cssW || sy < 0 || sy > cssH
       // Off-screen-Labels ausblenden — sonst kleben bei hunderten Nationen ihre Namen als
-      // unleserliche Masse an den Bildschirmrändern. Ausnahme: relevante Nationen (du selbst,
-      // Verbündete, Verräter, und wer dich gerade angreift) bleiben am Rand sichtbar.
-      if (offscreen && !isHuman && !allied && !traitor && !attackingHuman.has(p.id)) continue
+      // unleserliche Masse an den Bildschirmrändern. Wilde werden am Rand NIE gezeigt (es sind zu
+      // viele, sie würden den Rand zukleistern); echte Nationen nur, wenn relevant (du selbst,
+      // Verbündete, Verräter, und wer dich gerade angreift).
+      if (offscreen && (p.wild || (!isHuman && !allied && !traitor && !attackingHuman.has(p.id))))
+        continue
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       // Wilde Nationen tragen KEINEN Eigennamen (verwirrt — sähe aus wie eine echte Nation),
-      // sondern überall nur das lokalisierte „wild". Verräter: roter Name + Warndreieck links.
-      const name = p.wild ? t('nation.wild') : p.name
+      // sondern das lokalisierte „wild" + eine stabile Nummer, damit man getrennte Fetzen derselben
+      // wilden Nation auseinanderhält. Verräter: roter Name + Warndreieck links.
+      const name = p.wild ? `${t('nation.wild')} ${String(wildOrdinal(p.id))}` : p.name
       const troopsLabel = fmtCompactRender(p.troops)
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1

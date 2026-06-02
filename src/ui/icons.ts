@@ -97,4 +97,6 @@ export const icon = {
   link: svg(
     '<path d="M9.5 13a3.5 3.5 0 0 0 5.2.4l2.4-2.4a3.5 3.5 0 0 0-5-5L10.7 7.4"/><path d="M14.5 11a3.5 3.5 0 0 0-5.2-.4L6.9 13a3.5 3.5 0 0 0 5 5l1.4-1.4"/>',
   ),
+  /** Wechsel-Pfeile — Umschalten (z. B. Truppen-Anzeige Balken ↔ Kugel). */
+  swap: svg('<path d="M4 8h13l-3-3M20 16H7l3 3"/>'),
 }

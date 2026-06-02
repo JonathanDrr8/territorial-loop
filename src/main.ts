@@ -937,6 +937,32 @@ function startMatch(
         )
       }
     }
+    // Niederlage durch Elimination: der Mensch verliert all sein Gebiet, WÄHREND das Match noch
+    // läuft (Standard-Modus endet sonst erst, wenn eine andere Seite die Sieg-Schwelle erreicht —
+    // der Spieler säße bis dahin ohne Rückmeldung vor eingefrorenen Werten). Rein client-seitig
+    // (kein Sim-State angefasst), greift in Solo wie Mehrspieler. Teilt sich `endChimePlayed` als
+    // Einmal-Guard mit dem Sieg-Pfad oben → kein doppelter Ton / keine doppelte ELO-Wertung.
+    if (!endChimePlayed && !spectator && state.phase === 'running') {
+      const me = state.players.get(humanId)
+      if (me !== undefined && !me.isAlive) {
+        endChimePlayed = true
+        sound.defeat()
+        if (rankedElo !== undefined) {
+          // Ranglisten-Match: Elimination = entschiedene Niederlage → sofort werten (sonst könnte
+          // man der ELO-Strafe entgehen, indem man nach dem Aus die Runde verlässt).
+          const res = recordResult(rankedElo, false)
+          showRankedResultOverlay(container, rankedElo, false, res.before, res.after.elo)
+          void submitRank(
+            loadServerUrl(defaultServerUrl()),
+            menu.playerName,
+            res.after,
+            isRankHidden(),
+          )
+        } else {
+          hud.showDefeat()
+        }
+      }
+    }
     lastPhase = state.phase
     // Neuer eingehender Angriff auf dich → kurzer Alarm-Ton (nicht im Zuschauer-Modus).
     if (humanId >= 0 && state.phase === 'running') {
