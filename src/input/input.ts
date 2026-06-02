@@ -123,6 +123,16 @@ export interface InputDeps {
    * (sowieso wirkungslosen) Land-Angriffs gemeint.
    */
   readonly shouldBoatTo?: (tile: number) => boolean
+  /**
+   * Optional: Gehört `tile` dem eigenen Spieler? Auf Touch wird ein Tipp auf eigenes Gebiet wie
+   * Shift+Linksklick behandelt (Rundum-Ausbreiten/Angriff entlang der ganzen Grenze).
+   */
+  readonly ownsTile?: (tile: number) => boolean
+  /**
+   * Optional: schiebt beim Touch-Drag-Platzieren die Bau-Vorschau (Geist) auf `worldX/worldY` —
+   * OHNE das Hover-Tooltip (das würde das gerade platzierte Gebäude verdecken).
+   */
+  readonly onBuildPreviewMove?: (worldX: number, worldY: number) => void
 }
 
 export interface InputHandler {
@@ -196,6 +206,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   let touchMoved = false
   let touchStartTime = 0
   let pinchDist = 0 // letzte Finger-Distanz beim 2-Finger-Pinch; 0 = kein Pinch aktiv
+  // Drag-Platzieren (Bau-Modus): 1 Finger zeigt die Gebäude-Vorschau und schiebt sie; beim Loslassen
+  // wird gebaut. Aktiv nur solange ein Bau-Modus läuft. Verhindert Pan/Long-Press während des Ziehens.
+  let placingBuild = false
   let longPressFired = false
   let longPressTimer: ReturnType<typeof setTimeout> | null = null
   const LONG_PRESS_MS = 450
@@ -456,13 +469,44 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     primaryAction(e.clientX, e.clientY, e.shiftKey)
   }
 
+  /** Client-Koords → Welt-Koords (gefloort) + Canvas-lokale Screen-Koords. */
+  function clientToWorld(
+    clientX: number,
+    clientY: number,
+  ): {
+    worldX: number
+    worldY: number
+    sx: number
+    sy: number
+  } {
+    const rect = canvas.getBoundingClientRect()
+    const sx = clientX - rect.left
+    const sy = clientY - rect.top
+    const halfW = canvas.clientWidth / 2
+    const halfH = canvas.clientHeight / 2
+    const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
+    const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
+    return { worldX, worldY, sx, sy }
+  }
+
+  /** Zeigt die Bau-Vorschau (Geist) an einer Touch-Position (Drag-Platzieren auf dem Handy). */
+  function moveBuildPreview(clientX: number, clientY: number): void {
+    const { worldX, worldY } = clientToWorld(clientX, clientY)
+    deps.onBuildPreviewMove?.(worldX, worldY)
+  }
+
   /**
    * Primär-Aktion an einer Screen-Position (Client-Koords) — gemeinsam für Linksklick UND
    * Touch-Tippen, damit beide sich identisch verhalten. Respektiert den aktiven Modus
    * (Bau/Bomber/Kriegsschiff/Boot), sonst Angriff in Slider-Größe. `shiftKey` nur per Maus
    * relevant (Rundum-Angriff); Touch übergibt false.
    */
-  function primaryAction(clientX: number, clientY: number, shiftKey: boolean): void {
+  function primaryAction(
+    clientX: number,
+    clientY: number,
+    shiftKey: boolean,
+    isTouchTap = false,
+  ): void {
     // Zuschauer-Modus: keine Spieler-Aktionen.
     if (deps.interactive === false) return
     // Klick ins Leere (kein Modus) hebt eine Kriegsschiff-Auswahl auf — statt anzugreifen.
@@ -477,13 +521,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
 
-    const rect = canvas.getBoundingClientRect()
-    const sx = clientX - rect.left
-    const sy = clientY - rect.top
-    const halfW = canvas.clientWidth / 2
-    const halfH = canvas.clientHeight / 2
-    const worldX = Math.floor((sx - halfW) / camera.zoom + camera.x)
-    const worldY = Math.floor((sy - halfH) / camera.zoom + camera.y)
+    const { worldX, worldY } = clientToWorld(clientX, clientY)
     const target = tileRef(worldX, worldY, mapWidth, mapHeight)
 
     // Bau-Modus aktiv → platziert das Gebäude. Der Modus BLEIBT aktiv (Toggle pro Gebäude), damit
@@ -537,14 +575,16 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
 
-    // Sonst: Angriff. Mit Shift → Rundum (omni).
+    // Sonst: Angriff. Mit Shift → Rundum (omni). Auf Touch zählt ein Tipp auf EIGENES Gebiet wie
+    // Shift+Linksklick (Rundum-Ausbreiten) — sonst wäre ein Angriff auf sich selbst wirkungslos.
+    const omni = shiftKey || (isTouchTap && deps.ownsTile?.(target) === true)
     if (sendTroops > 0) {
       emit({
         type: 'attack',
         playerId: deps.playerId,
         targetTile: target,
         troops: sendTroops,
-        omni: shiftKey,
+        omni,
       })
       deps.onAttackClick?.(worldX, worldY)
     }
@@ -617,6 +657,14 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       pinchDist = 0
       touchStartTime = performance.now()
       clearLongPress()
+      // Bau-Modus → Drag-Platzieren: Gebäude-Vorschau erscheint sofort unter dem Finger und folgt
+      // ihm; beim Loslassen wird gebaut. Kein Long-Press/Pan, kein Tap-Bauen.
+      if (buildMode !== null && deps.interactive !== false) {
+        placingBuild = true
+        moveBuildPreview(touchStartX, touchStartY)
+        e.preventDefault()
+        return
+      }
       // Long-Press (Finger ruhig halten) → Kontextrad an der Stelle.
       longPressTimer = setTimeout(() => {
         longPressTimer = null
@@ -631,8 +679,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       }, LONG_PRESS_MS)
       e.preventDefault()
     } else if (e.touches.length === 2) {
-      // Zweiter Finger → Pinch beginnt; Tap/Long-Press verwerfen.
+      // Zweiter Finger → Pinch beginnt; Tap/Long-Press/Platzieren verwerfen.
       clearLongPress()
+      placingBuild = false
       touchMoved = true
       const a = e.touches[0]
       const b = e.touches[1]
@@ -648,6 +697,17 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     if (e.touches.length === 1 && pinchDist === 0) {
       const t = e.touches[0]
       if (t === undefined) return
+      // Drag-Platzieren: die Bau-Vorschau folgt dem Finger, die Kamera bleibt stehen.
+      if (placingBuild) {
+        touchLastX = t.clientX
+        touchLastY = t.clientY
+        lastPointerClientX = t.clientX
+        lastPointerClientY = t.clientY
+        touchMoved = true
+        moveBuildPreview(t.clientX, t.clientY)
+        e.preventDefault()
+        return
+      }
       const dx = t.clientX - touchLastX
       const dy = t.clientY - touchLastY
       touchLastX = t.clientX
@@ -711,10 +771,17 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
     if (e.touches.length === 0) {
+      // Drag-Platzieren beendet → am Endpunkt bauen (auch nach Ziehen). Bau-Modus bleibt aktiv.
+      if (placingBuild) {
+        placingBuild = false
+        primaryAction(touchLastX, touchLastY, false)
+        return
+      }
       const wasTap =
         !touchMoved && !longPressFired && performance.now() - touchStartTime < TOUCH_TAP_MAX_MS
       pinchDist = 0
-      if (wasTap) primaryAction(touchStartX, touchStartY, false)
+      // Touch-Tipp (isTouchTap=true): Tipp auf eigenes Gebiet wirkt wie Shift+Linksklick (omni).
+      if (wasTap) primaryAction(touchStartX, touchStartY, false, true)
     }
   }
 

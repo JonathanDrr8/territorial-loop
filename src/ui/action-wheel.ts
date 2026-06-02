@@ -29,6 +29,8 @@ interface WheelAction {
   sub?: string
   /** Farbe der Unterzeile (z.B. grün=bezahlbar / rot=zu teuer). */
   subColor?: string
+  /** Hervorgehoben (z.B. aktuell gewähltes Bau-Gebäude) — Segment in Akzentfarbe. */
+  highlight?: boolean
 }
 
 export interface ActionWheelDeps {
@@ -65,6 +67,8 @@ export interface ActionWheelApi {
   setVisible(on: boolean): void
   /** Live-Werte fürs Cockpit setzen (jeden Frame aus dem HUD-Update). */
   setStats(s: WheelStats): void
+  /** Aktiver Bau-Modus (zum Hervorheben im Bau-Rad). null = kein Bau-Modus. */
+  setBuildMode(type: BuildingType | null): void
   /** Wurzel-Element (zum Registrieren als verschieb-/skalierbares HUD-Panel im Editor). */
   readonly element: HTMLElement
   destroy(): void
@@ -95,6 +99,10 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   let stats: WheelStats | null = null
   let statsBox: HTMLElement | null = null // Mitten-Anzeige (nur oberste Ebene)
   let ring: SVGCircleElement | null = null // Truppen-Füll-Ring
+  // Aktuelle Ebene + aktiver Bau-Modus → das Bau-Rad bleibt nach der Wahl offen und hebt das
+  // gewählte Gebäude hervor (man sieht auf dem Handy, was gerade scharf ist).
+  let currentView: 'top' | 'build' | 'ships' = 'top'
+  let activeBuild: BuildingType | null = null
   const rRing = rOut + 2
   const ringCirc = 2 * Math.PI * rRing
 
@@ -182,9 +190,10 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       const half = Math.PI / n
       const path = document.createElementNS(SVG_NS, 'path')
       path.setAttribute('d', sector(rIn, rOut, mid - half, mid + half))
-      path.style.fill = IDLE_FILL
-      path.style.stroke = IDLE_STROKE
-      path.style.strokeWidth = '1'
+      // Gewähltes Gebäude: Segment in Akzentfarbe getönt + Akzentrand (sichtbar „scharf").
+      path.style.fill = a.highlight === true ? 'rgba(217,164,65,0.34)' : IDLE_FILL
+      path.style.stroke = a.highlight === true ? a.accent : IDLE_STROKE
+      path.style.strokeWidth = a.highlight === true ? '1.8' : '1'
       path.style.strokeLinejoin = 'round'
       path.style.pointerEvents = 'auto'
       path.style.cursor = 'pointer'
@@ -196,8 +205,8 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       }
       const leave = (): void => {
         path.style.filter = 'none'
-        path.style.stroke = IDLE_STROKE
-        path.style.strokeWidth = '1'
+        path.style.stroke = a.highlight === true ? a.accent : IDLE_STROKE
+        path.style.strokeWidth = a.highlight === true ? '1.8' : '1'
       }
       path.addEventListener('mouseenter', enter)
       path.addEventListener('mouseleave', leave)
@@ -277,6 +286,7 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   }
 
   function showTop(): void {
+    currentView = 'top'
     render(
       [
         {
@@ -292,14 +302,18 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   }
 
   function showBuild(): void {
+    currentView = 'build'
     const actions: WheelAction[] = deps.allowedBuildings.map((type) => {
       const action: WheelAction = {
         glyph: buildingIcon(type, 22),
         label: t(`building.${type}`),
         accent: BUILD_ACCENT,
+        // Gewähltes Gebäude bleibt hervorgehoben — das Bau-Rad bleibt offen (kein showTop), damit
+        // man auf dem Handy sieht, was scharf ist, und schnell weiter platzieren/wechseln kann.
+        highlight: type === activeBuild,
         run: () => {
           deps.onBuild(type)
-          showTop()
+          // Nicht zurück zur obersten Ebene: offen lassen; das Highlight folgt via setBuildMode.
         },
       }
       // Live-Preis als Unterzeile (grün=bezahlbar, rot=zu teuer) — sonst tappt man auf dem Handy blind.
@@ -314,6 +328,7 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   }
 
   function showShips(): void {
+    currentView = 'ships'
     render(
       [
         {
@@ -358,6 +373,12 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
     setStats(s: WheelStats): void {
       stats = s
       applyStats()
+    },
+    setBuildMode(type: BuildingType | null): void {
+      if (activeBuild === type) return
+      activeBuild = type
+      // Wenn das Bau-Rad gerade offen ist, neu zeichnen → Highlight wandert aufs aktive Gebäude.
+      if (currentView === 'build') showBuild()
     },
     element: panel,
     destroy(): void {

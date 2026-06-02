@@ -779,6 +779,7 @@ function startMatch(
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
       renderer.setBuildPreview(mode)
+      actionWheel.setBuildMode(mode) // Bau-Rad hebt das gewählte Gebäude hervor (Mobile-Cockpit)
     },
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
@@ -817,6 +818,10 @@ function startMatch(
       isLand(state.map.terrain, tile) &&
       getOwner(state.map, tile) !== humanId &&
       !canReachByLand(state, humanId, tile),
+    // Touch: Tipp auf eigenes Gebiet wirkt wie Shift+Linksklick (Rundum-Ausbreiten).
+    ownsTile: (tile) => getOwner(state.map, tile) === humanId,
+    // Drag-Platzieren: nur den Bau-Geist schieben (kein Tooltip, das das Gebäude verdecken würde).
+    onBuildPreviewMove: (worldX, worldY) => renderer.setHoverTile(worldX, worldY),
     events: {
       pause(): void {
         if (net !== undefined) {
