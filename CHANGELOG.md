@@ -4,6 +4,13 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.40.1] – 2026-06-02
+
+### Behoben
+
+- Der Balken-/Kugel-Umschalter sitzt nicht mehr am Truppen-Widget im Spiel — die
+  Truppen-Anzeige (Balken oder Kugel) stellt man in den HUD-Einstellungen ein.
+
 ## [0.40.0] – 2026-06-02
 
 ### Geändert

@@ -44,7 +44,7 @@ import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
 import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
-import { getHudPrefs, onHudPrefsChange, setHudPref, type HudPrefs } from './hud-prefs'
+import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
 import { getUiScale, registerScalable } from './ui-scale'
 
@@ -567,43 +567,8 @@ export function createHUD(
   troopBig.appendChild(troopNumEl)
   troopBadge.appendChild(troopBig)
 
-  // Kleiner Umschalter direkt am Truppen-Widget: Anzeige Balken ↔ Kugel (vorher nur im HUD-Editor
-  // versteckt). `setHudPref` feuert `onHudPrefsChange` → applyLayoutPrefs blendet live um.
-  const troopStyleToggle = document.createElement('button')
-  troopStyleToggle.type = 'button'
-  troopStyleToggle.innerHTML = icon.swap
-  troopStyleToggle.title = t('hud.troopStyleToggle')
-  troopStyleToggle.style.cssText = [
-    'position: absolute',
-    'top: 7px',
-    'right: 8px',
-    'width: 22px',
-    'height: 22px',
-    'padding: 0',
-    'display: flex',
-    'align-items: center',
-    'justify-content: center',
-    'background: rgba(255,255,255,0.06)',
-    'border: 1px solid rgba(255,255,255,0.15)',
-    'border-radius: 5px',
-    'color: var(--tl-text)',
-    'opacity: 0.55',
-    'cursor: pointer',
-    'transition: opacity 0.12s, background 0.12s',
-    'z-index: 3',
-  ].join(';')
-  troopStyleToggle.addEventListener('mouseenter', () => {
-    troopStyleToggle.style.opacity = '1'
-    troopStyleToggle.style.background = 'rgba(255,255,255,0.16)'
-  })
-  troopStyleToggle.addEventListener('mouseleave', () => {
-    troopStyleToggle.style.opacity = '0.55'
-    troopStyleToggle.style.background = 'rgba(255,255,255,0.06)'
-  })
-  troopStyleToggle.addEventListener('click', () => {
-    setHudPref('troopStyle', getHudPrefs().troopStyle === 'orb' ? 'bar' : 'orb')
-  })
-  troopBadge.appendChild(troopStyleToggle)
+  // Hinweis: Der Balken↔Kugel-Umschalter sitzt NICHT mehr am Truppen-Widget — er gehört in die
+  // HUD-Einstellungen („Truppen-Anzeige: Balken/Kugel" im HUD-Editor), nicht ins Spiel-Interface.
 
   // (Balken-Beschriftung entfällt — die Zahl steht jetzt groß in troopBig.)
   const barCaption = document.createElement('div')
