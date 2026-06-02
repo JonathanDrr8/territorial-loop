@@ -361,6 +361,7 @@ export const it: Record<string, string> = {
   'hud.controlsBody':
     'Clic sinistro: attacco · B: modalità barca (obiettivo su un’altra isola) · 7: modalità bombardiere · 8: nave da guerra<br/>Clic destro: menu (costruisci/attacco/barca/nave/diplomazia)<br/>Trascina (sin./des.) o WASD: telecamera · Rotella: zoom<br/>1–6: edifici (città/difesa/porto/fabbrica/aeroporto/contraerea) · R: portate delle navi · Spazio: pausa<br/>, / . : velocità · Esc: menu<br/>Clic sul pannello attacchi: annulla / barca · nave indietro',
   'hud.rank': 'Classifica',
+  'hud.tab.feed': 'Messaggi',
   'hud.troops': 'Truppe',
   'hud.land': 'Territorio',
   'hud.gold': 'Oro',

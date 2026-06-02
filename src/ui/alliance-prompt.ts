@@ -30,6 +30,9 @@ export interface AlliancePromptApi {
   update(): void
   /** Kompakt-Darstellung (Mobile): kleinere Karten, oben am Bildrand statt unten rechts. */
   setCompact(on: boolean): void
+  /** Anzahl gerade sichtbarer, unbeantworteter Bündnis-Angebote — treibt den Hinweis-Punkt am
+   *  Rang-Knopf auf dem Handy (Angebote stecken dort im „Meldungen"-Tab). */
+  pendingCount(): number
   destroy(): void
 }
 
@@ -221,6 +224,9 @@ export function createAlliancePrompt(
       if (compact === on) return
       compact = on
       for (const row of rows.values()) applyRowMetrics(row)
+    },
+    pendingCount(): number {
+      return rows.size
     },
     destroy(): void {
       box.remove()

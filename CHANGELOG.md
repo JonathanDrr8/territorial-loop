@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.42.0] – 2026-06-02
+
+### Geändert
+
+- **Handy: „Meldungen"-Tab in der Rangliste.** Bündnis-Anfragen und das Ereignislog
+  liegen jetzt als eigener Tab in der ausgefahrenen Rangliste (Knopf oben rechts) statt
+  frei über dem Bild zu schweben — die Rangliste hat dort jetzt zwei Tabs („Rangliste"
+  und „Meldungen"). Wartet ein Bündnis-Angebot, leuchtet ein kleiner Punkt am Rang-Knopf,
+  damit du es im Tab nicht verpasst. (Auf dem Desktop bleibt alles wie gehabt.)
+
 ## [0.41.0] – 2026-06-02
 
 ### Geändert

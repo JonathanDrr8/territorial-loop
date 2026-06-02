@@ -46,6 +46,15 @@ export function clearScalables(): void {
   elements.clear()
 }
 
+/**
+ * Panel abmelden — wird nicht mehr mitskaliert. Nötig, wenn ein skaliertes Panel als Kind
+ * in ein anderes (ebenfalls skaliertes) Panel wandert: sonst multipliziert sich das `zoom`.
+ * Der Aufrufer setzt das `zoom` des Elements danach selbst (i.d.R. auf `1`).
+ */
+export function unregisterScalable(el: HTMLElement): void {
+  elements.delete(el)
+}
+
 export function setUiScale(value: number): void {
   scale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value))
   try {
