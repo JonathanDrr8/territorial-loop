@@ -3932,9 +3932,10 @@ function annexEnclosedFragments(
 
 /**
  * Flutet ab `seed` das zusammenhängende Tile-Stück der Nation `victimId` (4-connected) und prüft
- * dabei, ob es rundum NUR von `encloserId` (plus Wasser/Berg als Wände) umgeben ist. Bricht früh
- * ab, sobald ein Fluchtweg auftaucht (freie Wildnis, dritte Nation oder zweiter Umschließer) — dann
- * ist das Stück nicht eingeschlossen und der teure Voll-Flood entfällt.
+ * dabei, ob es rundum NUR von `encloserId` (Berge zählen als Wand) umgeben ist. Bricht früh ab,
+ * sobald ein Fluchtweg auftaucht (freie Wildnis, dritte Nation, zweiter Umschließer ODER offenes
+ * Wasser/Küste — Seezugang ist kein Einschluss) — dann ist das Stück nicht eingeschlossen und der
+ * teure Voll-Flood entfällt.
  */
 function floodEnclosedFragment(
   state: GameState,
@@ -3959,6 +3960,11 @@ function floodEnclosedFragment(
           seen.add(n)
           queue.push(n)
         }
+      } else if (!isLand(map.terrain, n)) {
+        // Offenes Wasser / Küste = Fluchtweg (Seezugang) — ein Stück an der Küste ist NICHT
+        // „rundum umzingelt", auch wenn an Land ringsum nur der Angreifer steht. Berge bleiben
+        // dagegen Wände (isLand, aber nicht passierbar) → fallen in den else-Zweig unten.
+        enclosed = false
       } else if (isPassable(map.terrain, n) && (o === 0 || o !== encloserId)) {
         enclosed = false // passabler Nachbar = Wildnis / dritte Nation / zweiter Umschließer
       }
