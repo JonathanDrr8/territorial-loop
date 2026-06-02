@@ -43,6 +43,8 @@ const S_MAX = 3
 const PANEL_LABEL: Record<string, string> = {
   info: 'hud.editor.panel.info',
   rank: 'hud.editor.panel.rank',
+  wheel: 'hud.editor.panel.wheel',
+  topbar: 'hud.editor.panel.topbar',
   resource: 'hud.editor.panel.resource',
   action: 'hud.editor.panel.action',
   attacks: 'hud.editor.panel.attacks',
@@ -62,9 +64,19 @@ interface Rect {
   h: number
 }
 
+/** IDs der Cockpit-/Maus-Modus-Elemente (Eck-Rad + Top-Leiste). Im Cockpit-Modus bearbeitet der
+ *  Editor NUR diese; im Desktop-Modus NUR die Desktop-Panels (alles andere). */
+const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar'])
+
 export interface HudEditorOptions {
   /** Wird beim Schließen über „Fertig" zusätzlich aufgerufen (z. B. Sandbox → zurück ins Menü). */
   onDone?: () => void
+  /** Liefert, ob gerade der Cockpit-/Maus-Modus aktiv ist (Rad sichtbar) — steuert, welche
+   *  Panels der Editor zeigt. Fehlt sie, gilt Desktop-Modus. */
+  isCockpit?: () => boolean
+  /** Bei jedem Schließen aufgerufen (auch ohne „Fertig") — z. B. um die Cockpit-Sichtbarkeit
+   *  nach Aus-/Einblenden im Editor neu anzuwenden. */
+  onClose?: () => void
 }
 
 export function createHudEditor(container: HTMLElement, opts: HudEditorOptions = {}): HudEditorApi {
@@ -1077,7 +1089,14 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     frames.clear()
     panelMap.clear()
     forcedShown.clear()
-    for (const [id, el] of panelElements()) panelMap.set(id, el)
+    // Nur die Panels des aktiven Modus bearbeiten: im Cockpit-/Maus-Modus das Eck-Rad + die
+    // Top-Leiste, sonst die Desktop-Panels. So zeigt der Editor nie die im jeweils anderen Modus
+    // ausgeblendeten Panels als überdimensionierte Platzhalter.
+    const cockpit = opts.isCockpit?.() ?? false
+    for (const [id, el] of panelElements()) {
+      if (COCKPIT_PANEL_IDS.has(id) !== cockpit) continue
+      panelMap.set(id, el)
+    }
     for (const [id, el] of panelMap) {
       const hidden = getPanel(id)?.hidden === true
       // Nicht ausgeblendete, aber gerade unsichtbare Panels (display:none, z. B. leeres 'attacks')
@@ -1122,6 +1141,8 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     panelMap.clear()
     toolbar.style.display = 'none'
     hideGuides()
+    // Cockpit-Sichtbarkeit neu anwenden (Rad/Top-Leiste evtl. im Editor aus-/eingeblendet).
+    opts.onClose?.()
   }
 
   // Split/Merge (und andere Layout-Prefs) ändern den Panel-Satz → Rahmen + Werkzeugleiste neu.

@@ -24,8 +24,6 @@ export interface PauseMenuApi {
   open(): void
   close(): void
   isOpen(): boolean
-  /** „HUD anpassen" ein-/ausblenden — auf Mobile aus (Cockpit ersetzt die editierbaren Panels). */
-  setCustomizeVisible(on: boolean): void
   destroy(): void
 }
 
@@ -86,11 +84,12 @@ export function createPauseMenu(
   }
 
   box.appendChild(makeBtn(t('pause.resume'), true, () => close()))
-  const customizeBtn = makeBtn(t('hud.editor.open'), false, () => {
-    close()
-    callbacks.onCustomizeHud()
-  })
-  box.appendChild(customizeBtn)
+  box.appendChild(
+    makeBtn(t('hud.editor.open'), false, () => {
+      close()
+      callbacks.onCustomizeHud()
+    }),
+  )
   box.appendChild(
     makeBtn(t('pause.settings'), false, () => {
       setOpen(false) // Pause-Overlay schließen, OHNE onResume (Sim bleibt pausiert hinter Settings)
@@ -125,9 +124,6 @@ export function createPauseMenu(
     open: () => setOpen(true),
     close,
     isOpen: () => open,
-    setCustomizeVisible(on: boolean): void {
-      customizeBtn.style.display = on ? '' : 'none'
-    },
     destroy(): void {
       backdrop.remove()
     },

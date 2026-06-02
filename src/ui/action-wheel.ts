@@ -65,6 +65,8 @@ export interface ActionWheelApi {
   setVisible(on: boolean): void
   /** Live-Werte fürs Cockpit setzen (jeden Frame aus dem HUD-Update). */
   setStats(s: WheelStats): void
+  /** Wurzel-Element (zum Registrieren als verschieb-/skalierbares HUD-Panel im Editor). */
+  readonly element: HTMLElement
   destroy(): void
 }
 
@@ -357,6 +359,7 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       stats = s
       applyStats()
     },
+    element: panel,
     destroy(): void {
       panel.remove()
     },

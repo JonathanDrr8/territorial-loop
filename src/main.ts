@@ -53,9 +53,9 @@ import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
-import { registerPanel, unregisterPanel } from './ui/hud-layout'
+import { getPanel, registerPanel, unregisterPanel } from './ui/hud-layout'
 import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
-import { createHudEditor } from './ui/hud-editor'
+import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
 import { createTutorial, defaultTutorialSteps, type TutorialApi } from './ui/tutorial'
@@ -708,10 +708,16 @@ function startMatch(
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
   // Im Sandbox-Modus (aus den Einstellungen) bringt „Fertig" direkt zurück ins Menü.
+  // isCockpit/onClose: im Maus-/Cockpit-Modus bearbeitet der Editor Rad + Top-Leiste; onClose wendet
+  // die Cockpit-Sichtbarkeit neu an (falls Rad/Leiste im Editor aus-/eingeblendet wurden).
+  const editorOpts: HudEditorOptions = {
+    isCockpit: () => isMobileLayout() && !spectator,
+    onClose: () => applyMobileLayout(),
+  }
   const hudEditor =
     hudSandbox === true
-      ? createHudEditor(container, { onDone: onRequestNewMatch })
-      : createHudEditor(container)
+      ? createHudEditor(container, { ...editorOpts, onDone: onRequestNewMatch })
+      : createHudEditor(container, editorOpts)
 
   const buildMenu = createBuildMenu(
     container,
@@ -898,6 +904,12 @@ function startMatch(
       mobileTopbar.setRankActive(mobileRankOpen)
     },
   })
+  // Rad + Top-Leiste sind im Maus-/Cockpit-Modus die einzige Steuerung → als HUD-Elemente
+  // registrieren, damit der HUD-Editor sie verschieben/skalieren/aus-einblenden kann (ADR-0024).
+  registerScalable(actionWheel.element)
+  registerPanel('wheel', actionWheel.element)
+  registerScalable(mobileTopbar.element)
+  registerPanel('topbar', mobileTopbar.element)
   // Mobile-Cockpit: das Eck-Rad + die Top-Leiste zeigen alles Wichtige → die Desktop-Panels (Zeit,
   // Rangliste, Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-
   // Karte (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
@@ -905,14 +917,14 @@ function startMatch(
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
-    actionWheel.setVisible(cockpit)
-    mobileTopbar.setVisible(cockpit)
+    // Rad + Top-Leiste sind im Cockpit-Modus aktiv — außer der Spieler hat sie im HUD-Editor
+    // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
+    actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
+    mobileTopbar.setVisible(cockpit && getPanel('topbar')?.hidden !== true)
     minimap.setMobile(m)
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
     eventLog.setVisible(!cockpit)
-    // HUD-Editor ordnet die Desktop-Panels — auf Mobile (Cockpit) gibt es die nicht → Knopf weg.
-    pauseMenu.setCustomizeVisible(!cockpit)
     // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
     // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap.
     alliancePrompt.setCompact(cockpit)
@@ -1175,6 +1187,8 @@ function startMatch(
       unregisterPanel('feed')
       feedColumn.remove()
       buildMenu.destroy()
+      unregisterPanel('wheel')
+      unregisterPanel('topbar')
       actionWheel.destroy()
       mobileTopbar.destroy()
       offControlMode()
