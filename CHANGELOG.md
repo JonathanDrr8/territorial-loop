@@ -4,6 +4,31 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.35.0] – 2026-06-02
+
+### Neu
+
+- **Komplett spielbar auf dem Handy:** Menü und Match funktionieren jetzt vollständig
+  auf Smartphones. Die Desktop-Panels (Zeit, Rangliste, Angriffe, Truppen-Balken,
+  Bau-Leiste, Ereignis-Log, Minimap) werden auf kleinen Bildschirmen ausgeblendet,
+  damit sich nichts überlappt.
+
+- **Cockpit-Rad auf dem Handy:** Anstelle der Desktop-Panels zeigt das Eck-Rad auf dem
+  Handy direkt in der Mitte die wichtigsten Werte — eigene Truppen, Einkommens-Rate,
+  Gold und Platzierung. Ein farbiger Füll-Ring drumherum zeigt auf einen Blick, ob die
+  Truppen-Auslastung entspannt (grün), angespannt (gelb) oder ein Angriff im Gange
+  (rot) ist.
+
+- **Hauptmenü passt sich schmalen Screens an:** Alle Spalten des Startmenüs stapeln
+  sich auf Handy-Breite untereinander, Tabs brechen um — nichts wird mehr abgeschnitten
+  oder scrollt unsichtbar aus dem Bild.
+
+### Geändert
+
+- **Bündnis-Angebote bleiben auf dem Handy sichtbar:** Auch wenn die übrigen Panels
+  ausgeblendet sind, erscheinen eingehende Bündnis-Angebote weiterhin, damit man sie
+  annehmen oder ablehnen kann.
+
 ## [0.34.1] – 2026-06-02
 
 ### Geändert
