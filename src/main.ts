@@ -499,14 +499,40 @@ function startMatch(
   let wheelRate = 0
   let wheelRatePrevTroops = -1
   let wheelRatePrevMs = 0
-  /** Intensität (0..1) fürs adaptive Musik-Prototyp: laufende Angriffe + Bomben + eigene Bedrängnis. */
+  /**
+   * Intensität (0..1) fürs adaptive Musik-Prototyp: laufende Angriffe + Bomben + eigene Bedrängnis.
+   * „Persönlich" zählt symmetrisch alle Seiten DEINES Kampfes: angegriffen WERDEN (Verteidigen),
+   * selbst aktiv ANGREIFEN und selbst BOMBARDIEREN — alle drei heben die Musik. Reine
+   * Client-Audio-Logik, nicht im State-Hash.
+   */
   function computeMusicIntensity(): number {
     if (state.phase !== 'running') return 0
     let attacks = 0
     for (const p of state.players.values()) attacks += p.attacks.length
     const a = Math.min(1, attacks / 50)
     const bombs = Math.min(1, state.bombImpacts.length / 5)
-    const personal = prevIncomingAttackers.size > 0 ? 0.25 : 0
+    // Verteidigen: jemand greift gerade DICH an.
+    const defending = prevIncomingAttackers.size > 0 ? 0.25 : 0
+    // Angreifen: eigene laufende Angriffe (+ ihre noch ausstehenden Reserve-Truppen) heben die
+    // Intensität symmetrisch zum Verteidigen — Basis-Bump beim Loslegen, dann sanft mit der Menge.
+    const me = humanId >= 0 ? state.players.get(humanId) : undefined
+    let attacking = 0
+    if (me !== undefined && me.attacks.length > 0) {
+      let reserve = 0
+      for (const atk of me.attacks) reserve += atk.reserveTroops
+      attacking = 0.15 + Math.min(0.15, reserve / 40000)
+    }
+    // Bombardieren: ein eigener Bomber in der Luft (Anflug/Einschlag) treibt die Musik ebenfalls.
+    let bombing = 0
+    if (humanId >= 0) {
+      for (const b of state.bombers) {
+        if (b.ownerId === humanId) {
+          bombing = 0.3
+          break
+        }
+      }
+    }
+    const personal = Math.min(0.5, defending + attacking + bombing)
     return Math.min(1, Math.max(a, bombs * 0.7) + personal)
   }
 

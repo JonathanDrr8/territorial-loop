@@ -4,6 +4,21 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.45.0] – 2026-06-02
+
+### Behoben
+
+- **Küstengebiet wird nicht mehr fälschlich „eingekesselt" einkassiert.** Ein Gebietsstück an der
+  Küste galt bisher als rundum umzingelt, sobald an Land ringsum nur der Gegner stand — das offene
+  Meer zählte fälschlich als Wand. Jetzt ist Seezugang ein Fluchtweg: Küstengebiet wird nicht mehr
+  annektiert.
+
+### Geändert
+
+- **Dynamischer Soundtrack reagiert jetzt auch auf deine Offensive.** Bisher wurde die Musik nur
+  intensiver, wenn du angegriffen wurdest. Jetzt treiben auch dein eigenes Angreifen (je nach
+  eingesetzten Truppen) und dein Bombardieren (ein Bomber in der Luft) die Intensität.
+
 ## [0.44.0] – 2026-06-02
 
 ### Geändert

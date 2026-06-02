@@ -2079,4 +2079,21 @@ describe('Anti-Zersplitterung: eingeschlossene Fragmente (ADR-0017)', () => {
     captureHole(state, 8000)
     expect(getOwner(state.map, T(5, 5))).toBe(2) // gemischte Umschließung
   })
+
+  it('an der Küste „umzingelt" → wird NICHT annektiert (offenes Wasser = Fluchtweg)', () => {
+    // Massive p1-Übermacht (würde sonst sogar das Kerngebiet schlucken, Regel 2).
+    const state = setupEnclosed({ p1Troops: 60_000, p1Weighted: 3000, p2Weighted: 1 })
+    // Einen Land-Nachbarn des Fragments (5,5) zu Wasser machen → (5,5) liegt an der Küste.
+    const water = T(4, 5)
+    state.map.terrain[water] = 0 // IS_LAND_BIT raus = Wasser
+    setOwner(state.map, water, 0)
+    const p1 = state.players.get(1)
+    if (p1 !== undefined) {
+      p1.tilesOwned--
+      p1.frontier.delete(water)
+    }
+    captureHole(state, 8000)
+    // Trotz Übermacht bleibt das Küsten-Fragment bei p2 — Seezugang ist kein Einschluss.
+    expect(getOwner(state.map, T(5, 5))).toBe(2)
+  })
 })
