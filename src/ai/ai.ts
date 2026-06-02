@@ -28,7 +28,14 @@ import {
   type GameState,
   type Player,
 } from '../core/game'
-import { defenseRange, flakRange, isBuildingComplete, type BuildingType } from '../core/buildings'
+import {
+  defenseRange,
+  flakRange,
+  isBuildingComplete,
+  MAX_BUILDING_LEVEL,
+  upgradeCost,
+  type BuildingType,
+} from '../core/buildings'
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import {
   BOMBER_HP,
@@ -60,6 +67,12 @@ export const DIFFICULTIES: readonly Difficulty[] = [
 const FRIEND_SPARE_THRESHOLD = 200
 /** Ab diesem Netto-Groll (Groll − Gunst) lehnt die KI ein Bündnis mit dem Betreffenden ab. */
 const ALLY_REFUSE_GRUDGE = 120
+/**
+ * Gewichts-Aufschlag für Tiles WILDER Nachbarn bei der Zielwahl: Wilde sind schwach (halbe
+ * Produktion, keine Gebäude, keine Abwehr) und blockieren nur Fläche → die KI frisst sie beim
+ * Expandieren bevorzugt auf, statt sie ewig dümpeln zu lassen. (Jonathans „Wilde überleben zu lange".)
+ */
+const WILD_TARGET_BOOST = 2.5
 
 export interface DifficultyProfile {
   readonly attackPct: number
@@ -213,6 +226,8 @@ export function createAI(
     const { width, height } = state.map
     // Gegner-Tiles mit Beziehungs-Gewicht: resentierte Nationen bevorzugen, gute Partner meiden.
     const enemyTiles: { tile: number; weight: number }[] = []
+    // Wilde Nachbarn getrennt führen: schwache Beute, beim Expandieren VOR leerem Neutralland bevorzugt.
+    const wildTiles: { tile: number; weight: number }[] = []
     const neutralTiles: number[] = []
     const seen = new Set<number>()
 
@@ -259,14 +274,27 @@ export function createAI(
         // Verbündete nicht angreifen.
         if (areAllied(state.alliances, player.id, owner)) continue
         const w = enemyWeight(owner)
-        if (w !== null) enemyTiles.push({ tile: n, weight: w * capitalBoost(n, owner) })
+        if (w === null) continue
+        // Wilde sind „weiches" Ziel: hoch gewichten, aber ohne Hauptstadt-Boost (haben keine).
+        if (state.players.get(owner)?.wild === true) {
+          wildTiles.push({ tile: n, weight: w * WILD_TARGET_BOOST })
+        } else {
+          enemyTiles.push({ tile: n, weight: w * capitalBoost(n, owner) })
+        }
       }
     }
 
+    // Genau EIN rng-Zug pro Kandidatenfall (wie zuvor) → der Lockstep-PRNG-Strom bleibt aligned;
+    // nur die Gewichtung/Auswahl verschiebt sich Richtung Wilder.
     if (preferEnemies) {
-      if (enemyTiles.length > 0) return weightedPickTile(enemyTiles)
+      // Voll genug für PvP: echte Gegner UND Wilde zusammen werfen (Wilde sind billige Beute).
+      const combined = enemyTiles.length > 0 ? [...enemyTiles, ...wildTiles] : wildTiles
+      if (combined.length > 0) return weightedPickTile(combined)
       return neutralTiles.length > 0 ? rng.randElement(neutralTiles) : -1
     }
+    // Expandieren: schwache Wilde VOR leerem Neutralland schlucken (mahlt sie über die Zeit ab),
+    // erst danach freies Land, zuletzt echte Gegner als Notnagel.
+    if (wildTiles.length > 0) return weightedPickTile(wildTiles)
     if (neutralTiles.length > 0) return rng.randElement(neutralTiles)
     return enemyTiles.length > 0 ? weightedPickTile(enemyTiles) : -1
   }
@@ -764,6 +792,59 @@ export function createAI(
     return null
   }
 
+  /**
+   * Wertet bestehende eigene Gebäude auf, wenn nichts Neues mehr zu bauen ist (planBuild == null) und
+   * Gold übrig ist — so vertieft die KI ihre Wirtschaft statt nur in die Breite zu bauen (Jonathans
+   * „KI upgradet nie"). Priorität: bei Bedrohung Verteidigung/Flak hochziehen, sonst Wirtschaft
+   * (Stadt > Fabrik > Hafen > Flughafen). Verteidigungsposten lohnen nur bei aktiver Bedrohung (werden
+   * bei Eroberung nicht übernommen). Wählt deterministisch (höchste Priorität → günstigstes →
+   * niedrigster Tile) — KEIN eigener PRNG-Zug, damit der Lockstep-Strom unverändert bleibt.
+   * Nicht-wirtschaftende KIs (Anfänger/wild, tilesPerCity 0) upgraden nie.
+   */
+  function planUpgrade(state: GameState, player: Player, ctx: AiContext): Intent | null {
+    if (profile.tilesPerCity === 0) return null
+    const gold = player.gold
+    const threatened = ctx.ganged || ctx.crowding > 0.4
+    const prio = (t: BuildingType): number => {
+      switch (t) {
+        case 'city':
+          return 5
+        case 'factory':
+          return 4
+        case 'port':
+          return 3
+        case 'airport':
+          return 2
+        case 'defense':
+          return threatened ? 6 : 0
+        case 'flak':
+          return threatened && profile.usesAirDefense ? 6 : 0
+      }
+    }
+    let bestTile = -1
+    let bestPrio = 0
+    let bestCost = Infinity
+    for (const [tile, b] of state.buildings) {
+      if (b.ownerId !== player.id) continue
+      if (b.level >= MAX_BUILDING_LEVEL) continue
+      if (!isBuildingComplete(b, state.tick)) continue // halbfertige nicht upgraden
+      const p = prio(b.type)
+      if (p <= 0) continue
+      const cost = upgradeCost(b)
+      if (gold < cost) continue
+      if (
+        p > bestPrio ||
+        (p === bestPrio && (cost < bestCost || (cost === bestCost && tile < bestTile)))
+      ) {
+        bestPrio = p
+        bestCost = cost
+        bestTile = tile
+      }
+    }
+    if (bestTile < 0) return null
+    return { type: 'upgrade', playerId: player.id, tile: bestTile }
+  }
+
   /** Diplomatie-Aktion: annehmen / anfragen / verraten — gegen den Stärksten spielen. */
   function planDiplomacy(state: GameState, player: Player, ctx: AiContext): Intent | null {
     const living: Player[] = []
@@ -1129,10 +1210,16 @@ export function createAI(
         if (bomber !== null) intents.push(bomber)
       }
 
-      // Wirtschaft/Bau.
+      // Wirtschaft/Bau. Ist nichts Neues nötig, stattdessen ein bestehendes Gebäude aufwerten
+      // (vertieft die Wirtschaft). planUpgrade zieht keinen PRNG → Strom bleibt aligned.
       if (rng.next() < profile.buildChance) {
         const build = planBuild(state, player, ctx)
-        if (build !== null) intents.push(build)
+        if (build !== null) {
+          intents.push(build)
+        } else {
+          const upgrade = planUpgrade(state, player, ctx)
+          if (upgrade !== null) intents.push(upgrade)
+        }
       }
 
       // Diplomatie.

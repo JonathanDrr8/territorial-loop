@@ -416,12 +416,23 @@ const WILD_SPAWN_TILES = 48
 /** Alle wie viele Ticks geprüft wird, ob eine wilde Nation eingeschlossen wurde (→ Annexion). */
 const WILD_ENCIRCLE_INTERVAL = 12
 /**
+ * Mop-up wilder Reste (Jonathans „Wilde überleben zu lange"): Eine wilde Nation, die schon klein
+ * geschrumpft ist (≤ WILD_MOP_MAX_TILES) und deren Grenze klar von EINEM Spieler dominiert wird
+ * (Anteil ≥ WILD_MOP_DOMINANCE der nicht-Wand-Grenze), fällt diesem Spieler zu — auch wenn noch ein
+ * Fluchtweg in freie Wildnis offen ist. Bewusst nur winzige Reste (Spawn-Größe ist 48 Tiles), damit
+ * frische Wilde NICHT sofort verschwinden, nur abgemahlene Pockets aufgeräumt werden.
+ */
+const WILD_MOP_MAX_TILES = 10
+const WILD_MOP_DOMINANCE = 0.7
+/**
  * Anti-Zersplitterung (Regel 2): Ein KOMPLETT umzingeltes Fragment, das zugleich das flächen-
  * größte Stück der Nation ist (also ihr Kerngebiet), fällt nur, wenn der Umschließer mindestens
- * so viel Übermacht hat — Truppen-KAPAZITÄT (effektiver Cap aus Land + Städten) ≥
- * FRAGMENT_CORE_TROOP_RATIO × Kapazität der eingeschlossenen Nation. Kapazität statt aktueller
- * Truppen, weil sie die „Größe des Landes" stabil abbildet (nicht den volatilen Kampfzustand).
- * Kleinere abgesprengte Fetzen (nicht das größte Stück) fallen dagegen sofort (Regel 1).
+ * so viel Übermacht hat — die AKTUELLEN (mobilisierten) Truppen des Angreifers ≥
+ * FRAGMENT_CORE_TROOP_RATIO × Kapazität der eingeschlossenen Nation. Bewusst die aktuellen Truppen
+ * des Angreifers (nicht sein theoretischer Cap): ein gerade leergekämpfter Angreifer soll ein
+ * Kerngebiet NICHT geschenkt bekommen — er muss die Truppen wirklich stehen haben (Jonathans
+ * „Annektieren geht zu schnell"). Maßstab des Opfers bleibt sein Cap = „Größe des Landes" (stabil,
+ * nie 0). Kleinere abgesprengte Fetzen (nicht das größte Stück) fallen dagegen sofort (Regel 1).
  */
 const FRAGMENT_CORE_TROOP_RATIO = 25
 
@@ -3861,26 +3872,51 @@ function annexEncircledWilds(state: GameState): void {
     if (!w.wild || !w.isAlive || w.tilesOwned <= 0) continue
     let encloser = -1 // -1 = noch keiner gesehen, >0 = genau dieser Spieler
     let escapeOrMixed = false
-    outer: for (const ref of w.frontier) {
+    // Perimeter-Statistik für die Mop-up-Regel: Grenz-Tiles je angrenzendem Spieler + Fluchtöffnungen.
+    const borderByPlayer = new Map<number, number>()
+    let escapeOpenings = 0
+    for (const ref of w.frontier) {
       for (const n of neighbors4(ref, width, height)) {
         const o = getOwner(map, n)
         if (o === w.id) continue
         if (!isPassable(map.terrain, n)) continue // Wasser/Berg = Wand (blockiert nicht)
         if (o === 0) {
-          escapeOrMixed = true // freie Wildnis als Nachbar → Fluchtweg, nicht eingeschlossen
-          break outer
+          escapeOrMixed = true // freie Wildnis als Nachbar → Fluchtweg, nicht voll eingeschlossen
+          escapeOpenings++
+          continue
         }
+        borderByPlayer.set(o, (borderByPlayer.get(o) ?? 0) + 1)
         if (encloser === -1) encloser = o
-        else if (encloser !== o) {
-          escapeOrMixed = true // zwei verschiedene Spieler grenzen an → nicht von einem umschlossen
-          break outer
-        }
+        else if (encloser !== o) escapeOrMixed = true // zwei verschiedene Spieler grenzen an
       }
     }
-    if (escapeOrMixed || encloser <= 0) continue
-    const p = players.get(encloser)
-    if (p === undefined || !p.isAlive || p.wild) continue
-    annexWild(state, w, p)
+    // Regel 1: komplett von GENAU EINEM Spieler umschlossen (kein Fluchtweg) → ganze Nation fällt.
+    if (!escapeOrMixed && encloser > 0) {
+      const p = players.get(encloser)
+      if (p !== undefined && p.isAlive && !p.wild) {
+        annexWild(state, w, p)
+        continue
+      }
+    }
+    // Regel 2 (Mop-up): kleiner wilder Rest, dessen Grenze EIN Spieler klar dominiert → fällt diesem
+    // zu, auch mit offenem Fluchtweg. Verhindert ewig dümpelnde Wild-Pockets.
+    if (w.tilesOwned <= WILD_MOP_MAX_TILES && borderByPlayer.size > 0) {
+      let domId = -1
+      let domCount = 0
+      let total = escapeOpenings
+      // Deterministisch über aufsteigende id iterieren (Map-Reihenfolge nicht implizit verlassen).
+      for (const [id, c] of [...borderByPlayer].sort((a, b) => a[0] - b[0])) {
+        total += c
+        if (c > domCount) {
+          domCount = c
+          domId = id
+        }
+      }
+      if (domId > 0 && total > 0 && domCount >= total * WILD_MOP_DOMINANCE) {
+        const p = players.get(domId)
+        if (p !== undefined && p.isAlive && !p.wild) annexWild(state, w, p)
+      }
+    }
   }
 }
 
@@ -3971,14 +4007,13 @@ function annexEnclosedFragments(
       if (!frag.enclosed) continue
       const fragSize = frag.tiles.length
       const isCore = isLargestFragment(state, victim, frag.tiles, fragSize)
-      // Regel 2 schützt das Kerngebiet, außer der Angreifer hat 20× Übermacht — gemessen an der
-      // Truppen-KAPAZITÄT (effektiver Cap aus Land + Städten), nicht an den volatilen aktuellen
-      // Truppen: eine gerade angegriffene Nation soll nicht zufällig „schwach" wirken, und der
-      // Cap bildet die eigentliche „Größe des Landes" ab (genau Jonathans 20k-vs-500k-Gedanke).
+      // Regel 2 schützt das Kerngebiet, außer der Angreifer hat massive Übermacht — gemessen an den
+      // AKTUELLEN, stehenden Truppen des Angreifers (nicht seinem theoretischen Cap), damit ein gerade
+      // leergekämpftes Reich kein Kerngebiet geschenkt bekommt. Maßstab des Opfers bleibt sein Cap
+      // (= „Größe des Landes", stabil/nie 0).
       if (
         isCore &&
-        effectiveMaxTroops(state, attacker.id) <
-          FRAGMENT_CORE_TROOP_RATIO * effectiveMaxTroops(state, victim.id)
+        attacker.troops < FRAGMENT_CORE_TROOP_RATIO * effectiveMaxTroops(state, victim.id)
       )
         continue
       annexFragment(state, victim, attacker, frag.tiles)
