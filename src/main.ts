@@ -55,12 +55,7 @@ import { createFeedbackUi } from './ui/feedback-dialog'
 import { icon } from './ui/icons'
 import { panelStyle } from './ui/theme'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
-import {
-  applyMobileDefaultLayoutOnce,
-  getPanel,
-  registerPanel,
-  unregisterPanel,
-} from './ui/hud-layout'
+import { applyMobileDefaultLayout, getPanel, registerPanel, unregisterPanel } from './ui/hud-layout'
 import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
 import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
@@ -1113,7 +1108,7 @@ function startMatch(
   // Eingebautes Mobile-Standard-Layout (einmalig, proportional zur Bildschirmgröße) für frische
   // Mobile-Spieler. Nur im Cockpit-Modus (die Anordnung betrifft Cockpit-Panels) und nur, wenn der
   // Spieler noch kein eigenes Layout hat — danach setzt es ein Flag und fasst nichts mehr an.
-  if (isMobileLayout()) applyMobileDefaultLayoutOnce(container.clientWidth, container.clientHeight)
+  if (isMobileLayout()) applyMobileDefaultLayout(container.clientWidth, container.clientHeight)
   // Reagiert auf alle HUD-Pref-Änderungen: Mobile-Cockpit ein/aus + Off-Screen-Label-Anzahl.
   const applyPrefs = (): void => {
     applyMobileLayout()
@@ -1122,6 +1117,21 @@ function startMatch(
   applyPrefs()
   // Steuerungs-Modus live (HUD-Editor): Cockpit ein/aus + Label-Anzahl live umschalten.
   const offControlMode = onHudPrefsChange(applyPrefs)
+
+  // Drehen / Größe ändern: das passende Orientierungs-Default (Hoch-/Querformat) neu setzen — nur
+  // solange der Spieler das Auto-Layout nicht selbst angepasst hat — und das Layout neu anwenden.
+  // Debounced gegen Resize-Salven.
+  let viewportTimer: ReturnType<typeof setTimeout> | null = null
+  const onViewportChange = (): void => {
+    if (viewportTimer !== null) clearTimeout(viewportTimer)
+    viewportTimer = setTimeout(() => {
+      viewportTimer = null
+      if (isMobileLayout()) applyMobileDefaultLayout(container.clientWidth, container.clientHeight)
+      applyMobileLayout()
+    }, 150)
+  }
+  window.addEventListener('resize', onViewportChange)
+  window.addEventListener('orientationchange', onViewportChange)
 
   hud.setSpeed(speed)
 
@@ -1364,6 +1374,9 @@ function startMatch(
       actionWheel.destroy()
       mobileTopbar.destroy()
       offControlMode()
+      if (viewportTimer !== null) clearTimeout(viewportTimer)
+      window.removeEventListener('resize', onViewportChange)
+      window.removeEventListener('orientationchange', onViewportChange)
       gameSettings.destroy()
       confirmDialog.destroy()
       pauseMenu.destroy()

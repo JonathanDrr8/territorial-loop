@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.47.0] – 2026-06-02
+
+### Geändert
+
+- **Eigenes Querformat-Cockpit (Handy).** Im Querformat ist das HUD jetzt für die breite, niedrige
+  Fläche gemacht: Angriffsgröße-Slider links (linker Daumen), Eck-Rad unten rechts (rechter Daumen),
+  Status-Leiste oben — die Mitte bleibt frei für die Karte. Vorher war das Hochformat-Rad im
+  Querformat unten abgeschnitten. Drehst du das Gerät, wechselt das Layout automatisch zwischen
+  Hoch- und Querformat (ein selbst angepasstes HUD bleibt dabei unangetastet).
+
 ## [0.46.2] – 2026-06-02
 
 ### Behoben

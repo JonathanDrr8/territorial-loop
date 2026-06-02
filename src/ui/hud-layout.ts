@@ -134,40 +134,75 @@ export function hasAnyLayout(): boolean {
 // (x × Breite/refW, y × Höhe/refH) — so sitzt es auf jedem Handy ähnlich, nicht nur auf 390×797.
 // Größe/Scale (s, h, w) bleiben unverändert. Reine Client-Voreinstellung, MP-sicher.
 const MOBILE_DEFAULT_FLAG = 'territorial-loop:mobile-default-applied:v1'
-const MOBILE_DEFAULT_REF = { w: 390, h: 797 } as const
-const MOBILE_DEFAULT_PANELS: Record<string, PanelOverride> = {
+const PORTRAIT_REF = { w: 390, h: 797 } as const
+const LANDSCAPE_REF = { w: 844, h: 390 } as const
+/** Hochformat-Cockpit (Rad unten Mitte, groß). */
+const MOBILE_PORTRAIT_PANELS: Record<string, PanelOverride> = {
   feedback: { x: 0, y: 0 },
   attacks: { x: 6, y: 649, h: 127, s: 0.96, hidden: false },
   wheel: { x: 173, y: 561, s: 1.05 },
   topbar: { x: 128, y: 0, s: 1.02 },
   attackbar: { x: 325, y: 191 },
 }
+/** Querformat-Cockpit (breit-kurz): Rad kleiner in die untere rechte Ecke, Slider rechts darüber,
+ *  Top-Leiste oben Mitte, Angriffe + Feedback links. Ref 844×390. */
+const MOBILE_LANDSCAPE_PANELS: Record<string, PanelOverride> = {
+  feedback: { x: 0, y: 0 },
+  topbar: { x: 300, y: 0, s: 1.0 },
+  // Angriffe oben rechts (über dem Rad), Slider links (linker Daumen), Rad unten rechts (rechter
+  // Daumen) — zweihändiges Querformat, Mitte bleibt frei für die Karte.
+  attacks: { x: 600, y: 4, h: 110, s: 0.85, hidden: false },
+  attackbar: { x: 12, y: 64 },
+  wheel: { x: 600, y: 175, s: 0.7 },
+}
+
+// Modul-State: welche Default-Variante zuletzt automatisch gesetzt wurde + ihr JSON. So erkennen
+// wir beim Drehen, ob der Spieler das Auto-Layout seither selbst verändert hat (→ dann NICHT mehr
+// automatisch wechseln, sein Layout bleibt). Reset bei Reload (dann respektieren wir das Gespeicherte).
+let lastAutoKind: 'portrait' | 'landscape' | null = null
+let lastAutoJson = ''
 
 /**
- * Einmalig das eingebaute Mobile-Standard-Layout anwenden — proportional zur aktuellen
- * Bildschirmgröße. Nur für frische Mobile-Spieler OHNE eigenes Layout; danach wird ein Flag
- * gesetzt, damit ein vom Spieler gebautes oder zurückgesetztes Layout nie überschrieben wird.
- * Der Aufrufer entscheidet, dass gerade Mobile-/Cockpit-Modus aktiv ist.
+ * Eingebautes Mobile-Standard-Layout anwenden — orientierungs-bewusst (eigene Anordnung für Hoch-
+ * und Querformat), proportional zur Bildschirmgröße. Für frische Mobile-Spieler; beim Drehen wird
+ * die passende Variante neu gesetzt, SOLANGE der Spieler das Auto-Layout nicht selbst verändert hat.
+ * Ein vorhandenes eigenes/gespeichertes Layout wird nie überschrieben.
  */
-export function applyMobileDefaultLayoutOnce(screenW: number, screenH: number): void {
-  let alreadyApplied = false
+export function applyMobileDefaultLayout(screenW: number, screenH: number): void {
+  const kind: 'portrait' | 'landscape' = screenW >= screenH ? 'landscape' : 'portrait'
+  let flagSet = false
   try {
-    alreadyApplied = window.localStorage.getItem(MOBILE_DEFAULT_FLAG) !== null
+    flagSet = window.localStorage.getItem(MOBILE_DEFAULT_FLAG) !== null
   } catch {
     /* ignore */
   }
-  if (alreadyApplied) return
-  // Schon ein Layout vorhanden (Bestandsspieler) → nicht anfassen, nur das Flag setzen.
-  if (!hasAnyLayout()) {
-    const fx = screenW > 0 ? screenW / MOBILE_DEFAULT_REF.w : 1
-    const fy = screenH > 0 ? screenH / MOBILE_DEFAULT_REF.h : 1
-    for (const [id, ov] of Object.entries(MOBILE_DEFAULT_PANELS)) {
-      const scaled: PanelOverride = { ...ov }
-      if (ov.x !== undefined) scaled.x = Math.round(ov.x * fx)
-      if (ov.y !== undefined) scaled.y = Math.round(ov.y * fy)
-      setPanel(id, scaled)
+  if (flagSet) {
+    // Schon mal angewendet. Neu setzen nur bei Orientierungswechsel UND wenn das aktuelle Layout
+    // noch exakt das zuletzt automatisch gesetzte ist (Spieler hat nichts angefasst).
+    if (kind === lastAutoKind) return
+    if (lastAutoKind === null || JSON.stringify(layout) !== lastAutoJson) return
+  } else if (hasAnyLayout()) {
+    // Bestandsspieler mit eigenem Layout → nicht anfassen, nur Flag setzen.
+    try {
+      window.localStorage.setItem(MOBILE_DEFAULT_FLAG, '1')
+    } catch {
+      /* ignore */
     }
+    return
   }
+  const panels = kind === 'landscape' ? MOBILE_LANDSCAPE_PANELS : MOBILE_PORTRAIT_PANELS
+  const ref = kind === 'landscape' ? LANDSCAPE_REF : PORTRAIT_REF
+  const fx = screenW > 0 ? screenW / ref.w : 1
+  const fy = screenH > 0 ? screenH / ref.h : 1
+  resetLayout()
+  for (const [id, ov] of Object.entries(panels)) {
+    const scaled: PanelOverride = { ...ov }
+    if (ov.x !== undefined) scaled.x = Math.round(ov.x * fx)
+    if (ov.y !== undefined) scaled.y = Math.round(ov.y * fy)
+    setPanel(id, scaled)
+  }
+  lastAutoKind = kind
+  lastAutoJson = JSON.stringify(layout)
   try {
     window.localStorage.setItem(MOBILE_DEFAULT_FLAG, '1')
   } catch {
