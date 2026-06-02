@@ -61,7 +61,7 @@ import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
 import { createTutorial, defaultTutorialSteps, type TutorialApi } from './ui/tutorial'
-import { clearScalables, registerScalable } from './ui/ui-scale'
+import { clearScalables, getUiScale, registerScalable, unregisterScalable } from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -930,6 +930,9 @@ function startMatch(
   // Truppen-Balken mit Cap + Gold/Rate, dazu ☰ Menü (öffnet Pause-/ESC-Menü inkl. „HUD anpassen")
   // und ≣ Rang (fährt die Rangliste ein/aus).
   let mobileRankOpen = false
+  // Spiegelt den Cockpit-Modus (Handy & kein Zuschauer) für die Render-Schleife — treibt z. B. den
+  // Hinweis-Punkt am Rang-Knopf (offene Bündnis-Angebote stecken im „Meldungen"-Tab).
+  let mobileCockpit = false
   const mobileTopbar = createMobileTopbar(container, {
     onMenu: () => pauseMenu.open(),
     onToggleRank: () => {
@@ -992,6 +995,7 @@ function startMatch(
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
+    mobileCockpit = cockpit
     // Rad + Top-Leiste sind im Cockpit-Modus aktiv — außer der Spieler hat sie im HUD-Editor
     // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
     actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
@@ -1004,33 +1008,47 @@ function startMatch(
     hud.setMobile(cockpit)
     // Log ist jetzt auch auf Mobile verfügbar (Teil der verschiebbaren Feed-Spalte).
     eventLog.setVisible(true)
-    // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
-    // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap. Hat der Spieler die
-    // Feed-Spalte im HUD-Editor verschoben (Override), respektieren wir das und positionieren NICHT um.
+    // Bündnis-Karte kompakt auf Mobile. Die Feed-Spalte (Anfragen + Log) lebt auf dem Handy als
+    // „Meldungen"-Tab IN der Rangliste (in deren Slot eingehängt), auf Desktop als eigenes Panel
+    // unten rechts über der Minimap.
     alliancePrompt.setCompact(cockpit)
-    const feedMoved = getPanel('feed') !== undefined
-    if (cockpit && !feedMoved) {
-      feedColumn.style.top = '52px'
-      feedColumn.style.bottom = 'auto'
-      feedColumn.style.left = '0'
-      feedColumn.style.right = '0'
-      feedColumn.style.marginLeft = 'auto'
-      feedColumn.style.marginRight = 'auto'
-      // Prozent-Breite (NICHT px): die UI-Skalierung läuft über CSS `zoom`, das fixe px relativ
-      // zur Bildbreite verzerrt. 84 % lässt links/rechts Luft → margin:auto zentriert die Karte.
-      feedColumn.style.width = '84%'
-      feedColumn.style.maxWidth = '360px'
-      feedColumn.style.maxHeight = '40vh'
-    } else if (!cockpit && !feedMoved) {
+    if (cockpit) {
+      // In den Rangliste-Slot: fließend (nicht absolut), volle Breite, eigenes Zoom aus (das
+      // Rangliste-Panel skaliert bereits → sonst doppeltes `zoom`), scrollbar wenn viel ansteht.
+      unregisterScalable(feedColumn)
+      feedColumn.style.zoom = '1'
+      feedColumn.style.transform = 'none'
+      feedColumn.style.position = 'static'
       feedColumn.style.top = 'auto'
-      feedColumn.style.bottom = '224px'
+      feedColumn.style.bottom = 'auto'
       feedColumn.style.left = 'auto'
-      feedColumn.style.right = '12px'
-      feedColumn.style.marginLeft = ''
-      feedColumn.style.marginRight = ''
-      feedColumn.style.width = '250px'
-      feedColumn.style.maxWidth = ''
-      feedColumn.style.maxHeight = '300px'
+      feedColumn.style.right = 'auto'
+      feedColumn.style.marginLeft = '0'
+      feedColumn.style.marginRight = '0'
+      feedColumn.style.width = '100%'
+      feedColumn.style.maxWidth = 'none'
+      feedColumn.style.maxHeight = '52vh'
+      feedColumn.style.overflowY = 'auto'
+      hud.getMobileFeedSlot().appendChild(feedColumn)
+    } else {
+      // Zurück als eigenes Desktop-Panel. Editor-Override (falls gesetzt) erst danach wieder anwenden.
+      container.appendChild(feedColumn)
+      registerScalable(feedColumn)
+      feedColumn.style.zoom = String(getUiScale())
+      feedColumn.style.position = 'absolute'
+      feedColumn.style.overflowY = ''
+      const feedMoved = getPanel('feed') !== undefined
+      if (!feedMoved) {
+        feedColumn.style.top = 'auto'
+        feedColumn.style.bottom = '224px'
+        feedColumn.style.left = 'auto'
+        feedColumn.style.right = '12px'
+        feedColumn.style.marginLeft = ''
+        feedColumn.style.marginRight = ''
+        feedColumn.style.width = '250px'
+        feedColumn.style.maxWidth = ''
+        feedColumn.style.maxHeight = '300px'
+      }
     }
     if (!cockpit) {
       // Beim Wechsel zurück auf Desktop den Mobile-Rang-Toggle zurücksetzen.
@@ -1201,6 +1219,9 @@ function startMatch(
     // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
     alliancePrompt.update()
     eventLog.update()
+    // Handy: Punkt am Rang-Knopf, wenn im „Meldungen"-Tab offene Bündnis-Angebote warten — sonst
+    // würde man sie übersehen, weil der Feed im Tab statt frei sichtbar liegt.
+    if (mobileCockpit) mobileTopbar.setRankAlert(alliancePrompt.pendingCount() > 0)
     // Cockpit-Rad (Mobile): Live-Werte ins Rad — Truppen/Rate/Gold/Rang/% + „unter Angriff".
     const me = state.players.get(humanId)
     if (me !== undefined && me.isAlive && !spectator) {

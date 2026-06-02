@@ -73,8 +73,9 @@ interface Rect {
 const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar', 'attackbar'])
 
 /** Panels, die in BEIDEN Modi editierbar sind (auch auf Mobile sinnvoll): Angriffs-Panel,
- *  Feed-Spalte (Bündnis-Anfragen + Log), Feedback-Knopf. */
-const BOTH_PANEL_IDS = new Set(['attacks', 'feed', 'feedback'])
+ *  Feedback-Knopf. (Die Feed-Spalte ist auf dem Handy Teil der Rangliste — „Meldungen"-Tab —
+ *  und daher dort kein eigenes Panel; auf Desktop bleibt sie über `!cockpit` editierbar.) */
+const BOTH_PANEL_IDS = new Set(['attacks', 'feedback'])
 
 /** IDs, die NICHT ausgeblendet werden dürfen (sonst verlöre man den Zugang) — nur verschiebbar. */
 const NO_HIDE_IDS = new Set(['menu', 'feedback'])

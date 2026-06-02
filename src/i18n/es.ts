@@ -364,6 +364,7 @@ export const es: Record<string, string> = {
   'hud.controlsBody':
     'Clic izquierdo: atacar · B: modo barco (objetivo en otra isla) · 7: modo bombardero · 8: buque<br/>Clic derecho: menú (construir/atacar/barco/buque/diplomacia)<br/>Arrastrar (izq./der.) o WASD: cámara · Rueda: zoom<br/>1–6: edificios (ciudad/defensa/puerto/fábrica/aeropuerto/antiaéreo) · R: alcances de barcos · Espacio: pausa<br/>, / . : velocidad · Esc: menú<br/>Clic en el panel de ataque: cancelar / barco · volver',
   'hud.rank': 'Clasificación',
+  'hud.tab.feed': 'Mensajes',
   'hud.troops': 'Tropas',
   'hud.land': 'Territorio',
   'hud.gold': 'Oro',

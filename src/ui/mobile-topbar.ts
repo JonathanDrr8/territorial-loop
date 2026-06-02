@@ -26,6 +26,8 @@ export interface MobileTopbarApi {
   setVisible(on: boolean): void
   /** Rang-Knopf optisch als aktiv markieren (Rangliste gerade offen). */
   setRankActive(on: boolean): void
+  /** Hinweis-Punkt am Rang-Knopf an/aus — z. B. offene Bündnis-Angebote im „Meldungen"-Tab. */
+  setRankAlert(on: boolean): void
   /** Wurzel-Element (zum Registrieren als verschieb-/skalierbares HUD-Panel im Editor). */
   readonly element: HTMLElement
   destroy(): void
@@ -86,7 +88,7 @@ export function createMobileTopbar(
     'color:var(--tl-text);cursor:pointer;font-size:17px;line-height:1;padding:0'
   const rankBtn = document.createElement('button')
   rankBtn.type = 'button'
-  rankBtn.style.cssText = btnStyle
+  rankBtn.style.cssText = btnStyle + ';position:relative'
   rankBtn.innerHTML = icon.rank
   rankBtn.title = t('hud.rank')
   rankBtn.setAttribute('aria-label', t('hud.rank'))
@@ -94,6 +96,13 @@ export function createMobileTopbar(
     e.stopPropagation()
     deps.onToggleRank()
   })
+  // Hinweis-Punkt (rechte obere Ecke des Rang-Knopfs): leuchtet, wenn im „Meldungen"-Tab etwas
+  // wartet (offene Bündnis-Angebote) — sonst würde man sie auf dem Handy im Tab übersehen.
+  const rankDot = document.createElement('div')
+  rankDot.style.cssText =
+    'position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;' +
+    'background:#e8554a;border:1px solid rgba(0,0,0,0.5);display:none;pointer-events:none'
+  rankBtn.appendChild(rankDot)
 
   const menuBtn = document.createElement('button')
   menuBtn.type = 'button'
@@ -130,6 +139,9 @@ export function createMobileTopbar(
     setRankActive(on: boolean): void {
       rankBtn.style.background = on ? 'var(--tl-accent)' : 'rgba(255,255,255,0.06)'
       rankBtn.style.color = on ? '#1a1a1a' : 'var(--tl-text)'
+    },
+    setRankAlert(on: boolean): void {
+      rankDot.style.display = on ? 'block' : 'none'
     },
     element: bar,
     destroy(): void {

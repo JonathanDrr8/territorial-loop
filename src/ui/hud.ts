@@ -121,6 +121,11 @@ export interface HUDApi {
   setMobile(on: boolean): void
   /** Mobile: Rangliste per Knopf (Top-Leiste) ein-/ausfahren — sonst im Mobile-Modus aus. */
   setMobileRankOpen(on: boolean): void
+  /**
+   * Mobile: Slot im „Meldungen"-Tab der Rangliste, in den `main.ts` die Feed-Spalte
+   * (Bündnis-Anfragen + Ereignislog) einhängt. Auf Desktop ungenutzt (Feed bleibt eigenes Panel).
+   */
+  getMobileFeedSlot(): HTMLElement
   destroy(): void
 }
 
@@ -197,6 +202,9 @@ export function createHUD(
   let currentSliderPct = DEFAULT_SLIDER_PCT
   let rankSort: RankSort = 'land'
   let rankExpanded = false
+  // Mobile: die Rangliste hat zwei Tabs — die Liste selbst und „Meldungen" (Bündnis-Anfragen +
+  // Ereignislog, von main.ts in den Slot gehängt). Auf Desktop bleibt die Liste ohne Tabs.
+  let rankTab: 'rank' | 'feed' = 'rank'
   // Mobile-Layout: Desktop-Panels (Zeit/Rangliste/Angriffe/Truppen/Bau-Leiste) werden
   // ausgeblendet — auf dem Handy zeigt das Eck-Rad alles Wichtige (Cockpit). Nur die
   // Bündnis-Karte (außerhalb des HUD, in main.ts) bleibt einblendbar.
@@ -416,6 +424,56 @@ export function createHUD(
     'z-index: 12',
   ])
 
+  // Tab-Leiste (nur Mobile sichtbar, s. setMobile): „Rangliste" | „Meldungen". Der Meldungen-Tab
+  // hostet die Feed-Spalte (Bündnis-Anfragen + Log), die main.ts in `feedSlot` einhängt. Auf
+  // Desktop bleibt die Leiste aus und die Liste steht ohne Tabs.
+  const rankTabBar = document.createElement('div')
+  rankTabBar.style.cssText = 'display: none; gap: 4px; margin-bottom: 6px'
+  const rankTabBtn = document.createElement('button')
+  const feedTabBtn = document.createElement('button')
+  function styleTabBtn(btn: HTMLButtonElement, active: boolean): void {
+    btn.style.cssText = [
+      'flex: 1',
+      'font: inherit',
+      'font-size: 11px',
+      'padding: 4px 6px',
+      'border-radius: 5px',
+      'cursor: pointer',
+      'border: 1px solid rgba(255,255,255,0.2)',
+      active ? 'background: rgba(232,210,74,0.85)' : 'background: rgba(255,255,255,0.08)',
+      active ? 'color: #1a1a1a' : 'color: white',
+      active ? 'font-weight: bold' : 'font-weight: normal',
+    ].join(';')
+  }
+  rankTabBtn.textContent = t('hud.rank')
+  feedTabBtn.textContent = t('hud.tab.feed')
+  styleTabBtn(rankTabBtn, true)
+  styleTabBtn(feedTabBtn, false)
+  rankTabBar.appendChild(rankTabBtn)
+  rankTabBar.appendChild(feedTabBtn)
+  rankPanel.appendChild(rankTabBar)
+
+  // Tab-Inhalte: die Liste selbst (rankContent) und der Slot für die Feed-Spalte (feedSlot).
+  const rankContent = document.createElement('div')
+  const feedSlot = document.createElement('div')
+  feedSlot.style.display = 'none'
+  function applyRankTab(): void {
+    const onRank = rankTab === 'rank'
+    rankContent.style.display = onRank ? '' : 'none'
+    feedSlot.style.display = onRank ? 'none' : ''
+    styleTabBtn(rankTabBtn, onRank)
+    styleTabBtn(feedTabBtn, !onRank)
+    if (onRank) updateRankList()
+  }
+  rankTabBtn.addEventListener('click', () => {
+    rankTab = 'rank'
+    applyRankTab()
+  })
+  feedTabBtn.addEventListener('click', () => {
+    rankTab = 'feed'
+    applyRankTab()
+  })
+
   const rankHead = document.createElement('div')
   rankHead.style.cssText =
     'display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px'
@@ -464,7 +522,7 @@ export function createHUD(
   rankHead.appendChild(sortLandBtn)
   rankHead.appendChild(sortTroopsBtn)
   rankHead.appendChild(sortGoldBtn)
-  rankPanel.appendChild(rankHead)
+  rankContent.appendChild(rankHead)
 
   const rankBody = document.createElement('div')
   rankBody.style.cssText = 'line-height: 1.5'
@@ -475,7 +533,7 @@ export function createHUD(
       onCenterPlayer(Number(row.dataset.center))
     }
   })
-  rankPanel.appendChild(rankBody)
+  rankContent.appendChild(rankBody)
 
   const rankToggle = document.createElement('button')
   rankToggle.style.cssText = [
@@ -503,7 +561,9 @@ export function createHUD(
       rankBody.style.overflowY = ''
     }
   }
-  rankPanel.appendChild(rankToggle)
+  rankContent.appendChild(rankToggle)
+  rankPanel.appendChild(rankContent)
+  rankPanel.appendChild(feedSlot)
   container.appendChild(rankPanel)
   registerScalable(rankPanel)
   registerPanel('rank', rankPanel)
@@ -1613,6 +1673,11 @@ export function createHUD(
       mobileRankOpen = false // beim Moduswechsel die Mobile-Rangliste zuklappen
       infoBox.style.display = on ? 'none' : ''
       rankPanel.style.display = on ? 'none' : ''
+      // Tab-Leiste nur auf dem Handy (dort liegt der Feed im Rangliste-Panel); auf Desktop aus,
+      // immer der Listen-Tab. Beim Moduswechsel zurück auf den Listen-Tab.
+      rankTabBar.style.display = on ? 'flex' : 'none'
+      rankTab = 'rank'
+      applyRankTab()
       if (on) {
         actionBar.style.display = 'none'
         troopBadge.style.display = 'none'
@@ -1631,6 +1696,9 @@ export function createHUD(
         rankPanel.style.display = 'none'
         rankPanel.style.top = '12px'
       }
+    },
+    getMobileFeedSlot(): HTMLElement {
+      return feedSlot
     },
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
