@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.42.1] – 2026-06-02
+
+### Behoben
+
+- Handy: Der vertikale Angriffsbalken am rechten Rand verschwindet jetzt, solange die
+  Rangliste ausgefahren ist — vorher überlappte er deren rechte Kante und verdeckte z. B.
+  den „Ignorieren"-Knopf einer Bündnis-Anfrage im Meldungen-Tab.
+
 ## [0.42.0] – 2026-06-02
 
 ### Geändert

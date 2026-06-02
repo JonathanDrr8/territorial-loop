@@ -939,6 +939,7 @@ function startMatch(
       mobileRankOpen = !mobileRankOpen
       hud.setMobileRankOpen(mobileRankOpen)
       mobileTopbar.setRankActive(mobileRankOpen)
+      updateAttackBarVisible() // Balken aus, solange die Rangliste offen ist (sonst Überlappung)
     },
   })
   // Rad + Top-Leiste sind im Maus-/Cockpit-Modus die einzige Steuerung → als HUD-Elemente
@@ -992,6 +993,15 @@ function startMatch(
   // Rangliste, Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-
   // Karte (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
   // Zuschauer haben kein Rad → für sie bleiben die Panels sichtbar (sonst leerer Bildschirm).
+  // Angriffsbalken (vertikal, rechter Rand) verstecken, solange die Rangliste offen ist — sonst
+  // überlappt er deren rechte Kante (und verdeckt z. B. den „Ignorieren"-Knopf einer Bündnis-Karte
+  // im Meldungen-Tab). Beim Lesen braucht man den Balken eh nicht; er kommt zurück, sobald man
+  // die Rangliste schließt.
+  function updateAttackBarVisible(): void {
+    const show = mobileCockpit && getPanel('attackbar')?.hidden !== true && !mobileRankOpen
+    attackBar.style.display = show ? 'flex' : 'none'
+  }
+
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
@@ -1000,7 +1010,7 @@ function startMatch(
     // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
     actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
     mobileTopbar.setVisible(cockpit && getPanel('topbar')?.hidden !== true)
-    attackBar.style.display = cockpit && getPanel('attackbar')?.hidden !== true ? 'flex' : 'none'
+    updateAttackBarVisible()
     // Desktop-Menü-Knopf nur ohne Cockpit (auf dem Handy hat die Top-Leiste das ☰).
     desktopMenuBtn.style.display = cockpit ? 'none' : 'flex'
     minimap.setMobile(m)
