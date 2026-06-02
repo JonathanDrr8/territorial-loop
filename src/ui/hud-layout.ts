@@ -103,6 +103,11 @@ export function getPanel(id: string): PanelOverride | undefined {
   return layout[id]
 }
 
+/** Tiefe Kopie aller aktuellen Panel-Overrides — für speicherbare Layout-Presets (ADR-0028). */
+export function getLayoutSnapshot(): Record<string, PanelOverride> {
+  return JSON.parse(JSON.stringify(layout)) as Record<string, PanelOverride>
+}
+
 /** IDs aller aktuell angemeldeten Panels. */
 export function registeredIds(): string[] {
   return [...panels.keys()]

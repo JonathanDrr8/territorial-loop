@@ -124,6 +124,19 @@ export function setHudPref<K extends keyof HudPrefs>(key: K, value: HudPrefs[K])
   for (const fn of listeners) fn(getHudPrefs())
 }
 
+/** Mehrere Präferenzen auf einmal setzen (z. B. ein Layout-Preset) — eine Benachrichtigung. */
+export function setHudPrefs(patch: Partial<HudPrefs>): void {
+  const next = { ...prefs, ...patch }
+  let changed = false
+  for (const k of Object.keys(next) as (keyof HudPrefs)[]) {
+    if (prefs[k] !== next[k]) changed = true
+  }
+  if (!changed) return
+  prefs = next
+  save()
+  for (const fn of listeners) fn(getHudPrefs())
+}
+
 /** Bei Änderungen benachrichtigt werden. Gibt eine Abmelde-Funktion zurück. */
 export function onHudPrefsChange(fn: (p: HudPrefs) => void): () => void {
   listeners.add(fn)

@@ -17,18 +17,19 @@ import type { BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
 import type { BomberRoute } from '../core/ships'
 import type { CameraMode } from '../ui/start-menu'
+import { resolveAction, type KeyAction } from './keybinds'
 
 /** Reihenfolge, in der das Mausrad im Bomber-Modus durch die Flugrouten blättert. */
 const BOMBER_ROUTES: readonly BomberRoute[] = ['direct', 'arc-left', 'arc-right']
 
-/** Zahlen-Hotkey → Gebäudetyp für den Bau-Modus (1=Stadt, 2=Verteidigung, 3=Hafen, 4=Fabrik). */
-const BUILD_HOTKEYS: Record<string, BuildingType> = {
-  '1': 'city',
-  '2': 'defense',
-  '3': 'port',
-  '4': 'factory',
-  '5': 'airport',
-  '6': 'flak',
+/** Bau-Aktion (aus den Keybinds) → Gebäudetyp für den Bau-Modus. */
+const BUILD_ACTION_TYPE: Partial<Record<KeyAction, BuildingType>> = {
+  buildCity: 'city',
+  buildDefense: 'defense',
+  buildPort: 'port',
+  buildFactory: 'factory',
+  buildAirport: 'airport',
+  buildFlak: 'flak',
 }
 
 /** WASD → Kamera-Pan-Richtung (dx, dy in Welt-Tiles pro Schritt-Einheit). */
@@ -719,47 +720,75 @@ export function createInputHandler(deps: InputDeps): InputHandler {
 
   function onKeyDown(e: KeyboardEvent): void {
     const key = e.key.toLowerCase()
+    // Feste Tasten zuerst (nicht umbelegbar): Pause (Leertaste), Esc, Kamera-Pan (WASD).
     if (e.code === 'Space') {
       events.pause()
       e.preventDefault()
-    } else if (key in PAN_KEYS) {
-      heldPan.add(key)
-      startPan()
-    } else if (e.key === ',') {
-      events.cycleSpeed(-1)
-    } else if (e.key === '.') {
-      events.cycleSpeed(1)
-    } else if (key in BUILD_HOTKEYS && deps.interactive !== false) {
-      const mode = BUILD_HOTKEYS[key]
-      if (mode !== undefined) setBuildMode(buildMode === mode ? null : mode)
-    } else if (key === 'b' && deps.interactive !== false) {
-      setBoatMode(!boatMode)
-    } else if (key === '7' && deps.interactive !== false) {
-      setBomberMode(!bomberMode)
-    } else if (key === '8' && deps.interactive !== false) {
-      setWarshipMode(!warshipMode)
-    } else if (key === 'r' && deps.interactive !== false) {
-      deps.onToggleShipRanges?.()
-    } else if (key === 'e' && deps.interactive !== false) {
-      // Aktionsmenü an der Mausposition öffnen — Alternative zum Rechtsklick (bei manchen
-      // Browsern/Setups kommt RMB nicht an). Öffnet dasselbe Radialmenü wie ein Rechtsklick.
-      if (deps.onRadialMenu !== undefined && lastPointerClientX >= 0) {
-        const rect = canvas.getBoundingClientRect()
-        deps.onRadialMenu(
-          screenToTile(lastPointerClientX, lastPointerClientY),
-          lastPointerClientX - rect.left,
-          lastPointerClientY - rect.top,
-        )
-      }
-    } else if (key === 'c') {
-      events.recenterSelf?.()
-    } else if (e.key === 'Escape') {
-      // Esc bricht erst Bomber-/Kriegsschiff-/Boot-/Bau-Modus ab, sonst zurück zum Menü
+      return
+    }
+    if (e.key === 'Escape') {
+      // Esc bricht erst Bomber-/Kriegsschiff-/Boot-/Bau-Modus ab, sonst zurück zum Menü.
       if (bomberMode) setBomberMode(false)
       else if (warshipMode) setWarshipMode(false)
       else if (boatMode) setBoatMode(false)
       else if (buildMode !== null) setBuildMode(null)
       else events.escape?.()
+      return
+    }
+    if (key in PAN_KEYS) {
+      heldPan.add(key)
+      startPan()
+      return
+    }
+    // Konfigurierbare Aktions-Tasten (Reverse-Lookup auf die Tastenkarte).
+    const action = resolveAction(key)
+    if (action === undefined) return
+    // Tempo + Zentrieren auch im Zuschauer-Modus erlaubt; alles andere nur interaktiv.
+    if (action === 'speedDown') {
+      events.cycleSpeed(-1)
+      return
+    }
+    if (action === 'speedUp') {
+      events.cycleSpeed(1)
+      return
+    }
+    if (action === 'center') {
+      events.recenterSelf?.()
+      return
+    }
+    if (deps.interactive === false) return
+    const buildType = BUILD_ACTION_TYPE[action]
+    if (buildType !== undefined) {
+      setBuildMode(buildMode === buildType ? null : buildType)
+      return
+    }
+    switch (action) {
+      case 'boat':
+        setBoatMode(!boatMode)
+        break
+      case 'bomber':
+        setBomberMode(!bomberMode)
+        break
+      case 'warship':
+        setWarshipMode(!warshipMode)
+        break
+      case 'shipRanges':
+        deps.onToggleShipRanges?.()
+        break
+      case 'radial':
+        // Aktionsmenü an der Mausposition öffnen — Alternative zum Rechtsklick (bei manchen
+        // Browsern/Setups kommt RMB nicht an). Öffnet dasselbe Radialmenü wie ein Rechtsklick.
+        if (deps.onRadialMenu !== undefined && lastPointerClientX >= 0) {
+          const rect = canvas.getBoundingClientRect()
+          deps.onRadialMenu(
+            screenToTile(lastPointerClientX, lastPointerClientY),
+            lastPointerClientX - rect.left,
+            lastPointerClientY - rect.top,
+          )
+        }
+        break
+      default:
+        break
     }
   }
 

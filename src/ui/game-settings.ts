@@ -9,6 +9,7 @@ import { panelStyle } from './theme'
 import { makeSelectRow, makeSliderRow } from './start-menu'
 import { loadAudioVolumes, saveAudioVolumes, type AudioVolumes } from './preferences'
 import { getHudPrefs, setHudPref, type RadialSize } from './hud-prefs'
+import { createKeybindSection } from './keybind-settings'
 
 export interface GameSettingsDeps {
   /** Live anwenden: Master/SFX/Musik (je 0..1) auf die laufende Sound-/Musik-Engine. */
@@ -104,6 +105,10 @@ export function createGameSettings(
   })
   box.appendChild(radial.element)
 
+  // ---- Tastenbelegung (umbelegbare Aktions-Tasten) ----
+  const keybinds = createKeybindSection()
+  box.appendChild(keybinds.element)
+
   // ---- Fertig ----
   const done = document.createElement('button')
   done.type = 'button'
@@ -132,6 +137,7 @@ export function createGameSettings(
   function setOpen(v: boolean): void {
     open = v
     backdrop.style.display = v ? 'flex' : 'none'
+    if (!v) keybinds.cancelCapture() // beim Schließen keine offene Tasten-Erfassung stehen lassen
   }
 
   container.appendChild(backdrop)
@@ -141,6 +147,7 @@ export function createGameSettings(
     close: () => setOpen(false),
     isOpen: () => open,
     destroy(): void {
+      keybinds.destroy()
       backdrop.remove()
     },
   }

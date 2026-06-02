@@ -16,6 +16,18 @@ import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } fr
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
 import { getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
+import {
+  FIXED_PRESET_IDS,
+  applyFixedPreset,
+  applyUserPreset,
+  deleteUserPreset,
+  hasFixedOverride,
+  listUserPresets,
+  resetFixedPreset,
+  saveFixedPreset,
+  saveUserPreset,
+  type FixedPresetId,
+} from './hud-presets'
 
 export interface HudEditorApi {
   /** Editor-Modus öffnen (z. B. aus dem Pause-Menü). */
@@ -692,9 +704,10 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       tabBtns.set(key, b)
       tabBar.appendChild(b)
     }
-    // Quick-Configs (Steuerungs-Modus-Presets) rechts in der Reiter-Leiste.
+    // Layout-Presets rechts in der Reiter-Leiste: feste Vorlagen + speicherbare eigene Slots.
     const quickWrap = document.createElement('div')
-    quickWrap.style.cssText = 'margin-left:auto;display:flex;align-items:center;gap:5px'
+    quickWrap.style.cssText =
+      'margin-left:auto;display:flex;align-items:center;gap:5px;flex-wrap:wrap'
     const quickLabel = document.createElement('span')
     quickLabel.textContent = `${t('hud.editor.quickConfig')}:`
     quickLabel.style.cssText = 'font-size:11px;opacity:0.7'
@@ -708,23 +721,113 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       'color:var(--tl-text)',
       'cursor:pointer',
     ].join(';')
-    const quickOpts: ReadonlyArray<readonly [string, string]> = [
-      ['', '—'],
-      ['standard', t('quickcfg.standard')],
-      ['mouse', t('quickcfg.mouse')],
-      ['wheel', t('quickcfg.wheel')],
-    ]
-    for (const [val, label] of quickOpts) {
+    const ph = document.createElement('option')
+    ph.value = ''
+    ph.textContent = '—'
+    quickSel.appendChild(ph)
+    // Feste Vorlagen (Steuerungs-Modi).
+    const tplGroup = document.createElement('optgroup')
+    tplGroup.label = t('hud.editor.presets.templates')
+    const FIXED_LABEL: Record<FixedPresetId, string> = {
+      standard: 'quickcfg.standard',
+      mouse: 'quickcfg.mouse',
+      wheel: 'quickcfg.wheel',
+    }
+    for (const id of FIXED_PRESET_IDS) {
       const o = document.createElement('option')
-      o.value = val
-      o.textContent = label
-      quickSel.appendChild(o)
+      o.value = `fixed:${id}`
+      // „*" markiert eine überschriebene (angepasste) Vorlage.
+      o.textContent = hasFixedOverride(id) ? `${t(FIXED_LABEL[id])} *` : t(FIXED_LABEL[id])
+      tplGroup.appendChild(o)
+    }
+    quickSel.appendChild(tplGroup)
+    // Eigene gespeicherte Slots.
+    const userNames = listUserPresets()
+    if (userNames.length > 0) {
+      const userGroup = document.createElement('optgroup')
+      userGroup.label = t('hud.editor.presets.custom')
+      for (const name of userNames) {
+        const o = document.createElement('option')
+        o.value = `user:${name}`
+        o.textContent = name
+        userGroup.appendChild(o)
+      }
+      quickSel.appendChild(userGroup)
     }
     quickSel.addEventListener('change', () => {
-      applyQuickConfig(quickSel.value)
-      quickSel.value = '' // wieder auf Platzhalter — es ist eine Aktion, kein Status.
+      const v = quickSel.value
+      if (v.startsWith('fixed:')) {
+        const id = v.slice(6)
+        if (id === 'standard' || id === 'mouse' || id === 'wheel') applyFixedPreset(id)
+      } else if (v.startsWith('user:')) {
+        applyUserPreset(v.slice(5))
+      }
+      // Auswahl bleibt stehen (kein Neuaufbau) → „Löschen" weiß, welcher Slot gemeint ist.
     })
-    quickWrap.append(quickLabel, quickSel)
+    const presetBtn = (label: string): HTMLButtonElement => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      b.style.cssText =
+        'font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--tl-panel-border-color);background:transparent;color:var(--tl-text);cursor:pointer'
+      return b
+    }
+    // „Speichern in …": aktuelle Anordnung in einen NEUEN Slot oder in ein bestehendes Preset
+    // sichern — auch in die festen Vorlagen (Standard/Maus/Navigations-Rad überschreiben). Eigenes
+    // Dropdown, damit das Wählen des Ziels nicht (wie beim Anwenden-Dropdown) vorher ein Preset lädt.
+    const saveSel = document.createElement('select')
+    saveSel.style.cssText = quickSel.style.cssText
+    const savePh = document.createElement('option')
+    savePh.value = ''
+    savePh.textContent = t('hud.editor.presets.saveInto')
+    saveSel.appendChild(savePh)
+    const newOpt = document.createElement('option')
+    newOpt.value = 'new'
+    newOpt.textContent = t('hud.editor.presets.newSlot')
+    saveSel.appendChild(newOpt)
+    for (const id of FIXED_PRESET_IDS) {
+      const o = document.createElement('option')
+      o.value = `fixed:${id}`
+      o.textContent = `→ ${t(FIXED_LABEL[id])}`
+      saveSel.appendChild(o)
+    }
+    for (const name of userNames) {
+      const o = document.createElement('option')
+      o.value = `user:${name}`
+      o.textContent = `→ ${name}`
+      saveSel.appendChild(o)
+    }
+    saveSel.addEventListener('change', () => {
+      const v = saveSel.value
+      if (v === 'new') {
+        saveUserPreset(nextSlotName())
+      } else if (v.startsWith('fixed:')) {
+        const id = v.slice(6)
+        if (id === 'standard' || id === 'mouse' || id === 'wheel') saveFixedPreset(id)
+      } else if (v.startsWith('user:')) {
+        saveUserPreset(v.slice(5))
+      } else {
+        return
+      }
+      buildToolbar()
+    })
+    // Löschen / Zurücksetzen je nach Anwenden-Auswahl: eigener Slot → löschen; feste Vorlage mit
+    // Override → auf den eingebauten Default zurücksetzen.
+    const delBtn = presetBtn(t('hud.editor.presets.delete'))
+    delBtn.addEventListener('click', () => {
+      const v = quickSel.value
+      if (v.startsWith('user:')) {
+        deleteUserPreset(v.slice(5))
+        buildToolbar()
+      } else if (v.startsWith('fixed:')) {
+        const id = v.slice(6)
+        if ((id === 'standard' || id === 'mouse' || id === 'wheel') && hasFixedOverride(id)) {
+          resetFixedPreset(id)
+          buildToolbar()
+        }
+      }
+    })
+    quickWrap.append(quickLabel, quickSel, saveSel, delBtn)
     tabBar.appendChild(quickWrap)
     toolbar.appendChild(tabBar)
     toolbar.appendChild(paneDesign)
@@ -954,22 +1057,14 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     refreshElementList()
   }
 
-  // ---- Quick-Configs: Steuerungs-Modus-Presets ----------------------------------------------
-  // Setzen den Steuerungs-Modus (+ passende Knopf-Anordnung) auf einen Schlag. Reine hud-prefs →
-  // greifen live (onHudPrefsChange) und sind multiplayer-sicher. „Standard" stellt zusätzlich das
-  // Layout zurück. Bewusst KEIN fragiles Pixel-Repositionieren je Bildschirmgröße.
-  function applyQuickConfig(name: string): void {
-    if (name === 'standard') {
-      doReset()
-      setHudPref('controlMode', 'auto')
-    } else if (name === 'mouse') {
-      setHudPref('controlMode', 'desktop')
-      setHudPref('buttonsLayout', 'row')
-    } else if (name === 'wheel') {
-      setHudPref('controlMode', 'touch')
-    }
-    // Toolbar neu aufbauen, damit die Segment-Schalter (z. B. Steuerung) den neuen Stand zeigen.
-    buildToolbar()
+  // ---- Layout-Presets: nächster freier Auto-Name für einen eigenen Slot ----------------------
+  // Anwenden/Speichern/Löschen laufen über `hud-presets` (feste Vorlagen + eigene Slots); das
+  // Dropdown + die Knöpfe sind in `buildToolbar` verdrahtet.
+  function nextSlotName(): string {
+    const existing = new Set(listUserPresets())
+    let n = 1
+    while (existing.has(t('hud.editor.presets.slotName', { n: String(n) }))) n++
+    return t('hud.editor.presets.slotName', { n: String(n) })
   }
 
   // Panels, die der Editor nur fürs Bearbeiten sichtbar gemacht hat (zustandsbedingt leer wie
