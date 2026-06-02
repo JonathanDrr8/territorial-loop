@@ -114,6 +114,11 @@ export interface HUDApi {
   setSliderPct(pct: number): void
   /** Blitzt kurz einen „Resync…"-Hinweis auf (Server-Korrektur-Snapshot eingespielt). */
   flashResync(): void
+  /**
+   * Mobile-Modus: blendet die Desktop-Panels (Zeit, Rangliste, Angriffe, Truppen, Bau-Leiste)
+   * aus — auf dem Handy übernimmt das Eck-Rad-Cockpit. Bündnis-Karte/Niederlage-Overlay bleiben.
+   */
+  setMobile(on: boolean): void
   destroy(): void
 }
 
@@ -190,6 +195,10 @@ export function createHUD(
   let currentSliderPct = DEFAULT_SLIDER_PCT
   let rankSort: RankSort = 'troops'
   let rankExpanded = false
+  // Mobile-Layout: Desktop-Panels (Zeit/Rangliste/Angriffe/Truppen/Bau-Leiste) werden
+  // ausgeblendet — auf dem Handy zeigt das Eck-Rad alles Wichtige (Cockpit). Nur die
+  // Bündnis-Karte (außerhalb des HUD, in main.ts) bleibt einblendbar.
+  let mobile = false
   // Geglättetes Gold-Einkommen (Gold/s) — mittelt sprunghaften Handel. Per Sample
   // alle GOLD_SAMPLE_TICKS Ticks aktualisiert (EMA).
   let goldRatePerSec = 0
@@ -1226,6 +1235,11 @@ export function createHUD(
 
   /** Aktualisiert die Truppen-Leiste + Bau-Buttons des eigenen Spielers. */
   function updateActionBar(): void {
+    if (mobile) {
+      actionBar.style.display = 'none'
+      troopBadge.style.display = 'none'
+      return
+    }
     const human = findHuman()
     if (human === undefined || !human.isAlive) {
       // Toter/eliminierter Spieler (oder Zuschauer): Aktions-Leiste UND Truppen/Gold-Panel weg —
@@ -1377,6 +1391,10 @@ export function createHUD(
   let lastAttackHtml = ''
   /** Übersicht eigener (ausgehender) und eingehender Angriffe mit Dauer. */
   function updateAttackPanel(): void {
+    if (mobile) {
+      attackPanel.style.display = 'none'
+      return
+    }
     const human = findHuman()
     if (human === undefined || !human.isAlive) {
       attackPanel.style.display = 'none'
@@ -1475,6 +1493,10 @@ export function createHUD(
 
   /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
   function updateRankList(): void {
+    if (mobile) {
+      rankPanel.style.display = 'none'
+      return
+    }
     const totalTiles =
       state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
     // Wilde Nationen tauchen in der Rangliste nicht auf — sie können nicht gewinnen, das hält die
@@ -1610,6 +1632,17 @@ export function createHUD(
   return {
     update,
     showDefeat,
+    setMobile(on: boolean): void {
+      mobile = on
+      infoBox.style.display = on ? 'none' : ''
+      rankPanel.style.display = on ? 'none' : ''
+      if (on) {
+        actionBar.style.display = 'none'
+        troopBadge.style.display = 'none'
+        attackPanel.style.display = 'none'
+      }
+      // Bei on→off stellen die update-Funktionen die Sichtbarkeit beim nächsten Frame korrekt her.
+    },
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
       pauseOverlay.style.display = speed === 0 ? 'flex' : 'none'

@@ -21,6 +21,8 @@ export interface MinimapApi {
   update(): void
   /** Position live umschalten (Steuerungs-Modus). */
   setMobile(on: boolean): void
+  /** Komplett ein-/ausblenden (Mobile-Cockpit: Minimap aus, das Eck-Rad übernimmt). */
+  setVisible(on: boolean): void
   destroy(): void
 }
 
@@ -174,6 +176,9 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
         wrapper.style.bottom = `${String(MARGIN)}px`
         wrapper.style.top = 'auto'
       }
+    },
+    setVisible(on: boolean): void {
+      wrapper.style.display = on ? '' : 'none'
     },
     destroy(): void {
       unregisterPanel('minimap')

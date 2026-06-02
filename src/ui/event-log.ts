@@ -19,6 +19,8 @@ import { panelStyle } from './theme'
 
 export interface EventLogApi {
   update(): void
+  /** Blendet das Log-Panel ein/aus (Mobile: ausgeblendet, das Cockpit-Rad übernimmt). */
+  setVisible(on: boolean): void
   destroy(): void
 }
 
@@ -250,6 +252,9 @@ export function createEventLog(
 
   return {
     update,
+    setVisible(on: boolean): void {
+      box.style.display = on ? '' : 'none'
+    },
     destroy(): void {
       box.remove()
     },

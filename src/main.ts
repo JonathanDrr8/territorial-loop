@@ -877,13 +877,22 @@ function startMatch(
     onBomber: () => input.toggleBomberMode(),
     onWarship: () => input.toggleWarshipMode(),
   })
-  actionWheel.setVisible(isMobileLayout() && !spectator)
-  // Steuerungs-Modus live (HUD-Editor): Eck-Rad ein/aus + Minimap oben/unten umschalten.
-  const offControlMode = onHudPrefsChange(() => {
+  // Mobile-Cockpit: das Eck-Rad zeigt alles Wichtige → die Desktop-Panels (Zeit, Rangliste,
+  // Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-Karte
+  // (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
+  // Zuschauer haben kein Rad → für sie bleiben die Panels sichtbar (sonst leerer Bildschirm).
+  const applyMobileLayout = (): void => {
     const m = isMobileLayout()
-    actionWheel.setVisible(m && !spectator)
+    const cockpit = m && !spectator
+    actionWheel.setVisible(cockpit)
     minimap.setMobile(m)
-  })
+    minimap.setVisible(!cockpit)
+    hud.setMobile(cockpit)
+    eventLog.setVisible(!cockpit)
+  }
+  applyMobileLayout()
+  // Steuerungs-Modus live (HUD-Editor): Cockpit ein/aus umschalten.
+  const offControlMode = onHudPrefsChange(applyMobileLayout)
 
   hud.setSpeed(speed)
 
