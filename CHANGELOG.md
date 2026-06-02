@@ -4,6 +4,30 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.34.0] – 2026-06-02
+
+### Neu
+
+- **Layout-Vorlagen im HUD-Editor:** Der HUD-Editor kennt jetzt drei feste Vorlagen —
+  **Standard**, **Maus** und **Navigations-Rad** — sowie eigene speicherbare **Slots**.
+  Über „Speichern in…" legt man die aktuelle Panel-Anordnung in einem eigenen Slot ab
+  oder überschreibt eine der festen Vorlagen. Geänderte Vorlagen sind mit **„\*"**
+  markiert; „Löschen" setzt sie auf den Originalzustand zurück bzw. entfernt eigene Slots.
+
+- **Konfigurierbare Tastenbelegung:** Alle wichtigen Aktionstasten lassen sich jetzt
+  umbelegen — **Kamera zentrieren**, **Aktionsmenü öffnen**, **Transportboot**, **Bomber**,
+  **Kriegsschiff**, **Schiff-Reichweite anzeigen**, **Spieltempo hoch/runter** sowie alle
+  **Bau-Hotkeys** (Stadt, Verteidigung, Hafen, Fabrik, Flugplatz, Flak). Klick auf eine
+  Belegung, gewünschte Taste drücken, fertig. „Zurücksetzen" stellt die Standardtasten
+  wieder her. Erreichbar sowohl im **Einstellungen-Reiter des Hauptmenüs** als auch im
+  **Esc-Menü während einer Partie**. WASD, Leertaste und Esc bleiben fest.
+
+### Geändert
+
+- **Tutorial-Knopf besser sichtbar:** Der „Tutorial"-Knopf sitzt jetzt prominent
+  unterhalb der Lobby-Liste auf der Startseite — statt wie bisher halb versteckt im
+  Setup-Bereich.
+
 ## [0.33.0] – 2026-06-02
 
 ### Neu
