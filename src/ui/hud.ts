@@ -22,6 +22,7 @@ import {
   DEFENSE_RANGE_PER_LEVEL,
   FLAK_BASE_RANGE,
   FLAK_RANGE_PER_LEVEL,
+  MAX_BUILDING_LEVEL,
   type BuildingType,
 } from '../core/buildings'
 import { WARSHIP_COST, type BomberRoute } from '../core/ships'
@@ -30,6 +31,7 @@ import { areAllied, pairKey } from '../core/diplomacy'
 import {
   bomberHangarInfo,
   bomberLaunchInfo,
+  buildCostAtLevel,
   buildCostFor,
   countBuildingsOfType,
   effectiveMaxTroops,
@@ -42,6 +44,7 @@ import {
 } from '../core/game'
 import { t } from '../i18n'
 import { rgbaToCss } from './colors'
+import { createBuildLevelStrip } from './build-level-strip'
 import { buildingIcon, icon } from './icons'
 import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
 import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
@@ -104,6 +107,8 @@ export interface HUDApi {
   setSpeed(speed: SpeedMultiplier): void
   /** Markiert den aktiven Bau-Modus-Button. `null` = kein Bau-Modus aktiv. */
   setBuildMode(type: BuildingType | null): void
+  /** Hebt das aktive Bau-Level in der Stufen-Leiste hervor (Level-Direktbau). */
+  setBuildLevel(level: number): void
   /** Markiert den Boot-Modus (Button-Highlight + Hinweisbanner). */
   setBoatMode(on: boolean): void
   /** Zeigt/aktualisiert den Bomber-Modus-Hinweis (mit aktiver Route). */
@@ -197,6 +202,8 @@ export function createHUD(
   onCenterPlayer: (playerId: number) => void,
   /** Spieler-ID des lokalen Menschen („du") — MP-sicher statt isHuman zu raten. */
   localHumanId: number,
+  /** Level-Direktbau: ein Level in der Stufen-Leiste gewählt → an den Input-Handler weiterreichen. */
+  onBuildLevelPick: (level: number) => void,
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
@@ -851,6 +858,18 @@ export function createHUD(
   }
   actionBar.appendChild(buildRow)
 
+  // Stufen-Leiste fürs Level-Direktbauen: erscheint, sobald ein Bau-Modus scharf ist; wählt das
+  // Ziel-Level (I/II/III) des nächsten Neubaus. Sitzt direkt unter der Bau-Reihe.
+  const buildLevelStrip = createBuildLevelStrip({
+    onPick: (level) => {
+      onBuildLevelPick(level)
+    },
+    levelCount: MAX_BUILDING_LEVEL,
+  })
+  buildLevelStrip.element.style.marginTop = '6px'
+  let buildStripType: BuildingType | null = null
+  actionBar.appendChild(buildLevelStrip.element)
+
   // Einheiten-Reihe (Toggle-Modi): Boot / Bomber / Kriegsschiff — jeweils mit Hotkey + Kosten.
   // Klick schaltet den Modus, danach setzt ein Linksklick auf der Karte die Einheit ab.
   const unitRow = document.createElement('div')
@@ -1410,6 +1429,13 @@ export function createHUD(
         }
       }
     }
+    // Stufen-Leiste (Level-Direktbau): Pro-Level-Kosten + Bezahlbarkeit live nachführen.
+    if (buildStripType !== null) {
+      buildLevelStrip.refresh((type, level) => {
+        const c = buildCostAtLevel(state, human.id, type, level)
+        return { cost: c, affordable: human.gold >= c }
+      })
+    }
     // Bomber-Kosten dynamisch: nur Munition (geparktes Flugzeug) oder Flugzeug-Kauf + Munition.
     const bi = bomberLaunchInfo(state, human.id)
     bomberCostEl.textContent = fmtCompact(bi.cost)
@@ -1727,6 +1753,12 @@ export function createHUD(
         btn.style.color = active ? '#1a1a1a' : 'white'
         btn.style.borderColor = active ? '#e8c14a' : 'rgba(255,255,255,0.15)'
       }
+      buildStripType = type
+      if (type !== null) buildLevelStrip.show(type)
+      else buildLevelStrip.hide()
+    },
+    setBuildLevel(level: number): void {
+      buildLevelStrip.setActiveLevel(level)
     },
     setSliderPct(pct: number): void {
       const v = Math.max(0, Math.min(100, Math.round(pct)))

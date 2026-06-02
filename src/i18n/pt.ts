@@ -473,6 +473,7 @@ export const pt: Record<string, string> = {
   'hud.warshipModeHint':
     'Modo navio de guerra: clica num alvo na água (precisa de porto + ouro) · Esc termina',
   'hud.attack': 'Ataque: {pct}%',
+  'hud.buildLevel': 'Nível',
   'hud.newMatch': 'Nova partida',
   'hud.keepWatching': 'Continuar a ver',
   'hud.keepSpectating': 'Continuar a observar',

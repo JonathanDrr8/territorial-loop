@@ -12,6 +12,7 @@ import { loadRanked, recordResult, resetRanked } from './ui/ranked'
 import { submitRank, isRankHidden } from './ui/rank-online'
 import { initAccountSync } from './ui/account-settings'
 import {
+  buildCostAtLevel,
   canBuildAt,
   canReachByLand,
   createGame,
@@ -647,6 +648,7 @@ function startMatch(
     },
     centerCamera,
     localHumanId,
+    (level) => inputHandler?.setBuildLevel(level),
   )
 
   // Mid-Match-Resync (ADR-0009 Phase 6): erkennt der Server einen Desync (aus `reportHash`),
@@ -849,6 +851,11 @@ function startMatch(
       renderer.setBuildPreview(mode)
       actionWheel.setBuildMode(mode) // Bau-Rad hebt das gewählte Gebäude hervor (Mobile-Cockpit)
     },
+    // Level-Direktbau: gewähltes Bau-Level → beide Stufen-Leisten (HUD + Bau-Rad) synchron halten.
+    onBuildLevelChange: (level) => {
+      hud.setBuildLevel(level)
+      actionWheel.setBuildLevel(level)
+    },
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
     },
@@ -878,7 +885,17 @@ function startMatch(
     onRadialMenu: (tile, screenX, screenY) => {
       buildMenu.open(tile, screenX, screenY)
     },
-    canPlaceBuilding: (tile, type) => canBuildAt(state, humanId, tile, type),
+    canPlaceBuilding: (tile, type) => {
+      if (!canBuildAt(state, humanId, tile, type)) return false
+      // Auf bestehendem Gebäude = Upgrade (Level-Feld ignoriert) → keine Level-Direktbau-Kosten.
+      if (state.buildings.has(tile)) return true
+      // Level-Direktbau: canBuildAt prüft nur die L1-Kosten — das gewählte Ziel-Level muss voll
+      // bezahlbar sein, sonst Geist rot (und der Klick platziert nichts).
+      const level = inputHandler?.getBuildLevel() ?? 1
+      if (level <= 1) return true
+      const me = state.players.get(humanId)
+      return me !== undefined && me.gold >= buildCostAtLevel(state, humanId, type, level)
+    },
     snapBuildTarget: (tile, type) => snapBuildTile(state, humanId, tile, type),
     // Doppelklick-Boot: nur fremdes/neutrales LAND, das NICHT über Land erreichbar ist (also reine
     // Wasser-Anbindung) → ein Land-Angriff wäre wirkungslos, gemeint ist ein Transportboot.
@@ -964,6 +981,13 @@ function startMatch(
       const cost = humanId >= 0 ? buildCostFor(state, humanId, tp) : 0
       return { cost, affordable: meP !== undefined && meP.gold >= cost }
     },
+    // Pro-Level-Kosten fürs Direktbauen (Stufen-Leiste im Bau-Rad).
+    buildLevelInfo: (tp, level) => {
+      const meP = humanId >= 0 ? state.players.get(humanId) : undefined
+      const cost = humanId >= 0 ? buildCostAtLevel(state, humanId, tp, level) : 0
+      return { cost, affordable: meP !== undefined && meP.gold >= cost }
+    },
+    onSetBuildLevel: (level) => inputHandler?.setBuildLevel(level),
   })
   // Mobile-Top-Leiste (oben rechts): feste Werte, die im Rad schlecht ablesbar sind —
   // Truppen-Balken mit Cap + Gold/Rate, dazu ☰ Menü (öffnet Pause-/ESC-Menü inkl. „HUD anpassen")

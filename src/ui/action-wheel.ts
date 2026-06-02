@@ -10,8 +10,9 @@
  * SVG-Farben konkret (var(--tl-…) löst in style.fill nicht auf).
  */
 
-import type { BuildingType } from '../core/buildings'
+import { MAX_BUILDING_LEVEL, type BuildingType } from '../core/buildings'
 import { growthZones } from '../core/config'
+import { createBuildLevelStrip } from './build-level-strip'
 import { buildingIcon, icon } from './icons'
 import { t } from '../i18n'
 
@@ -47,6 +48,16 @@ export interface ActionWheelDeps {
    * (ohne sie zeigt das Bau-Rad nur Name/Icon). Wird jedes Mal beim Öffnen des Bau-Rads abgefragt.
    */
   readonly buildInfo?: (type: BuildingType) => { cost: number; affordable: boolean }
+  /**
+   * Live-Kosten + Bezahlbarkeit eines Gebäudes auf einem bestimmten LEVEL (Level-Direktbau) — für
+   * die Stufen-Leiste im Bau-Rad. Optional (ohne sie zeigt die Leiste keine Preise).
+   */
+  readonly buildLevelInfo?: (
+    type: BuildingType,
+    level: number,
+  ) => { cost: number; affordable: boolean }
+  /** Ein Level in der Stufen-Leiste gewählt → an den Input-Handler weiterreichen. */
+  readonly onSetBuildLevel?: (level: number) => void
 }
 
 /** Live-Werte fürs Cockpit (Mitte des Rads + Füll-Ring). */
@@ -82,6 +93,8 @@ export interface ActionWheelApi {
   setStats(s: WheelStats): void
   /** Aktiver Bau-Modus (zum Hervorheben im Bau-Rad). null = kein Bau-Modus. */
   setBuildMode(type: BuildingType | null): void
+  /** Aktives Bau-Level in der Stufen-Leiste hervorheben (Level-Direktbau). */
+  setBuildLevel(level: number): void
   /** Wurzel-Element (zum Registrieren als verschieb-/skalierbares HUD-Panel im Editor). */
   readonly element: HTMLElement
   destroy(): void
@@ -116,6 +129,41 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   // gewählte Gebäude hervor (man sieht auf dem Handy, was gerade scharf ist).
   let currentView: 'top' | 'build' | 'ships' = 'top'
   let activeBuild: BuildingType | null = null
+  let wheelVisible = false
+
+  // Stufen-Leiste (Level-Direktbau) über dem Rad: erscheint, sobald ein Gebäude scharf ist UND das
+  // Rad sichtbar ist (Mobile-Cockpit) — sonst gäbe es eine Dublette zur HUD-Leiste am Desktop.
+  const buildStrip = createBuildLevelStrip({
+    onPick: (level) => deps.onSetBuildLevel?.(level),
+    levelCount: MAX_BUILDING_LEVEL,
+  })
+  // Fest unten-mittig (nicht am Rad festgemacht): das Rad lässt sich frei platzieren/verschieben,
+  // die Leiste bleibt so IMMER sichtbar statt mit einem verschobenen Rad vom Schirm zu rutschen.
+  const stripEl = buildStrip.element
+  stripEl.style.position = 'absolute'
+  stripEl.style.left = '50%'
+  stripEl.style.bottom = '96px'
+  stripEl.style.transform = 'translateX(-50%)'
+  stripEl.style.width = '210px'
+  stripEl.style.zIndex = '18'
+  stripEl.style.pointerEvents = 'auto'
+  stripEl.style.padding = '6px 9px'
+  stripEl.style.borderRadius = '10px'
+  stripEl.style.background = IDLE_FILL
+  stripEl.style.border = `1px solid ${IDLE_STROKE}`
+  stripEl.style.fontFamily = 'var(--tl-font)'
+  container.appendChild(stripEl)
+
+  function syncStrip(): void {
+    if (wheelVisible && activeBuild !== null) buildStrip.show(activeBuild)
+    else buildStrip.hide()
+  }
+  function refreshStrip(): void {
+    const info = deps.buildLevelInfo
+    if (info === undefined) return
+    buildStrip.refresh((type, level) => info(type, level))
+  }
+
   const rRing = rOut + 2
   const ringCirc = 2 * Math.PI * rRing
 
@@ -388,22 +436,31 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
 
   return {
     setVisible(on: boolean): void {
+      wheelVisible = on
       panel.style.display = on ? 'block' : 'none'
       if (on) showTop() // beim Einblenden auf die oberste Ebene zurück
+      syncStrip()
     },
     setStats(s: WheelStats): void {
       stats = s
       applyStats()
+      refreshStrip()
     },
     setBuildMode(type: BuildingType | null): void {
       if (activeBuild === type) return
       activeBuild = type
       // Wenn das Bau-Rad gerade offen ist, neu zeichnen → Highlight wandert aufs aktive Gebäude.
       if (currentView === 'build') showBuild()
+      syncStrip()
+      refreshStrip()
+    },
+    setBuildLevel(level: number): void {
+      buildStrip.setActiveLevel(level)
     },
     element: panel,
     destroy(): void {
       panel.remove()
+      stripEl.remove()
     },
   }
 }

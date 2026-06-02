@@ -427,6 +427,7 @@ export const ja: Record<string, string> = {
   'hud.bomberWarnShot': '撃墜されます！',
   'hud.warshipModeHint': '軍艦モード：水上の目標をクリック（港 + 金が必要）· Esc で終了',
   'hud.attack': '攻撃：{pct}%',
+  'hud.buildLevel': 'レベル',
   'hud.newMatch': '新しい対戦',
   'hud.keepWatching': '観戦を続ける',
   'hud.keepSpectating': '観戦を継続する',

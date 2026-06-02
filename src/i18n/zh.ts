@@ -420,6 +420,7 @@ export const zh: Record<string, string> = {
   'hud.bomberWarnShot': '将被击落！',
   'hud.warshipModeHint': '战舰模式：点击水面目标（需要港口 + 金币）· Esc 结束',
   'hud.attack': '进攻：{pct}%',
+  'hud.buildLevel': '等级',
   'hud.newMatch': '新对局',
   'hud.keepWatching': '继续观看',
   'hud.keepSpectating': '继续旁观',

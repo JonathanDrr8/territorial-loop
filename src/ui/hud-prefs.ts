@@ -7,6 +7,8 @@
  * Listener werden bei jeder Änderung benachrichtigt, damit das HUD **live** re-rendert.
  */
 
+import { MAX_BUILDING_LEVEL } from '../core/buildings'
+
 /** Heimat des Angriffs-Sliders: im Aktions-Panel (Default) oder beim Truppen-Block. */
 export type SliderHome = 'action' | 'resource'
 /** Anordnung der Kauf-Knöpfe: zwei Reihen (Default) oder 3×3-Numpad auf den Hotkey-Positionen. */
@@ -50,6 +52,12 @@ export interface HudPrefs {
    * dafür schnelleres Antippen). Default 250.
    */
   tapAttackDelayMs: number
+  /**
+   * Zuletzt gewähltes Bau-Level (Level-Direktbau): 1..MAX_BUILDING_LEVEL. Wird gemerkt und beim
+   * nächsten Bau-Modus vorgewählt (Jonathans „merkt sich, was man zuletzt gedrückt hat"). Reine
+   * Client-Präferenz — geht nicht in den Sim-State (jeder Build-Intent trägt sein Level explizit).
+   */
+  buildLevel: number
 }
 
 /** Erlaubter Bereich für [[HudPrefs.offscreenLabelCount]]. */
@@ -61,6 +69,9 @@ export const OFFSCREEN_LABEL_DEFAULT = 7
 export const TAP_ATTACK_DELAY_MIN = 0
 export const TAP_ATTACK_DELAY_MAX = 400
 export const TAP_ATTACK_DELAY_DEFAULT = 250
+
+/** Default-Bau-Level (Level-Direktbau). */
+export const BUILD_LEVEL_DEFAULT = 1
 
 const KEY = 'territorial-loop:hud-prefs:v1'
 
@@ -86,6 +97,7 @@ const DEFAULTS: HudPrefs = {
   radialSize: 'normal',
   offscreenLabelCount: OFFSCREEN_LABEL_DEFAULT,
   tapAttackDelayMs: TAP_ATTACK_DELAY_DEFAULT,
+  buildLevel: BUILD_LEVEL_DEFAULT,
 }
 
 /** Clamped/validierter Off-Screen-Label-Wert aus rohem Input (Fallback = Default). */
@@ -98,6 +110,12 @@ function clampOffscreen(v: unknown): number {
 function clampTapDelay(v: unknown): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return TAP_ATTACK_DELAY_DEFAULT
   return Math.max(TAP_ATTACK_DELAY_MIN, Math.min(TAP_ATTACK_DELAY_MAX, Math.round(v)))
+}
+
+/** Clamped/validiertes Bau-Level (1..MAX) aus rohem Input (Fallback = Default). */
+function clampBuildLevel(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return BUILD_LEVEL_DEFAULT
+  return Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.round(v)))
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -131,6 +149,7 @@ function load(): HudPrefs {
             : 'normal',
         offscreenLabelCount: clampOffscreen(parsed.offscreenLabelCount),
         tapAttackDelayMs: clampTapDelay(parsed.tapAttackDelayMs),
+        buildLevel: clampBuildLevel(parsed.buildLevel),
       }
     }
   } catch {

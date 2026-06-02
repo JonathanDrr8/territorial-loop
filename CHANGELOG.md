@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.50.0] – 2026-06-02
+
+### Neu
+
+- **Gebäude direkt auf höherem Level bauen:** Im Bau-Modus wählst du jetzt über eine Stufen-Leiste
+  (I / II / III), auf welcher Stufe das Gebäude direkt entsteht — gegen Aufpreis (Bau + alle Upgrades
+  auf einmal), statt es später Stufe für Stufe hochzuziehen. Die Leiste sitzt am Desktop über der
+  Bau-Reihe und am Handy unten-mittig; das **zuletzt gewählte Level wird gemerkt** und beim nächsten
+  Mal vorgewählt. Auch die KI baut bei Gold-Überschuss direkt auf höherer Stufe.
+
 ## [0.49.0] – 2026-06-02
 
 ### Geändert

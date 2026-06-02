@@ -474,6 +474,7 @@ export const en: Record<string, string> = {
   'hud.bomberWarnShot': 'Will be shot down!',
   'hud.warshipModeHint': 'Warship mode: click a water target (needs a port + gold) · Esc ends',
   'hud.attack': 'Attack: {pct}%',
+  'hud.buildLevel': 'Tier',
   'hud.newMatch': 'New match',
   'hud.keepWatching': 'Keep watching',
   'hud.keepSpectating': 'Keep spectating',
