@@ -1002,11 +1002,14 @@ function startMatch(
     minimap.setMobile(m)
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
-    eventLog.setVisible(!cockpit)
+    // Log ist jetzt auch auf Mobile verfügbar (Teil der verschiebbaren Feed-Spalte).
+    eventLog.setVisible(true)
     // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
-    // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap.
+    // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap. Hat der Spieler die
+    // Feed-Spalte im HUD-Editor verschoben (Override), respektieren wir das und positionieren NICHT um.
     alliancePrompt.setCompact(cockpit)
-    if (cockpit) {
+    const feedMoved = getPanel('feed') !== undefined
+    if (cockpit && !feedMoved) {
       feedColumn.style.top = '52px'
       feedColumn.style.bottom = 'auto'
       feedColumn.style.left = '0'
@@ -1018,7 +1021,7 @@ function startMatch(
       feedColumn.style.width = '84%'
       feedColumn.style.maxWidth = '360px'
       feedColumn.style.maxHeight = '40vh'
-    } else {
+    } else if (!cockpit && !feedMoved) {
       feedColumn.style.top = 'auto'
       feedColumn.style.bottom = '224px'
       feedColumn.style.left = 'auto'
