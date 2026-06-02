@@ -8,7 +8,7 @@
  * Strich-Icons statt Emojis (Projekt-Regel). Theme-getönt über `panelStyle`.
  */
 
-import type { WheelStats } from './action-wheel'
+import { troopFillColor, type WheelStats } from './action-wheel'
 import { panelStyle } from './theme'
 import { icon } from './icons'
 import { t } from '../i18n'
@@ -115,8 +115,9 @@ export function createMobileTopbar(
     setStats(s: WheelStats): void {
       const frac = s.cap > 0 ? Math.max(0, Math.min(1, s.troops / s.cap)) : 0
       troopFill.style.width = `${String(frac * 100)}%`
-      // Farb-Logik wie der Cockpit-Ring darüber: rot bei Angriff, gelb ab 85 % Auslastung, sonst grün.
-      troopFill.style.background = s.underAttack ? '#e8736b' : frac >= 0.85 ? '#e8c14a' : '#5adc78'
+      // Farbe nach Wachstums-Effizienz (wie der Cockpit-Ring): grün=wächst gut, gelb=stagnierend,
+      // rot=voll/stark stagnierend oder unter Angriff → man sieht sofort, ob man effizient ist.
+      troopFill.style.background = troopFillColor(s.troops, s.cap, s.underAttack)
       troopText.textContent = `${fmtK(s.troops)} / ${fmtK(s.cap)}`
       if (goldSpan !== null) {
         const sign = s.rate > 0 ? '+' : ''

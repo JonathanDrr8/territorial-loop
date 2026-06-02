@@ -944,6 +944,47 @@ function startMatch(
   registerPanel('wheel', actionWheel.element)
   registerScalable(mobileTopbar.element)
   registerPanel('topbar', mobileTopbar.element)
+  // Vertikaler Angriffsgrößen-Slider (Mobile): rechter Rand, über dem Rad, 0 unten / 100 oben.
+  // Setzt denselben sliderPct wie der Desktop-Slider (Shift+Mausrad/Aktionsleiste).
+  const attackBar = document.createElement('div')
+  attackBar.style.cssText = panelStyle([
+    'position: absolute',
+    'right: 16px',
+    'bottom: 300px',
+    'z-index: 18',
+    'display: flex',
+    'flex-direction: column',
+    'align-items: center',
+    'gap: 6px',
+    'padding: 8px 5px',
+    'pointer-events: auto',
+  ])
+  const attackVal = document.createElement('div')
+  attackVal.style.cssText =
+    'font-size: 12px; font-weight: 700; color: var(--tl-accent); font-family: var(--tl-num-font); font-variant-numeric: tabular-nums'
+  const attackRange = document.createElement('input')
+  attackRange.type = 'range'
+  attackRange.min = '0'
+  attackRange.max = '100'
+  attackRange.step = '1'
+  attackRange.value = String(sliderPct)
+  attackRange.setAttribute('aria-label', t('hud.attack', { pct: sliderPct }))
+  // Vertikal mit 0 unten / 100 oben (writing-mode + rtl). Höhe responsiv (kurze Querformat-Screens).
+  attackRange.style.cssText =
+    'writing-mode: vertical-lr; direction: rtl; width: 26px; height: min(42vh, 230px); cursor: pointer; accent-color: var(--tl-accent)'
+  const syncAttackVal = (): void => {
+    attackVal.textContent = `${attackRange.value}%`
+  }
+  attackRange.addEventListener('input', () => {
+    sliderPct = Number(attackRange.value)
+    hud.setSliderPct(sliderPct)
+    syncAttackVal()
+  })
+  syncAttackVal()
+  attackBar.append(attackVal, attackRange)
+  container.appendChild(attackBar)
+  registerScalable(attackBar)
+  registerPanel('attackbar', attackBar)
   // Mobile-Cockpit: das Eck-Rad + die Top-Leiste zeigen alles Wichtige → die Desktop-Panels (Zeit,
   // Rangliste, Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-
   // Karte (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
@@ -955,6 +996,7 @@ function startMatch(
     // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
     actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
     mobileTopbar.setVisible(cockpit && getPanel('topbar')?.hidden !== true)
+    attackBar.style.display = cockpit && getPanel('attackbar')?.hidden !== true ? 'flex' : 'none'
     // Desktop-Menü-Knopf nur ohne Cockpit (auf dem Handy hat die Top-Leiste das ☰).
     desktopMenuBtn.style.display = cockpit ? 'none' : 'flex'
     minimap.setMobile(m)
@@ -1225,7 +1267,9 @@ function startMatch(
       buildMenu.destroy()
       unregisterPanel('wheel')
       unregisterPanel('topbar')
+      unregisterPanel('attackbar')
       unregisterPanel('menu')
+      attackBar.remove()
       desktopMenuBtn.remove()
       actionWheel.destroy()
       mobileTopbar.destroy()

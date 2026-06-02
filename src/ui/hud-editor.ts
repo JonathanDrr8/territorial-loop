@@ -45,6 +45,7 @@ const PANEL_LABEL: Record<string, string> = {
   rank: 'hud.editor.panel.rank',
   wheel: 'hud.editor.panel.wheel',
   topbar: 'hud.editor.panel.topbar',
+  attackbar: 'hud.editor.panel.attackbar',
   menu: 'hud.editor.panel.menu',
   feedback: 'hud.editor.panel.feedback',
   resource: 'hud.editor.panel.resource',
@@ -68,7 +69,7 @@ interface Rect {
 
 /** IDs der Cockpit-/Maus-Modus-Elemente (Eck-Rad + Top-Leiste). Im Cockpit-Modus bearbeitet der
  *  Editor NUR diese; im Desktop-Modus NUR die Desktop-Panels (alles andere). */
-const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar'])
+const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar', 'attackbar'])
 
 /** IDs, die NICHT ausgeblendet werden dürfen (sonst verlöre man den Zugang) — nur verschiebbar. */
 const NO_HIDE_IDS = new Set(['menu', 'feedback'])
