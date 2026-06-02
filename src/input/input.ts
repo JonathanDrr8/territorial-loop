@@ -18,6 +18,7 @@ import type { Intent } from '../core/intent'
 import type { BomberRoute } from '../core/ships'
 import type { CameraMode } from '../ui/start-menu'
 import { resolveAction, type KeyAction } from './keybinds'
+import { getHudPrefs } from '../ui/hud-prefs'
 
 /** Reihenfolge, in der das Mausrad im Bomber-Modus durch die Flugrouten blättert. */
 const BOMBER_ROUTES: readonly BomberRoute[] = ['direct', 'arc-left', 'arc-right']
@@ -220,6 +221,15 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   const DOUBLE_TAP_DIST = 32
   let longPressFired = false
   let longPressTimer: ReturnType<typeof setTimeout> | null = null
+  // Verzögerter Tipp-Angriff (einstellbares Fenster, in dem ein zweiter Tipp stattdessen den
+  // Doppeltipp-Zoom auslöst). Bei 0 ms feuert der Angriff sofort (kein Timer).
+  let pendingTapTimer: ReturnType<typeof setTimeout> | null = null
+  function clearPendingTap(): void {
+    if (pendingTapTimer !== null) {
+      clearTimeout(pendingTapTimer)
+      pendingTapTimer = null
+    }
+  }
   const LONG_PRESS_MS = 450
   const TOUCH_TAP_MAX_MS = 400
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
@@ -669,13 +679,19 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       // Doppeltipp-Ziehen (Karten-Geste): zweiter Tipp kurz nach dem ersten am selben Punkt →
       // beim Ziehen zoomen (hoch = rein), kein Pan/Bau/Long-Press.
       const nowDt = performance.now()
+      // Doppeltipp-Fenster = einstellbare Tipp-Angriff-Verzögerung. Bei 0 (aus) gibt es keinen
+      // Doppeltipp-Zoom mehr (der erste Tipp greift sofort an) — bewusster Trade-off.
+      const tapDelay = getHudPrefs().tapAttackDelayMs
       if (
+        tapDelay > 0 &&
         lastTapEnd !== null &&
-        nowDt - lastTapEnd.time < DOUBLE_CLICK_MS &&
+        nowDt - lastTapEnd.time < tapDelay &&
         Math.abs(t.clientX - lastTapEnd.x) < DOUBLE_TAP_DIST &&
         Math.abs(t.clientY - lastTapEnd.y) < DOUBLE_TAP_DIST &&
         deps.interactive !== false
       ) {
+        // Zweiter Tipp = Doppeltipp-Zoom → den noch verzögerten Angriff des ersten Tipps verwerfen.
+        clearPendingTap()
         zoomDragActive = true
         zoomStartY = t.clientY
         zoomStartZoom = camera.zoom
@@ -841,7 +857,21 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       // Tipp merken → ermöglicht die Doppeltipp-Zoom-Geste beim nächsten Antippen.
       if (wasTap) {
         lastTapEnd = { time: now, x: touchStartX, y: touchStartY }
-        primaryAction(touchStartX, touchStartY, false, true)
+        // Angriff um die eingestellte Verzögerung aufschieben, damit ein sofort folgender zweiter
+        // Tipp stattdessen den Doppeltipp-Zoom auslösen kann (der dann clearPendingTap() ruft).
+        // 0 ms = sofort angreifen (kein Doppeltipp-Zoom, dafür schnelleres Antippen).
+        const tapDelay = getHudPrefs().tapAttackDelayMs
+        const tx = touchStartX
+        const ty = touchStartY
+        clearPendingTap()
+        if (tapDelay <= 0) {
+          primaryAction(tx, ty, false, true)
+        } else {
+          pendingTapTimer = setTimeout(() => {
+            pendingTapTimer = null
+            primaryAction(tx, ty, false, true)
+          }, tapDelay)
+        }
       }
     }
   }
@@ -968,6 +998,7 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       canvas.removeEventListener('touchend', onTouchEnd)
       canvas.removeEventListener('touchcancel', onTouchEnd)
       clearLongPress()
+      clearPendingTap()
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)

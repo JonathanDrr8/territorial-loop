@@ -338,7 +338,14 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       }
       return action
     })
-    render(actions, showTop)
+    render(actions, leaveBuild)
+  }
+
+  /** „Zurück" aus dem Bau-Rad: ein scharf gestelltes Gebäude wieder abwählen (kein Geister-Bau-
+   *  Cursor bleibt hängen), dann zur obersten Ebene. */
+  function leaveBuild(): void {
+    if (activeBuild !== null) deps.onBuild(activeBuild) // Toggle aus → setBuildMode(null)
+    showTop()
   }
 
   function showShips(): void {

@@ -377,6 +377,7 @@ export const en: Record<string, string> = {
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Large',
   'settings.offscreenLabels': 'Edge labels (nearest …)',
+  'settings.tapDelay': 'Tap-to-attack delay (0 = off)',
   'settings.keybinds': 'Key bindings',
   'settings.keybinds.reset': 'Reset',
   'keybind.press': 'Press a key…',

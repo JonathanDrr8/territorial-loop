@@ -380,6 +380,7 @@ export const es: Record<string, string> = {
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grande',
   'settings.offscreenLabels': 'Etiquetas en borde (más cercanas …)',
+  'settings.tapDelay': 'Retraso de toque para atacar (0 = desactivado)',
   'settings.keybinds': 'Teclas de acción',
   'settings.keybinds.reset': 'Restablecer',
   'keybind.press': 'Pulsa una tecla…',

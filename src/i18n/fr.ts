@@ -380,6 +380,7 @@ export const fr: Record<string, string> = {
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grand',
   'settings.offscreenLabels': 'Noms en bordure (les plus proches …)',
+  'settings.tapDelay': 'Délai d’appui pour attaquer (0 = désactivé)',
   'settings.keybinds': 'Raccourcis clavier',
   'settings.keybinds.reset': 'Réinitialiser',
   'keybind.press': 'Appuie sur une touche…',

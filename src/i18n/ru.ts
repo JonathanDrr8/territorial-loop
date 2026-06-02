@@ -369,6 +369,7 @@ export const ru: Record<string, string> = {
   'settings.radialSize.normal': 'Обычный',
   'settings.radialSize.large': 'Большой',
   'settings.offscreenLabels': 'Метки на краю (ближайшие …)',
+  'settings.tapDelay': 'Задержка касания для атаки (0 = выкл)',
   'settings.keybinds': 'Назначение клавиш',
   'settings.keybinds.reset': 'Сбросить',
   'keybind.press': 'Нажми клавишу…',
