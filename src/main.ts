@@ -911,6 +911,32 @@ function startMatch(
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
     eventLog.setVisible(!cockpit)
+    // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
+    // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap.
+    alliancePrompt.setCompact(cockpit)
+    if (cockpit) {
+      feedColumn.style.top = '52px'
+      feedColumn.style.bottom = 'auto'
+      feedColumn.style.left = '0'
+      feedColumn.style.right = '0'
+      feedColumn.style.marginLeft = 'auto'
+      feedColumn.style.marginRight = 'auto'
+      // Prozent-Breite (NICHT px): die UI-Skalierung läuft über CSS `zoom`, das fixe px relativ
+      // zur Bildbreite verzerrt. 84 % lässt links/rechts Luft → margin:auto zentriert die Karte.
+      feedColumn.style.width = '84%'
+      feedColumn.style.maxWidth = '360px'
+      feedColumn.style.maxHeight = '40vh'
+    } else {
+      feedColumn.style.top = 'auto'
+      feedColumn.style.bottom = '224px'
+      feedColumn.style.left = 'auto'
+      feedColumn.style.right = '12px'
+      feedColumn.style.marginLeft = ''
+      feedColumn.style.marginRight = ''
+      feedColumn.style.width = '250px'
+      feedColumn.style.maxWidth = ''
+      feedColumn.style.maxHeight = '300px'
+    }
     if (!cockpit) {
       // Beim Wechsel zurück auf Desktop den Mobile-Rang-Toggle zurücksetzen.
       mobileRankOpen = false
