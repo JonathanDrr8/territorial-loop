@@ -25,6 +25,10 @@ interface WheelAction {
   label: string
   accent: string
   run: () => void
+  /** Optionale Unterzeile (z.B. Baukosten „25k" im Bau-Rad). */
+  sub?: string
+  /** Farbe der Unterzeile (z.B. grün=bezahlbar / rot=zu teuer). */
+  subColor?: string
 }
 
 export interface ActionWheelDeps {
@@ -35,6 +39,11 @@ export interface ActionWheelDeps {
   readonly onBoat: () => void
   readonly onBomber: () => void
   readonly onWarship: () => void
+  /**
+   * Live-Baukosten + Bezahlbarkeit je Gebäude — für die Preis-Anzeige im Bau-Rad. Optional
+   * (ohne sie zeigt das Bau-Rad nur Name/Icon). Wird jedes Mal beim Öffnen des Bau-Rads abgefragt.
+   */
+  readonly buildInfo?: (type: BuildingType) => { cost: number; affordable: boolean }
 }
 
 /** Live-Werte fürs Cockpit (Mitte des Rads + Füll-Ring). */
@@ -103,7 +112,7 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       const pct =
         stats.territoryPct < 1 ? stats.territoryPct.toFixed(2) : stats.territoryPct.toFixed(0)
       statsBox.innerHTML =
-        `<div style="font-size:16px;font-weight:700;line-height:1.05">${fmtK(stats.troops)}</div>` +
+        `<div style="font-size:16px;font-weight:700;line-height:1.05">${fmtK(stats.troops)}<span style="font-size:10px;font-weight:400;opacity:0.6"> / ${fmtK(stats.cap)}</span></div>` +
         `<div style="font-size:9.5px;line-height:1.1;color:${rateColor}">${sign}${fmtK(stats.rate)}/s</div>` +
         `<div style="font-size:9.5px;line-height:1.15;opacity:0.92;display:flex;align-items:center;gap:3px;justify-content:center;color:#e8c14a">${icon.gold} ${fmtK(stats.gold)}</div>` +
         `<div style="font-size:9px;line-height:1.1;opacity:0.6">#${String(stats.rankPos)} · ${pct}%</div>`
@@ -213,7 +222,10 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
       ].join(';')
       lbl.innerHTML =
         `<div style="font-size:21px;line-height:1;display:flex;align-items:center;justify-content:center;color:${a.accent}">${a.glyph}</div>` +
-        `<div style="font-size:11px;font-weight:600;line-height:1.05;color:var(--tl-text)">${a.label}</div>`
+        `<div style="font-size:11px;font-weight:600;line-height:1.05;color:var(--tl-text)">${a.label}</div>` +
+        (a.sub !== undefined
+          ? `<div style="font-size:9.5px;font-weight:700;line-height:1;color:${a.subColor ?? 'var(--tl-text)'}">${a.sub}</div>`
+          : '')
       panel.appendChild(lbl)
     })
 
@@ -278,15 +290,24 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   }
 
   function showBuild(): void {
-    const actions: WheelAction[] = deps.allowedBuildings.map((type) => ({
-      glyph: buildingIcon(type, 22),
-      label: t(`building.${type}`),
-      accent: BUILD_ACCENT,
-      run: () => {
-        deps.onBuild(type)
-        showTop()
-      },
-    }))
+    const actions: WheelAction[] = deps.allowedBuildings.map((type) => {
+      const action: WheelAction = {
+        glyph: buildingIcon(type, 22),
+        label: t(`building.${type}`),
+        accent: BUILD_ACCENT,
+        run: () => {
+          deps.onBuild(type)
+          showTop()
+        },
+      }
+      // Live-Preis als Unterzeile (grün=bezahlbar, rot=zu teuer) — sonst tappt man auf dem Handy blind.
+      const info = deps.buildInfo?.(type)
+      if (info !== undefined) {
+        action.sub = fmtK(info.cost)
+        action.subColor = info.affordable ? '#5dd75d' : '#ef5350'
+      }
+      return action
+    })
     render(actions, showTop)
   }
 

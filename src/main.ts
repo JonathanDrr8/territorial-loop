@@ -15,6 +15,7 @@ import {
   canBuildAt,
   canReachByLand,
   createGame,
+  buildCostFor,
   effectiveMaxTroops,
   snapBuildTile,
   tick,
@@ -37,6 +38,7 @@ import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
 import { createBuildMenu } from './ui/build-menu'
 import { createActionWheel } from './ui/action-wheel'
+import { createMobileTopbar } from './ui/mobile-topbar'
 import { createGameSettings } from './ui/game-settings'
 import type { BuildingType } from './core/buildings'
 import { pickDistinctColors } from './ui/colors'
@@ -876,19 +878,44 @@ function startMatch(
     onBoat: () => input.toggleBoatMode(),
     onBomber: () => input.toggleBomberMode(),
     onWarship: () => input.toggleWarshipMode(),
+    // Live-Baupreis je Gebäude fürs Bau-Rad (grün=bezahlbar, rot=zu teuer) — auf dem Handy
+    // sieht man sonst weder Preis noch Gold beim Tippen.
+    buildInfo: (tp) => {
+      const meP = humanId >= 0 ? state.players.get(humanId) : undefined
+      const cost = humanId >= 0 ? buildCostFor(state, humanId, tp) : 0
+      return { cost, affordable: meP !== undefined && meP.gold >= cost }
+    },
   })
-  // Mobile-Cockpit: das Eck-Rad zeigt alles Wichtige → die Desktop-Panels (Zeit, Rangliste,
-  // Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-Karte
-  // (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
+  // Mobile-Top-Leiste (oben rechts): feste Werte, die im Rad schlecht ablesbar sind —
+  // Truppen-Balken mit Cap + Gold/Rate, dazu ☰ Menü (öffnet Pause-/ESC-Menü inkl. „HUD anpassen")
+  // und ≣ Rang (fährt die Rangliste ein/aus).
+  let mobileRankOpen = false
+  const mobileTopbar = createMobileTopbar(container, {
+    onMenu: () => pauseMenu.open(),
+    onToggleRank: () => {
+      mobileRankOpen = !mobileRankOpen
+      hud.setMobileRankOpen(mobileRankOpen)
+      mobileTopbar.setRankActive(mobileRankOpen)
+    },
+  })
+  // Mobile-Cockpit: das Eck-Rad + die Top-Leiste zeigen alles Wichtige → die Desktop-Panels (Zeit,
+  // Rangliste, Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-
+  // Karte (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
   // Zuschauer haben kein Rad → für sie bleiben die Panels sichtbar (sonst leerer Bildschirm).
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
     actionWheel.setVisible(cockpit)
+    mobileTopbar.setVisible(cockpit)
     minimap.setMobile(m)
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
     eventLog.setVisible(!cockpit)
+    if (!cockpit) {
+      // Beim Wechsel zurück auf Desktop den Mobile-Rang-Toggle zurücksetzen.
+      mobileRankOpen = false
+      mobileTopbar.setRankActive(false)
+    }
   }
   applyMobileLayout()
   // Steuerungs-Modus live (HUD-Editor): Cockpit ein/aus umschalten.
@@ -1069,7 +1096,7 @@ function startMatch(
         if (p.id !== humanId && p.isAlive && !p.wild && totalTroops(p) > troops) rankPos++
         for (const atk of p.attacks) if (atk.targetPlayerId === humanId) underAttack = true
       }
-      actionWheel.setStats({
+      const wheelStats = {
         troops,
         cap: effectiveMaxTroops(state, humanId),
         rate: wheelRate,
@@ -1077,7 +1104,9 @@ function startMatch(
         rankPos,
         territoryPct: (me.tilesOwned / totalTiles) * 100,
         underAttack,
-      })
+      }
+      actionWheel.setStats(wheelStats)
+      mobileTopbar.setStats(wheelStats) // dieselben Werte in die Top-Leiste (Balken/Cap + Gold)
     }
     renderRafId = requestAnimationFrame(renderLoop)
   }
@@ -1114,6 +1143,7 @@ function startMatch(
       feedColumn.remove()
       buildMenu.destroy()
       actionWheel.destroy()
+      mobileTopbar.destroy()
       offControlMode()
       gameSettings.destroy()
       confirmDialog.destroy()

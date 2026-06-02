@@ -99,4 +99,10 @@ export const icon = {
   ),
   /** Wechsel-Pfeile — Umschalten (z. B. Truppen-Anzeige Balken ↔ Kugel). */
   swap: svg('<path d="M4 8h13l-3-3M20 16H7l3 3"/>'),
+  /** Hamburger — Menü öffnen (Mobile-Top-Leiste → Pause-/ESC-Menü). */
+  menu: svg('<path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/>'),
+  /** Ranglisten-Liste — Rang-Knopf (Mobile: Rangliste ein-/ausfahren). */
+  rank: svg(
+    '<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+  ),
 }
