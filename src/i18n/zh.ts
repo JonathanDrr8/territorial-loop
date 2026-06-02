@@ -320,6 +320,7 @@ export const zh: Record<string, string> = {
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',
+  'settings.offscreenLabels': '边缘标签（最近的…）',
   'settings.keybinds': '按键绑定',
   'settings.keybinds.reset': '重置',
   'keybind.press': '按下一个键…',

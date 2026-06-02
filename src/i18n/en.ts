@@ -373,6 +373,7 @@ export const en: Record<string, string> = {
   'settings.radialSize.small': 'Small',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Large',
+  'settings.offscreenLabels': 'Edge labels (nearest …)',
   'settings.keybinds': 'Key bindings',
   'settings.keybinds.reset': 'Reset',
   'keybind.press': 'Press a key…',

@@ -326,6 +326,7 @@ export const ja: Record<string, string> = {
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',
+  'settings.offscreenLabels': '端ラベル（最近の…）',
   'settings.keybinds': 'キー割り当て',
   'settings.keybinds.reset': 'リセット',
   'keybind.press': 'キーを押してください…',

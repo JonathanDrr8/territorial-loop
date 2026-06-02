@@ -371,6 +371,7 @@ export const pt: Record<string, string> = {
   'settings.radialSize.small': 'Pequeno',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grande',
+  'settings.offscreenLabels': 'Rótulos na borda (mais próximos …)',
   'settings.keybinds': 'Atalhos de teclado',
   'settings.keybinds.reset': 'Repor',
   'keybind.press': 'Prime uma tecla…',

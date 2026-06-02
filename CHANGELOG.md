@@ -4,6 +4,29 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.36.0] – 2026-06-02
+
+### Neu
+
+- **Mobile Top-Leiste:** Auf dem Handy erscheint oben rechts eine kompakte Leiste mit
+  Truppen-Balken inkl. **Truppen-Cap**, aktuellem **Gold** samt Einkommens-Rate, einem
+  **Menü-Knopf** (öffnet das Pause-Menü inklusive „HUD anpassen") und einem
+  **Ranglisten-Knopf**, der die Rangliste kurz ein- und ausfährt.
+
+- **Truppen-Cap im Cockpit-Rad und Bau-Preise im Bau-Rad:** Das Cockpit-Rad zeigt jetzt
+  zusätzlich das Truppen-Cap (z. B. „8,9k / 23k"). Im Bau-Rad steht unter jedem Gebäude
+  der Preis — **grün** wenn man ihn sich leisten kann, **rot** wenn das Gold nicht reicht.
+
+- **Nationen-Namen am Bildschirmrand:** Nationen, die gerade außerhalb des Bildschirms
+  liegen, werden am Rand eingeblendet — aber nur die **nächsten X** (Standard: 7, in den
+  Einstellungen einstellbar, 0 = aus). Wilde Nationen zählen nie mit; wer einen gerade
+  angreift, bleibt zur Warnung immer sichtbar.
+
+### Behoben
+
+- **Querformat auf dem Handy:** Im Querformat und auf schmalen Tablets liefen die Spalten
+  des Startmenüs links und rechts aus dem Bild. Sie stapeln sich jetzt sauber untereinander.
+
 ## [0.35.0] – 2026-06-02
 
 ### Neu

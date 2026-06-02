@@ -119,6 +119,8 @@ export interface HUDApi {
    * aus — auf dem Handy übernimmt das Eck-Rad-Cockpit. Bündnis-Karte/Niederlage-Overlay bleiben.
    */
   setMobile(on: boolean): void
+  /** Mobile: Rangliste per Knopf (Top-Leiste) ein-/ausfahren — sonst im Mobile-Modus aus. */
+  setMobileRankOpen(on: boolean): void
   destroy(): void
 }
 
@@ -199,6 +201,8 @@ export function createHUD(
   // ausgeblendet — auf dem Handy zeigt das Eck-Rad alles Wichtige (Cockpit). Nur die
   // Bündnis-Karte (außerhalb des HUD, in main.ts) bleibt einblendbar.
   let mobile = false
+  // Rangliste auf Mobile per Knopf (Top-Leiste) kurz einblendbar — sonst im Mobile-Modus aus.
+  let mobileRankOpen = false
   // Geglättetes Gold-Einkommen (Gold/s) — mittelt sprunghaften Handel. Per Sample
   // alle GOLD_SAMPLE_TICKS Ticks aktualisiert (EMA).
   let goldRatePerSec = 0
@@ -1493,7 +1497,7 @@ export function createHUD(
 
   /** Baut die Ranglisten-Zeilen (Top-5 oder alle), sortiert nach rankSort. */
   function updateRankList(): void {
-    if (mobile) {
+    if (mobile && !mobileRankOpen) {
       rankPanel.style.display = 'none'
       return
     }
@@ -1634,6 +1638,7 @@ export function createHUD(
     showDefeat,
     setMobile(on: boolean): void {
       mobile = on
+      mobileRankOpen = false // beim Moduswechsel die Mobile-Rangliste zuklappen
       infoBox.style.display = on ? 'none' : ''
       rankPanel.style.display = on ? 'none' : ''
       if (on) {
@@ -1642,6 +1647,18 @@ export function createHUD(
         attackPanel.style.display = 'none'
       }
       // Bei on→off stellen die update-Funktionen die Sichtbarkeit beim nächsten Frame korrekt her.
+    },
+    setMobileRankOpen(on: boolean): void {
+      mobileRankOpen = on
+      if (on) {
+        // Unter die Top-Leiste (oben rechts) schieben, damit beide sichtbar sind, dann befüllen.
+        rankPanel.style.top = '52px'
+        rankPanel.style.display = ''
+        updateRankList()
+      } else {
+        rankPanel.style.display = 'none'
+        rankPanel.style.top = '12px'
+      }
     },
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed

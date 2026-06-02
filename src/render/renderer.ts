@@ -275,6 +275,8 @@ export interface Renderer {
   setHoverHighlight(h: { wx: number; wy: number; kind: 'ship' | 'building' } | null): void
   /** Kamera-Darstellung (steuert Einzel-Kopie-Rendering / schwarze Ränder). */
   setCameraMode(mode: 'tiles' | 'period' | 'fixed' | 'dynamic'): void
+  /** Wie viele Off-Screen-Nationen-Namen (nächste X zur Bildmitte) am Rand gezeigt werden. */
+  setOffscreenLabelCount(n: number): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
   setBuildPreview(type: BuildingType | null): void
   /** Bomber-Ziel-Vorschau (Flugroute + Einschlagsradius am Cursor); null = aus. */
@@ -997,6 +999,9 @@ export function createRenderer(
   //  - 'fixed'   → IMMER nur eine Welt-Kopie mit harten Rändern (schwarze Box bleibt, auch reingezoomt).
   //  - 'dynamic' → nur wenn der Viewport eine Periode überspannt eine Kopie + Ränder; sonst Seam-Wrap.
   let cameraMode: 'tiles' | 'period' | 'fixed' | 'dynamic' = 'dynamic'
+  // Wie viele Nationen-Namen außerhalb des Bildes (an den Rand geklemmt) gezeigt werden — die
+  // nächsten X zur Bildmitte (Client-Pref, von main.ts gesetzt). 0 = keine Off-Screen-Labels.
+  let offscreenLabelCount = 7
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
   // Bomber-Ziel-Vorschau: aktive Route (null = kein Bomber-Modus).
@@ -1226,6 +1231,33 @@ export function createRenderer(
         }
       }
     }
+    // Off-Screen-Labels: nur die **nächsten X** Nationen (Client-Pref) zur Bildmitte an den Rand
+    // klemmen. Wilde zählen nie mit. Pre-Pass sammelt off-screen-Kandidaten, dedupliziert je Nation
+    // (geteilte Fetzen → kürzeste Distanz) und behält die X nächsten. Eine angreifende Nation bleibt
+    // unten immer sichtbar (Warnung), unabhängig von X.
+    const allowedOffscreen = new Set<number>()
+    if (offscreenLabelCount > 0) {
+      const cx = cssW / 2
+      const cy = cssH / 2
+      const minDistByOwner = new Map<number, number>()
+      for (const anchor of labelAnchors) {
+        const p = state.players.get(anchor.owner)
+        if (p === undefined || !p.isAlive || p.wild || p.id === lutHumanId) continue
+        const { sx, sy } = nearestWrappedScreenPos(anchor.x + 0.5, anchor.y + 0.5)
+        if (sx < -cssW || sx > 2 * cssW || sy < -cssH || sy > 2 * cssH) continue
+        if (sx >= 0 && sx <= cssW && sy >= 0 && sy <= cssH) continue // on-screen → kein Kandidat
+        const dx = sx - cx
+        const dy = sy - cy
+        const d = dx * dx + dy * dy
+        const prev = minDistByOwner.get(p.id)
+        if (prev === undefined || d < prev) minDistByOwner.set(p.id, d)
+      }
+      const ranked = [...minDistByOwner.entries()].sort((a, b) => a[1] - b[1])
+      for (let i = 0; i < Math.min(offscreenLabelCount, ranked.length); i++) {
+        const entry = ranked[i]
+        if (entry !== undefined) allowedOffscreen.add(entry[0])
+      }
+    }
     // Ein Label je Gebiets-Fetzen (labelAnchors): geteilte Nationen werden mehrfach
     // beschriftet, keine Farbfläche bleibt namenlos.
     for (const anchor of labelAnchors) {
@@ -1260,12 +1292,12 @@ export function createRenderer(
       // angrenzt (auch wenn der Schwerpunkt selbst außerhalb des Bildes liegt).
       if (sx < -cssW || sx > 2 * cssW || sy < -cssH || sy > 2 * cssH) continue
       const offscreen = sx < 0 || sx > cssW || sy < 0 || sy > cssH
-      // Off-screen-Labels ausblenden — sonst kleben bei hunderten Nationen ihre Namen als
-      // unleserliche Masse an den Bildschirmrändern. Wilde werden am Rand NIE gezeigt (es sind zu
-      // viele, sie würden den Rand zukleistern); echte Nationen nur, wenn relevant (du selbst,
-      // Verbündete, Verräter, und wer dich gerade angreift).
-      if (offscreen && (p.wild || (!isHuman && !allied && !traitor && !attackingHuman.has(p.id))))
-        continue
+      // Off-screen-Labels: Wilde nie am Rand (zu viele → Masse). Echte Nationen: die nächsten X
+      // (Client-Pref, s. Pre-Pass oben) plus immer, wer dich gerade angreift (Warnung) bzw. du selbst.
+      if (offscreen) {
+        if (p.wild) continue
+        if (!isHuman && !attackingHuman.has(p.id) && !allowedOffscreen.has(p.id)) continue
+      }
       const lx = Math.max(margin, Math.min(cssW - margin, sx))
       const ly = Math.max(margin, Math.min(cssH - margin, sy))
       // Wilde Nationen tragen KEINEN Eigennamen (verwirrt — sähe aus wie eine echte Nation),
@@ -2849,6 +2881,10 @@ export function createRenderer(
     cameraMode = mode
   }
 
+  function setOffscreenLabelCount(n: number): void {
+    offscreenLabelCount = Math.max(0, Math.round(n))
+  }
+
   /** Markiert das gehoverte Objekt mit einem pulsierenden Ring (Schiff größer als Gebäude-Tile). */
   function drawHoverHighlight(): void {
     if (hoverHighlight === null) return
@@ -2907,6 +2943,7 @@ export function createRenderer(
     clearHoverTile,
     setHoverHighlight,
     setCameraMode,
+    setOffscreenLabelCount,
     setBuildPreview(type: BuildingType | null): void {
       buildPreviewType = type
     },
