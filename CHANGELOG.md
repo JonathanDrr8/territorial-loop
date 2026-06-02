@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.41.0] – 2026-06-02
+
+### Geändert
+
+- **Hauptmenü am Handy nutzbar:** Alle Menü-Seiten (Spielen, Mehrspieler, Rangliste,
+  Einstellungen, Changelog, Hilfe) stapeln sich auf schmalen Bildschirmen sauber
+  untereinander und laufen nicht mehr rechts aus dem Bild. Die Eingabefelder stehen
+  jetzt mit Beschriftung über dem Feld und nutzen die volle Breite — kein Gequetsche
+  und kein seitliches Scrollen mehr.
+
 ## [0.40.2] – 2026-06-02
 
 ### Behoben

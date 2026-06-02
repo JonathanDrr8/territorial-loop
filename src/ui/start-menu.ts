@@ -244,9 +244,14 @@ export const MENU_CSS = `
    Eigener, höher liegender Breakpoint als der Header (der passt im Querformat noch in eine Zeile). */
 @media (max-width: 900px) {
   .tl-menu .tl-cols { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 14px !important }
-  .tl-menu .tl-cols > * { width: auto !important; max-width: 520px !important; margin-left: auto !important; margin-right: auto !important }
+  /* width:100% + min-width:0 lassen die Spalte auf die Bildbreite schrumpfen (statt an der
+     Mindestbreite eines Kindes hängenzubleiben und rechts aus dem Bild zu laufen). max-width
+     hält sie auf Tablets noch in lesbarer Breite, margin:auto zentriert. */
+  .tl-menu .tl-cols > * { width: 100% !important; min-width: 0 !important; max-width: 520px !important; margin-left: auto !important; margin-right: auto !important }
 }
-/* Schmale Screens (Handy im Hochformat): zusätzlich den Header stapeln + Tabs umbrechen.
+/* Schmale Screens (Handy im Hochformat): Header stapeln + Tabs umbrechen, und die Feld-Zeilen
+   von „Label | Feld" auf gestapelt (Label über Feld, Feld volle Breite) umstellen — sonst
+   erzwingt die feste 150px-Label-Spalte eine Zeilenbreite, die nicht aufs Handy passt.
    !important schlägt die Inline-Layout-Styles. */
 @media (max-width: 640px) {
   .tl-menu .tl-header { gap: 10px !important; padding: 12px 14px !important; justify-content: center }
@@ -254,6 +259,8 @@ export const MENU_CSS = `
   .tl-menu .tl-header nav { justify-content: center !important }
   .tl-menu .tl-header > div:last-child { justify-content: center !important }
   .tl-tab { padding: 8px 12px; font-size: 14px }
+  .tl-menu .tl-field { grid-template-columns: 1fr !important; align-items: stretch !important; gap: 6px !important; margin-bottom: 15px !important }
+  .tl-menu .tl-field > label { opacity: 0.8; font-size: 14px }
 }
 `
 
@@ -274,6 +281,7 @@ export function makeSliderRow(
 ): ValueRow<number> {
   const row = document.createElement('div')
   row.style.cssText = FIELD_ROW_STYLE
+  row.className = 'tl-field'
 
   const labelEl = document.createElement('label')
   labelEl.textContent = label
@@ -314,6 +322,7 @@ export function makeSelectRow<T extends string>(
 ): ValueRow<T> {
   const row = document.createElement('div')
   row.style.cssText = FIELD_ROW_STYLE
+  row.className = 'tl-field'
   const labelEl = document.createElement('label')
   labelEl.textContent = label
   const select = document.createElement('select')
@@ -338,6 +347,7 @@ export function makeTextRow(
 ): ValueRow<string> {
   const row = document.createElement('div')
   row.style.cssText = FIELD_ROW_STYLE
+  row.className = 'tl-field'
   const labelEl = document.createElement('label')
   labelEl.textContent = label
   const input = document.createElement('input')
@@ -360,6 +370,7 @@ export function makeCheckRow(
 ): ValueRow<boolean> {
   const row = document.createElement('div')
   row.style.cssText = FIELD_ROW_STYLE
+  row.className = 'tl-field'
   const labelEl = document.createElement('label')
   labelEl.textContent = label
   const wrap = document.createElement('label')
@@ -400,6 +411,7 @@ export function makeMapRow(
   }
   const row = document.createElement('div')
   row.style.cssText = FIELD_ROW_STYLE
+  row.className = 'tl-field'
   const labelEl = document.createElement('label')
   labelEl.textContent = label
   const widthSelect = dimSelect(initialWidth)
