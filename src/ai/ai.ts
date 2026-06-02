@@ -74,6 +74,21 @@ const ALLY_REFUSE_GRUDGE = 120
  */
 const WILD_TARGET_BOOST = 2.5
 
+/**
+ * Level-Direktbau der KI: höchstes Level, dessen Gesamtkosten (Bau + Upgrades, base×level(level+1)/2)
+ * noch ≤ 40 % des aktuellen Goldes liegen — so baut eine reiche KI Wirtschaftsgebäude direkt auf
+ * Stufe 2/3, hält aber 60 % Reserve fürs Militär/Schiffe. `base` = aktuelle Baukosten des Typs.
+ * Rein deterministisch (kein PRNG) → MP-sicher.
+ */
+export function aiBuildLevel(gold: number, base: number): number {
+  let lvl = 1
+  for (let l = 2; l <= MAX_BUILDING_LEVEL; l++) {
+    if (base * ((l * (l + 1)) / 2) <= gold * 0.4) lvl = l
+    else break
+  }
+  return lvl
+}
+
 export interface DifficultyProfile {
   readonly attackPct: number
   readonly cooldownMin: number
@@ -712,7 +727,14 @@ export function createAI(
         (profile.tilesPerCity === 0 && player.troops >= 0.9 * effectiveMaxTroops(state, player.id))
       if (wantCity) {
         const tile = pickInteriorTile(state, player)
-        if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'city' }
+        if (tile >= 0)
+          return {
+            type: 'build',
+            playerId: player.id,
+            tile,
+            buildingType: 'city',
+            level: aiBuildLevel(gold, costOf('city')),
+          }
       }
     }
     const base = Math.max(cities, 1) // Ratios relativ zur Stadtzahl (min 1, sobald Wirtschaft läuft)
@@ -736,7 +758,14 @@ export function createAI(
       gold >= costOf('port')
     ) {
       const tile = pickCoastalTile(state, player)
-      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'port' }
+      if (tile >= 0)
+        return {
+          type: 'build',
+          playerId: player.id,
+          tile,
+          buildingType: 'port',
+          level: aiBuildLevel(gold, costOf('port')),
+        }
     }
     // 3. Fabrik (Ratio pro Stadt), ans Gold-Netz platziert — produziert pro verbundener Stadt/Hafen.
     if (
@@ -746,7 +775,14 @@ export function createAI(
       gold >= costOf('factory')
     ) {
       const tile = pickNetworkTile(state, player)
-      if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'factory' }
+      if (tile >= 0)
+        return {
+          type: 'build',
+          playerId: player.id,
+          tile,
+          buildingType: 'factory',
+          level: aiBuildLevel(gold, costOf('factory')),
+        }
     }
     // 2c. Luftabwehr-Schutz: NUR wenn ein Gegner überhaupt Luftwaffe hat (Flughafen) — sonst ist
     //     Flak vergeudetes Gold. Dann ein paar Flaks zur Deckung der Wirtschaft (Deckel ~ halbe

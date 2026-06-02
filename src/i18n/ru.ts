@@ -467,6 +467,7 @@ export const ru: Record<string, string> = {
   'hud.warshipModeHint':
     'Режим военного корабля: кликни цель на воде (нужен порт + золото) · Esc завершает',
   'hud.attack': 'Атака: {pct}%',
+  'hud.buildLevel': 'Уровень',
   'hud.newMatch': 'Новый матч',
   'hud.keepWatching': 'Продолжить просмотр',
   'hud.keepSpectating': 'Продолжить наблюдение',

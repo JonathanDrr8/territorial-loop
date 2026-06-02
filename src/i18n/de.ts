@@ -481,6 +481,7 @@ export const de: Record<string, string> = {
   'hud.warshipModeHint':
     'Kriegsschiff-Modus: Wasser-Ziel anklicken (braucht Hafen + Gold) · Esc beendet',
   'hud.attack': 'Angriff: {pct}%',
+  'hud.buildLevel': 'Stufe',
   'hud.newMatch': 'Neues Match',
   'hud.keepWatching': 'Weiterspielen',
   'hud.keepSpectating': 'Weiter zuschauen',

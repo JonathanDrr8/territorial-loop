@@ -13,12 +13,12 @@
 
 import type { Camera } from '../render/renderer'
 import { tileRef } from '../world/torus'
-import type { BuildingType } from '../core/buildings'
+import { MAX_BUILDING_LEVEL, type BuildingType } from '../core/buildings'
 import type { Intent } from '../core/intent'
 import type { BomberRoute } from '../core/ships'
 import type { CameraMode } from '../ui/start-menu'
 import { resolveAction, type KeyAction } from './keybinds'
-import { getHudPrefs } from '../ui/hud-prefs'
+import { getHudPrefs, setHudPref } from '../ui/hud-prefs'
 
 /** Reihenfolge, in der das Mausrad im Bomber-Modus durch die Flugrouten blättert. */
 const BOMBER_ROUTES: readonly BomberRoute[] = ['direct', 'arc-left', 'arc-right']
@@ -85,6 +85,8 @@ export interface InputDeps {
   readonly onHoverEnd?: () => void
   /** Optional: Bau-Modus hat sich geändert (für HUD-Feedback). null = kein Bau-Modus. */
   readonly onBuildModeChange?: (mode: BuildingType | null) => void
+  /** Optional: gewähltes Bau-Level (Level-Direktbau) hat sich geändert — hält die UI-Leisten synchron. */
+  readonly onBuildLevelChange?: (level: number) => void
   /** Optional: Boot-Modus an/aus (für HUD-Feedback). */
   readonly onBoatModeChange?: (on: boolean) => void
   /** Optional: Bomber-Modus an/aus + aktuelle Route (für HUD-Feedback + Render-Vorschau). */
@@ -139,6 +141,10 @@ export interface InputDeps {
 export interface InputHandler {
   /** Schaltet den Bau-Modus für `type` um (für HUD-Bau-Buttons; wie der Hotkey). */
   toggleBuildMode(type: BuildingType): void
+  /** Setzt das Ziel-Level fürs Direktbauen (Stufen-Leiste); wird gemerkt. */
+  setBuildLevel(level: number): void
+  /** Aktuelles (gemerktes) Bau-Level. */
+  getBuildLevel(): number
   /** Schaltet den Boot-Modus um (für einen HUD-Button; wie der Hotkey „b"). */
   toggleBoatMode(): void
   /** Schaltet den Bomber-Modus um (für einen HUD-Button; wie der Hotkey „7"). */
@@ -234,6 +240,9 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   const TOUCH_TAP_MAX_MS = 400
   // Bau-Modus (per Hotkey gesetzt): nächster Linksklick platziert dieses Gebäude.
   let buildMode: BuildingType | null = null
+  // Ziel-Level fürs Direktbauen (Level-Direktbau) — aus den Präferenzen gemerkt, bleibt über
+  // Bau-Modus-Wechsel hinweg bestehen (Jonathans „merkt sich das zuletzt Gewählte").
+  let buildLevel = Math.max(1, Math.min(MAX_BUILDING_LEVEL, getHudPrefs().buildLevel))
   // Boot-Modus (Toggle): solange aktiv schickt jeder Linksklick ein Transport-Boot.
   let boatMode = false
   // Doppelklick-Erkennung: zwei schnelle Linksklicks auf dasselbe Tile (für „Boot per Doppelklick").
@@ -259,6 +268,17 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     if (buildMode === mode) return
     buildMode = mode
     deps.onBuildModeChange?.(mode)
+    // Beim Scharfschalten das gemerkte Level an die UI-Leisten melden (Vorauswahl hervorheben).
+    if (mode !== null) deps.onBuildLevelChange?.(buildLevel)
+  }
+
+  /** Ziel-Level fürs Direktbauen setzen (1..MAX) — wird als Präferenz gemerkt. */
+  function setBuildLevel(level: number): void {
+    const n = Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.round(level)))
+    if (n === buildLevel) return
+    buildLevel = n
+    setHudPref('buildLevel', n)
+    deps.onBuildLevelChange?.(n)
   }
 
   function setBoatMode(on: boolean): void {
@@ -549,7 +569,13 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       const snapped = deps.snapBuildTarget?.(target, buildMode) ?? target
       const placeable = deps.canPlaceBuilding?.(snapped, buildMode) ?? true
       if (!placeable) return
-      emit({ type: 'build', playerId: deps.playerId, tile: snapped, buildingType: buildMode })
+      emit({
+        type: 'build',
+        playerId: deps.playerId,
+        tile: snapped,
+        buildingType: buildMode,
+        level: buildLevel,
+      })
       return
     }
     // Bomber-Modus → Bomber (gewählte Route) zum Ziel; Modus bleibt (Cooldown drosselt).
@@ -976,6 +1002,12 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   return {
     toggleBuildMode(type: BuildingType): void {
       setBuildMode(buildMode === type ? null : type)
+    },
+    setBuildLevel(level: number): void {
+      setBuildLevel(level)
+    },
+    getBuildLevel(): number {
+      return buildLevel
     },
     toggleBoatMode(): void {
       setBoatMode(!boatMode)

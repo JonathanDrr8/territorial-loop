@@ -1336,6 +1336,23 @@ export function buildCostFor(state: GameState, playerId: number, type: BuildingT
   return buildCost(type, count)
 }
 
+/**
+ * Gesamtkosten, um `type` DIREKT auf `level` zu bauen (Level-Direktbau): Baukosten + alle Upgrades
+ * bis zum Ziel-Level. Mit der Upgrade-Formel `base × (l+1)` summiert sich das zu
+ * `base × level×(level+1)/2` (L1 = 1×, L2 = 3×, L3 = 6× der aktuellen Baukosten). Deterministisch
+ * (Integer). Single Source of Truth für UI, KI und Build-Intent.
+ */
+export function buildCostAtLevel(
+  state: GameState,
+  playerId: number,
+  type: BuildingType,
+  level: number,
+): number {
+  const base = buildCostFor(state, playerId, type)
+  const lvl = Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(level)))
+  return base * ((lvl * (lvl + 1)) / 2)
+}
+
 /** Snap-Radius (Tiles) beim Bauen — innerhalb dessen der Cursor auf ein eigenes Gebäude rastet. */
 export const BUILD_SNAP_RADIUS = 2
 
@@ -1520,15 +1537,21 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
     return
   }
 
-  const cost = buildCostFor(state, player.id, intent.buildingType)
+  // Level-Direktbau: das Gebäude direkt auf dem gewünschten Level errichten (Standard 1). Die
+  // Gesamtkosten (Bau + Upgrades bis Level) müssen voll gedeckt sein — canBuildAt prüft nur die
+  // L1-Kosten, daher hier der endgültige Gold-Check fürs Ziel-Level.
+  const base = buildCostFor(state, player.id, intent.buildingType)
+  const level = Math.max(1, Math.min(MAX_BUILDING_LEVEL, Math.floor(intent.level ?? 1)))
+  const cost = base * ((level * (level + 1)) / 2)
+  if (player.gold < cost) return
   player.gold -= cost
   state.buildings.set(intent.tile, {
     type: intent.buildingType,
     ownerId: player.id,
     tile: intent.tile,
-    level: 1,
+    level,
     completesAtTick: state.tick + BUILD_TIME_TICKS,
-    buildPrice: cost, // Upgrade-Kosten skalieren hieran (siehe upgradeCost)
+    buildPrice: base, // Upgrade-Kosten skalieren an der BASIS (nicht an den Level-Gesamtkosten)
   })
 }
 

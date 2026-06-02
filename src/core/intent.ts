@@ -196,6 +196,12 @@ export interface BuildIntent {
   readonly playerId: number
   readonly tile: TileRef
   readonly buildingType: BuildingType
+  /**
+   * Ziel-Level beim Neubau (Level-Direktbau): 1 (Standard) bis MAX_BUILDING_LEVEL. Höhere Level
+   * kosten mehr (Baukosten + alle Upgrades bis dahin, siehe [[buildCostAtLevel]]). Wird nur beim
+   * NEUBAU beachtet; auf ein bestehendes Gebäude bauen bleibt ein einzelnes Upgrade.
+   */
+  readonly level?: number
 }
 
 /** Spieler wertet ein eigenes Gebäude auf das nächste Level auf. */
