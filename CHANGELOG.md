@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.44.0] – 2026-06-02
+
+### Geändert
+
+- **Hauptstadt-Modus: der Fall der Hauptstadt hat jetzt echte Folgen.** Erobert ein Gegner deine
+  Hauptstadt am Boden, übernimmt er dein **komplettes Reich** — alles Land, alle Gebäude (auch
+  Verteidigungs- und Flak-Posten) und dein Gold. Wird die Hauptstadt dagegen **zerbombt**, zerfällt
+  dein ganzes Reich zu herrenloser **Wildnis** (niemand erbt es). Vorher blieb das Restland einer
+  besiegten Nation einfach unverteidigt liegen und musste Stück für Stück erobert werden.
+
 ## [0.43.0] – 2026-06-02
 
 ### Geändert
