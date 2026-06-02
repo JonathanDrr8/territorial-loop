@@ -383,6 +383,7 @@ export const de: Record<string, string> = {
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Groß',
   'settings.offscreenLabels': 'Namen am Rand (nächste …)',
+  'settings.tapDelay': 'Tipp-Angriff-Verzögerung (0 = aus)',
   'settings.keybinds': 'Tastenbelegung',
   'settings.keybinds.reset': 'Zurücksetzen',
   'keybind.press': 'Taste drücken…',

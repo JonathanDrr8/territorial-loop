@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.46.1] – 2026-06-02
+
+### Behoben
+
+- **Doppeltipp-Zoom löst keinen versehentlichen Angriff mehr aus.** Der Tipp-Angriff wartet jetzt
+  kurz, ob ein zweiter Tipp (Zoom) folgt. Die Wartezeit ist in den Einstellungen regelbar
+  („Tipp-Angriff-Verzögerung") — auf 0 gestellt greifst du sofort an (dafür gibt es dann keinen
+  Doppeltipp-Zoom, nur noch Pinch mit zwei Fingern).
+- **Klick auf einen Ranglisten-Namen springt zur Nation.** Auf dem Handy fährt die Rangliste dabei
+  ein, damit man die zentrierte Nation auch sieht.
+- **„Zurück" im Bau-Rad entfernt die Gebäudeauswahl** — kein hängender Geister-Bau-Cursor mehr,
+  wenn man das Bau-Menü ohne zu bauen verlässt.
+
 ## [0.46.0] – 2026-06-02
 
 ### Behoben

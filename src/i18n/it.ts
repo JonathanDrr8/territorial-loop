@@ -377,6 +377,7 @@ export const it: Record<string, string> = {
   'settings.radialSize.normal': 'Normale',
   'settings.radialSize.large': 'Grande',
   'settings.offscreenLabels': 'Etichette al bordo (più vicine …)',
+  'settings.tapDelay': 'Ritardo tocco per attaccare (0 = disattivato)',
   'settings.keybinds': 'Tasti di scelta rapida',
   'settings.keybinds.reset': 'Ripristina',
   'keybind.press': 'Premi un tasto…',

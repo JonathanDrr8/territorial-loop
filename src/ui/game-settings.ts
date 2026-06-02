@@ -14,6 +14,8 @@ import {
   type RadialSize,
   OFFSCREEN_LABEL_MIN,
   OFFSCREEN_LABEL_MAX,
+  TAP_ATTACK_DELAY_MIN,
+  TAP_ATTACK_DELAY_MAX,
 } from './hud-prefs'
 import { createKeybindSection } from './keybind-settings'
 
@@ -124,6 +126,21 @@ export function createGameSettings(
     setHudPref('offscreenLabelCount', offLabels.getValue())
   })
   box.appendChild(offLabels.element)
+
+  // Tipp-Angriff-Verzögerung (nur Touch): Fenster für den Doppeltipp-Zoom. 0 = aus (Angriff sofort,
+  // kein Doppeltipp-Zoom, dafür schnelleres Antippen).
+  const tapDelay = makeSliderRow(
+    t('settings.tapDelay'),
+    TAP_ATTACK_DELAY_MIN,
+    TAP_ATTACK_DELAY_MAX,
+    50,
+    getHudPrefs().tapAttackDelayMs,
+    ' ms',
+  )
+  tapDelay.element.querySelector('input[type=range]')?.addEventListener('input', () => {
+    setHudPref('tapAttackDelayMs', tapDelay.getValue())
+  })
+  box.appendChild(tapDelay.element)
 
   // ---- Tastenbelegung (umbelegbare Aktions-Tasten) ----
   const keybinds = createKeybindSection()

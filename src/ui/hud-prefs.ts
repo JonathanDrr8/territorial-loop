@@ -44,12 +44,23 @@ export interface HudPrefs {
    * Nation, die dich gerade angreift, bleibt zur Warnung immer sichtbar.)
    */
   offscreenLabelCount: number
+  /**
+   * Verzögerung (ms), bevor ein Touch-Tipp als Angriff feuert — das Fenster, in dem ein zweiter
+   * Tipp stattdessen den Doppeltipp-Zoom auslöst. 0 = aus (Angriff sofort, kein Doppeltipp-Zoom,
+   * dafür schnelleres Antippen). Default 250.
+   */
+  tapAttackDelayMs: number
 }
 
 /** Erlaubter Bereich für [[HudPrefs.offscreenLabelCount]]. */
 export const OFFSCREEN_LABEL_MIN = 0
 export const OFFSCREEN_LABEL_MAX = 30
 export const OFFSCREEN_LABEL_DEFAULT = 7
+
+/** Erlaubter Bereich für [[HudPrefs.tapAttackDelayMs]] (ms). */
+export const TAP_ATTACK_DELAY_MIN = 0
+export const TAP_ATTACK_DELAY_MAX = 400
+export const TAP_ATTACK_DELAY_DEFAULT = 250
 
 const KEY = 'territorial-loop:hud-prefs:v1'
 
@@ -74,12 +85,19 @@ const DEFAULTS: HudPrefs = {
   controlMode: 'auto',
   radialSize: 'normal',
   offscreenLabelCount: OFFSCREEN_LABEL_DEFAULT,
+  tapAttackDelayMs: TAP_ATTACK_DELAY_DEFAULT,
 }
 
 /** Clamped/validierter Off-Screen-Label-Wert aus rohem Input (Fallback = Default). */
 function clampOffscreen(v: unknown): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return OFFSCREEN_LABEL_DEFAULT
   return Math.max(OFFSCREEN_LABEL_MIN, Math.min(OFFSCREEN_LABEL_MAX, Math.round(v)))
+}
+
+/** Clamped/validierte Tipp-Angriff-Verzögerung (ms) aus rohem Input (Fallback = Default). */
+function clampTapDelay(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return TAP_ATTACK_DELAY_DEFAULT
+  return Math.max(TAP_ATTACK_DELAY_MIN, Math.min(TAP_ATTACK_DELAY_MAX, Math.round(v)))
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -112,6 +130,7 @@ function load(): HudPrefs {
             ? parsed.radialSize
             : 'normal',
         offscreenLabelCount: clampOffscreen(parsed.offscreenLabelCount),
+        tapAttackDelayMs: clampTapDelay(parsed.tapAttackDelayMs),
       }
     }
   } catch {

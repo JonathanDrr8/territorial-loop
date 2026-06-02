@@ -330,6 +330,7 @@ export const ja: Record<string, string> = {
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',
   'settings.offscreenLabels': '端ラベル（最近の…）',
+  'settings.tapDelay': 'タップ攻撃の遅延（0 = オフ）',
   'settings.keybinds': 'キー割り当て',
   'settings.keybinds.reset': 'リセット',
   'keybind.press': 'キーを押してください…',

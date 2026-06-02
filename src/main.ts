@@ -610,6 +610,19 @@ function startMatch(
 
   let inputHandler: InputHandler | null = null
 
+  // Kamera auf eine Nation zentrieren (Klick auf Ranglisten-Zeile / Log-Eintrag). Auf dem Handy
+  // verdeckt die offene Rangliste die zentrierte Nation → beim Zentrieren das mobile Rang-Panel
+  // schließen, damit man auch sieht, wohin gesprungen wurde.
+  function centerCamera(pid: number): void {
+    renderer.centerOnPlayer(pid)
+    if (mobileRankOpen) {
+      mobileRankOpen = false
+      hud.setMobileRankOpen(false)
+      mobileTopbar.setRankActive(false)
+      updateAttackBarVisible()
+    }
+  }
+
   const hud = createHUD(
     container,
     state,
@@ -637,7 +650,7 @@ function startMatch(
       renderer.camera.x = (tile % w) + 0.5
       renderer.camera.y = Math.floor(tile / w) + 0.5
     },
-    (pid) => renderer.centerOnPlayer(pid),
+    centerCamera,
     localHumanId,
   )
 
@@ -736,7 +749,7 @@ function startMatch(
     (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
     () => sound.alliance(),
   )
-  const eventLog = createEventLog(feedColumn, state, (pid) => renderer.centerOnPlayer(pid))
+  const eventLog = createEventLog(feedColumn, state, centerCamera)
 
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
