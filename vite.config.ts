@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 const PKG_URL = new URL('./package.json', import.meta.url)
 const readPkgVersion = (): string =>
@@ -73,8 +73,65 @@ function lockstepServerPlugin(): Plugin {
   }
 }
 
+/** Erlaubte feste Preset-IDs (Spiegel von FIXED_PRESET_IDS in hud-presets.ts). */
+const HUD_DEFAULT_IDS = new Set(['standard', 'mouse', 'wheel'])
+
+/**
+ * Dev-Tool (nur `npm run dev`): nimmt POST `/__save-hud-default` `{id, data}` entgegen und schreibt
+ * die Anordnung in `src/ui/hud-presets.defaults.json` → der eingebaute HUD-Standard für alle Spieler.
+ * So baut Jonathan die Vorlagen lokal im HUD-Editor und speichert sie direkt ins Projekt (commit →
+ * ausgeliefert). Im Live-Build existiert der Endpunkt nicht (apply: 'serve').
+ */
+function hudDefaultsPlugin(): Plugin {
+  const filePath = fileURLToPath(new URL('./src/ui/hud-presets.defaults.json', import.meta.url))
+  return {
+    name: 'territorial-loop:hud-defaults',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-hud-default', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('POST only')
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (c: Buffer) => chunks.push(c))
+        req.on('end', () => {
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+              id?: unknown
+              data?: { layout?: unknown; prefs?: unknown }
+            }
+            const id = body.id
+            if (
+              typeof id !== 'string' ||
+              !HUD_DEFAULT_IDS.has(id) ||
+              typeof body.data !== 'object'
+            ) {
+              res.statusCode = 400
+              res.end('bad request')
+              return
+            }
+            const current = JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>
+            current[id] = body.data
+            writeFileSync(filePath, JSON.stringify(current, null, 2) + '\n')
+            server.config.logger.info(
+              `  ➜  HUD-Standard „${id}" gespeichert (hud-presets.defaults.json)`,
+            )
+            res.statusCode = 200
+            res.end('ok')
+          } catch {
+            res.statusCode = 500
+            res.end('error')
+          }
+        })
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [appVersionPlugin(), lockstepServerPlugin()],
+  plugins: [appVersionPlugin(), lockstepServerPlugin(), hudDefaultsPlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

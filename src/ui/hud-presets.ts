@@ -13,6 +13,10 @@
 
 import { getLayoutSnapshot, resetLayout, setPanel, type PanelOverride } from './hud-layout'
 import { getHudPrefs, setHudPrefs, type HudPrefs } from './hud-prefs'
+// Vorgebaute Default-Layouts (ADR-0028): per Dev-Tool („Als Standard speichern", nur `npm run dev`)
+// in DIESE Datei geschrieben → ins Spiel eingebaut (für alle Spieler). Leer {} = der hartkodierte
+// Fallback unten greift. Siehe `saveFixedAsDefault` + den Vite-Dev-Endpunkt in vite.config.ts.
+import builtinDefaults from './hud-presets.defaults.json'
 
 interface PresetData {
   /** Panel-Overrides je Panel-ID. Leer = Default-Anordnung (nach resetLayout). */
@@ -21,7 +25,10 @@ interface PresetData {
   prefs: Partial<HudPrefs>
 }
 
-/** Feste, eingebaute Presets. Setzen Layout zurück + wählen einen Steuerungs-Modus (robust). */
+/** Vorgebaute Defaults aus der JSON (Dev-Tool-Output) — überschreiben den hartkodierten Fallback. */
+const PREBUILT = builtinDefaults as Record<string, PresetData>
+
+/** Hartkodierter Fallback. Setzen Layout zurück + wählen einen Steuerungs-Modus (robust). */
 const FIXED: Record<string, PresetData> = {
   standard: {
     layout: {},
@@ -157,10 +164,29 @@ function apply(data: PresetData): void {
   setHudPrefs(data.prefs)
 }
 
-/** Ein festes Preset (per ID) anwenden — Override falls vorhanden, sonst eingebauter Default. */
+/** Ein festes Preset (per ID) anwenden — lokaler Override, sonst vorgebauter Default (JSON), sonst Fallback. */
 export function applyFixedPreset(id: FixedPresetId): void {
-  const def = fixedOverrides[id] ?? FIXED[id]
+  const def = fixedOverrides[id] ?? PREBUILT[id] ?? FIXED[id]
   if (def !== undefined) apply(def)
+}
+
+/**
+ * NUR DEV (`npm run dev`): speichert die aktuelle Anordnung als **eingebauten Standard** für ein festes
+ * Preset — schreibt sie über den Vite-Dev-Endpunkt in `hud-presets.defaults.json` (kommt damit ins
+ * Spiel für alle Spieler, nach Commit). Im Live-Build kein Effekt (Endpunkt fehlt). Gibt Erfolg zurück.
+ */
+export async function saveFixedAsDefault(id: FixedPresetId): Promise<boolean> {
+  const data: PresetData = { layout: getLayoutSnapshot(), prefs: getHudPrefs() }
+  try {
+    const res = await fetch('/__save-hud-default', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id, data }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 /** Einen eigenen Slot (per Name) anwenden. */

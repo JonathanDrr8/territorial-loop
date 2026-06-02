@@ -24,6 +24,7 @@ import {
   hasFixedOverride,
   listUserPresets,
   resetFixedPreset,
+  saveFixedAsDefault,
   saveFixedPreset,
   saveUserPreset,
   type FixedPresetId,
@@ -876,6 +877,32 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       }
     })
     quickWrap.append(quickLabel, quickSel, saveSel, delBtn)
+    // NUR DEV: aktuelle Anordnung als eingebauten Standard speichern (schreibt in die JSON →
+    // ausgeliefert für alle, nach Commit). Im Live-Build nicht vorhanden.
+    if (import.meta.env.DEV) {
+      const defSel = document.createElement('select')
+      defSel.style.cssText = quickSel.style.cssText
+      const ph = document.createElement('option')
+      ph.value = ''
+      ph.textContent = '⚙ Als Standard (dev)'
+      defSel.appendChild(ph)
+      for (const id of FIXED_PRESET_IDS) {
+        const o = document.createElement('option')
+        o.value = id
+        o.textContent = `⇩ ${t(FIXED_LABEL[id])}`
+        defSel.appendChild(o)
+      }
+      defSel.addEventListener('change', () => {
+        const id = defSel.value
+        defSel.value = ''
+        if (id !== 'standard' && id !== 'mouse' && id !== 'wheel') return
+        void saveFixedAsDefault(id).then((ok) => {
+          ph.textContent = ok ? '✓ gespeichert' : '✗ Fehler'
+          window.setTimeout(() => (ph.textContent = '⚙ Als Standard (dev)'), 1400)
+        })
+      })
+      quickWrap.appendChild(defSel)
+    }
     tabBar.appendChild(quickWrap)
     toolbar.appendChild(tabBar)
     toolbar.appendChild(paneDesign)
