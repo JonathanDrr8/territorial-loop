@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.40.0] – 2026-06-02
+
+### Geändert
+
+- **HUD-Editor übersichtlicher:** Der Editor ist jetzt ein schmaler, vertikaler Block statt
+  einer breiten Querleiste. Die Layout-Optionen stehen untereinander, sodass man sie mit
+  einem Blick erfasst. Die **Vorlagen** (Laden, Speichern, Löschen) haben einen eigenen,
+  klar beschrifteten Abschnitt — sie sind nicht mehr in die Reiter-Leiste gequetscht.
+
 ## [0.39.0] – 2026-06-02
 
 ### Neu

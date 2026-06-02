@@ -372,6 +372,7 @@ export const ja: Record<string, string> = {
   'quickcfg.wheel': 'ナビホイール',
   'hud.editor.presets.templates': 'テンプレート',
   'hud.editor.presets.custom': 'カスタム',
+  'hud.editor.presets.load': '読み込む',
   'hud.editor.presets.save': '保存',
   'hud.editor.presets.delete': '削除',
   'hud.editor.presets.slotName': 'レイアウト {n}',

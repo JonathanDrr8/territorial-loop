@@ -419,6 +419,7 @@ export const en: Record<string, string> = {
   'quickcfg.wheel': 'Nav wheel',
   'hud.editor.presets.templates': 'Templates',
   'hud.editor.presets.custom': 'Custom',
+  'hud.editor.presets.load': 'Load',
   'hud.editor.presets.save': 'Save',
   'hud.editor.presets.delete': 'Delete',
   'hud.editor.presets.slotName': 'Layout {n}',

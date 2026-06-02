@@ -421,6 +421,7 @@ export const es: Record<string, string> = {
   'quickcfg.wheel': 'Rueda de nav.',
   'hud.editor.presets.templates': 'Plantillas',
   'hud.editor.presets.custom': 'Propios',
+  'hud.editor.presets.load': 'Cargar',
   'hud.editor.presets.save': 'Guardar',
   'hud.editor.presets.delete': 'Eliminar',
   'hud.editor.presets.slotName': 'Disposición {n}',

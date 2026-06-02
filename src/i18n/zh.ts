@@ -366,6 +366,7 @@ export const zh: Record<string, string> = {
   'quickcfg.wheel': '导航轮',
   'hud.editor.presets.templates': '模板',
   'hud.editor.presets.custom': '自定义',
+  'hud.editor.presets.load': '加载',
   'hud.editor.presets.save': '保存',
   'hud.editor.presets.delete': '删除',
   'hud.editor.presets.slotName': '布局 {n}',
