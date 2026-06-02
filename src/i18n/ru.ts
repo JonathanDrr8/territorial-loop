@@ -95,6 +95,7 @@ export const ru: Record<string, string> = {
   'ranking.myPeak': 'Рекорд',
   'ranking.loading': 'Загрузка …',
   'ranking.empty': 'Записей пока нет — сыграй рейтинговый матч!',
+  'ranking.offline': 'Офлайн — невозможно подключиться к серверу рейтинга.',
   'ranking.colName': 'Имя',
   'ranking.colElo': 'ELO',
   'ranking.colRecord': 'П/П',

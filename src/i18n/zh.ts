@@ -94,6 +94,7 @@ export const zh: Record<string, string> = {
   'ranking.myPeak': '最高值',
   'ranking.loading': '加载中 …',
   'ranking.empty': '暂无记录 —— 快去打一场排位赛吧！',
+  'ranking.offline': '离线 —— 无法连接到排行榜服务器。',
   'ranking.colName': '名字',
   'ranking.colElo': 'ELO',
   'ranking.colRecord': '胜/负',

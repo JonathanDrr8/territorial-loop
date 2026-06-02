@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.48.1] – 2026-06-02
+
+### Behoben
+
+- **Wilde im Angriffs-Log:** Greifst du eine wilde Nation an (oder schickst ein Boot zu ihr), steht
+  jetzt „Wildnis" im Log statt ihres internen Nationen-Namens.
+
+### Geändert
+
+- **Ausgewählte Vorlage ist hinterlegt:** Im Menü ist die gerade aktive Steuerungs-/HUD-Vorlage
+  jetzt farblich markiert, damit man sieht, was gewählt ist.
+- **Rangliste zeigt „offline":** Ist der Ranglisten-Server nicht erreichbar, steht das jetzt klar da
+  („Offline — keine Verbindung") statt wie eine leere Rangliste auszusehen.
+
 ## [0.48.0] – 2026-06-02
 
 ### Geändert

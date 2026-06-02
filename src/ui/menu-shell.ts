@@ -638,6 +638,18 @@ export function createMenuShell(
       setRange(victory.element, preset.victoryPct)
       refreshPreview()
     }
+    // Gewählte Vorgabe bleibt hervorgehoben (Akzent-Rand + dezenter Hintergrund), damit man sieht,
+    // welche gerade aktiv ist.
+    let activePresetCard: HTMLButtonElement | null = null
+    const markPreset = (card: HTMLButtonElement): void => {
+      if (activePresetCard !== null && activePresetCard !== card) {
+        activePresetCard.style.borderColor = 'var(--tl-panel-border-color)'
+        activePresetCard.style.background = 'var(--tl-panel-bg)'
+      }
+      activePresetCard = card
+      card.style.borderColor = 'var(--tl-accent)'
+      card.style.background = 'rgba(232,193,74,0.14)'
+    }
     for (const preset of MATCH_PRESETS) {
       const card = document.createElement('button')
       card.type = 'button'
@@ -665,12 +677,15 @@ export function createMenuShell(
       sub.style.cssText = 'font-size: 11px; opacity: 0.7'
       card.append(name, sub)
       card.addEventListener('mouseenter', () => {
-        card.style.borderColor = 'var(--tl-accent)'
+        if (card !== activePresetCard) card.style.borderColor = 'var(--tl-accent)'
       })
       card.addEventListener('mouseleave', () => {
-        card.style.borderColor = 'var(--tl-panel-border-color)'
+        if (card !== activePresetCard) card.style.borderColor = 'var(--tl-panel-border-color)'
       })
-      card.addEventListener('click', () => applyPreset(preset))
+      card.addEventListener('click', () => {
+        applyPreset(preset)
+        markPreset(card)
+      })
       presetRow.appendChild(card)
     }
 
@@ -1139,7 +1154,15 @@ export function createMenuShell(
     }
 
     const refresh = (): void => {
-      void fetchLeaderboard(serverUrl ?? '', 100).then(renderList)
+      void fetchLeaderboard(serverUrl ?? '', 100).then((entries) => {
+        if (entries === null) {
+          // Server nicht erreichbar → klar als offline ausweisen (statt wie „leer" zu wirken).
+          list.textContent = t('ranking.offline')
+          list.style.opacity = '0.6'
+        } else {
+          renderList(entries)
+        }
+      })
     }
     refresh()
 

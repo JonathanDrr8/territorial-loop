@@ -92,18 +92,22 @@ export interface OnlineRankEntry {
 }
 
 /** Holt die öffentliche Bestenliste (Top-N nach ELO). Bei Fehler/Offline: leere Liste. */
+/**
+ * Lädt die Online-Rangliste. Rückgabe: Array (ggf. leer = erreichbar, aber keine Einträge) ODER
+ * `null` = Server nicht erreichbar / Fehler → der Aufrufer zeigt dann „offline" statt „leer".
+ */
 export async function fetchLeaderboard(
   serverWsUrl: string,
   limit = 100,
-): Promise<OnlineRankEntry[]> {
+): Promise<OnlineRankEntry[] | null> {
   try {
     const res = await fetch(`${toHttp(serverWsUrl)}/leaderboard?limit=${String(limit)}`)
-    if (!res.ok) return []
+    if (!res.ok) return null
     const json = (await res.json()) as { entries?: unknown }
-    if (!Array.isArray(json.entries)) return []
+    if (!Array.isArray(json.entries)) return null
     return json.entries as OnlineRankEntry[]
   } catch {
-    return []
+    return null
   }
 }
 
