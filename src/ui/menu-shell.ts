@@ -24,6 +24,7 @@ import {
 import { currentUsername } from './account'
 import { createAccountDialog, type AccountDialogApi } from './account-dialog'
 import { createLobbyBrowser, type LobbyBrowserApi } from './lobby-browser'
+import { createKeybindSection, type KeybindSectionApi } from './keybind-settings'
 import { generateMenuBackground } from './menu-background'
 import changelogRaw from '../../CHANGELOG.md?raw'
 import { APP_VERSION } from 'virtual:app-version'
@@ -138,6 +139,9 @@ export function createMenuShell(
   let overlay: HTMLDivElement | null = null
   let lobbyBrowser: LobbyBrowserApi | null = null
   let accountDialog: AccountDialogApi | null = null
+  // Keybind-Sektion im Einstellungen-Tab — beim Neuaufbau (teardown) zerstören, damit ihr
+  // window-Listener nicht leckt.
+  let menuKeybinds: KeybindSectionApi | null = null
   let bannerSlot: HTMLDivElement | null = null
   let tipTimer: ReturnType<typeof setInterval> | null = null
 
@@ -146,6 +150,8 @@ export function createMenuShell(
     lobbyBrowser = null
     accountDialog?.destroy()
     accountDialog = null
+    menuKeybinds?.destroy()
+    menuKeybinds = null
     if (tipTimer !== null) {
       clearInterval(tipTimer)
       tipTimer = null
@@ -971,6 +977,11 @@ export function createMenuShell(
     resetRow.appendChild(resetLabel)
     resetRow.appendChild(resetBtn)
     p.appendChild(resetRow)
+
+    // Tastenbelegung (umbelegbare Aktions-Tasten) — dieselbe Sektion wie im In-Game-Einstellungen.
+    menuKeybinds?.destroy()
+    menuKeybinds = createKeybindSection()
+    p.appendChild(menuKeybinds.element)
 
     settingsFields = {
       camera: camera.getValue,
