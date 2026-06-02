@@ -917,9 +917,14 @@ function startMatch(
       mobileTopbar.setRankActive(false)
     }
   }
-  applyMobileLayout()
-  // Steuerungs-Modus live (HUD-Editor): Cockpit ein/aus umschalten.
-  const offControlMode = onHudPrefsChange(applyMobileLayout)
+  // Reagiert auf alle HUD-Pref-Änderungen: Mobile-Cockpit ein/aus + Off-Screen-Label-Anzahl.
+  const applyPrefs = (): void => {
+    applyMobileLayout()
+    renderer.setOffscreenLabelCount(getHudPrefs().offscreenLabelCount)
+  }
+  applyPrefs()
+  // Steuerungs-Modus live (HUD-Editor): Cockpit ein/aus + Label-Anzahl live umschalten.
+  const offControlMode = onHudPrefsChange(applyPrefs)
 
   hud.setSpeed(speed)
 

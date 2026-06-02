@@ -8,7 +8,13 @@ import { t } from '../i18n'
 import { panelStyle } from './theme'
 import { makeSelectRow, makeSliderRow } from './start-menu'
 import { loadAudioVolumes, saveAudioVolumes, type AudioVolumes } from './preferences'
-import { getHudPrefs, setHudPref, type RadialSize } from './hud-prefs'
+import {
+  getHudPrefs,
+  setHudPref,
+  type RadialSize,
+  OFFSCREEN_LABEL_MIN,
+  OFFSCREEN_LABEL_MAX,
+} from './hud-prefs'
 import { createKeybindSection } from './keybind-settings'
 
 export interface GameSettingsDeps {
@@ -104,6 +110,20 @@ export function createGameSettings(
     setHudPref('radialSize', radial.getValue())
   })
   box.appendChild(radial.element)
+
+  // Off-Screen-Nationen-Labels: wie viele der nächsten Nachbarn am Rand gezeigt werden (0 = aus).
+  const offLabels = makeSliderRow(
+    t('settings.offscreenLabels'),
+    OFFSCREEN_LABEL_MIN,
+    OFFSCREEN_LABEL_MAX,
+    1,
+    getHudPrefs().offscreenLabelCount,
+    '',
+  )
+  offLabels.element.querySelector('input[type=range]')?.addEventListener('input', () => {
+    setHudPref('offscreenLabelCount', offLabels.getValue())
+  })
+  box.appendChild(offLabels.element)
 
   // ---- Tastenbelegung (umbelegbare Aktions-Tasten) ----
   const keybinds = createKeybindSection()

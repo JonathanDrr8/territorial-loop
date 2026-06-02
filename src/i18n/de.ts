@@ -378,6 +378,7 @@ export const de: Record<string, string> = {
   'settings.radialSize.small': 'Klein',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Groß',
+  'settings.offscreenLabels': 'Namen am Rand (nächste …)',
   'settings.keybinds': 'Tastenbelegung',
   'settings.keybinds.reset': 'Zurücksetzen',
   'keybind.press': 'Taste drücken…',

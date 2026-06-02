@@ -38,7 +38,18 @@ export interface HudPrefs {
   controlMode: ControlMode
   /** Größe des radialen Menüs (Rechtsklick/Long-Press + Eck-Rad). Default `normal`. */
   radialSize: RadialSize
+  /**
+   * Wie viele Nationen-Namen außerhalb des Bildschirms (an den Rand geklemmt) gezeigt werden —
+   * die jeweils **nächsten X** zur Bildmitte. 0 = aus. Default 7. (Wilde zählen nie mit; eine
+   * Nation, die dich gerade angreift, bleibt zur Warnung immer sichtbar.)
+   */
+  offscreenLabelCount: number
 }
+
+/** Erlaubter Bereich für [[HudPrefs.offscreenLabelCount]]. */
+export const OFFSCREEN_LABEL_MIN = 0
+export const OFFSCREEN_LABEL_MAX = 30
+export const OFFSCREEN_LABEL_DEFAULT = 7
 
 const KEY = 'territorial-loop:hud-prefs:v1'
 
@@ -62,6 +73,13 @@ const DEFAULTS: HudPrefs = {
   troopStyle: 'bar',
   controlMode: 'auto',
   radialSize: 'normal',
+  offscreenLabelCount: OFFSCREEN_LABEL_DEFAULT,
+}
+
+/** Clamped/validierter Off-Screen-Label-Wert aus rohem Input (Fallback = Default). */
+function clampOffscreen(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return OFFSCREEN_LABEL_DEFAULT
+  return Math.max(OFFSCREEN_LABEL_MIN, Math.min(OFFSCREEN_LABEL_MAX, Math.round(v)))
 }
 
 const listeners = new Set<(p: HudPrefs) => void>()
@@ -93,6 +111,7 @@ function load(): HudPrefs {
           parsed.radialSize === 'small' || parsed.radialSize === 'large'
             ? parsed.radialSize
             : 'normal',
+        offscreenLabelCount: clampOffscreen(parsed.offscreenLabelCount),
       }
     }
   } catch {
