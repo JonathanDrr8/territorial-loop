@@ -424,6 +424,7 @@ export const de: Record<string, string> = {
   'quickcfg.wheel': 'Navigations-Rad',
   'hud.editor.presets.templates': 'Vorlagen',
   'hud.editor.presets.custom': 'Eigene',
+  'hud.editor.presets.load': 'Laden',
   'hud.editor.presets.save': 'Speichern',
   'hud.editor.presets.delete': 'Löschen',
   'hud.editor.presets.slotName': 'Layout {n}',

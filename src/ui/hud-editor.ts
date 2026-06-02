@@ -108,7 +108,11 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     'flex-direction: column',
     'gap: 8px',
     'padding: 10px 12px',
-    'max-width: 92vw',
+    // Schmaler, vertikaler Werkzeug-Block statt breiter Leiste (kompakter, weniger Karten-Verdeckung).
+    'width: 340px',
+    'max-width: 94vw',
+    'max-height: 88vh',
+    'overflow-y: auto',
     'pointer-events: auto',
   ])
   container.appendChild(toolbar)
@@ -753,13 +757,25 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       tabBtns.set(key, b)
       tabBar.appendChild(b)
     }
-    // Layout-Presets rechts in der Reiter-Leiste: feste Vorlagen + speicherbare eigene Slots.
+    // Vorlagen-Block: eigener vertikaler Abschnitt (unter den Reitern), klar beschriftet —
+    // Laden / Speichern / Löschen, dazu im Dev-Modus „Als Standard speichern".
     const quickWrap = document.createElement('div')
     quickWrap.style.cssText =
-      'margin-left:auto;display:flex;align-items:center;gap:5px;flex-wrap:wrap'
-    const quickLabel = document.createElement('span')
-    quickLabel.textContent = `${t('hud.editor.quickConfig')}:`
-    quickLabel.style.cssText = 'font-size:11px;opacity:0.7'
+      'display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-top:2px;padding-top:8px;border-top:1px solid var(--tl-panel-border-color)'
+    const quickHeader = document.createElement('div')
+    quickHeader.textContent = t('hud.editor.presets.templates')
+    quickHeader.style.cssText = 'font-size:11px;font-weight:700;opacity:0.7;letter-spacing:0.5px'
+    /** Beschriftete Zeile: Label links (feste Breite) + Steuerung rechts (füllt). */
+    const presetRow = (labelText: string, control: HTMLElement): HTMLElement => {
+      const row = document.createElement('div')
+      row.style.cssText = 'display:flex;align-items:center;gap:8px'
+      const lab = document.createElement('span')
+      lab.textContent = labelText
+      lab.style.cssText = 'font-size:11px;opacity:0.7;flex:0 0 64px'
+      control.style.flex = '1'
+      row.append(lab, control)
+      return row
+    }
     const quickSel = document.createElement('select')
     quickSel.style.cssText = [
       'font-size:11px',
@@ -876,35 +892,37 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
         }
       }
     })
-    quickWrap.append(quickLabel, quickSel, saveSel, delBtn)
+    delBtn.style.width = '100%'
+    quickWrap.append(
+      quickHeader,
+      presetRow(t('hud.editor.presets.load'), quickSel),
+      presetRow(t('hud.editor.presets.save'), saveSel),
+      delBtn,
+    )
     // NUR DEV: aktuelle Anordnung als eingebauten Standard speichern (schreibt in die JSON →
-    // ausgeliefert für alle, nach Commit). Im Live-Build nicht vorhanden.
+    // ausgeliefert für alle, nach Commit). Drei klare Knöpfe statt Dropdown. Im Live-Build weg.
     if (import.meta.env.DEV) {
-      const defSel = document.createElement('select')
-      defSel.style.cssText = quickSel.style.cssText
-      const ph = document.createElement('option')
-      ph.value = ''
-      ph.textContent = '⚙ Als Standard (dev)'
-      defSel.appendChild(ph)
+      const devHeader = document.createElement('div')
+      devHeader.textContent = '⚙ Als Standard speichern (dev)'
+      devHeader.style.cssText = 'font-size:11px;font-weight:700;opacity:0.7;margin-top:4px'
+      const devRow = document.createElement('div')
+      devRow.style.cssText = 'display:flex;gap:6px'
       for (const id of FIXED_PRESET_IDS) {
-        const o = document.createElement('option')
-        o.value = id
-        o.textContent = `⇩ ${t(FIXED_LABEL[id])}`
-        defSel.appendChild(o)
-      }
-      defSel.addEventListener('change', () => {
-        const id = defSel.value
-        defSel.value = ''
-        if (id !== 'standard' && id !== 'mouse' && id !== 'wheel') return
-        void saveFixedAsDefault(id).then((ok) => {
-          ph.textContent = ok ? '✓ gespeichert' : '✗ Fehler'
-          window.setTimeout(() => (ph.textContent = '⚙ Als Standard (dev)'), 1400)
+        const b = presetBtn(t(FIXED_LABEL[id]))
+        b.style.flex = '1'
+        b.addEventListener('click', () => {
+          const prev = b.textContent
+          void saveFixedAsDefault(id).then((ok) => {
+            b.textContent = ok ? '✓' : '✗'
+            window.setTimeout(() => (b.textContent = prev), 1200)
+          })
         })
-      })
-      quickWrap.appendChild(defSel)
+        devRow.appendChild(b)
+      }
+      quickWrap.append(devHeader, devRow)
     }
-    tabBar.appendChild(quickWrap)
     toolbar.appendChild(tabBar)
+    toolbar.appendChild(quickWrap)
     toolbar.appendChild(paneDesign)
     toolbar.appendChild(paneLayout)
     toolbar.appendChild(paneElements)
@@ -944,7 +962,8 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
 
     // Layout-Schalter: Slider-Heimat + Knopf-Anordnung (über hud-prefs, live).
     const layoutRow = document.createElement('div')
-    layoutRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:center'
+    // Vertikal gestapelt (jede Option eine Zeile) statt einer langen horizontalen Leiste.
+    layoutRow.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:8px'
     // Diese Regler betreffen NUR die Desktop-Panels (Slider-Heimat, Knopf-Anordnung, Split/Merge,
     // Truppen-Stil) → im Maus-/Cockpit-Modus ausblenden (dort gibt es diese Panels nicht).
     const cockpit = opts.isCockpit?.() ?? false

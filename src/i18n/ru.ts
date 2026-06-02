@@ -411,6 +411,7 @@ export const ru: Record<string, string> = {
   'quickcfg.wheel': 'Навигационное колесо',
   'hud.editor.presets.templates': 'Шаблоны',
   'hud.editor.presets.custom': 'Мои',
+  'hud.editor.presets.load': 'Загрузить',
   'hud.editor.presets.save': 'Сохранить',
   'hud.editor.presets.delete': 'Удалить',
   'hud.editor.presets.slotName': 'Раскладка {n}',
