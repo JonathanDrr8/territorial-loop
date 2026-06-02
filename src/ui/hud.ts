@@ -1395,10 +1395,8 @@ export function createHUD(
   let lastAttackHtml = ''
   /** Übersicht eigener (ausgehender) und eingehender Angriffe mit Dauer. */
   function updateAttackPanel(): void {
-    if (mobile) {
-      attackPanel.style.display = 'none'
-      return
-    }
+    // Auf Mobile NICHT mehr pauschal ausblenden — das Panel ist jetzt auch im Cockpit verfügbar
+    // und im HUD-Editor verschiebbar (zeigt sich ohnehin nur, wenn es Angriffe gibt).
     const human = findHuman()
     if (human === undefined || !human.isAlive) {
       attackPanel.style.display = 'none'

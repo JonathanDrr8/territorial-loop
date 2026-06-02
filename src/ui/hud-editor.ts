@@ -71,6 +71,10 @@ interface Rect {
  *  Editor NUR diese; im Desktop-Modus NUR die Desktop-Panels (alles andere). */
 const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar', 'attackbar'])
 
+/** Panels, die in BEIDEN Modi editierbar sind (auch auf Mobile sinnvoll): Angriffs-Panel,
+ *  Feed-Spalte (Bündnis-Anfragen + Log), Feedback-Knopf. */
+const BOTH_PANEL_IDS = new Set(['attacks', 'feed', 'feedback'])
+
 /** IDs, die NICHT ausgeblendet werden dürfen (sonst verlöre man den Zugang) — nur verschiebbar. */
 const NO_HIDE_IDS = new Set(['menu', 'feedback'])
 
@@ -914,64 +918,69 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     // Layout-Schalter: Slider-Heimat + Knopf-Anordnung (über hud-prefs, live).
     const layoutRow = document.createElement('div')
     layoutRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:center'
-    layoutRow.appendChild(
-      segmented(
-        t('hud.editor.slider'),
-        getHudPrefs().sliderHome,
-        [
-          ['action', t('hud.editor.slider.action')],
-          ['resource', t('hud.editor.slider.resource')],
-        ],
-        (v) => setHudPref('sliderHome', v),
-      ),
-    )
-    layoutRow.appendChild(
-      segmented(
-        t('hud.editor.buttons'),
-        getHudPrefs().buttonsLayout,
-        [
-          ['row', t('hud.editor.buttons.row')],
-          ['numpad', t('hud.editor.buttons.numpad')],
-        ],
-        (v) => setHudPref('buttonsLayout', v),
-      ),
-    )
-    // Paket ↔ Einzelteile (Split/Merge) je Gruppe.
-    layoutRow.appendChild(
-      segmented(
-        t('hud.editor.panel.resource'),
-        getHudPrefs().resourceSplit ? 'split' : 'pkg',
-        [
-          ['pkg', t('hud.editor.merged')],
-          ['split', t('hud.editor.split')],
-        ],
-        (v) => setHudPref('resourceSplit', v === 'split'),
-      ),
-    )
-    layoutRow.appendChild(
-      segmented(
-        t('hud.editor.panel.action'),
-        getHudPrefs().actionSplit ? 'split' : 'pkg',
-        [
-          ['pkg', t('hud.editor.merged')],
-          ['split', t('hud.editor.split')],
-        ],
-        (v) => setHudPref('actionSplit', v === 'split'),
-      ),
-    )
-    // Truppen-Anzeige: klassischer Balken oder füllende Kugel (live über hud-prefs).
-    layoutRow.appendChild(
-      segmented(
-        t('hud.editor.troopStyle'),
-        getHudPrefs().troopStyle,
-        [
-          ['bar', t('hud.editor.troopStyle.bar')],
-          ['orb', t('hud.editor.troopStyle.orb')],
-        ],
-        (v) => setHudPref('troopStyle', v),
-      ),
-    )
-    // Steuerungs-Modus: auto / Desktop (klassisch) / Touch (Eck-Rad). Live umschaltbar.
+    // Diese Regler betreffen NUR die Desktop-Panels (Slider-Heimat, Knopf-Anordnung, Split/Merge,
+    // Truppen-Stil) → im Maus-/Cockpit-Modus ausblenden (dort gibt es diese Panels nicht).
+    const cockpit = opts.isCockpit?.() ?? false
+    if (!cockpit) {
+      layoutRow.appendChild(
+        segmented(
+          t('hud.editor.slider'),
+          getHudPrefs().sliderHome,
+          [
+            ['action', t('hud.editor.slider.action')],
+            ['resource', t('hud.editor.slider.resource')],
+          ],
+          (v) => setHudPref('sliderHome', v),
+        ),
+      )
+      layoutRow.appendChild(
+        segmented(
+          t('hud.editor.buttons'),
+          getHudPrefs().buttonsLayout,
+          [
+            ['row', t('hud.editor.buttons.row')],
+            ['numpad', t('hud.editor.buttons.numpad')],
+          ],
+          (v) => setHudPref('buttonsLayout', v),
+        ),
+      )
+      // Paket ↔ Einzelteile (Split/Merge) je Gruppe.
+      layoutRow.appendChild(
+        segmented(
+          t('hud.editor.panel.resource'),
+          getHudPrefs().resourceSplit ? 'split' : 'pkg',
+          [
+            ['pkg', t('hud.editor.merged')],
+            ['split', t('hud.editor.split')],
+          ],
+          (v) => setHudPref('resourceSplit', v === 'split'),
+        ),
+      )
+      layoutRow.appendChild(
+        segmented(
+          t('hud.editor.panel.action'),
+          getHudPrefs().actionSplit ? 'split' : 'pkg',
+          [
+            ['pkg', t('hud.editor.merged')],
+            ['split', t('hud.editor.split')],
+          ],
+          (v) => setHudPref('actionSplit', v === 'split'),
+        ),
+      )
+      // Truppen-Anzeige: klassischer Balken oder füllende Kugel (live über hud-prefs).
+      layoutRow.appendChild(
+        segmented(
+          t('hud.editor.troopStyle'),
+          getHudPrefs().troopStyle,
+          [
+            ['bar', t('hud.editor.troopStyle.bar')],
+            ['orb', t('hud.editor.troopStyle.orb')],
+          ],
+          (v) => setHudPref('troopStyle', v),
+        ),
+      )
+    }
+    // Steuerungs-Modus: auto / Desktop (klassisch) / Maus-Rad (Eck-Rad). Bleibt immer (Modus-Wechsel).
     layoutRow.appendChild(
       segmented(
         t('hud.editor.control'),
@@ -1140,12 +1149,14 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     frames.clear()
     panelMap.clear()
     forcedShown.clear()
-    // Nur die Panels des aktiven Modus bearbeiten: im Cockpit-/Maus-Modus das Eck-Rad + die
-    // Top-Leiste, sonst die Desktop-Panels. So zeigt der Editor nie die im jeweils anderen Modus
-    // ausgeblendeten Panels als überdimensionierte Platzhalter.
+    // Nur die Panels des aktiven Modus bearbeiten: im Cockpit-/Maus-Modus die Cockpit-Elemente
+    // (Rad/Top-Leiste/Angriffs-Slider) + die „beide Modi"-Panels (Angriffe/Feed/Feedback); im
+    // Desktop-Modus alles AUSSER den reinen Cockpit-Elementen. So tauchen die im jeweils anderen
+    // Modus ersetzten Panels nie als überdimensionierte Platzhalter auf.
     const cockpit = opts.isCockpit?.() ?? false
     for (const [id, el] of panelElements()) {
-      if (COCKPIT_PANEL_IDS.has(id) !== cockpit) continue
+      const show = COCKPIT_PANEL_IDS.has(id) ? cockpit : BOTH_PANEL_IDS.has(id) || !cockpit
+      if (!show) continue
       panelMap.set(id, el)
     }
     for (const [id, el] of panelMap) {

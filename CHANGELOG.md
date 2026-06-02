@@ -4,6 +4,24 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.39.0] – 2026-06-02
+
+### Neu
+
+- **Angriffs-Panel auf dem Handy:** Laufende und eingehende Angriffe sind jetzt auch auf
+  dem Handy sichtbar — mit denselben Schaltflächen zum Abbrechen und Abwehren wie am
+  Desktop. Vorher gab es dort kein Angriffs-Panel.
+
+- **Feed-Spalte auf dem Handy:** Bündnis-Anfragen und der Ereignis-Log erscheinen jetzt
+  in einer eigenen Spalte und lassen sich im HUD-Editor frei verschieben.
+
+- **Feedback-Knopf auf dem Handy:** Der Feedback-Knopf ist jetzt im Handy-HUD vorhanden
+  und im HUD-Editor verschiebbar.
+
+- **Handy-HUD-Editor zeigt nur wirksame Regler:** Im HUD-Editor werden auf dem Handy
+  ausschließlich die Panels angezeigt, die dort tatsächlich sichtbar sind. Desktop-spezifische
+  Optionen (Slider-Position, Knopf-Anordnung, Truppen-Anzeige usw.) sind ausgeblendet.
+
 ## [0.38.0] – 2026-06-02
 
 ### Neu
