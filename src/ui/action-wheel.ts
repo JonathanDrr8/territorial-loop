@@ -37,8 +37,25 @@ export interface ActionWheelDeps {
   readonly onWarship: () => void
 }
 
+/** Live-Werte fürs Cockpit (Mitte des Rads + Füll-Ring). */
+export interface WheelStats {
+  troops: number
+  cap: number
+  /** Truppen pro Sekunde (kann negativ sein, wenn über Cap). */
+  rate: number
+  gold: number
+  /** 1-basierter Rang in der Rangliste. */
+  rankPos: number
+  /** Gebiets-Anteil in Prozent (0..100). */
+  territoryPct: number
+  /** Wird der Spieler gerade angegriffen? (Ring rot.) */
+  underAttack: boolean
+}
+
 export interface ActionWheelApi {
   setVisible(on: boolean): void
+  /** Live-Werte fürs Cockpit setzen (jeden Frame aus dem HUD-Update). */
+  setStats(s: WheelStats): void
   destroy(): void
 }
 
@@ -63,6 +80,41 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
   ].join(';')
   container.appendChild(panel)
 
+  // ── Cockpit: Live-Werte in der Mitte + Füll-Ring (Truppen/Cap) ──
+  let stats: WheelStats | null = null
+  let statsBox: HTMLElement | null = null // Mitten-Anzeige (nur oberste Ebene)
+  let ring: SVGCircleElement | null = null // Truppen-Füll-Ring
+  const rRing = rOut + 2
+  const ringCirc = 2 * Math.PI * rRing
+
+  const fmtK = (n: number): string => {
+    const a = Math.abs(n)
+    if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M'
+    if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k'
+    return String(Math.round(n))
+  }
+
+  /** Aktuelle Werte in Mitte + Ring schreiben (ohne Neuaufbau). */
+  function applyStats(): void {
+    if (stats === null) return
+    if (statsBox !== null) {
+      const rateColor = stats.rate > 0 ? '#5adc78' : stats.rate < 0 ? '#e8736b' : 'var(--tl-text)'
+      const sign = stats.rate > 0 ? '+' : ''
+      const pct =
+        stats.territoryPct < 1 ? stats.territoryPct.toFixed(2) : stats.territoryPct.toFixed(0)
+      statsBox.innerHTML =
+        `<div style="font-size:16px;font-weight:700;line-height:1.05">${fmtK(stats.troops)}</div>` +
+        `<div style="font-size:9.5px;line-height:1.1;color:${rateColor}">${sign}${fmtK(stats.rate)}/s</div>` +
+        `<div style="font-size:9.5px;line-height:1.15;opacity:0.92;display:flex;align-items:center;gap:3px;justify-content:center;color:#e8c14a">${icon.gold} ${fmtK(stats.gold)}</div>` +
+        `<div style="font-size:9px;line-height:1.1;opacity:0.6">#${String(stats.rankPos)} · ${pct}%</div>`
+    }
+    if (ring !== null) {
+      const frac = stats.cap > 0 ? Math.max(0, Math.min(1, stats.troops / stats.cap)) : 0
+      ring.style.strokeDashoffset = String(ringCirc * (1 - frac))
+      ring.style.stroke = stats.underAttack ? '#e8736b' : frac >= 0.85 ? '#e8c14a' : '#5adc78'
+    }
+  }
+
   const polar = (rr: number, a: number): string =>
     `${(c + rr * Math.cos(a)).toFixed(2)} ${(c + rr * Math.sin(a)).toFixed(2)}`
   const sector = (rin: number, rout: number, a0: number, a1: number): string => {
@@ -83,6 +135,36 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
     svg.setAttribute('height', String(size))
     svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible;pointer-events:none'
     panel.appendChild(svg)
+
+    // Refs zurücksetzen (panel.textContent='' hat das alte DOM entfernt).
+    statsBox = null
+    ring = null
+
+    // Truppen-Füll-Ring außen (Hintergrund + Fortschritt), startet oben (-90°). Färbt sich rot,
+    // wenn du angegriffen wirst (s. applyStats).
+    const ringBg = document.createElementNS(SVG_NS, 'circle')
+    ringBg.setAttribute('cx', String(c))
+    ringBg.setAttribute('cy', String(c))
+    ringBg.setAttribute('r', String(rRing))
+    ringBg.style.fill = 'none'
+    ringBg.style.stroke = 'rgba(255,255,255,0.10)'
+    ringBg.style.strokeWidth = '3'
+    svg.appendChild(ringBg)
+    const ringFill = document.createElementNS(SVG_NS, 'circle')
+    ringFill.setAttribute('cx', String(c))
+    ringFill.setAttribute('cy', String(c))
+    ringFill.setAttribute('r', String(rRing))
+    ringFill.style.fill = 'none'
+    ringFill.style.stroke = '#5adc78'
+    ringFill.style.strokeWidth = '3'
+    ringFill.style.strokeLinecap = 'round'
+    ringFill.style.strokeDasharray = String(ringCirc)
+    ringFill.style.strokeDashoffset = String(ringCirc)
+    ringFill.style.transform = 'rotate(-90deg)'
+    ringFill.style.transformOrigin = `${String(c)}px ${String(c)}px`
+    ringFill.style.transition = 'stroke-dashoffset 0.3s, stroke 0.2s'
+    svg.appendChild(ringFill)
+    ring = ringFill
 
     actions.forEach((a, i) => {
       const mid = -Math.PI / 2 + (i / n) * Math.PI * 2
@@ -167,9 +249,17 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
         onBack()
       })
     } else {
-      centerEl.innerHTML = `<div style="font-size:10px;opacity:0.65">${t('wheel.title')}</div>`
+      // Oberste Ebene = Cockpit-Mitte: Live-Werte (Truppen/Rate/Gold/Rang), befüllt von applyStats.
+      const sb = document.createElement('div')
+      sb.style.cssText =
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px'
+      // Fallback, bis Live-Werte gesetzt sind (applyStats überschreibt das).
+      sb.innerHTML = `<div style="font-size:10px;opacity:0.65">${t('wheel.title')}</div>`
+      centerEl.appendChild(sb)
+      statsBox = sb
     }
     panel.appendChild(centerEl)
+    applyStats() // Ring + (ggf.) Mitte mit den aktuellen Werten füllen
   }
 
   function showTop(): void {
@@ -241,6 +331,10 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
     setVisible(on: boolean): void {
       panel.style.display = on ? 'block' : 'none'
       if (on) showTop() // beim Einblenden auf die oberste Ebene zurück
+    },
+    setStats(s: WheelStats): void {
+      stats = s
+      applyStats()
     },
     destroy(): void {
       panel.remove()

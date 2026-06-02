@@ -15,8 +15,10 @@ import {
   canBuildAt,
   canReachByLand,
   createGame,
+  effectiveMaxTroops,
   snapBuildTile,
   tick,
+  totalTroops,
   type GameConfig,
   type GameState,
   type PlayerDef,
@@ -484,6 +486,10 @@ function startMatch(
   }
 
   let musicStarted = false
+  // Cockpit-Rad: Truppen-Rate grob über ~1-Sekunden-Samples (UI-only, kein Sim-State).
+  let wheelRate = 0
+  let wheelRatePrevTroops = -1
+  let wheelRatePrevMs = 0
   /** Intensität (0..1) fürs adaptive Musik-Prototyp: laufende Angriffe + Bomben + eigene Bedrängnis. */
   function computeMusicIntensity(): number {
     if (state.phase !== 'running') return 0
@@ -1033,6 +1039,37 @@ function startMatch(
     // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
     alliancePrompt.update()
     eventLog.update()
+    // Cockpit-Rad (Mobile): Live-Werte ins Rad — Truppen/Rate/Gold/Rang/% + „unter Angriff".
+    const me = state.players.get(humanId)
+    if (me !== undefined && me.isAlive && !spectator) {
+      const troops = totalTroops(me)
+      const nowMs = performance.now()
+      if (wheelRatePrevTroops < 0) {
+        wheelRatePrevTroops = troops
+        wheelRatePrevMs = nowMs
+      } else if (nowMs - wheelRatePrevMs >= 1000) {
+        wheelRate = ((troops - wheelRatePrevTroops) * 1000) / (nowMs - wheelRatePrevMs)
+        wheelRatePrevTroops = troops
+        wheelRatePrevMs = nowMs
+      }
+      const totalTiles =
+        state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
+      let rankPos = 1
+      let underAttack = false
+      for (const p of state.players.values()) {
+        if (p.id !== humanId && p.isAlive && !p.wild && totalTroops(p) > troops) rankPos++
+        for (const atk of p.attacks) if (atk.targetPlayerId === humanId) underAttack = true
+      }
+      actionWheel.setStats({
+        troops,
+        cap: effectiveMaxTroops(state, humanId),
+        rate: wheelRate,
+        gold: me.gold,
+        rankPos,
+        territoryPct: (me.tilesOwned / totalTiles) * 100,
+        underAttack,
+      })
+    }
     renderRafId = requestAnimationFrame(renderLoop)
   }
   renderRafId = requestAnimationFrame(renderLoop)
