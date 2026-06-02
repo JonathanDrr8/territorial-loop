@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.34.1] – 2026-06-02
+
+### Geändert
+
+- **Musik ist jetzt standardmäßig an:** Der adaptive Soundtrack läuft von Anfang an mit
+  (auch für bestehende Spieler). Wer ihn nicht möchte, dreht ihn in den Einstellungen
+  unter „Musik" einfach runter.
+
 ## [0.34.0] – 2026-06-02
 
 ### Neu
