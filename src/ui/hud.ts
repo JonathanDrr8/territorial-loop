@@ -323,6 +323,11 @@ export function createHUD(
     'font-size: 11px',
     'line-height: 1.7',
     'width: max-content',
+    // Mindestbreite: sonst ist das Panel leer (kein Kampf) ~0 breit → im HUD-Editor nur der
+    // Min-Rahmen, und die Eck-Skalierung greift nicht (skaliert eine 0-Größe). So ist es immer
+    // greif- und skalierbar.
+    'min-width: 150px',
+    'min-height: 34px',
     'max-width: 240px',
     'pointer-events: auto',
     'z-index: 11',
@@ -702,6 +707,10 @@ export function createHUD(
     'background: rgba(0,0,0,0.35)',
     'border-radius: 5px',
     'color: #d8d2bf',
+    // Gedeckelt + scrollbar: sonst kann die Aufschlüsselung (viele Cluster/Routen) das Panel so
+    // hoch machen, dass es oben/unten aus dem Bild läuft. So bleibt der Truppen-Block sichtbar.
+    'max-height: 38vh',
+    'overflow-y: auto',
   ].join(';')
   troopBadge.appendChild(goldDetail)
   goldEl.addEventListener('click', () => {
