@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.46.2] – 2026-06-02
+
+### Behoben
+
+- **Truppen unterwegs anklicken bringt die Kamera hin** statt sie zurückzurufen. Ein Klick auf eine
+  Zeile im Angriffs-Panel (laufender Angriff, Boot, Kriegsschiff) springt zum Geschehen;
+  Zurückrufen/Abbrechen geht nur noch über den kleinen Knopf (✕ / ↩) rechts.
+- **Panels ändern im Spiel ihre Größe nicht mehr.** Das Truppen-Panel wuchs bisher um eine Zeile,
+  sobald „im Kampf" erschien — die Zeile ist jetzt fest reserviert. Das Angriffs-Panel wächst nur
+  noch bis zu einer Höhe und scrollt dann, statt übers Bild zu laufen.
+
 ## [0.46.1] – 2026-06-02
 
 ### Behoben

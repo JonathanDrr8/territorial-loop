@@ -337,6 +337,10 @@ export function createHUD(
     'min-width: 150px',
     'min-height: 34px',
     'max-width: 240px',
+    // Höhe deckeln + scrollen: bei vielen laufenden Angriffen/Booten/Schiffen wächst das Panel
+    // sonst immer weiter und schiebt sich übers Bild. So bleibt es größenstabil (grow-to-cap).
+    'max-height: 40vh',
+    'overflow-y: auto',
     'pointer-events: auto',
     'z-index: 11',
     'display: none',
@@ -704,7 +708,9 @@ export function createHUD(
   orbWrap.append(orbIdle, orbCombat, orbGloss, orbPct)
 
   const barLegend = document.createElement('div')
-  barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; min-height: 0'
+  // Höhe IMMER reservieren (eine Zeile), auch ohne Kampf — sonst wächst/schrumpft das Truppen-Panel,
+  // sobald die „im Kampf"-Info erscheint/verschwindet (Größenstabilität im Gameplay).
+  barLegend.style.cssText = 'font-size: 11px; opacity: 0.75; min-height: 15px'
   troopBadge.appendChild(barLegend)
   container.appendChild(troopBadge)
   registerScalable(troopBadge)
@@ -1326,12 +1332,12 @@ export function createHUD(
     // Angriffsmenge steht jetzt im Slider-Label (eine Quelle statt zwei). Die Legende zeigt
     // nur noch die einzigartige „im Kampf"-Info und blendet sich aus, wenn nichts kämpft.
     sliderLabel.textContent = `${t('hud.attack', { pct: currentSliderPct })} · ≈${fmtCompact(attackAmt)}`
-    if (combat > 0) {
-      barLegend.innerHTML = `<span style="opacity:0.85">▨ ${t('hud.inCombat', { n: fmtCompact(combat) })}</span>`
-      barLegend.style.display = 'block'
-    } else {
-      barLegend.style.display = 'none'
-    }
+    // Zeile bleibt immer da (Höhe reserviert, s. cssText) — nur der Inhalt wechselt, damit das
+    // Panel beim Anzeigen/Ausblenden der Kampf-Info nicht seine Größe ändert.
+    barLegend.innerHTML =
+      combat > 0
+        ? `<span style="opacity:0.85">▨ ${t('hud.inCombat', { n: fmtCompact(combat) })}</span>`
+        : ''
 
     // Truppen/s (links neben dem Balken), in derselben Zonenfarbe wie die Truppenzahl;
     // negativ (über Cap → Abschmelzen) wird rot. Wie growPopulations: freie Bevölkerung
@@ -1441,48 +1447,56 @@ export function createHUD(
     // Eine Zeile = Flex-Row, einzeilig (kein Umbruch): Icon + Label links, Aktion rechts.
     const rowStyle =
       'cursor:pointer;border-radius:4px;padding:3px 5px;display:flex;align-items:center;gap:6px;white-space:nowrap'
-    const act = (html: string): string =>
-      `<span style="margin-left:auto;opacity:0.7">${html}</span>`
-    // Rechte Zeilen-Gruppe: ⌖ „Zum Kampf springen" (zentriert die Kamera) + die Aktion.
-    const locateAct = (tile: number, actionHtml: string): string =>
-      `<span style="margin-left:auto;display:flex;align-items:center;gap:8px;opacity:0.75">` +
-      `<span data-locate="${String(tile)}" data-tip="${t('hud.jumpToBattle')}" style="cursor:pointer">⌖</span>` +
-      `<span>${actionHtml}</span></span>`
+    // Kleiner Aktions-Knopf rechts (Abbrechen/Zurückrufen). Die ZEILE selbst bringt die Kamera zum
+    // Geschehen (data-locate); NUR dieser Knopf bricht ab / ruft zurück.
+    const actBtn = (attr: string, idx: number, tip: string, glyph: string): string =>
+      `<span ${attr}="${String(idx)}" data-tip="${tip}" style="margin-left:auto;cursor:pointer;opacity:0.75;padding:0 6px">${glyph}</span>`
     const rows: string[] = []
-    // Ausgehende Angriffe — klickbar zum Abbrechen (Reserve fließt über ~2.5s zurück).
+    // Ausgehende Angriffe — ZEILE springt zum Kampf; das ✕ rechts bricht ab (Reserve fließt ~2.5s zurück).
     human.attacks.forEach((atk, i) => {
       const target =
         atk.targetPlayerId === 0
           ? t('hud.wilderness')
           : (state.players.get(atk.targetPlayerId)?.name ?? '?')
       const cancelling = atk.cancelStartTick !== undefined
-      const actionHtml = cancelling
-        ? `<span style="color:#e8b84a">${t('hud.cancelling')}</span>`
-        : '✕'
-      const title = cancelling ? t('hud.cancelNow') : t('hud.cancelAttack')
+      const action = cancelling
+        ? `<span style="margin-left:auto;color:#e8b84a;opacity:0.9">${t('hud.cancelling')}</span>`
+        : actBtn('data-cancel', i, t('hud.cancelAttack'), '✕')
       rows.push(
-        `<div data-cancel="${String(i)}" data-tip="${title}" style="${rowStyle}"><span style="color:#5dd75d;display:inline-flex;align-items:center;gap:1px">${icon.swords}→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${locateAct(atk.frontTile, actionHtml)}</div>`,
+        `<div data-locate="${String(atk.frontTile)}" data-tip="${t('hud.jumpToBattle')}" style="${rowStyle}"><span style="color:#5dd75d;display:inline-flex;align-items:center;gap:1px">${icon.swords}→</span><span>${escapeHtml(target)} · ${fmtCompact(atk.reserveTroops)} · ${dur(atk.startTick)}</span>${action}</div>`,
       )
     })
-    // Eigene Boote — klickbar zum Zurückrufen.
+    // Eigene Boote — ZEILE springt zum Boot; ↩ ruft zurück.
     let boatIdx = 0
     for (const boat of state.boats) {
       if (boat.ownerId !== human.id) continue
       const label = boat.returning ? t('hud.returning') : t('hud.enRoute')
+      const cur =
+        boat.path.length === 0
+          ? undefined
+          : boat.path[Math.min(boat.path.length - 1, Math.max(0, Math.round(boat.progress)))]
+      const loc =
+        cur !== undefined ? ` data-locate="${String(cur)}" data-tip="${t('hud.jumpToBattle')}"` : ''
       rows.push(
-        `<div data-recall="${String(boatIdx)}" data-tip="${t('hud.recallBoat')}" style="${rowStyle}"><span style="color:#46d9e6;display:inline-flex">${icon.ship}</span><span>${fmtCompact(boat.troops)} · ${label}</span>${act('↩')}</div>`,
+        `<div${loc} style="${rowStyle}"><span style="color:#46d9e6;display:inline-flex">${icon.ship}</span><span>${fmtCompact(boat.troops)} · ${label}</span>${actBtn('data-recall', boatIdx, t('hud.recallBoat'), '↩')}</div>`,
       )
       boatIdx++
     }
-    // Eigene Kriegsschiffe — klickbar zum Zurückrufen.
+    // Eigene Kriegsschiffe — ZEILE springt zum Schiff; ↩ ruft zurück.
     let warIdx = 0
     for (const ws of state.warships) {
       if (ws.ownerId !== human.id) continue
       const label = ws.returning
         ? t('hud.returning')
         : `${String(Math.max(0, Math.round(ws.hp)))} HP`
+      const cur =
+        ws.path.length === 0
+          ? undefined
+          : ws.path[Math.min(ws.path.length - 1, Math.max(0, Math.round(ws.progress)))]
+      const loc =
+        cur !== undefined ? ` data-locate="${String(cur)}" data-tip="${t('hud.jumpToBattle')}"` : ''
       rows.push(
-        `<div data-recall-warship="${String(warIdx)}" data-tip="${t('hud.recallWarship')}" style="${rowStyle}"><span style="color:#9fb2c4;display:inline-flex">${icon.anchor}</span><span>${label}</span>${act('↩')}</div>`,
+        `<div${loc} style="${rowStyle}"><span style="color:#9fb2c4;display:inline-flex">${icon.anchor}</span><span>${label}</span>${actBtn('data-recall-warship', warIdx, t('hud.recallWarship'), '↩')}</div>`,
       )
       warIdx++
     }
