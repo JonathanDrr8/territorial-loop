@@ -11,6 +11,7 @@
  */
 
 import type { BuildingType } from '../core/buildings'
+import { growthZones } from '../core/config'
 import { buildingIcon, icon } from './icons'
 import { t } from '../i18n'
 
@@ -49,6 +50,18 @@ export interface ActionWheelDeps {
 }
 
 /** Live-Werte fürs Cockpit (Mitte des Rads + Füll-Ring). */
+/**
+ * Färbt die Truppen-Füllung nach Wachstums-Effizienz: grün = man wächst gut (unter dem
+ * Wachstums-Optimum), gelb = es stagniert (über Optimum), rot = stark stagnierend/voll —
+ * oder unter Angriff. So sieht man auf einen Blick, ob man effizient produziert.
+ */
+export function troopFillColor(troops: number, cap: number, underAttack: boolean): string {
+  if (underAttack) return '#e8736b'
+  const frac = cap > 0 ? troops / cap : 0
+  const z = growthZones(cap)
+  return frac < z.optimum ? '#5adc78' : frac < z.stall ? '#e8c14a' : '#e8736b'
+}
+
 export interface WheelStats {
   troops: number
   cap: number
@@ -130,7 +143,8 @@ export function createActionWheel(container: HTMLElement, deps: ActionWheelDeps)
     if (ring !== null) {
       const frac = stats.cap > 0 ? Math.max(0, Math.min(1, stats.troops / stats.cap)) : 0
       ring.style.strokeDashoffset = String(ringCirc * (1 - frac))
-      ring.style.stroke = stats.underAttack ? '#e8736b' : frac >= 0.85 ? '#e8c14a' : '#5adc78'
+      // Farbe nach Wachstums-Effizienz (nicht nur Füllstand): zeigt, ob man effizient produziert.
+      ring.style.stroke = troopFillColor(stats.troops, stats.cap, stats.underAttack)
     }
   }
 

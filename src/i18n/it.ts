@@ -435,6 +435,7 @@ export const it: Record<string, string> = {
   'hud.editor.panel.feed': 'Eventi',
   'hud.editor.panel.wheel': 'Ruota azioni',
   'hud.editor.panel.topbar': 'Barra info',
+  'hud.editor.panel.attackbar': 'Cursore attacco',
   'hud.editor.panel.menu': 'Pulsante menu',
   'hud.editor.panel.feedback': 'Pulsante feedback',
   'hud.editor.troopStyle': 'Visualizzazione truppe',
@@ -451,7 +452,7 @@ export const it: Record<string, string> = {
   'wheel.title': 'Azioni',
   'wheel.back': 'Indietro',
   'wheel.build': 'Costruisci',
-  'wheel.ships': 'Navi',
+  'wheel.ships': 'Attacchi',
   'minimap.collapse': 'Comprimi minimappa',
   'minimap.expand': 'Espandi minimappa',
   'hud.boatModeHint':

@@ -209,6 +209,15 @@ export function createInputHandler(deps: InputDeps): InputHandler {
   // Drag-Platzieren (Bau-Modus): 1 Finger zeigt die Gebäude-Vorschau und schiebt sie; beim Loslassen
   // wird gebaut. Aktiv nur solange ein Bau-Modus läuft. Verhindert Pan/Long-Press während des Ziehens.
   let placingBuild = false
+  // Doppeltipp-Ziehen zum Zoomen (wie Karten-Apps): zweiter Tipp + Ziehen (hoch = rein) zoomt um den
+  // Tipp-Punkt. `lastTapEnd` merkt den letzten Tipp, um den Doppeltipp zu erkennen.
+  let lastTapEnd: { time: number; x: number; y: number } | null = null
+  let zoomDragActive = false
+  let zoomStartY = 0
+  let zoomStartZoom = 1
+  let zoomAnchorX = 0
+  let zoomAnchorY = 0
+  const DOUBLE_TAP_DIST = 32
   let longPressFired = false
   let longPressTimer: ReturnType<typeof setTimeout> | null = null
   const LONG_PRESS_MS = 450
@@ -657,6 +666,24 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       pinchDist = 0
       touchStartTime = performance.now()
       clearLongPress()
+      // Doppeltipp-Ziehen (Karten-Geste): zweiter Tipp kurz nach dem ersten am selben Punkt →
+      // beim Ziehen zoomen (hoch = rein), kein Pan/Bau/Long-Press.
+      const nowDt = performance.now()
+      if (
+        lastTapEnd !== null &&
+        nowDt - lastTapEnd.time < DOUBLE_CLICK_MS &&
+        Math.abs(t.clientX - lastTapEnd.x) < DOUBLE_TAP_DIST &&
+        Math.abs(t.clientY - lastTapEnd.y) < DOUBLE_TAP_DIST &&
+        deps.interactive !== false
+      ) {
+        zoomDragActive = true
+        zoomStartY = t.clientY
+        zoomStartZoom = camera.zoom
+        zoomAnchorX = t.clientX
+        zoomAnchorY = t.clientY
+        e.preventDefault()
+        return
+      }
       // Bau-Modus → Drag-Platzieren: Gebäude-Vorschau erscheint sofort unter dem Finger und folgt
       // ihm; beim Loslassen wird gebaut. Kein Long-Press/Pan, kein Tap-Bauen.
       if (buildMode !== null && deps.interactive !== false) {
@@ -697,6 +724,25 @@ export function createInputHandler(deps: InputDeps): InputHandler {
     if (e.touches.length === 1 && pinchDist === 0) {
       const t = e.touches[0]
       if (t === undefined) return
+      // Doppeltipp-Ziehen: hoch = reinzoomen, runter = raus — um den Tipp-Punkt herum.
+      if (zoomDragActive) {
+        touchMoved = true
+        const factor = Math.pow(2, (zoomStartY - t.clientY) / 200) // 200px ≈ 2×
+        const rect = canvas.getBoundingClientRect()
+        const sx = zoomAnchorX - rect.left
+        const sy = zoomAnchorY - rect.top
+        const halfW = canvas.clientWidth / 2
+        const halfH = canvas.clientHeight / 2
+        const wxBefore = (sx - halfW) / camera.zoom + camera.x
+        const wyBefore = (sy - halfH) / camera.zoom + camera.y
+        camera.zoom = Math.max(minZoom(), Math.min(ZOOM_MAX, zoomStartZoom * factor))
+        const wxAfter = (sx - halfW) / camera.zoom + camera.x
+        const wyAfter = (sy - halfH) / camera.zoom + camera.y
+        camera.x = (((camera.x + wxBefore - wxAfter) % mapWidth) + mapWidth) % mapWidth
+        camera.y = (((camera.y + wyBefore - wyAfter) % mapHeight) + mapHeight) % mapHeight
+        e.preventDefault()
+        return
+      }
       // Drag-Platzieren: die Bau-Vorschau folgt dem Finger, die Kamera bleibt stehen.
       if (placingBuild) {
         touchLastX = t.clientX
@@ -771,17 +817,32 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       return
     }
     if (e.touches.length === 0) {
+      const now = performance.now()
+      // Zoom-Drag beendet: war es ein echtes Ziehen → keine Tipp-Aktion, Doppeltipp-Kette brechen.
+      if (zoomDragActive) {
+        zoomDragActive = false
+        if (touchMoved) {
+          pinchDist = 0
+          lastTapEnd = null
+          return
+        }
+        // Doppeltipp OHNE Ziehen → normal weiterbehandeln (z. B. Doppeltipp = Transportboot).
+      }
       // Drag-Platzieren beendet → am Endpunkt bauen (auch nach Ziehen). Bau-Modus bleibt aktiv.
       if (placingBuild) {
         placingBuild = false
+        lastTapEnd = { time: now, x: touchStartX, y: touchStartY }
         primaryAction(touchLastX, touchLastY, false)
         return
       }
-      const wasTap =
-        !touchMoved && !longPressFired && performance.now() - touchStartTime < TOUCH_TAP_MAX_MS
+      const wasTap = !touchMoved && !longPressFired && now - touchStartTime < TOUCH_TAP_MAX_MS
       pinchDist = 0
       // Touch-Tipp (isTouchTap=true): Tipp auf eigenes Gebiet wirkt wie Shift+Linksklick (omni).
-      if (wasTap) primaryAction(touchStartX, touchStartY, false, true)
+      // Tipp merken → ermöglicht die Doppeltipp-Zoom-Geste beim nächsten Antippen.
+      if (wasTap) {
+        lastTapEnd = { time: now, x: touchStartX, y: touchStartY }
+        primaryAction(touchStartX, touchStartY, false, true)
+      }
     }
   }
 
