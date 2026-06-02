@@ -1258,6 +1258,22 @@ describe('Angriffs-Bündelung (distanz-begrenzt)', () => {
     ])
     expect(state.players.get(1)?.attacks.length).toBe(1)
   })
+
+  it('getrennte Angriffe gegen denselben Gegner laufen pro Tick zu einem zusammen', () => {
+    // y=10 und y=40 → Front-Distanz 30: außerhalb des Klick-Radius (28, also erst 2 Angriffe),
+    // aber innerhalb des Coalesce-Radius (36) → coalesceAttacks führt sie im selben Tick zusammen.
+    const { state, T } = setup([10, 40])
+    const p1 = state.players.get(1)
+    if (p1 === undefined) throw new Error('player missing')
+    tick(state, [
+      { type: 'attack', playerId: 1, targetTile: T(11, 10), troops: 100 },
+      { type: 'attack', playerId: 1, targetTile: T(11, 40), troops: 100 },
+    ])
+    // Statt zwei getrennter Angriffe „auf einem Haufen": genau einer, mit der vollen Reserve.
+    expect(p1.attacks.length).toBe(1)
+    expect(p1.attacks[0]?.targetPlayerId).toBe(2)
+    expect(p1.attacks[0]?.reserveTroops).toBe(200)
+  })
 })
 
 describe('Eroberung verändert die Beziehung (Gunst weg + Groll)', () => {
