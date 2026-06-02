@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.43.0] – 2026-06-02
+
+### Geändert
+
+- **Handy: durchdachtes Standard-Layout.** Neue Spieler auf dem Handy starten jetzt mit einer
+  aufgeräumten Cockpit-Anordnung (Rad unten Mitte, Status-Leiste oben, Angriffsgröße rechts,
+  Feedback oben links) statt mit den rohen Default-Positionen. Das Layout passt sich proportional
+  an die jeweilige Bildschirmgröße an, sitzt also auf jedem Handy ähnlich. Wer sein HUD schon
+  selbst eingerichtet hat, behält es unverändert.
+
 ## [0.42.2] – 2026-06-02
 
 ### Behoben

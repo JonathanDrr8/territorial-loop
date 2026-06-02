@@ -123,6 +123,58 @@ export function panelElements(): Array<[string, HTMLElement]> {
   return [...panels.entries()]
 }
 
+/** Hat der Spieler (oder ein Default) bereits irgendein Layout-Override? */
+export function hasAnyLayout(): boolean {
+  return Object.keys(layout).length > 0
+}
+
+// ── Eingebautes Mobile-Standard-Layout (Jonathans Cockpit-Anordnung) ──────────────────────────
+// Greift EINMALIG für frische Mobile-Spieler ohne eigenes Layout. Positionen sind absolut für die
+// Referenz-Bildschirmgröße und werden beim Anwenden proportional auf die echte Größe umgerechnet
+// (x × Breite/refW, y × Höhe/refH) — so sitzt es auf jedem Handy ähnlich, nicht nur auf 390×797.
+// Größe/Scale (s, h, w) bleiben unverändert. Reine Client-Voreinstellung, MP-sicher.
+const MOBILE_DEFAULT_FLAG = 'territorial-loop:mobile-default-applied:v1'
+const MOBILE_DEFAULT_REF = { w: 390, h: 797 } as const
+const MOBILE_DEFAULT_PANELS: Record<string, PanelOverride> = {
+  feedback: { x: 0, y: 0 },
+  attacks: { x: 6, y: 649, h: 127, s: 0.96, hidden: false },
+  wheel: { x: 173, y: 561, s: 1.05 },
+  topbar: { x: 128, y: 0, s: 1.02 },
+  attackbar: { x: 325, y: 191 },
+}
+
+/**
+ * Einmalig das eingebaute Mobile-Standard-Layout anwenden — proportional zur aktuellen
+ * Bildschirmgröße. Nur für frische Mobile-Spieler OHNE eigenes Layout; danach wird ein Flag
+ * gesetzt, damit ein vom Spieler gebautes oder zurückgesetztes Layout nie überschrieben wird.
+ * Der Aufrufer entscheidet, dass gerade Mobile-/Cockpit-Modus aktiv ist.
+ */
+export function applyMobileDefaultLayoutOnce(screenW: number, screenH: number): void {
+  let alreadyApplied = false
+  try {
+    alreadyApplied = window.localStorage.getItem(MOBILE_DEFAULT_FLAG) !== null
+  } catch {
+    /* ignore */
+  }
+  if (alreadyApplied) return
+  // Schon ein Layout vorhanden (Bestandsspieler) → nicht anfassen, nur das Flag setzen.
+  if (!hasAnyLayout()) {
+    const fx = screenW > 0 ? screenW / MOBILE_DEFAULT_REF.w : 1
+    const fy = screenH > 0 ? screenH / MOBILE_DEFAULT_REF.h : 1
+    for (const [id, ov] of Object.entries(MOBILE_DEFAULT_PANELS)) {
+      const scaled: PanelOverride = { ...ov }
+      if (ov.x !== undefined) scaled.x = Math.round(ov.x * fx)
+      if (ov.y !== undefined) scaled.y = Math.round(ov.y * fy)
+      setPanel(id, scaled)
+    }
+  }
+  try {
+    window.localStorage.setItem(MOBILE_DEFAULT_FLAG, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Alle Overrides löschen (zurück auf Standard-Anordnung). Setzt betroffene Inline-Styles zurück. */
 export function resetLayout(): void {
   const ids = Object.keys(layout)
