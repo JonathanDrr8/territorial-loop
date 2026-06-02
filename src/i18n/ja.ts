@@ -294,6 +294,8 @@ export const ja: Record<string, string> = {
   'event.tradeBlocked': '商船が封鎖された — {amount} 金消失',
   'event.warshipSunk': '{p} の軍艦が撃沈されました',
   'event.eliminated': '{p} は脱落しました',
+  'event.capitalCaptured': '{p} が {victim} の首都を制圧し、その帝国を掌握しました',
+  'event.capitalBombed': '{victim} の首都が破壊されました — その帝国は荒野に還りました',
   'event.victory': '{p} が対戦に勝利しました！',
   'event.loot': '{p} が {from} から金 {amount} を奪取',
   'event.lootWild': '{p} が荒野から金 {amount} を奪取',

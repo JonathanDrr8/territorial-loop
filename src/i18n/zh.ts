@@ -289,6 +289,8 @@ export const zh: Record<string, string> = {
   'event.tradeBlocked': '你的贸易被封锁 — 损失 {amount} 金币',
   'event.warshipSunk': '{p} 的战舰被击沉',
   'event.eliminated': '{p} 被淘汰',
+  'event.capitalCaptured': '{p} 攻占了 {victim} 的首都，接管其帝国',
+  'event.capitalBombed': '{victim} 的首都被摧毁——其帝国沦为荒野',
   'event.victory': '{p} 赢得了对局！',
   'event.loot': '{p} 从 {from} 掠夺了 {amount} 金币',
   'event.lootWild': '{p} 从荒野掠夺了 {amount} 金币',

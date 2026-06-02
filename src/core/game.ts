@@ -3244,28 +3244,112 @@ function estimatedCartIncome(state: GameState, playerId: number): number {
   return rate
 }
 
+/**
+ * Hauptstadt erobert (ADR-0026, „saubere Übernahme"): das GESAMTE Reich der besiegten Nation —
+ * alles Land, ALLE Gebäude (auch Verteidigungs-/Flak-Posten) und ihr Gold — geht sofort an den
+ * Eroberer. Frontiers baut der Aufrufer danach neu auf (Massen-Umverteilung, kein inkrementelles
+ * Update). Deterministisch (feste Map-Reihenfolge) → MP-sicher.
+ */
+function transferEmpire(state: GameState, victim: Player, conquerorId: number): void {
+  const { map, players, buildings } = state
+  const conqueror = players.get(conquerorId)
+  const len = map.state.length
+  for (let ref = 0; ref < len; ref++) {
+    if (getOwner(map, ref) !== victim.id) continue
+    setOwner(map, ref, conquerorId)
+    state.dirtyTiles.push(ref)
+    if (conqueror !== undefined) {
+      conqueror.tilesOwned++
+      conqueror.weightedTiles += tileTroopWeight(map.terrain, ref)
+    }
+  }
+  for (const [ref, b] of buildings) {
+    if (b.ownerId === victim.id) buildings.set(ref, { ...b, ownerId: conquerorId })
+  }
+  if (conqueror !== undefined) conqueror.gold += victim.gold
+  victim.gold = 0
+  victim.tilesOwned = 0
+  victim.weightedTiles = 0
+}
+
+/**
+ * Hauptstadt zerbombt (ADR-0026): die Hauptstadt wurde neutralisiert (nur eine Bombe setzt ein
+ * eigenes Tile auf herrenlos) → das gesamte Reich zerfällt zu Wildnis (owner 0), alle Gebäude
+ * verschwinden. Niemand erbt etwas. Frontiers baut der Aufrufer danach neu auf.
+ */
+function revertEmpireToWild(state: GameState, victim: Player): void {
+  const { map, buildings } = state
+  const len = map.state.length
+  for (let ref = 0; ref < len; ref++) {
+    if (getOwner(map, ref) !== victim.id) continue
+    setOwner(map, ref, 0)
+    state.dirtyTiles.push(ref)
+  }
+  for (const ref of [...buildings.keys()]) {
+    if (buildings.get(ref)?.ownerId === victim.id) buildings.delete(ref)
+  }
+  victim.gold = 0
+  victim.tilesOwned = 0
+  victim.weightedTiles = 0
+}
+
 function checkEliminations(state: GameState): void {
   const captureMode = state.config.captureMode === true
+  // Bei einer Reich-Umverteilung (Hauptstadt erobert/zerbombt) werden viele Tiles auf einmal
+  // umgehängt → Frontiers danach EINMAL komplett neu aufbauen statt pro Tile inkrementell.
+  let territoryReassigned = false
   for (const player of state.players.values()) {
     if (!player.isAlive) continue
     let eliminated = player.tilesOwned === 0
-    // Hauptstadt-Modus (ADR-0026): erobert ein Gegner (owner > 0, nicht man selbst) die Hauptstadt,
-    // ist die Nation raus — auch wenn sie sonst noch Gebiet hält (das wird dann herrenlos & eroberbar).
+    // Hauptstadt-Modus (ADR-0026): das Schicksal hängt davon ab, WIE die Hauptstadt fällt.
+    let fate: 'capture' | 'bomb' | null = null
+    let conquerorId = 0
     if (!eliminated && captureMode && player.capitalTile !== undefined && player.tilesOwned > 0) {
       const owner = getOwner(state.map, player.capitalTile)
-      if (owner > 0 && owner !== player.id) eliminated = true
+      if (owner > 0 && owner !== player.id) {
+        // Boden-Eroberung durch einen Gegner → er übernimmt das ganze Reich.
+        eliminated = true
+        fate = 'capture'
+        conquerorId = owner
+      } else if (owner === 0) {
+        // Hauptstadt neutralisiert — nur eine Bombe macht ein eigenes Tile herrenlos → das Reich
+        // zerfällt zur Wildnis (niemand erbt es).
+        eliminated = true
+        fate = 'bomb'
+      }
     }
-    if (eliminated) {
-      player.isAlive = false
+    if (!eliminated) continue
+    player.isAlive = false
+    if (fate === 'capture') {
+      transferEmpire(state, player, conquerorId)
+      territoryReassigned = true
+      const conqueror = state.players.get(conquerorId)
+      if (!player.wild)
+        emitEvent(
+          state,
+          'event.capitalCaptured',
+          { p: conqueror?.name ?? '?', victim: player.name },
+          conqueror?.color ?? player.color,
+        )
+    } else if (fate === 'bomb') {
+      revertEmpireToWild(state, player)
+      territoryReassigned = true
+      if (!player.wild)
+        emitEvent(state, 'event.capitalBombed', { victim: player.name }, player.color)
+    } else if (!player.wild) {
       // Wilde Nationen werden still eliminiert — kein Eigenname (verwirrt), und bei vielen Wilden
       // würde jede eroberte Wildnis den Log fluten.
-      if (!player.wild) emitEvent(state, 'event.eliminated', { p: player.name }, player.color)
-      // Eventuell laufende Angriffe sind durch tilesOwned=0 implizit gestoppt;
-      // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
-      player.attacks = []
-      player.troops = 0
-      player.weightedTiles = 0
+      emitEvent(state, 'event.eliminated', { p: player.name }, player.color)
     }
+    // Eventuell laufende Angriffe sind durch tilesOwned=0 implizit gestoppt;
+    // Reserve-Truppen werden hier nicht zurückgegeben — Spieler ist eh raus.
+    player.attacks = []
+    player.troops = 0
+    player.weightedTiles = 0
+  }
+  if (territoryReassigned) {
+    for (const p of state.players.values()) p.frontier.clear()
+    initializeAllFrontiers(state)
   }
 }
 

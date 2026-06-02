@@ -340,6 +340,9 @@ export const fr: Record<string, string> = {
   'event.tradeBlocked': 'Ton commerce bloqué — {amount} or perdu',
   'event.warshipSunk': 'Navire de guerre de {p} coulé',
   'event.eliminated': '{p} a été éliminé',
+  'event.capitalCaptured': '{p} s’empare de la capitale de {victim} et annexe son empire',
+  'event.capitalBombed':
+    'La capitale de {victim} est détruite — son empire retourne à l’état sauvage',
   'event.victory': '{p} a gagné la partie !',
   'event.loot': '{p} pille {amount} d’or à {from}',
   'event.lootWild': '{p} pille {amount} d’or dans les terres sauvages',

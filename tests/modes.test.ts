@@ -59,7 +59,7 @@ describe('Hauptstadt-Modus (ADR-0026)', () => {
     expect(state.winner).toBe(1)
   })
 
-  it('Hauptstadt nur neutral (kein Gegner) → NICHT eliminiert', () => {
+  it('Hauptstadt zerbombt (neutralisiert) → eliminiert, ganzes Reich wird wild', () => {
     const state = createGame(
       cfg(
         [
@@ -71,9 +71,64 @@ describe('Hauptstadt-Modus (ADR-0026)', () => {
     )
     const b = state.players.get(2)
     if (b === undefined || b.capitalTile === undefined) throw new Error('no capital')
-    setOwner(state.map, b.capitalTile, 0) // neutral (z.B. Krater), kein Gegner
+    // Ein B-Tile ungleich Hauptstadt merken — es soll nach dem „Bomben"-Tod herrenlos sein.
+    let someBTile = -1
+    for (let i = 0; i < state.map.state.length; i++) {
+      if (getOwner(state.map, i) === 2 && i !== b.capitalTile) {
+        someBTile = i
+        break
+      }
+    }
+    expect(someBTile).toBeGreaterThanOrEqual(0)
+    setOwner(state.map, b.capitalTile, 0) // Hauptstadt neutralisiert = Bomben-Krater
     tick(state, [])
-    expect(b.isAlive).toBe(true)
+    expect(b.isAlive).toBe(false)
+    expect(b.tilesOwned).toBe(0)
+    // Das restliche Reich ist zu Wildnis (owner 0) zerfallen — NICHT an einen Gegner gegangen.
+    expect(getOwner(state.map, someBTile)).toBe(0)
+  })
+
+  it('erobert → Eroberer erbt Land, Gebäude (auch Verteidigung) und Gold', () => {
+    const state = createGame(
+      cfg(
+        [
+          { id: 1, name: 'A', color: 0xff0000ff, isHuman: true },
+          { id: 2, name: 'B', color: 0x00ff00ff, isHuman: false },
+        ],
+        { captureMode: true },
+      ),
+    )
+    const a = state.players.get(1)
+    const b = state.players.get(2)
+    if (a === undefined || b === undefined || b.capitalTile === undefined) throw new Error('setup')
+    // Ein B-Tile (≠ Hauptstadt) für einen Verteidigungsposten finden.
+    let someBTile = -1
+    for (let i = 0; i < state.map.state.length; i++) {
+      if (getOwner(state.map, i) === 2 && i !== b.capitalTile) {
+        someBTile = i
+        break
+      }
+    }
+    expect(someBTile).toBeGreaterThanOrEqual(0)
+    state.buildings.set(someBTile, {
+      type: 'defense',
+      ownerId: 2,
+      tile: someBTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    b.gold = 5000
+    a.gold = 1000
+    setOwner(state.map, b.capitalTile, 1) // A erobert die Hauptstadt von B
+    tick(state, [])
+    expect(b.isAlive).toBe(false)
+    // Land an A übergegangen …
+    expect(getOwner(state.map, someBTile)).toBe(1)
+    // … inklusive des Verteidigungspostens (saubere Übernahme — NICHT zerstört) …
+    expect(state.buildings.get(someBTile)?.ownerId).toBe(1)
+    // … und Bs Gold geerbt (1000 + 5000; etwaige Wirtschafts-Einnahmen im Tick kommen obendrauf).
+    expect(a.gold).toBeGreaterThanOrEqual(6000)
+    expect(b.gold).toBe(0)
   })
 })
 

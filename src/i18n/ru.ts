@@ -331,6 +331,8 @@ export const ru: Record<string, string> = {
   'event.tradeBlocked': 'Твоя торговля заблокирована — потеряно {amount} золота',
   'event.warshipSunk': 'Боевой корабль {p} потоплен',
   'event.eliminated': '{p} выбыл',
+  'event.capitalCaptured': '{p} захватывает столицу {victim} и присваивает её империю',
+  'event.capitalBombed': 'Столица {victim} уничтожена — её империя превращается в дикую землю',
   'event.victory': '{p} победил в матче!',
   'event.loot': '{p} захватывает {amount} золота у {from}',
   'event.lootWild': '{p} захватывает {amount} золота в дикой земле',
