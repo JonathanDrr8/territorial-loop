@@ -911,6 +911,8 @@ function startMatch(
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
     eventLog.setVisible(!cockpit)
+    // HUD-Editor ordnet die Desktop-Panels — auf Mobile (Cockpit) gibt es die nicht → Knopf weg.
+    pauseMenu.setCustomizeVisible(!cockpit)
     // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
     // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap.
     alliancePrompt.setCompact(cockpit)
