@@ -240,6 +240,7 @@ export function createMenuShell(
   // ── Header ──────────────────────────────────────────────────────────────────
   function buildHeader(): HTMLElement {
     const header = document.createElement('div')
+    header.className = 'tl-header'
     header.style.cssText = [
       'display: flex',
       'align-items: center',
@@ -761,6 +762,7 @@ export function createMenuShell(
 
     const tips = buildTipsPanel()
     const row = document.createElement('div')
+    row.className = 'tl-cols'
     row.style.cssText =
       'display: grid; grid-template-columns: 250px auto 250px; gap: 22px; align-items: start; justify-content: center; width: 100%'
     row.appendChild(leftCol)

@@ -239,6 +239,17 @@ export const MENU_CSS = `
 .tl-tab { background: transparent; border: 1px solid transparent; color: rgba(255,255,255,0.7); padding: 9px 18px; border-radius: 8px; font-family: var(--tl-font); font-size: 16px; cursor: pointer; transition: color 0.12s, background 0.12s, border-color 0.12s }
 .tl-tab:hover { color: white; background: rgba(255,255,255,0.06) }
 .tl-tab.tl-tab-active { color: #100c06; background: var(--tl-accent); border-color: var(--tl-accent); font-weight: 700 }
+/* Mobil / schmale Screens: Header stapeln + Tabs umbrechen, die Spalten (Lobby/Setup/Tipps)
+   untereinander statt nebeneinander. !important schlägt die Inline-Layout-Styles. */
+@media (max-width: 640px) {
+  .tl-menu .tl-header { gap: 10px !important; padding: 12px 14px !important; justify-content: center }
+  .tl-menu .tl-header > * { flex: 1 1 100% !important }
+  .tl-menu .tl-header nav { justify-content: center !important }
+  .tl-menu .tl-header > div:last-child { justify-content: center !important }
+  .tl-tab { padding: 8px 12px; font-size: 14px }
+  .tl-menu .tl-cols { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 14px !important }
+  .tl-menu .tl-cols > * { width: auto !important; max-width: 100% !important }
+}
 `
 
 /** Gemeinsamer Rückgabetyp der Widget-Builder: DOM-Zeile + Wert-Getter. */
