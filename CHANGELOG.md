@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.40.2] – 2026-06-02
+
+### Behoben
+
+- Im HUD-Editor lässt sich das Panel „Laufende Angriffe" jetzt auch dann anfassen und in
+  der Größe ziehen, wenn gerade kein Kampf läuft (vorher war es leer kaum greifbar).
+- Die Truppen-/Bau-Anzeige rutscht nicht mehr aus dem Bild, wenn man die Gold-Aufschlüsselung
+  ausklappt — die Liste ist gedeckelt und scrollt bei Bedarf.
+
+### Geändert
+
+- Klarere Panel-Namen im HUD-Editor, die jetzt auch in ihre Felder passen (z. B. „Laufende
+  Angriffe", „Angriffsgröße", „Meldungen", „Statusleiste", „Spielzeit").
+
 ## [0.40.1] – 2026-06-02
 
 ### Behoben
