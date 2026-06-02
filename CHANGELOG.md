@@ -4,6 +4,40 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.33.0] – 2026-06-02
+
+### Neu
+
+- **Niederlage-Bildschirm:** Wird das eigene Reich vollständig erobert, erscheint sofort
+  eine Einblendung „Du wurdest besiegt" mit den Knöpfen **„Weiter zuschauen"** und
+  **„Neues Match"**. Vorher lief das Spiel kommentarlos weiter, ohne dass man merkte,
+  dass man ausgeschieden ist. Truppen-Anzeige und Bau-Leiste blenden sich beim
+  Ausscheiden ebenfalls aus.
+
+- **Balken/Kugel-Umschalter direkt am Truppen-Widget:** Den Anzeigestil der Truppenstärke
+  — klassischer Balken oder Füll-Kugel — kann man jetzt mit einem Klick direkt am Widget
+  umschalten, ohne dafür den HUD-Editor öffnen zu müssen.
+
+### Geändert
+
+- **Wilde Nationen wieder nummeriert:** Wilde Nationen tragen wieder eine Nummer
+  (z. B. „wild 3"), damit man getrennte Flecken derselben Nation auf der Karte
+  auseinanderhalten kann. Außerdem kleben ihre Labels nicht mehr am Bildschirmrand fest,
+  wenn man die Karte scrollt.
+
+- **Bau-Snapping:** Ein Klick knapp neben das eigene (kleine) Reich rastet jetzt aufs
+  nächste eigene Feld ein. Gebäude lassen sich so präziser platzieren, ohne den Klick
+  perfekt treffen zu müssen.
+
+- **Ereignis-Log wächst beim Vergrößern:** Zieht man das Ereignis-Log-Panel größer,
+  füllt es sich mit wirklich mehr Einträgen aus der Spielgeschichte — statt nur den
+  vorhandenen Text zu zoomen.
+
+- **HUD-Editor als Reiter:** Der HUD-Editor ist jetzt in drei Reiter unterteilt —
+  **Design**, **Layout** und **Elemente** — und übersichtlicher zu bedienen.
+  Neu hinzu kommen **Quick-Config-Presets**: mit einem Klick lässt sich die Steuerung
+  auf **Standard**, **Maus** oder **Navigations-Rad** umschalten.
+
 ## [0.32.0] – 2026-06-01
 
 ### Neu
