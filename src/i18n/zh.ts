@@ -351,6 +351,8 @@ export const zh: Record<string, string> = {
   'hud.editor.presets.save': '保存',
   'hud.editor.presets.delete': '删除',
   'hud.editor.presets.slotName': '布局 {n}',
+  'hud.editor.presets.saveInto': '保存到…',
+  'hud.editor.presets.newSlot': '新建槽位',
   'hud.editor.panel.attacks': '进攻',
   'hud.editor.emptyHint': '游戏中显示',
   'hud.editor.hint': '拖拽 = 移动 · 角落 = 调整大小 · × = 隐藏',

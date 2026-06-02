@@ -404,6 +404,8 @@ export const en: Record<string, string> = {
   'hud.editor.presets.save': 'Save',
   'hud.editor.presets.delete': 'Delete',
   'hud.editor.presets.slotName': 'Layout {n}',
+  'hud.editor.presets.saveInto': 'Save to…',
+  'hud.editor.presets.newSlot': 'New slot',
   'hud.editor.panel.attacks': 'Attacks',
   'hud.editor.emptyHint': 'shown in-game',
   'hud.editor.hint': 'Drag = move · Corners = resize · × = hide',

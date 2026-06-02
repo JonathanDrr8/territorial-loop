@@ -406,6 +406,8 @@ export const es: Record<string, string> = {
   'hud.editor.presets.save': 'Guardar',
   'hud.editor.presets.delete': 'Eliminar',
   'hud.editor.presets.slotName': 'Disposición {n}',
+  'hud.editor.presets.saveInto': 'Guardar en…',
+  'hud.editor.presets.newSlot': 'Nueva ranura',
   'hud.editor.panel.attacks': 'Ataques',
   'hud.editor.emptyHint': 'aparece en la partida',
   'hud.editor.hint': 'Arrastrar = mover · Esquinas = tamaño · × = ocultar',

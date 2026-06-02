@@ -100,6 +100,56 @@ export function deleteUserPreset(name: string): void {
   saveUser()
 }
 
+/* ---- Überschreibbare feste Presets ----------------------------------------------------------
+ * Standard/Maus/Navigations-Rad lassen sich im Editor mit der aktuellen Anordnung überschreiben
+ * (eigener Speicher); „Zurücksetzen" entfernt den Override → der eingebaute Default greift wieder. */
+const FIXED_KEY = 'territorial-loop:hud-presets-fixed:v1'
+
+function loadFixedOverrides(): Record<string, PresetData> {
+  try {
+    const raw = window.localStorage.getItem(FIXED_KEY)
+    if (raw !== null) return JSON.parse(raw) as Record<string, PresetData>
+  } catch {
+    /* ignore */
+  }
+  return {}
+}
+
+let fixedOverrides = loadFixedOverrides()
+
+function saveFixedStore(): void {
+  try {
+    window.localStorage.setItem(FIXED_KEY, JSON.stringify(fixedOverrides))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Aktuelle Anordnung (Layout + Prefs) als Override für ein festes Preset sichern. */
+export function saveFixedPreset(id: FixedPresetId): void {
+  fixedOverrides = {
+    ...fixedOverrides,
+    [id]: { layout: getLayoutSnapshot(), prefs: getHudPrefs() },
+  }
+  saveFixedStore()
+}
+
+/** Override eines festen Presets entfernen → eingebauter Default greift wieder. */
+export function resetFixedPreset(id: FixedPresetId): void {
+  if (!(id in fixedOverrides)) return
+  const next: Record<string, PresetData> = {}
+  for (const [k, v] of Object.entries(fixedOverrides)) {
+    if (k !== id) next[k] = v
+  }
+  fixedOverrides = next
+  saveFixedStore()
+}
+
+/** Hat ein festes Preset einen eigenen Override (≠ eingebauter Default)? */
+export function hasFixedOverride(id: FixedPresetId): boolean {
+  return id in fixedOverrides
+}
+
 function apply(data: PresetData): void {
   // Immer auf einen sauberen Stand: erst alle Overrides löschen, dann die des Presets setzen.
   resetLayout()
@@ -107,9 +157,9 @@ function apply(data: PresetData): void {
   setHudPrefs(data.prefs)
 }
 
-/** Ein festes Preset (per ID) anwenden. */
+/** Ein festes Preset (per ID) anwenden — Override falls vorhanden, sonst eingebauter Default. */
 export function applyFixedPreset(id: FixedPresetId): void {
-  const def = FIXED[id]
+  const def = fixedOverrides[id] ?? FIXED[id]
   if (def !== undefined) apply(def)
 }
 

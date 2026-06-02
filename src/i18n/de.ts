@@ -409,6 +409,8 @@ export const de: Record<string, string> = {
   'hud.editor.presets.save': 'Speichern',
   'hud.editor.presets.delete': 'Löschen',
   'hud.editor.presets.slotName': 'Layout {n}',
+  'hud.editor.presets.saveInto': 'Speichern in…',
+  'hud.editor.presets.newSlot': 'Neuer Slot',
   'hud.editor.panel.attacks': 'Angriffe',
   'hud.editor.emptyHint': 'erscheint im Spiel',
   'hud.editor.hint': 'Ziehen = verschieben · Ecken = Größe · × = ausblenden',

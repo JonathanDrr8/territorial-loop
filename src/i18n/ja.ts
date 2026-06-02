@@ -357,6 +357,8 @@ export const ja: Record<string, string> = {
   'hud.editor.presets.save': '保存',
   'hud.editor.presets.delete': '削除',
   'hud.editor.presets.slotName': 'レイアウト {n}',
+  'hud.editor.presets.saveInto': '保存先…',
+  'hud.editor.presets.newSlot': '新しいスロット',
   'hud.editor.panel.attacks': '攻撃',
   'hud.editor.emptyHint': 'ゲーム中に表示',
   'hud.editor.hint': 'ドラッグ = 移動 · 角 = リサイズ · × = 非表示',

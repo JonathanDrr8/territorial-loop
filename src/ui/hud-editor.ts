@@ -21,7 +21,10 @@ import {
   applyFixedPreset,
   applyUserPreset,
   deleteUserPreset,
+  hasFixedOverride,
   listUserPresets,
+  resetFixedPreset,
+  saveFixedPreset,
   saveUserPreset,
   type FixedPresetId,
 } from './hud-presets'
@@ -733,7 +736,8 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     for (const id of FIXED_PRESET_IDS) {
       const o = document.createElement('option')
       o.value = `fixed:${id}`
-      o.textContent = t(FIXED_LABEL[id])
+      // „*" markiert eine überschriebene (angepasste) Vorlage.
+      o.textContent = hasFixedOverride(id) ? `${t(FIXED_LABEL[id])} *` : t(FIXED_LABEL[id])
       tplGroup.appendChild(o)
     }
     quickSel.appendChild(tplGroup)
@@ -768,22 +772,62 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
         'font-size:11px;padding:3px 8px;border-radius:5px;border:1px solid var(--tl-panel-border-color);background:transparent;color:var(--tl-text);cursor:pointer'
       return b
     }
-    // Aktuelle Anordnung als neuen eigenen Slot sichern (auto-benannt „Layout N").
-    const saveBtn = presetBtn(t('hud.editor.presets.save'))
-    saveBtn.addEventListener('click', () => {
-      saveUserPreset(nextSlotName())
+    // „Speichern in …": aktuelle Anordnung in einen NEUEN Slot oder in ein bestehendes Preset
+    // sichern — auch in die festen Vorlagen (Standard/Maus/Navigations-Rad überschreiben). Eigenes
+    // Dropdown, damit das Wählen des Ziels nicht (wie beim Anwenden-Dropdown) vorher ein Preset lädt.
+    const saveSel = document.createElement('select')
+    saveSel.style.cssText = quickSel.style.cssText
+    const savePh = document.createElement('option')
+    savePh.value = ''
+    savePh.textContent = t('hud.editor.presets.saveInto')
+    saveSel.appendChild(savePh)
+    const newOpt = document.createElement('option')
+    newOpt.value = 'new'
+    newOpt.textContent = t('hud.editor.presets.newSlot')
+    saveSel.appendChild(newOpt)
+    for (const id of FIXED_PRESET_IDS) {
+      const o = document.createElement('option')
+      o.value = `fixed:${id}`
+      o.textContent = `→ ${t(FIXED_LABEL[id])}`
+      saveSel.appendChild(o)
+    }
+    for (const name of userNames) {
+      const o = document.createElement('option')
+      o.value = `user:${name}`
+      o.textContent = `→ ${name}`
+      saveSel.appendChild(o)
+    }
+    saveSel.addEventListener('change', () => {
+      const v = saveSel.value
+      if (v === 'new') {
+        saveUserPreset(nextSlotName())
+      } else if (v.startsWith('fixed:')) {
+        const id = v.slice(6)
+        if (id === 'standard' || id === 'mouse' || id === 'wheel') saveFixedPreset(id)
+      } else if (v.startsWith('user:')) {
+        saveUserPreset(v.slice(5))
+      } else {
+        return
+      }
       buildToolbar()
     })
-    // Den im Dropdown gewählten eigenen Slot löschen (feste Vorlagen/Platzhalter ignorieren).
+    // Löschen / Zurücksetzen je nach Anwenden-Auswahl: eigener Slot → löschen; feste Vorlage mit
+    // Override → auf den eingebauten Default zurücksetzen.
     const delBtn = presetBtn(t('hud.editor.presets.delete'))
     delBtn.addEventListener('click', () => {
       const v = quickSel.value
       if (v.startsWith('user:')) {
         deleteUserPreset(v.slice(5))
         buildToolbar()
+      } else if (v.startsWith('fixed:')) {
+        const id = v.slice(6)
+        if ((id === 'standard' || id === 'mouse' || id === 'wheel') && hasFixedOverride(id)) {
+          resetFixedPreset(id)
+          buildToolbar()
+        }
       }
     })
-    quickWrap.append(quickLabel, quickSel, saveBtn, delBtn)
+    quickWrap.append(quickLabel, quickSel, saveSel, delBtn)
     tabBar.appendChild(quickWrap)
     toolbar.appendChild(tabBar)
     toolbar.appendChild(paneDesign)

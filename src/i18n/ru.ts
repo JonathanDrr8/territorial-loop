@@ -396,6 +396,8 @@ export const ru: Record<string, string> = {
   'hud.editor.presets.save': 'Сохранить',
   'hud.editor.presets.delete': 'Удалить',
   'hud.editor.presets.slotName': 'Раскладка {n}',
+  'hud.editor.presets.saveInto': 'Сохранить в…',
+  'hud.editor.presets.newSlot': 'Новый слот',
   'hud.editor.panel.attacks': 'Атаки',
   'hud.editor.emptyHint': 'отображается в игре',
   'hud.editor.hint': 'Перетащить = переместить · Углы = размер · × = скрыть',
