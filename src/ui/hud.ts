@@ -195,7 +195,7 @@ export function createHUD(
 ): HUDApi {
   let currentSpeed: SpeedMultiplier = 1
   let currentSliderPct = DEFAULT_SLIDER_PCT
-  let rankSort: RankSort = 'troops'
+  let rankSort: RankSort = 'land'
   let rankExpanded = false
   // Mobile-Layout: Desktop-Panels (Zeit/Rangliste/Angriffe/Truppen/Bau-Leiste) werden
   // ausgeblendet — auf dem Handy zeigt das Eck-Rad alles Wichtige (Cockpit). Nur die

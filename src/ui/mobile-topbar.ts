@@ -26,6 +26,8 @@ export interface MobileTopbarApi {
   setVisible(on: boolean): void
   /** Rang-Knopf optisch als aktiv markieren (Rangliste gerade offen). */
   setRankActive(on: boolean): void
+  /** Wurzel-Element (zum Registrieren als verschieb-/skalierbares HUD-Panel im Editor). */
+  readonly element: HTMLElement
   destroy(): void
 }
 
@@ -128,6 +130,7 @@ export function createMobileTopbar(
       rankBtn.style.background = on ? 'var(--tl-accent)' : 'rgba(255,255,255,0.06)'
       rankBtn.style.color = on ? '#1a1a1a' : 'var(--tl-text)'
     },
+    element: bar,
     destroy(): void {
       bar.remove()
     },

@@ -70,7 +70,12 @@ function apply(id: string): void {
     el.style.transformOrigin = 'top left'
     el.style.transform = `scale(${o.s.toString()})`
   }
-  if (o.w !== undefined) el.style.width = `${o.w.toString()}px`
+  if (o.w !== undefined) {
+    el.style.width = `${o.w.toString()}px`
+    // Hartkodierte max-width mancher Panels (z. B. Angriffs-Panel: 240px) nicht den Override
+    // deckeln lassen — sonst lässt sich das Panel gar nicht breiter ziehen.
+    el.style.maxWidth = `${o.w.toString()}px`
+  }
   if (o.h !== undefined) {
     el.style.height = `${o.h.toString()}px`
     // Hartkodierte max-height mancher Panels (z. B. die Feed-Spalte: 300px) nicht den Override
@@ -135,6 +140,7 @@ export function resetLayout(): void {
     el.style.removeProperty('zoom')
     el.style.removeProperty('width')
     el.style.removeProperty('height')
+    el.style.removeProperty('max-width')
     el.style.removeProperty('max-height')
     el.style.removeProperty('display')
   }

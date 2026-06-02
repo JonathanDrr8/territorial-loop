@@ -52,10 +52,12 @@ import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
+import { icon } from './ui/icons'
+import { panelStyle } from './ui/theme'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
-import { registerPanel, unregisterPanel } from './ui/hud-layout'
+import { getPanel, registerPanel, unregisterPanel } from './ui/hud-layout'
 import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
-import { createHudEditor } from './ui/hud-editor'
+import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
 import { createTutorial, defaultTutorialSteps, type TutorialApi } from './ui/tutorial'
@@ -708,10 +710,16 @@ function startMatch(
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
   // Im Sandbox-Modus (aus den Einstellungen) bringt „Fertig" direkt zurück ins Menü.
+  // isCockpit/onClose: im Maus-/Cockpit-Modus bearbeitet der Editor Rad + Top-Leiste; onClose wendet
+  // die Cockpit-Sichtbarkeit neu an (falls Rad/Leiste im Editor aus-/eingeblendet wurden).
+  const editorOpts: HudEditorOptions = {
+    isCockpit: () => isMobileLayout() && !spectator,
+    onClose: () => applyMobileLayout(),
+  }
   const hudEditor =
     hudSandbox === true
-      ? createHudEditor(container, { onDone: onRequestNewMatch })
-      : createHudEditor(container)
+      ? createHudEditor(container, { ...editorOpts, onDone: onRequestNewMatch })
+      : createHudEditor(container, editorOpts)
 
   const buildMenu = createBuildMenu(
     container,
@@ -743,6 +751,33 @@ function startMatch(
     onLeave: onRequestNewMatch,
   })
 
+  // Sichtbarer Menü-Knopf (☰) oben links — öffnet das Pause-/ESC-Menü auch ohne Tastatur. Auf dem
+  // Handy liegt das ☰ in der Top-Leiste, daher hier nur im Desktop-Modus (s. applyMobileLayout).
+  // Als verschiebbares HUD-Element registriert (nicht ausblendbar — sonst verlöre man den Menü-Zugang).
+  const desktopMenuBtn = document.createElement('button')
+  desktopMenuBtn.type = 'button'
+  desktopMenuBtn.innerHTML = icon.menu
+  desktopMenuBtn.title = t('pause.title')
+  desktopMenuBtn.setAttribute('aria-label', t('pause.title'))
+  desktopMenuBtn.style.cssText = panelStyle([
+    'position: absolute',
+    'left: 12px',
+    'top: 12px',
+    'z-index: 41',
+    'width: 36px',
+    'height: 32px',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'cursor: pointer',
+    'font-size: 17px',
+    'padding: 0',
+  ])
+  desktopMenuBtn.addEventListener('click', () => pauseMenu.open())
+  container.appendChild(desktopMenuBtn)
+  registerScalable(desktopMenuBtn)
+  registerPanel('menu', desktopMenuBtn)
+
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -773,6 +808,7 @@ function startMatch(
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
       renderer.setBuildPreview(mode)
+      actionWheel.setBuildMode(mode) // Bau-Rad hebt das gewählte Gebäude hervor (Mobile-Cockpit)
     },
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
@@ -811,6 +847,10 @@ function startMatch(
       isLand(state.map.terrain, tile) &&
       getOwner(state.map, tile) !== humanId &&
       !canReachByLand(state, humanId, tile),
+    // Touch: Tipp auf eigenes Gebiet wirkt wie Shift+Linksklick (Rundum-Ausbreiten).
+    ownsTile: (tile) => getOwner(state.map, tile) === humanId,
+    // Drag-Platzieren: nur den Bau-Geist schieben (kein Tooltip, das das Gebäude verdecken würde).
+    onBuildPreviewMove: (worldX, worldY) => renderer.setHoverTile(worldX, worldY),
     events: {
       pause(): void {
         if (net !== undefined) {
@@ -898,6 +938,12 @@ function startMatch(
       mobileTopbar.setRankActive(mobileRankOpen)
     },
   })
+  // Rad + Top-Leiste sind im Maus-/Cockpit-Modus die einzige Steuerung → als HUD-Elemente
+  // registrieren, damit der HUD-Editor sie verschieben/skalieren/aus-einblenden kann (ADR-0024).
+  registerScalable(actionWheel.element)
+  registerPanel('wheel', actionWheel.element)
+  registerScalable(mobileTopbar.element)
+  registerPanel('topbar', mobileTopbar.element)
   // Mobile-Cockpit: das Eck-Rad + die Top-Leiste zeigen alles Wichtige → die Desktop-Panels (Zeit,
   // Rangliste, Angriffe, Truppen, Bau-Leiste, Log, Minimap) werden ausgeblendet. Nur die Bündnis-
   // Karte (in feedColumn, separat) bleibt einblendbar, damit man auf dem Handy Angebote annehmen kann.
@@ -905,12 +951,42 @@ function startMatch(
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
-    actionWheel.setVisible(cockpit)
-    mobileTopbar.setVisible(cockpit)
+    // Rad + Top-Leiste sind im Cockpit-Modus aktiv — außer der Spieler hat sie im HUD-Editor
+    // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
+    actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
+    mobileTopbar.setVisible(cockpit && getPanel('topbar')?.hidden !== true)
+    // Desktop-Menü-Knopf nur ohne Cockpit (auf dem Handy hat die Top-Leiste das ☰).
+    desktopMenuBtn.style.display = cockpit ? 'none' : 'flex'
     minimap.setMobile(m)
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
     eventLog.setVisible(!cockpit)
+    // Bündnis-Karte: auf Mobile kompakt + oben am Bildrand (unter der Top-Leiste, zentriert);
+    // auf Desktop die ursprüngliche Feed-Spalte unten rechts über der Minimap.
+    alliancePrompt.setCompact(cockpit)
+    if (cockpit) {
+      feedColumn.style.top = '52px'
+      feedColumn.style.bottom = 'auto'
+      feedColumn.style.left = '0'
+      feedColumn.style.right = '0'
+      feedColumn.style.marginLeft = 'auto'
+      feedColumn.style.marginRight = 'auto'
+      // Prozent-Breite (NICHT px): die UI-Skalierung läuft über CSS `zoom`, das fixe px relativ
+      // zur Bildbreite verzerrt. 84 % lässt links/rechts Luft → margin:auto zentriert die Karte.
+      feedColumn.style.width = '84%'
+      feedColumn.style.maxWidth = '360px'
+      feedColumn.style.maxHeight = '40vh'
+    } else {
+      feedColumn.style.top = 'auto'
+      feedColumn.style.bottom = '224px'
+      feedColumn.style.left = 'auto'
+      feedColumn.style.right = '12px'
+      feedColumn.style.marginLeft = ''
+      feedColumn.style.marginRight = ''
+      feedColumn.style.width = '250px'
+      feedColumn.style.maxWidth = ''
+      feedColumn.style.maxHeight = '300px'
+    }
     if (!cockpit) {
       // Beim Wechsel zurück auf Desktop den Mobile-Rang-Toggle zurücksetzen.
       mobileRankOpen = false
@@ -1147,6 +1223,10 @@ function startMatch(
       unregisterPanel('feed')
       feedColumn.remove()
       buildMenu.destroy()
+      unregisterPanel('wheel')
+      unregisterPanel('topbar')
+      unregisterPanel('menu')
+      desktopMenuBtn.remove()
       actionWheel.destroy()
       mobileTopbar.destroy()
       offControlMode()
@@ -1242,6 +1322,9 @@ function main(): void {
     endpoint: feedbackEndpoint(),
     version: APP_VERSION,
   })
+  // Feedback-Knopf als verschiebbares HUD-Element (im Editor; nicht ausblendbar).
+  registerScalable(feedbackUi.element)
+  registerPanel('feedback', feedbackUi.element)
   // UI-Größen-Slider entfernt (ADR-0024): die HUD-Größe regelt künftig der HUD-Editor pro Widget.
   // Die Standard-Skalierung (registerScalable, zoom 1.3) bleibt als Basisgröße bestehen.
 

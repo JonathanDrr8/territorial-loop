@@ -28,6 +28,8 @@ const SOUND_COOLDOWN_MS = 1500
 
 export interface AlliancePromptApi {
   update(): void
+  /** Kompakt-Darstellung (Mobile): kleinere Karten, oben am Bildrand statt unten rechts. */
+  setCompact(on: boolean): void
   destroy(): void
 }
 
@@ -67,6 +69,8 @@ export function createAlliancePrompt(
   const rows = new Map<number, HTMLDivElement>()
   const firstSeen = new Map<number, number>()
   const fading = new Set<number>()
+  // Kompakt-Modus (Mobile): kleinere Karten. Wirkt auf neue UND bestehende Zeilen.
+  let compact = false
   // Lokal ignorierte Anfragesteller (Ignorieren-Klick oder 15-s-Timeout) — nur Anzeige.
   const ignored = new Set<number>()
   let lastSoundAt = -Infinity
@@ -113,6 +117,13 @@ export function createAlliancePrompt(
     }, FADE_MS)
   }
 
+  /** Setzt die kompakt-abhängigen Maße (Padding/Gap/Schriftgröße) — für neue + bestehende Zeilen. */
+  function applyRowMetrics(row: HTMLDivElement): void {
+    row.style.padding = compact ? '4px 8px' : '6px 9px'
+    row.style.gap = compact ? '4px' : '6px'
+    row.style.fontSize = compact ? '11px' : '12px'
+  }
+
   function makeRow(from: number, name: string, color: string): HTMLDivElement {
     const row = document.createElement('div')
     // Kompakte Karte: Text-Zeile oben, Button-Zeile darunter — passt in die schmale Feed-Spalte
@@ -126,14 +137,13 @@ export function createAlliancePrompt(
       'box-shadow:var(--tl-panel-shadow)',
       'color:var(--tl-text)',
       'font-family:var(--tl-font)',
-      'padding:6px 9px',
       'display:flex',
       'flex-direction:column',
-      'gap:6px',
       'opacity:0',
       'transform:translateX(12px)',
       `transition:opacity ${String(FADE_MS)}ms ease, transform ${String(FADE_MS)}ms ease`,
     ].join(';')
+    applyRowMetrics(row)
     const btn = (act: string, label: string, bg: string): string =>
       `<button data-act="${act}" data-req="${String(from)}" style="pointer-events:auto;cursor:pointer;font:inherit;font-size:11px;border:none;border-radius:4px;padding:3px 9px;color:#fff;background:${bg}">${label}</button>`
     row.innerHTML =
@@ -207,6 +217,11 @@ export function createAlliancePrompt(
 
   return {
     update,
+    setCompact(on: boolean): void {
+      if (compact === on) return
+      compact = on
+      for (const row of rows.values()) applyRowMetrics(row)
+    },
     destroy(): void {
       box.remove()
     },

@@ -43,6 +43,10 @@ const S_MAX = 3
 const PANEL_LABEL: Record<string, string> = {
   info: 'hud.editor.panel.info',
   rank: 'hud.editor.panel.rank',
+  wheel: 'hud.editor.panel.wheel',
+  topbar: 'hud.editor.panel.topbar',
+  menu: 'hud.editor.panel.menu',
+  feedback: 'hud.editor.panel.feedback',
   resource: 'hud.editor.panel.resource',
   action: 'hud.editor.panel.action',
   attacks: 'hud.editor.panel.attacks',
@@ -62,9 +66,22 @@ interface Rect {
   h: number
 }
 
+/** IDs der Cockpit-/Maus-Modus-Elemente (Eck-Rad + Top-Leiste). Im Cockpit-Modus bearbeitet der
+ *  Editor NUR diese; im Desktop-Modus NUR die Desktop-Panels (alles andere). */
+const COCKPIT_PANEL_IDS = new Set(['wheel', 'topbar'])
+
+/** IDs, die NICHT ausgeblendet werden dürfen (sonst verlöre man den Zugang) — nur verschiebbar. */
+const NO_HIDE_IDS = new Set(['menu', 'feedback'])
+
 export interface HudEditorOptions {
   /** Wird beim Schließen über „Fertig" zusätzlich aufgerufen (z. B. Sandbox → zurück ins Menü). */
   onDone?: () => void
+  /** Liefert, ob gerade der Cockpit-/Maus-Modus aktiv ist (Rad sichtbar) — steuert, welche
+   *  Panels der Editor zeigt. Fehlt sie, gilt Desktop-Modus. */
+  isCockpit?: () => boolean
+  /** Bei jedem Schließen aufgerufen (auch ohne „Fertig") — z. B. um die Cockpit-Sichtbarkeit
+   *  nach Aus-/Einblenden im Editor neu anzuwenden. */
+  onClose?: () => void
 }
 
 export function createHudEditor(container: HTMLElement, opts: HudEditorOptions = {}): HudEditorApi {
@@ -90,21 +107,24 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   ])
   container.appendChild(toolbar)
 
-  // Die Werkzeugleiste lässt sich selbst verschieben (sie verdeckt sonst manchmal Panels).
-  // Standardposition: unten mittig. Nach dem Ziehen: absolute Position (über den Match hinaus
-  // nicht persistiert — reine Sitzungs-Bequemlichkeit).
+  // Die Werkzeugleiste lässt sich selbst verschieben (sie verdeckt sonst manchmal Panels) und
+  // skalieren. Standardposition: Bildschirm-Mitte. Nach dem Ziehen: absolute Position. Beides
+  // nur Sitzungs-Bequemlichkeit (nicht persistiert).
   let toolbarPos: { x: number; y: number } | null = null
+  let toolbarScale = 1
   function applyToolbarPos(): void {
     if (toolbarPos === null) {
       toolbar.style.left = '50%'
-      toolbar.style.top = 'auto'
-      toolbar.style.bottom = '16px'
-      toolbar.style.transform = 'translateX(-50%)'
+      toolbar.style.top = '50%'
+      toolbar.style.bottom = 'auto'
+      toolbar.style.transformOrigin = 'center'
+      toolbar.style.transform = `translate(-50%, -50%) scale(${toolbarScale.toString()})`
     } else {
       toolbar.style.left = `${toolbarPos.x.toString()}px`
       toolbar.style.top = `${toolbarPos.y.toString()}px`
       toolbar.style.bottom = 'auto'
-      toolbar.style.transform = 'none'
+      toolbar.style.transformOrigin = 'top left'
+      toolbar.style.transform = `scale(${toolbarScale.toString()})`
     }
   }
   function startToolbarDrag(ev: PointerEvent): void {
@@ -117,6 +137,25 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       const x = Math.max(0, Math.min(e.clientX - cr.left - offX, cr.width - tr.width))
       const y = Math.max(0, Math.min(e.clientY - cr.top - offY, cr.height - tr.height))
       toolbarPos = { x, y }
+      applyToolbarPos()
+    }
+    function onUp(): void {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // Werkzeugleiste skalieren (Eck-Griff unten rechts) — größer/kleiner für unterschiedliche Screens.
+  function startToolbarResize(ev: PointerEvent): void {
+    ev.preventDefault()
+    ev.stopPropagation()
+    const startX = ev.clientX
+    const startScale = toolbarScale
+    function onMove(e: PointerEvent): void {
+      // 200px Ziehen ≈ +1.0 Scale; geclampt auf 0,6…1,8.
+      toolbarScale = Math.max(0.6, Math.min(1.8, startScale + (e.clientX - startX) / 200))
       applyToolbarPos()
     }
     function onUp(): void {
@@ -455,38 +494,41 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     }
     frame.appendChild(nameTag)
 
-    // ×-Knopf zum Ausblenden (oben rechts, innen).
-    const hide = document.createElement('button')
-    hide.type = 'button'
-    hide.textContent = '×'
-    hide.style.cssText = [
-      'position: absolute',
-      'top: 2px',
-      'right: 2px',
-      'width: 20px',
-      'height: 20px',
-      'line-height: 18px',
-      'padding: 0',
-      'z-index: 2',
-      'border: none',
-      'border-radius: 4px',
-      'background: var(--tl-bad, #c0392b)',
-      'color: #fff',
-      'font-size: 15px',
-      'cursor: pointer',
-      'pointer-events: auto',
-    ].join(';')
-    hide.addEventListener('pointerdown', (e) => {
-      e.stopPropagation()
-    })
-    hide.addEventListener('click', (e) => {
-      e.stopPropagation()
-      setPanel(id, { hidden: true })
-      el.style.display = 'none'
-      frame.style.display = 'none'
-      refreshElementList()
-    })
-    frame.appendChild(hide)
+    // ×-Knopf zum Ausblenden (oben rechts, innen) — außer bei nicht-ausblendbaren Elementen
+    // (Menü/Feedback): die bleiben immer sichtbar, nur verschiebbar.
+    if (!NO_HIDE_IDS.has(id)) {
+      const hide = document.createElement('button')
+      hide.type = 'button'
+      hide.textContent = '×'
+      hide.style.cssText = [
+        'position: absolute',
+        'top: 2px',
+        'right: 2px',
+        'width: 20px',
+        'height: 20px',
+        'line-height: 18px',
+        'padding: 0',
+        'z-index: 2',
+        'border: none',
+        'border-radius: 4px',
+        'background: var(--tl-bad, #c0392b)',
+        'color: #fff',
+        'font-size: 15px',
+        'cursor: pointer',
+        'pointer-events: auto',
+      ].join(';')
+      hide.addEventListener('pointerdown', (e) => {
+        e.stopPropagation()
+      })
+      hide.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setPanel(id, { hidden: true })
+        el.style.display = 'none'
+        frame.style.display = 'none'
+        refreshElementList()
+      })
+      frame.appendChild(hide)
+    }
 
     // 4 Eck-Griffe.
     const corners: Array<[0 | 1, 0 | 1, string]> = [
@@ -567,6 +609,7 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     label.style.cssText = 'font-size:11px;opacity:0.7'
     elementsRow.appendChild(label)
     for (const id of panelMap.keys()) {
+      if (NO_HIDE_IDS.has(id)) continue // Menü/Feedback nicht ausblendbar → kein Toggle
       const hidden = getPanel(id)?.hidden === true
       const b = document.createElement('button')
       b.type = 'button'
@@ -1035,6 +1078,25 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     right.appendChild(doneBtn)
     actions.appendChild(right)
     toolbar.appendChild(actions)
+
+    // Eck-Griff unten rechts: Werkzeugleiste größer/kleiner ziehen.
+    const resizeGrip = document.createElement('div')
+    resizeGrip.title = t('hud.editor.resizePanel')
+    resizeGrip.style.cssText = [
+      'position: absolute',
+      'right: 1px',
+      'bottom: 1px',
+      'width: 16px',
+      'height: 16px',
+      'cursor: nwse-resize',
+      'border-right: 2px solid var(--tl-accent)',
+      'border-bottom: 2px solid var(--tl-accent)',
+      'border-bottom-right-radius: 6px',
+      'opacity: 0.6',
+      'pointer-events: auto',
+    ].join(';')
+    resizeGrip.addEventListener('pointerdown', startToolbarResize)
+    toolbar.appendChild(resizeGrip)
   }
 
   // ---- Reset (zurück auf Standard, danach neu armieren) --------------------------------------
@@ -1077,7 +1139,14 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     frames.clear()
     panelMap.clear()
     forcedShown.clear()
-    for (const [id, el] of panelElements()) panelMap.set(id, el)
+    // Nur die Panels des aktiven Modus bearbeiten: im Cockpit-/Maus-Modus das Eck-Rad + die
+    // Top-Leiste, sonst die Desktop-Panels. So zeigt der Editor nie die im jeweils anderen Modus
+    // ausgeblendeten Panels als überdimensionierte Platzhalter.
+    const cockpit = opts.isCockpit?.() ?? false
+    for (const [id, el] of panelElements()) {
+      if (COCKPIT_PANEL_IDS.has(id) !== cockpit) continue
+      panelMap.set(id, el)
+    }
     for (const [id, el] of panelMap) {
       const hidden = getPanel(id)?.hidden === true
       // Nicht ausgeblendete, aber gerade unsichtbare Panels (display:none, z. B. leeres 'attacks')
@@ -1122,6 +1191,8 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     panelMap.clear()
     toolbar.style.display = 'none'
     hideGuides()
+    // Cockpit-Sichtbarkeit neu anwenden (Rad/Top-Leiste evtl. im Editor aus-/eingeblendet).
+    opts.onClose?.()
   }
 
   // Split/Merge (und andere Layout-Prefs) ändern den Panel-Satz → Rahmen + Werkzeugleiste neu.
