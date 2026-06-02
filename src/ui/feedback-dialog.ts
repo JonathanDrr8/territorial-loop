@@ -16,6 +16,8 @@ const ACCENT = 'var(--tl-accent)'
 export interface FeedbackUiApi {
   /** Öffnet den Feedback-/Bug-Dialog (z. B. aus dem Menü-Footer). */
   open(): void
+  /** Der schwebende Trigger-Knopf (zum Registrieren als verschiebbares HUD-Element). */
+  readonly element: HTMLElement
   destroy(): void
 }
 
@@ -30,7 +32,8 @@ export function createFeedbackUi(
   // der Knopf hinter dem Overlay (s. main.ts). Theme-Panel-Look, damit er zum HUD passt.
   trigger.style.cssText = panelStyle([
     'position: absolute',
-    'left: 12px',
+    // Rechts neben dem Menü-Knopf (☰, links bei 12px) — beide bilden die obere linke Chrome-Zeile.
+    'left: 52px',
     'top: 12px',
     'z-index: 40',
     'padding: 6px 10px',
@@ -200,6 +203,7 @@ export function createFeedbackUi(
 
   return {
     open,
+    element: trigger,
     destroy(): void {
       close()
       trigger.remove()

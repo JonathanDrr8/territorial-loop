@@ -52,6 +52,8 @@ import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
 import { pickRandomNames } from './ui/player-names'
 import { createMultiplayerMenu, type MultiplayerMenuApi } from './ui/multiplayer-menu'
 import { createFeedbackUi } from './ui/feedback-dialog'
+import { icon } from './ui/icons'
+import { panelStyle } from './ui/theme'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
 import { getPanel, registerPanel, unregisterPanel } from './ui/hud-layout'
 import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
@@ -749,6 +751,33 @@ function startMatch(
     onLeave: onRequestNewMatch,
   })
 
+  // Sichtbarer Menü-Knopf (☰) oben links — öffnet das Pause-/ESC-Menü auch ohne Tastatur. Auf dem
+  // Handy liegt das ☰ in der Top-Leiste, daher hier nur im Desktop-Modus (s. applyMobileLayout).
+  // Als verschiebbares HUD-Element registriert (nicht ausblendbar — sonst verlöre man den Menü-Zugang).
+  const desktopMenuBtn = document.createElement('button')
+  desktopMenuBtn.type = 'button'
+  desktopMenuBtn.innerHTML = icon.menu
+  desktopMenuBtn.title = t('pause.title')
+  desktopMenuBtn.setAttribute('aria-label', t('pause.title'))
+  desktopMenuBtn.style.cssText = panelStyle([
+    'position: absolute',
+    'left: 12px',
+    'top: 12px',
+    'z-index: 41',
+    'width: 36px',
+    'height: 32px',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'cursor: pointer',
+    'font-size: 17px',
+    'padding: 0',
+  ])
+  desktopMenuBtn.addEventListener('click', () => pauseMenu.open())
+  container.appendChild(desktopMenuBtn)
+  registerScalable(desktopMenuBtn)
+  registerPanel('menu', desktopMenuBtn)
+
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
@@ -926,6 +955,8 @@ function startMatch(
     // ausgeblendet (Layout-`hidden`). Das Rad ganz auszublenden ist erlaubt (der Spieler will's so).
     actionWheel.setVisible(cockpit && getPanel('wheel')?.hidden !== true)
     mobileTopbar.setVisible(cockpit && getPanel('topbar')?.hidden !== true)
+    // Desktop-Menü-Knopf nur ohne Cockpit (auf dem Handy hat die Top-Leiste das ☰).
+    desktopMenuBtn.style.display = cockpit ? 'none' : 'flex'
     minimap.setMobile(m)
     minimap.setVisible(!cockpit)
     hud.setMobile(cockpit)
@@ -1194,6 +1225,8 @@ function startMatch(
       buildMenu.destroy()
       unregisterPanel('wheel')
       unregisterPanel('topbar')
+      unregisterPanel('menu')
+      desktopMenuBtn.remove()
       actionWheel.destroy()
       mobileTopbar.destroy()
       offControlMode()
@@ -1289,6 +1322,9 @@ function main(): void {
     endpoint: feedbackEndpoint(),
     version: APP_VERSION,
   })
+  // Feedback-Knopf als verschiebbares HUD-Element (im Editor; nicht ausblendbar).
+  registerScalable(feedbackUi.element)
+  registerPanel('feedback', feedbackUi.element)
   // UI-Größen-Slider entfernt (ADR-0024): die HUD-Größe regelt künftig der HUD-Editor pro Widget.
   // Die Standard-Skalierung (registerScalable, zoom 1.3) bleibt als Basisgröße bestehen.
 
