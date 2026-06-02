@@ -185,10 +185,10 @@ export function loadAudioVolumes(): AudioVolumes {
   try {
     const raw = window.localStorage.getItem(AUDIO_KEY)
     if (raw === null) {
-      // Migration vom alten Musik-An/Aus: war es an, Musik auf Standard, sonst 0.
-      const oldMusic = window.localStorage.getItem('territorial-loop:music:v1')
-      if (oldMusic !== null)
-        return { ...DEFAULT_AUDIO, music: oldMusic === '1' ? DEFAULT_AUDIO.music : 0 }
+      // Ohne gespeicherte Audio-Prefs (v2) gilt der Standard — Musik ist standardmäßig AN.
+      // Der alte Musik-An/Aus-Schalter `music:v1` wird bewusst ignoriert: er stammt aus der Zeit,
+      // als Musik default-aus war; jetzt soll der Default an sein. Wer Musik nicht will, stellt sie
+      // in den Einstellungen aus (das schreibt eine v2-Pref und greift unten).
       return { ...DEFAULT_AUDIO }
     }
     const p = JSON.parse(raw) as Partial<AudioVolumes>
