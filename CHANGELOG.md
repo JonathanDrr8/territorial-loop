@@ -4,6 +4,28 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.38.0] – 2026-06-02
+
+### Neu
+
+- **Effizienz-Färbung des Truppen-Balkens:** Der Füll-Ring am Cockpit-Rad und der kleine
+  Balken in der Top-Leiste färben sich jetzt nach der Wachstums-Effizienz — **grün** wenn
+  man gut wächst, **gelb** wenn es stagniert, **rot** wenn man voll ist oder stark unter
+  Druck steht. Auf einen Blick sieht man, ob die eigene Produktion gerade sinnvoll läuft.
+
+- **Angriffsgrößen-Slider auf dem Handy:** Am rechten Bildrand über dem Cockpit-Rad gibt
+  es jetzt einen vertikalen Schieberegler — unten 0 %, oben 100 %. Damit lässt sich
+  einstellen, wie viele Truppen ein Angriff einsetzt. Vorher war das auf dem Handy gar
+  nicht möglich.
+
+- **Doppeltipp-Zoom:** Zweimal tippen und beim zweiten Tipp gedrückt halten, dann hoch
+  oder runter ziehen — zoomt rein oder raus, genau wie bei Karten-Apps. Eine Hand reicht.
+
+### Geändert
+
+- **„Angriffe" statt „Schiffe" im Aktions-Rad:** Der Eintrag heißt jetzt **Angriffe**, weil
+  dort auch Bomber starten — nicht nur Schiffe.
+
 ## [0.37.0] – 2026-06-02
 
 ### Neu
