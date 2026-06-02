@@ -1225,10 +1225,18 @@ function startMatch(
     }
     renderer.render()
     minimap.update()
-    hud.update()
-    // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
-    alliancePrompt.update()
-    eventLog.update()
+    // HUD-Live-Update aussetzen, solange der HUD-Editor offen ist: sonst toggeln Funktionen wie
+    // updateAttackPanel jeden Frame `display:none` (z. B. leeres Angriffs-Panel) und überschreiben
+    // damit die vom Editor eingeblendeten Panels → deren Rahmen kollabiert auf die Mindestgröße,
+    // das Panel ist unsichtbar („keine Textur") und lässt sich nicht greifen/skalieren. Auch der
+    // Feed (Bündnis-Karten + Log) wird eingefroren, sonst wächst/schrumpft sein Rahmen beim
+    // Editieren durch neue Einträge. Beim Schließen laufen alle Updates sofort wieder.
+    if (!hudEditor.isOpen()) {
+      hud.update()
+      // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
+      alliancePrompt.update()
+      eventLog.update()
+    }
     // Handy: Punkt am Rang-Knopf, wenn im „Meldungen"-Tab offene Bündnis-Angebote warten — sonst
     // würde man sie übersehen, weil der Feed im Tab statt frei sichtbar liegt.
     if (mobileCockpit) mobileTopbar.setRankAlert(alliancePrompt.pendingCount() > 0)

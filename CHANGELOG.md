@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.42.2] – 2026-06-02
+
+### Behoben
+
+- **HUD-Editor: Panels lassen sich wieder anfassen und in der Größe ziehen.** Solange der
+  Editor offen war, hat das laufende Spiel die Panels jeden Moment überschrieben — sie
+  erschienen ohne Hintergrund („keine Textur"), schrumpften beim Anfassen auf einen winzigen
+  Kasten und ließen sich nicht vergrößern. Jetzt friert das HUD beim Editieren ein: alle Panels
+  bleiben sichtbar, das Panel „Laufende Angriffe" lässt sich (wie die anderen) frei in Höhe und
+  Breite ziehen, und geladene Vorlagen erscheinen vollständig.
+
 ## [0.42.1] – 2026-06-02
 
 ### Behoben
