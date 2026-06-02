@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.46.0] – 2026-06-02
+
+### Behoben
+
+- **Angriffe verschmelzen wieder zuverlässig zu einem großen.** Bisher bündelten sich nur frische
+  Klicks; getrennte Angriffe, deren Fronten zusammenwuchsen, blieben für immer als kleine
+  Einzelangriffe „auf einem Haufen". Jetzt laufen benachbarte eigene Angriffe gegen dieselbe Nation
+  fortlaufend zu einem großen zusammen (und das Bündeln beim Klick ist etwas großzügiger).
+- **Bomber-Flugvorschau zeigt zum richtigen Flughafen.** Beim Starten mehrerer Bomber zeigte die
+  Vorschau-Linie weiter auf den nächstgelegenen Flughafen, auch wenn der voll war und der Bomber in
+  Wirklichkeit von woanders abhob. Jetzt zeigt sie immer auf den Flughafen, von dem der nächste
+  Bomber tatsächlich startet.
+
 ## [0.45.0] – 2026-06-02
 
 ### Behoben

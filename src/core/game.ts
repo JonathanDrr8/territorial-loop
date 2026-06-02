@@ -884,6 +884,7 @@ export function initializeAllFrontiers(state: GameState): void {
  * Phasen-Reihenfolge:
  *   1. Intents anwenden (Attack-Reserven verschieben, Cancel)
  *   2. Bevölkerung wachsen pro lebendem Spieler
+ *   2b. Benachbarte Angriffe desselben Spielers gegen dasselbe Ziel zusammenführen
  *   3. Attack-Resolution — Wave-Expansion + Truppen-Verluste
  *   4. Eliminierte Spieler markieren (tilesOwned == 0)
  *   5. Sieg-Check — bei Erreichen der Schwelle phase='ended', winner gesetzt
@@ -895,6 +896,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   applyIntents(state, intents)
   growPopulations(state)
   generateGold(state)
+  coalesceAttacks(state)
   resolveAttackCollisions(state)
   resolveAttacks(state)
   advanceBoats(state)
@@ -1786,7 +1788,15 @@ function applyToggleWarshipNeutralIntent(
  * denselben Gegner gebündelt wird. Klicks weiter weg erzeugen einen eigenen Angriff → an einer
  * langen Grenze sind mehrere Fronten gleichzeitig möglich. Tunable Balance-Wert.
  */
-const ATTACK_MERGE_RADIUS = 18
+const ATTACK_MERGE_RADIUS = 28
+/**
+ * Wie [[ATTACK_MERGE_RADIUS]], aber für das laufende Zusammenführen bereits BESTEHENDER Angriffe
+ * desselben Spielers gegen denselben Gegner (jeden Tick, siehe [[coalesceAttacks]]). Etwas weiter
+ * als der Klick-Radius, weil `frontTile` mit der vorrückenden Front wandert: zwei Angriffe, deren
+ * Klicks knapp außerhalb des Klick-Radius lagen, schmelzen so zusammen, sobald ihre Fronten
+ * aneinanderwachsen — statt sich „auf einem Haufen" zu stapeln.
+ */
+const ATTACK_COALESCE_RADIUS = 36
 
 function applyAttackIntent(state: GameState, intent: AttackIntent): void {
   const player = state.players.get(intent.playerId)
@@ -1885,6 +1895,51 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
     frontTile: intent.targetTile,
     startTick: state.tick,
   })
+}
+
+/**
+ * Führt bereits BESTEHENDE Angriffe eines Spielers gegen denselben Gegner zusammen, sobald ihre
+ * Fronten näher als [[ATTACK_COALESCE_RADIUS]] beieinander liegen. Der Klick-Merge in
+ * [[applyAttackIntent]] greift nur zum Klick-Zeitpunkt und gegen den damaligen `frontTile` — danach
+ * wandern die Fronten und können nebeneinander anwachsen, ohne je wieder zu verschmelzen. Das ließ
+ * mehrere getrennte Angriffe „auf einem Haufen" stapeln. Hier laufen sie pro Tick wieder zu einem
+ * großen zusammen.
+ *
+ * Determinismus: feste Spieler-Reihenfolge ([[orderedPlayers]]), und je Spieler werden die Angriffe
+ * in stabiler Array-Reihenfolge zusammengelegt (kleinerer Index nimmt den größeren auf). Kein RNG,
+ * keine Zeit, MP-sicher.
+ */
+function coalesceAttacks(state: GameState): void {
+  const { width: w, height: h } = state.map
+  for (const player of orderedPlayers(state)) {
+    if (!player.isAlive || player.attacks.length < 2) continue
+    const attacks = player.attacks
+    // Paarweise von vorne nach hinten: i ist der „Sammler", j ein Kandidat dahinter. Wird j in i
+    // gemerged, fällt j raus (splice) — die Reihenfolge der verbleibenden Angriffe bleibt stabil.
+    for (let i = 0; i < attacks.length; i++) {
+      const a = attacks[i]
+      if (a === undefined) continue
+      // Abbrechende Angriffe nicht einsaugen (ihre Reserve fließt gerade kontrolliert zurück).
+      if (a.cancelStartTick !== undefined) continue
+      const ax = a.frontTile % w
+      const ay = Math.floor(a.frontTile / w)
+      for (let j = attacks.length - 1; j > i; j--) {
+        const b = attacks[j]
+        if (b === undefined) continue
+        if (b.cancelStartTick !== undefined) continue
+        if (b.targetPlayerId !== a.targetPlayerId) continue
+        const d = torusDistance(ax, ay, b.frontTile % w, Math.floor(b.frontTile / w), w, h)
+        if (d > ATTACK_COALESCE_RADIUS) continue
+        // b in a einschmelzen: Reserve + Beute addieren, früheren Start behalten (Dauer-Anzeige),
+        // omni nur halten wenn BEIDE omni sind (ein gerichteter Angriff fokussiert die Front).
+        a.reserveTroops += b.reserveTroops
+        a.lootGained = (a.lootGained ?? 0) + (b.lootGained ?? 0)
+        a.startTick = Math.min(a.startTick, b.startTick)
+        a.omni = a.omni === true && b.omni === true
+        attacks.splice(j, 1)
+      }
+    }
+  }
 }
 
 /**
@@ -2184,7 +2239,7 @@ export const BOMB_IMPACT_LIFETIME = 20
 export const FLAK_SHOT_LIFETIME = 6
 
 /** Wie viele Bomber gerade von `airportTile` aus in der Luft sind (belegen Hangar-Plätze). */
-function flyingBombersFrom(state: GameState, airportTile: TileRef): number {
+export function flyingBombersFrom(state: GameState, airportTile: TileRef): number {
   let n = 0
   for (const b of state.bombers) if (b.homeAirport === airportTile) n++
   return n

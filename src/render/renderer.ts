@@ -28,6 +28,7 @@ import {
   estimateBomberFlakDamage,
   FACTORY_CART_LIMIT,
   FLAK_SHOT_LIFETIME,
+  flyingBombersFrom,
   GOLD_POP_LIFETIME,
   snapBuildTile,
   type GameState,
@@ -35,8 +36,10 @@ import {
 } from '../core/game'
 import { areAllied, directedKey, hasAllianceRequest } from '../core/diplomacy'
 import {
+  AIRCRAFT_COST,
   type Boat,
   type BomberRoute,
+  BOMB_MUNITION,
   BOMB_RADIUS,
   BOMBER_HP,
   planBomberRoute,
@@ -2556,12 +2559,26 @@ export function createRenderer(
     const cssH = container.clientHeight
     const z = camera.zoom
     const target = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
-    // Nächsten eigenen, fertigen Flughafen zum Ziel finden (= Startpunkt der Route).
+    // Nächsten eigenen, fertigen Flughafen finden, der STARTEN kann — exakt wie der Sim
+    // (`applyLaunchBomberIntent`): geparktes Flugzeug + Munitionsgold, sonst freier Hangar-Platz
+    // (in der Luft befindliche Bomber zählen mit) + Gold für Kauf+Munition. So zeigt die
+    // Vorschau-Linie immer auf den Flughafen, von dem der nächste Bomber WIRKLICH startet —
+    // nach mehreren Starts wandert sie korrekt zum nächsten freien Flughafen.
+    const own = state.players.get(lutHumanId)
+    const gold = own?.gold ?? 0
     let from = -1
     let bestDist = Infinity
     for (const b of state.buildings.values()) {
       if (b.type !== 'airport' || b.ownerId !== lutHumanId || !isBuildingComplete(b, state.tick))
         continue
+      const parked = b.aircraft ?? 0
+      let canStart = false
+      if (parked > 0) {
+        canStart = gold >= BOMB_MUNITION
+      } else if (parked + flyingBombersFrom(state, b.tile) < airportSlots(b.level)) {
+        canStart = gold >= AIRCRAFT_COST + BOMB_MUNITION
+      }
+      if (!canStart) continue
       const d = torusDistance(
         hoverTile.x,
         hoverTile.y,
