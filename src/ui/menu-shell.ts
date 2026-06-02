@@ -521,37 +521,47 @@ export function createMenuShell(
       'display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 6px'
     p.appendChild(presetRow)
 
-    section(p, t('section.world'))
+    // Detail-Einstellungen einklappbar (Standard: ZU) — hält den Play-Tab aufgeräumt, „Match
+    // starten" steht oben. Wer feintunen will, klappt auf.
+    const settings = document.createElement('details')
+    settings.style.cssText = 'width: 100%; margin-top: 6px'
+    const settingsSummary = document.createElement('summary')
+    settingsSummary.textContent = t('play.matchSettings')
+    settingsSummary.style.cssText =
+      'cursor: pointer; font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--tl-accent); opacity: 0.85; padding: 8px 0; user-select: none'
+    settings.appendChild(settingsSummary)
+
+    section(settings, t('section.world'))
     const map = makeMapRow(t('field.map'), values.mapWidth, values.mapHeight)
-    p.appendChild(map.element)
+    settings.appendChild(map.element)
     const terrain = makeSelectRow<TerrainChoice>(
       t('field.terrain'),
       translatedOptions(TERRAIN_OPTIONS, 'terrain'),
       values.terrain,
     )
-    p.appendChild(terrain.element)
+    settings.appendChild(terrain.element)
 
-    section(p, t('section.opponents'))
+    section(settings, t('section.opponents'))
     const ai = makeSliderRow(t('field.aiCount'), 1, 200, 1, values.aiCount)
-    p.appendChild(ai.element)
+    settings.appendChild(ai.element)
     const wild = makeSliderRow(t('field.wildCount'), 0, 600, 1, values.wildCount)
-    p.appendChild(wild.element)
+    settings.appendChild(wild.element)
     const difficulty = makeSelectRow<Difficulty>(
       t('field.difficulty'),
       difficultyOptions(),
       values.difficulty,
     )
-    p.appendChild(difficulty.element)
+    settings.appendChild(difficulty.element)
 
     // ── Modus: Hauptstadt-Modus (ADR-0026) + Teams (ADR-0025) ──
-    section(p, t('section.mode'))
+    section(settings, t('section.mode'))
     const capture = makeCheckRow(
       t('field.captureMode'),
       values.captureMode,
       t('toggle.on'),
       t('toggle.off'),
     )
-    p.appendChild(capture.element)
+    settings.appendChild(capture.element)
     const teamMode = makeSelectRow<TeamMode>(
       t('field.teamMode'),
       [
@@ -561,11 +571,11 @@ export function createMenuShell(
       ],
       values.teamMode,
     )
-    p.appendChild(teamMode.element)
+    settings.appendChild(teamMode.element)
     const teamCount = makeSliderRow(t('field.teamCount'), 2, 8, 1, values.teamCount)
     const teamSize = makeSliderRow(t('field.teamSize'), 1, 6, 1, values.teamSize)
-    p.appendChild(teamCount.element)
-    p.appendChild(teamSize.element)
+    settings.appendChild(teamCount.element)
+    settings.appendChild(teamSize.element)
     const syncTeamVisible = (): void => {
       const mode = teamMode.getValue()
       // Team-Anzahl bei „verbündet" & „geteilt" (= Nationen-Anzahl); Team-Größe nur bei „verbündet".
@@ -575,14 +585,14 @@ export function createMenuShell(
     teamMode.element.querySelector('select')?.addEventListener('change', syncTeamVisible)
     syncTeamVisible()
 
-    section(p, t('section.match'))
+    section(settings, t('section.match'))
     const victory = makeSliderRow(t('field.victory'), 50, 100, 5, values.victoryPct, '%')
-    p.appendChild(victory.element)
+    settings.appendChild(victory.element)
     const seed = makeTextRow(t('field.seed'), values.seed ?? '', {
       placeholder: t('field.seedPlaceholder'),
       maxLength: 32,
     })
-    p.appendChild(seed.element)
+    settings.appendChild(seed.element)
 
     // Karten-Vorschau (Minimap-Look) + Würfel-Knopf: zeigt das Terrain des aktuellen Seeds in
     // reduzierter Auflösung, damit man würfeln kann, bis die Karte gefällt. Da das Vorschau-Terrain
@@ -687,7 +697,7 @@ export function createMenuShell(
     })
     previewRow.appendChild(preview.element)
     previewRow.appendChild(dice)
-    p.appendChild(previewRow)
+    settings.appendChild(previewRow)
 
     // Live aktualisieren, wenn Seed/Größe/Terrain sich ändern.
     seedInput?.addEventListener('input', refreshPreview)
@@ -716,7 +726,8 @@ export function createMenuShell(
     startBtn.textContent = t('play.start')
     startBtn.style.cssText = BUTTON_STYLE
     startBtn.addEventListener('click', () => callbacks.onStart(collect(), false))
-    p.appendChild(startBtn)
+    // „Match starten" ganz nach OBEN — schnell reinkommen, ohne an allen Einstellungen vorbeizuscrollen.
+    p.insertBefore(startBtn, p.firstChild)
 
     const watchBtn = document.createElement('button')
     watchBtn.textContent = t('play.spectate')
@@ -730,6 +741,8 @@ export function createMenuShell(
     rankedBtn.style.cssText = secondaryButtonStyle()
     rankedBtn.addEventListener('click', () => callbacks.onRanked(collect()))
     p.appendChild(rankedBtn)
+    // Detail-Einstellungen (einklappbar) ganz unten — Start/Presets/Zuschauen stehen darüber.
+    p.appendChild(settings)
     // Tutorial-Knopf steht jetzt prominent unter den Lobbys (linke Spalte) — war hier zu versteckt.
 
     // Drei zentrierte Spalten: Lobby-Browser links (230) · Setup-Panel mittig (auto) · Tipps

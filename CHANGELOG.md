@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.48.0] – 2026-06-02
+
+### Geändert
+
+- **Aufgeräumtes Spielen-Menü:** „Match starten" steht jetzt ganz oben — schnell rein, ohne an
+  allen Einstellungen vorbeizuscrollen. Die Detail-Einstellungen (Karte, Gegner, Modus, Match) sind
+  unter „Match-Einstellungen anpassen" eingeklappt; wer feintunen will, klappt sie auf.
+- **Einfacheres Layout-Speichern im HUD-Editor:** Statt Dropdowns gibt es jetzt ein Namensfeld + den
+  „Speichern"-Knopf, und gespeicherte Layouts erscheinen als anklickbare Liste (Laden per Klick,
+  Löschen per ✕). Die festen Vorlagen (Standard/Maus/Navigations-Rad) stehen ebenfalls in der Liste.
+
 ## [0.47.0] – 2026-06-02
 
 ### Geändert
