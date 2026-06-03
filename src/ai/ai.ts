@@ -23,6 +23,7 @@ import {
   countBuildingsOfType,
   effectiveMaxTroops,
   estimateBomberFlakDamage,
+  FACTORY_CART_LIMIT,
   isBuildingAllowed,
   warshipCapacity,
   type GameState,
@@ -120,11 +121,11 @@ export interface DifficultyProfile {
   readonly tilesPerCity: number
 }
 
-// Wirtschafts-Ratios relativ zur Stadtzahl (OpenFront-Vorbild „Städte zuerst, Rest als Ratio pro
-// Stadt", ADR-0021). Start-Werte — der Tuner justiert sie später. Hafen/Fabrik versorgen das
-// Gold-Netz, Flughafen die Luftwaffe.
+// Wirtschafts-Ratios (OpenFront-Vorbild „Städte zuerst, Rest als Ratio", ADR-0021). Hafen/Flughafen
+// relativ zur Stadtzahl; Fabriken dagegen nach Gold-Quellen (Städte+Häfen) je Cart-Limit — siehe
+// planBuild (eine Fabrik bedient FACTORY_CART_LIMIT eigene Quellen; eigene Fabriken verbinden sich
+// NICHT untereinander, nur mit FREMDEN Fabriken als Auslands-Bonus).
 const PORT_PER_CITY = 0.5
-const FACTORY_PER_CITY = 0.75
 const AIRPORT_PER_CITY = 0.34
 
 export const PROFILES: Record<Difficulty, DifficultyProfile> = {
@@ -713,31 +714,45 @@ export function createAI(
       }
     }
 
-    // Wirtschafts-Rückgrat (OpenFront-Stil, ADR-0021): Städte zuerst (proaktiv fürs Truppen-Cap),
-    // dann Hafen/Fabrik als Ratio pro Stadt. Das ersetzt das alte „Stadt nur bei Cap-Druck".
+    // Wirtschafts-Rückgrat (ADR-0021): erst EINE Stadt, dann Fabriken/Häfen nach KORREKTER Ratio,
+    // dann Fabriken VERTIEFEN (mehr Gold je Anschluss) — und ERST DANN weitere Städte. So verhungert
+    // das Gold-Netz nicht hinter dem Städte-Hunger (Jonathans „korrekte Ratio + upgraden statt bauen").
     const cities = countBuildingsOfType(state, player.id, 'city')
+    const portsOwned = countBuildingsOfType(state, player.id, 'port')
+    const factoriesOwned = countBuildingsOfType(state, player.id, 'factory')
     const cityTarget =
       profile.tilesPerCity > 0 && player.tilesOwned >= 40
         ? Math.floor(player.tilesOwned / profile.tilesPerCity)
         : 0
-    // 1. Stadt, wenn unter Gebiets-Ziel (Rückgrat) ODER — falls Wirtschaft aus — bei Cap-Druck.
-    if (isBuildingAllowed(state.config, 'city') && gold >= costOf('city')) {
-      const wantCity =
-        cities < cityTarget ||
-        (profile.tilesPerCity === 0 && player.troops >= 0.9 * effectiveMaxTroops(state, player.id))
-      if (wantCity) {
-        const tile = pickInteriorTile(state, player)
-        if (tile >= 0)
-          return {
+    const base = Math.max(cities, 1) // Ratios relativ zur Stadtzahl (min 1, sobald Wirtschaft läuft)
+    const portTarget = Math.ceil(base * PORT_PER_CITY)
+    // KORREKTE Fabrik-Ratio: eine Fabrik bedient FACTORY_CART_LIMIT eigene Quellen (Städte+Häfen).
+    // Eigene Fabriken verbinden sich NICHT untereinander — nur mit FREMDEN Fabriken (Auslands-Bonus).
+    const factoryTarget = Math.ceil((cities + portsOwned) / FACTORY_CART_LIMIT)
+    const buildCity = (): Intent | null => {
+      const tile = pickInteriorTile(state, player)
+      return tile >= 0
+        ? {
             type: 'build',
             playerId: player.id,
             tile,
             buildingType: 'city',
             level: aiBuildLevel(gold, costOf('city')),
           }
+        : null
+    }
+
+    // 1. Rückgrat-Stadt: die ERSTE Stadt (proaktiv fürs Truppen-Cap); ohne Wirtschaft (tilesPerCity 0)
+    //    nur bei Cap-Druck.
+    if (isBuildingAllowed(state.config, 'city') && gold >= costOf('city')) {
+      const wantFirst =
+        (profile.tilesPerCity > 0 && cities === 0 && cityTarget >= 1) ||
+        (profile.tilesPerCity === 0 && player.troops >= 0.9 * effectiveMaxTroops(state, player.id))
+      if (wantFirst) {
+        const c = buildCity()
+        if (c !== null) return c
       }
     }
-    const base = Math.max(cities, 1) // Ratios relativ zur Stadtzahl (min 1, sobald Wirtschaft läuft)
     // 1b. Bomber-Stufen: den ERSTEN Flughafen früh bauen (sobald eine Stadt steht), bevor das Gold
     //     in den Rest der Wirtschaft fließt — sonst hungert die Luftwaffe aus (ADR-0021).
     if (
@@ -754,7 +769,7 @@ export function createAI(
     // 2. Hafen ans Wasser (Ratio pro Stadt) — Handel + Kriegsschiff-Kapazität.
     if (
       isBuildingAllowed(state.config, 'port') &&
-      countBuildingsOfType(state, player.id, 'port') < Math.ceil(base * PORT_PER_CITY) &&
+      portsOwned < portTarget &&
       gold >= costOf('port')
     ) {
       const tile = pickCoastalTile(state, player)
@@ -767,11 +782,11 @@ export function createAI(
           level: aiBuildLevel(gold, costOf('port')),
         }
     }
-    // 3. Fabrik (Ratio pro Stadt), ans Gold-Netz platziert — produziert pro verbundener Stadt/Hafen.
+    // 3. Fabrik bauen — nur für noch UNVERSORGTE Quellen (factoriesOwned < Ziel).
     if (
       isBuildingAllowed(state.config, 'factory') &&
-      cities + countBuildingsOfType(state, player.id, 'port') > 0 &&
-      countBuildingsOfType(state, player.id, 'factory') < Math.ceil(base * FACTORY_PER_CITY) &&
+      cities + portsOwned > 0 &&
+      factoriesOwned < factoryTarget &&
       gold >= costOf('factory')
     ) {
       const tile = pickNetworkTile(state, player)
@@ -783,6 +798,38 @@ export function createAI(
           buildingType: 'factory',
           level: aiBuildLevel(gold, costOf('factory')),
         }
+    }
+    // 4. Fabriken VERTIEFEN statt weiterer Städte: ist die Ratio gedeckt, die niedrigste fertige,
+    //    nicht-maxierte Fabrik upgraden (mehr Gold je Anschluss). Tiefe an die Städtezahl gekoppelt
+    //    (`level < cities`) → bleibt proportional, kein Überinvestieren vor dem nächsten Stadtausbau.
+    if (
+      isBuildingAllowed(state.config, 'factory') &&
+      factoriesOwned > 0 &&
+      factoriesOwned >= factoryTarget
+    ) {
+      let upTile = -1
+      let upLvl = MAX_BUILDING_LEVEL
+      for (const [tile, b] of state.buildings) {
+        if (b.ownerId !== player.id || b.type !== 'factory') continue
+        if (b.level >= MAX_BUILDING_LEVEL || b.level >= cities) continue
+        if (!isBuildingComplete(b, state.tick)) continue
+        if (gold < upgradeCost(b)) continue
+        if (b.level < upLvl || (b.level === upLvl && tile < upTile)) {
+          upLvl = b.level
+          upTile = tile
+        }
+      }
+      if (upTile >= 0) return { type: 'upgrade', playerId: player.id, tile: upTile }
+    }
+    // 5. Weitere Städte Richtung Gebiets-Ziel (Truppen-Cap) — erst nachdem das Gold-Netz steht.
+    if (
+      profile.tilesPerCity > 0 &&
+      cities < cityTarget &&
+      isBuildingAllowed(state.config, 'city') &&
+      gold >= costOf('city')
+    ) {
+      const c = buildCity()
+      if (c !== null) return c
     }
     // 2c. Luftabwehr-Schutz: NUR wenn ein Gegner überhaupt Luftwaffe hat (Flughafen) — sonst ist
     //     Flak vergeudetes Gold. Dann ein paar Flaks zur Deckung der Wirtschaft (Deckel ~ halbe

@@ -4,7 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
-## [0.51.1] – 2026-06-03
+## [0.52.0] – 2026-06-03
+
+### Geändert
+
+- **KI nutzt ihre Fabrik-Wirtschaft jetzt richtig:** Fabriken werden in der korrekten Anzahl gebaut
+  (genug, um alle eigenen Städte/Häfen zu bedienen) und dann **ausgebaut** (höheres Level = mehr Gold
+  je Anschluss), statt nur Stufe 1 zu bleiben oder gar nicht zu kommen. Gemessen in Testläufen:
+  Fabriken erreichen jetzt ~Level 2.5 (vorher stur 1), die KI hat fast **3× so viel Gold**. Dadurch
+  spielt die KI wirtschaftlich deutlich stärker — Partien konsolidieren sich etwas schneller zu
+  wenigen, größeren Reichen.
 
 ### Behoben
 
