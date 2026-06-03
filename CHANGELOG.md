@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.52.1] – 2026-06-03
+
+### Geändert
+
+- **Schwierigkeitsstufen neu geeicht:** Nachdem die KI ihre Wirtschaft jetzt besser nutzt, wurden die
+  ELO-Stufen frisch vermessen (200 Test-Partien). Die Stufen liegen nun etwas näher beieinander
+  (Experte ist nicht mehr ganz so überlegen) — die Labels „Standard (1000)", „Experte (1225)" usw.
+  treffen damit wieder die korrekte relative Stärke.
+
 ## [0.52.0] – 2026-06-03
 
 ### Geändert
