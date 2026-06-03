@@ -19,7 +19,6 @@ import {
   buildCostFor,
   effectiveMaxTroops,
   snapBuildTile,
-  tick,
   totalTroops,
   type GameConfig,
   type GameState,
@@ -29,11 +28,10 @@ import { areAllied } from './core/diplomacy'
 import { deserializeState, loadSnapshotInto } from './core/serialize'
 import { getOwner } from './world/map'
 import { isLand } from './world/terrain'
-import { hashState } from './core/hash'
 import type { Intent } from './core/intent'
-import { createRecorder } from './core/replay'
 import { APP_VERSION } from 'virtual:app-version'
-import { LocalTransport, NetworkTransport, type IntentTransport } from './net/transport'
+import { NetworkTransport } from './net/transport'
+import { createSimHost } from './worker/sim-host'
 import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -560,30 +558,21 @@ function startMatch(
     }
   }
 
-  const transport: IntentTransport =
-    net?.transport ??
-    new LocalTransport({
-      produceServerIntents: () => {
-        const aiIntents: Intent[] = []
-        for (const ai of ais) {
-          for (const intent of ai.decide(state)) aiIntents.push(intent)
-        }
-        return aiIntents
-      },
-      intervalMs: SIM_BASE_INTERVAL_MS,
-      running: true,
-    })
-  // Jeden committeten Turn mitschneiden → ein Replay-Log (config + turns) reproduziert das
-  // Match bit-genau (ADR-0009 Phase 3). Für Desync-Repro/Debugging über `__TL__` erreichbar.
-  const recorder = createRecorder()
-  transport.onCommitted((turn, intents) => {
-    recorder.record(turn, intents)
-    tick(state, intents)
-    // Im Mehrspieler dem Server den eigenen Hash melden → Desync-Erkennung (→ Snapshot).
-    net?.transport.reportHash(turn, hashState(state))
+  // Sim-Treiber-Naht gekapselt (ADR-0030 Stufe 2): Transport + KI-Quelle + tick()-Treiben +
+  // Replay-Recorder + Desync-Hash-Meldung leben jetzt in `createSimHost` (browser-frei → später
+  // worker-tauglich). Dünne Aliase, damit die net-spezifischen Handler unten unverändert an
+  // `net.transport` hängen und die Steuer-Aufrufe (`transport.setRunning/setIntervalMs/destroy`)
+  // gleich bleiben.
+  const sim = createSimHost({
+    state,
+    ais,
+    netTransport: net?.transport,
+    intervalMs: SIM_BASE_INTERVAL_MS,
   })
+  const transport = sim.transport
+  const recorder = sim.recorder
   const rawSubmit = (intent: Intent): void => {
-    transport.submit([intent])
+    sim.submit(intent)
   }
 
   /**
