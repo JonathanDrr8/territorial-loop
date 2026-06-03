@@ -4,7 +4,18 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
-## [0.52.3] – 2026-06-03
+## [0.52.4] – 2026-06-03
+
+### Behoben
+
+- **Periodische komplette Standbilder behoben (vor allem Firefox):** Während eine Partie lief, fror das
+  Bild alle paar Sekunden für einen Moment komplett ein — bei sonst guter Bildrate, und es wurde mit der
+  Spielzeit schlimmer. Ursache: die Berechnung, wo die Nationsnamen auf der Karte stehen, erzeugte bei
+  jedem Durchlauf **Millionen winziger Wegwerf-Objekte**. Firefox' Speicher-Aufräumer (Garbage Collector)
+  hielt das Spiel dafür kurz komplett an — Chrome schluckt das unbemerkt, Firefox nicht. Genau deshalb
+  fror es **nur im laufenden Spiel** (pausiert nicht) und **unabhängig vom Zoom**. Die Berechnung läuft
+  jetzt ohne diesen Müll → der Aufräumer hat nichts mehr zu tun, das Bild bleibt flüssig. Aussehen und
+  Spielablauf sind exakt dieselben.
 
 ### Behoben
 

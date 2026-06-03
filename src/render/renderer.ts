@@ -50,7 +50,7 @@ import {
   shipWorldPos as shipWorldPosOf,
 } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
-import { neighbors4, tileRef, torusDistance, type TileRef } from '../world/torus'
+import { tileNeighbor4, tileRef, torusDistance, type TileRef } from '../world/torus'
 import { t } from '../i18n'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
@@ -916,7 +916,7 @@ export function createRenderer(
       if (p === undefined) continue
       for (const ref of p.frontier) {
         recolor(ref)
-        for (const n of neighbors4(ref, w, h)) recolor(n)
+        for (let d = 0; d < 4; d++) recolor(tileNeighbor4(ref, w, h, d))
       }
     }
     prevBorderTints = new Map(borderTints)
@@ -930,7 +930,7 @@ export function createRenderer(
         flashesAdded++
       }
       recolor(ref)
-      for (const n of neighbors4(ref, w, h)) recolor(n)
+      for (let d = 0; d < 4; d++) recolor(tileNeighbor4(ref, w, h, d))
     }
     pendingDirty.clear()
 
@@ -1187,17 +1187,29 @@ export function createRenderer(
         sy += sinY[y] ?? 0
         cy += cosY[y] ?? 0
         count++
-        const nbs = [
-          ((x - 1 + w) % w) + y * w,
-          ((x + 1) % w) + y * w,
-          x + ((y - 1 + h) % h) * w,
-          x + ((y + 1) % h) * w,
-        ]
-        for (const nb of nbs) {
-          if (visited[nb] !== 1 && ((ms[nb] ?? 0) & OWNER_MASK) === owner) {
-            visited[nb] = 1
-            bfsQueue[tail++] = nb
-          }
+        // Vier Torus-Nachbarn inline prüfen — KEIN `nbs`-Array pro Tile. Sonst entstehen auf einer
+        // vollbesiedelten Karte ~1 Mio. Wegwerf-Arrays je Centroid-Lauf → Firefox/SpiderMonkey löst
+        // dabei eine Major-GC-Pause aus = kompletter Freeze (V8/Chromium schluckt es, Firefox nicht).
+        // Gleiche Werte/Reihenfolge wie zuvor → pixel-identisch, MP-deterministisch.
+        const nbL = ((x - 1 + w) % w) + y * w
+        if (visited[nbL] !== 1 && ((ms[nbL] ?? 0) & OWNER_MASK) === owner) {
+          visited[nbL] = 1
+          bfsQueue[tail++] = nbL
+        }
+        const nbR = ((x + 1) % w) + y * w
+        if (visited[nbR] !== 1 && ((ms[nbR] ?? 0) & OWNER_MASK) === owner) {
+          visited[nbR] = 1
+          bfsQueue[tail++] = nbR
+        }
+        const nbU = x + ((y - 1 + h) % h) * w
+        if (visited[nbU] !== 1 && ((ms[nbU] ?? 0) & OWNER_MASK) === owner) {
+          visited[nbU] = 1
+          bfsQueue[tail++] = nbU
+        }
+        const nbD = x + ((y + 1) % h) * w
+        if (visited[nbD] !== 1 && ((ms[nbD] ?? 0) & OWNER_MASK) === owner) {
+          visited[nbD] = 1
+          bfsQueue[tail++] = nbD
         }
       }
       if (count >= MIN_LABEL_COMPONENT) {
