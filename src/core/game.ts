@@ -125,7 +125,6 @@ import {
   WARSHIP_SHOT_COOLDOWN,
   WARSHIP_SPEED,
   PROJECTILE_SPEED,
-  planBoatLaunch,
   planBomberRoute,
   planWaterRoute,
   shipArrived,
@@ -333,6 +332,14 @@ export interface GameState {
    * Basis für Gebiets-% und Sieg-Schwelle. Statisch (Terrain ändert sich nie).
    */
   readonly passableLandCount: number
+  /**
+   * Alle Küsten-Land-Tiles (begehbares Land mit mind. einem Nicht-Land-Nachbarn). Statisch (hängt
+   * nur am Terrain). LAZY beim ersten Boot-Start berechnet (Terrain ist dann final) und gecacht —
+   * der Boot-Start filtert das dann nur nach Besitzer (O(Küstenlänge)) statt die ganze Karte zu
+   * scannen; bei Riesen-Nationen im Spätspiel war der Voll-Scan ein Sekunden-Standbild pro Start.
+   * `null` = noch nicht berechnet. Reine Terrain-Funktion → MP-deterministisch, nicht serialisiert.
+   */
+  coastalTiles: readonly TileRef[] | null
   /** Aktive Transport-Boote. */
   boats: Boat[]
   /** Aktive Handelsschiffe. */
@@ -594,6 +601,7 @@ export function createGame(config: GameConfig): GameState {
     waterComponents: labelWaterComponents(map),
     landComponents: labelLandComponents(map),
     passableLandCount: countPassableLand(map),
+    coastalTiles: null, // lazy beim ersten Boot-Start (Terrain dann final), siehe collectOwnerCoastalTiles
     boats: [],
     tradeShips: [],
     tradeRouteCache: new Map<string, readonly TileRef[] | null>(),
@@ -2043,16 +2051,16 @@ function applyBoatIntent(state: GameState, intent: BoatIntent): void {
   // flankieren). Gültigkeit = Wasserweg vorhanden (unten via tryLaunchBoat).
 
   // Differenziertes Feedback: ohne eigene Küste ist ein Boot unmöglich (man muss erst
-  // Land am Wasser erobern); sonst lag es am fehlenden Wasserweg zum Ziel.
-  const ownerTiles = collectOwnerTiles(state, player.id)
-  const hasCoast = ownerTiles.some((t) => isCoastalTile(state.map, t))
-  if (!hasCoast) {
+  // Land am Wasser erobern); sonst lag es am fehlenden Wasserweg zum Ziel. Nur die eigenen
+  // KÜSTEN-Tiles (statische Liste nach Besitzer gefiltert) statt eines Voll-Karten-Scans.
+  const ownerCoast = collectOwnerCoastalTiles(state, player.id)
+  if (ownerCoast.length === 0) {
     if (player.isHuman) {
       emitEvent(state, 'event.noCoast', { p: player.name }, player.color)
     }
     return
   }
-  if (!tryLaunchBoat(state, player, intent.targetTile, intent.troops)) {
+  if (!tryLaunchBoat(state, player, intent.targetTile, intent.troops, ownerCoast)) {
     if (player.isHuman) {
       emitEvent(state, 'event.noWaterway', { p: player.name }, player.color)
     }
@@ -2080,6 +2088,7 @@ function tryLaunchBoat(
   player: Player,
   targetTile: TileRef,
   requestedTroops: number,
+  ownerCoast: readonly TileRef[],
 ): boolean {
   const activeBoats = state.boats.reduce((n, b) => (b.ownerId === player.id ? n + 1 : n), 0)
   if (activeBoats >= MAX_BOATS_PER_PLAYER) return false
@@ -2089,21 +2098,51 @@ function tryLaunchBoat(
 
   // Toleranz: ein grob auf eine Insel gesetzter Klick muss nicht exakt ein Küsten-Tile
   // treffen. Wir probieren die nächsten Küsten DERSELBEN Landmasse durch und nehmen die
-  // erste, zu der von einer eigenen Küste ein Wasserweg existiert.
-  const ownerTiles = collectOwnerTiles(state, player.id)
+  // erste, zu der von einer eigenen Küste ein Wasserweg existiert. `ownerCoast` = nur die
+  // eigenen Küsten-Tiles (vorgefiltert) statt aller Gebiets-Tiles → kein O(Karte)-Scan.
   const candidates = coastalTilesNear(state.map, targetTile, 16)
   if (candidates.length === 0) candidates.push(targetTile)
-  let landingTile = -1
-  let path: readonly TileRef[] | null = null
+  const { width, height } = state.map
+  const comp = state.waterComponents
+  // Welche Wasserkomponenten grenzen an die Lande-Kandidaten? (comp → Kandidat). Einmalig über die
+  // ≤16 Kandidaten — danach KEINE per-Küstentile-Allokation mehr (das war bei Riesen-Nationen der
+  // Sekunden-Freeze: planBoatLaunch 16× über zehntausende Küsten-Tiles, je mit Map-Allokation).
+  const seaToCandidate = new Map<number, TileRef>()
   for (const c of candidates) {
-    const plan = planBoatLaunch(state.map, state.waterComponents, ownerTiles, c)
-    if (plan !== null) {
-      landingTile = c
-      path = plan.path
+    for (const wc of adjacentWaterByComponent(state.map, comp, c).keys()) {
+      if (!seaToCandidate.has(wc)) seaToCandidate.set(wc, c)
+    }
+  }
+  // Nächstes eigenes Küsten-Tile (zum Ziel), das an eine dieser Seen grenzt — ein Durchlauf,
+  // allokationsfreie Nachbar-Prüfung.
+  const tx = targetTile % width
+  const ty = Math.floor(targetTile / width)
+  let bestLand = -1
+  let bestCand = -1
+  let bestDist = Infinity
+  for (const land of ownerCoast) {
+    for (let d = 0; d < 4; d++) {
+      const n = tileNeighbor4(land, width, height, d)
+      if (isLand(state.map.terrain, n)) continue
+      const wc = comp[n]
+      if (wc === undefined || wc < 0) continue
+      const cand = seaToCandidate.get(wc)
+      if (cand === undefined) continue
+      const dist = torusDistance(land % width, Math.floor(land / width), tx, ty, width, height)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestLand = land
+        bestCand = cand
+      }
       break
     }
   }
-  if (path === null || landingTile < 0) return false
+  if (bestLand < 0 || bestCand < 0) return false
+  // Kein Längen-Check: bei zwei über eine einzige Wasser-Spalte getrennten Landmassen ist die
+  // Wasser-Route nur 1 Tile lang — ein gültiger kurzer Übersetz-Hop (wie im alten planBoatLaunch).
+  const path: readonly TileRef[] | null = planWaterRoute(state.map, comp, bestLand, bestCand)
+  if (path === null) return false
+  const landingTile = bestCand
 
   player.troops -= troops
   state.boats.push({
@@ -2173,11 +2212,28 @@ function coastalTilesNear(map: GameMap, start: TileRef, limit: number): TileRef[
   return result
 }
 
-/** Alle Tiles die `playerId` besitzt (für Boot-Start-Küsten). O(N) — nur bei Boot-Start. */
-function collectOwnerTiles(state: GameState, playerId: number): TileRef[] {
+/**
+ * Alle Küsten-Land-Tiles der Karte. Statisch (nur Terrain) → EINMAL beim Laden in
+ * {@link createGame}/`deserializeState` berechnet und in `state.coastalTiles` gecacht.
+ */
+export function computeCoastalTiles(map: GameMap): TileRef[] {
   const tiles: TileRef[] = []
-  for (let i = 0; i < state.map.state.length; i++) {
-    if (getOwner(state.map, i) === playerId) tiles.push(i)
+  const len = map.state.length
+  for (let i = 0; i < len; i++) {
+    if (isCoastalTile(map, i)) tiles.push(i)
+  }
+  return tiles
+}
+
+/**
+ * Die KÜSTEN-Tiles, die `playerId` gehören (für Boot-/Kriegsschiff-Start). Filtert die statische
+ * `coastalTiles`-Liste nach Besitzer — O(Küstenlänge) statt O(Kartengröße). Nur beim Start nötig.
+ */
+function collectOwnerCoastalTiles(state: GameState, playerId: number): TileRef[] {
+  if (state.coastalTiles === null) state.coastalTiles = computeCoastalTiles(state.map) // lazy, dann gecacht
+  const tiles: TileRef[] = []
+  for (const t of state.coastalTiles) {
+    if (getOwner(state.map, t) === playerId) tiles.push(t)
   }
   return tiles
 }

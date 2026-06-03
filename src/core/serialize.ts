@@ -144,6 +144,7 @@ export function deserializeState(data: SerializedGameState): GameState {
     waterComponents: labelWaterComponents(map),
     landComponents: labelLandComponents(map),
     passableLandCount: countPassableLand(map),
+    coastalTiles: null, // lazy beim ersten Boot-Start (Terrain steht hier schon, aber konsistent mit createGame)
     boats: data.boats.map((b) => ({ ...b, path: [...b.path] })),
     tradeShips: data.tradeShips.map((t) => ({ ...t, path: [...t.path] })),
     tradeRouteCache: new Map<string, readonly TileRef[] | null>(),

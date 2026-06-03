@@ -24,6 +24,11 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
   Grenz-Felder der wenigen tatsächlich betroffenen Nationen aktualisiert. Gemessen auf der Chaos-Karte
   (2048², 751 Nationen): von ~17 Standbildern pro 8 Sekunden auf **eins**, Bildrate fast verdoppelt —
   und die Darstellung ist exakt dieselbe.
+- **Keine Sekunden-Hänger mehr beim Boot-Start im Spätspiel:** Sobald eine Nation viel Land besaß,
+  ließ das Aussenden eines Transport-Boots das Spiel bis zu einer Sekunde einfrieren — der Start
+  durchsuchte das **gesamte** eigene Gebiet nach einem Küstenpunkt. Jetzt werden die Küsten-Felder
+  einmal beim Match-Start ermittelt und der Boot-Start prüft nur noch die eigene Küste. Gemessen auf
+  der Chaos-Karte um Spielminute 10: pro Boot-Start von ~1150 ms auf ~90 ms.
 
 ## [0.52.1] – 2026-06-03
 
