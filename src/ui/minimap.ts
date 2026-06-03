@@ -37,7 +37,7 @@ export interface MinimapDeps {
   readonly state: GameState
   readonly camera: Camera
   /** Map-Auflösungs-Bitmap vom Renderer (wird pro Frame aktualisiert). */
-  readonly getBitmap: () => OffscreenCanvas
+  readonly getBitmap: () => HTMLCanvasElement
   /** Aktuelle CSS-Pixel-Größe des Haupt-Viewports. */
   readonly getViewportSize: () => { readonly width: number; readonly height: number }
   /** Touch/Mobile: Minimap oben rechts (sonst überlappt das Eck-Rad unten rechts). */

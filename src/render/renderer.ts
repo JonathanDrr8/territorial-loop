@@ -50,7 +50,7 @@ import {
   shipWorldPos as shipWorldPosOf,
 } from '../core/ships'
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
-import { neighbors4, tileRef, torusDistance } from '../world/torus'
+import { neighbors4, tileRef, torusDistance, type TileRef } from '../world/torus'
 import { t } from '../i18n'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
@@ -262,13 +262,19 @@ export interface Renderer {
    * Hauptthread speist ein ResizeObserver/`window.resize` das; im Worker eine Größen-Message.
    */
   setViewport(width: number, height: number, devicePixelRatio: number): void
+  /**
+   * Sammelt die Dirty-Tiles des gerade committeten Ticks ein (vom Sim-Host pro Tick aufzurufen, BEVOR
+   * die Sim ihren `dirtyTiles`-Puffer leert). Damit zieht der Renderer auch übersprungene Ticks
+   * inkrementell nach, statt voll neu zu backen (ADR-0030-Nachtrag gegen periodische Rucker).
+   */
+  collectDirty(): void
   /** Erzwingt ein vollständiges Neu-Backen des Karten-Bitmaps (nach Mid-Match-Resync/State-Swap). */
   invalidate(): void
   /**
    * Das Map-Auflösungs-Bitmap. Wird pro `render()`-Aufruf aktualisiert.
    * Read-only: Konsumenten (z.B. Minimap) zeichnen es ab, mutieren es nicht.
    */
-  getBitmap(): OffscreenCanvas
+  getBitmap(): HTMLCanvasElement
   /** Konvertiert eine Maus-Position (in CSS-Pixeln) in Welt-Koords. */
   screenToWorld(screenX: number, screenY: number): { readonly x: number; readonly y: number }
   /**
@@ -420,8 +426,12 @@ const MARKER_RADIUS_END = 40
 const FLASH_DURATION_MS = 280
 const MAX_FLASHES_PER_TICK = 600
 
-/** Schwerpunkt-Neuberechnung alle N Sim-Ticks (Performance vs. Aktualität). */
-const CENTROID_INTERVAL = 10
+/**
+ * Schwerpunkt-Neuberechnung (Label-Anker) alle N Sim-Ticks. Der Voll-Karten-BFS ist teuer; die
+ * Anker driften aber nur langsam → 40 (≈ alle 4 s) statt 10 (jede Sekunde) reicht und viertelt die
+ * Spike-Häufigkeit. Mit den Sinus/Cosinus-Lookup-Tabellen ist der Scan zusätzlich deutlich billiger.
+ */
+const CENTROID_INTERVAL = 40
 /** Ab dieser Tile-Zahl bekommt ein zusammenhängender Gebiets-Fetzen ein eigenes Label. */
 const MIN_LABEL_COMPONENT = 4
 
@@ -445,12 +455,7 @@ interface CaptureFlash {
   startTime: number
 }
 
-function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D
-function get2dContext(canvas: OffscreenCanvas, label: string): OffscreenCanvasRenderingContext2D
-function get2dContext(
-  canvas: HTMLCanvasElement | OffscreenCanvas,
-  label: string,
-): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D {
+function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D {
   const ctx = canvas.getContext('2d')
   if (ctx === null) {
     throw new Error(`Renderer: 2D context for ${label} not available`)
@@ -478,9 +483,14 @@ export function createRenderer(
   const screenCtx = get2dContext(screenCanvas, 'screen')
   screenCtx.imageSmoothingEnabled = false
 
-  // Offscreen canvas in Map-Auflösung — `OffscreenCanvas` (kein DOM nötig) → läuft auch im Worker
-  // (ADR-0030). Wird nie in den DOM gehängt, nur intern gebacken + per drawImage aufs Screen-Canvas.
-  const offscreen = new OffscreenCanvas(state.map.width, state.map.height)
+  // Offscreen canvas in Map-Auflösung. Wird nie in den DOM gehängt, nur intern gebacken + per
+  // drawImage aufs Screen-Canvas. (HTMLCanvasElement statt OffscreenCanvas: Firefox routet
+  // OffscreenCanvas-2D über den GPU-Pfad → periodische putImageData/drawImage-Sync-Stalls. Der
+  // Worker-Umbau bringt OffscreenCanvas via transferControlToOffscreen in Stufe 4 zurück — dort
+  // läuft das Rendern off-main-thread, GPU-Sync friert die UI dann nicht mehr ein. Siehe ADR-0030.)
+  const offscreen = document.createElement('canvas')
+  offscreen.width = state.map.width
+  offscreen.height = state.map.height
   const offscreenCtx = get2dContext(offscreen, 'offscreen')
   const imageData = offscreenCtx.createImageData(state.map.width, state.map.height)
 
@@ -530,6 +540,12 @@ export function createRenderer(
   // Multiplayer mit mehreren Menschen den falschen Spieler als „du" markieren würde.
   const lutHumanId = localHumanId
   let bitmapBaked = false
+  // Dirty-Tiles AKKUMULIERT über alle Ticks seit dem letzten Bitmap-Update (`collectDirty` sammelt sie
+  // pro committetem Tick ein, BEVOR die Sim ihren `dirtyTiles`-Puffer für den nächsten Tick leert).
+  // So zieht der Renderer auch übersprungene Ticks (langsamer Frame / hohes Tempo) INKREMENTELL nach,
+  // statt die ganze Karte neu zu backen — das war die Ursache der periodischen ~117 ms-Rucker
+  // (ADR-0030-Nachtrag). Reines Render-Hilfsmittel (nicht im State/Hash).
+  const pendingDirty = new Set<TileRef>()
   // Grenzfarbe je Spieler AUS SICHT des Menschen: eigenes leuchtet hell-cyan,
   // Verbündete grün, Nationen die einem kürzlich Land genommen haben rot (Intensität
   // = „Groll", klingt nach), alle anderen weiß.
@@ -824,10 +840,28 @@ export function createRenderer(
   }
 
   /**
-   * Aktualisiert das Offscreen-Bitmap. Erster Aufruf: komplette Karte backen.
-   * Danach inkrementell — nur die in `state.dirtyTiles` gemeldeten Tiles (+ ihre
-   * 4 Nachbarn, deren Border-Status kippen kann) werden neu gefärbt. So ist der
-   * Aufwand O(geänderte Tiles) statt O(Kartengröße) — Voraussetzung für große Karten.
+   * Sammelt die Dirty-Tiles EINES committeten Ticks ein (vom Sim-Host pro Tick aufgerufen, bevor die
+   * Sim ihren Puffer für den nächsten Tick leert). Akkumuliert über mehrere Ticks → der nächste
+   * `paintBitmap`-Aufruf zieht auch übersprungene Ticks inkrementell nach. Overflow-Schutz: lief so
+   * viel auf (z.B. langer Hintergrund-Tab, in dem `render()` pausiert, die Sim aber tickt), dass eine
+   * Voll-Neubacke billiger wäre, einmal voll neu backen statt riesig zu akkumulieren.
+   */
+  function collectDirty(): void {
+    const dt = state.dirtyTiles
+    if (dt.length === 0) return
+    if (pendingDirty.size + dt.length > state.map.state.length >> 2) {
+      pendingDirty.clear()
+      bitmapBaked = false // → nächster paintBitmap backt einmal voll (selten)
+      return
+    }
+    for (const t of dt) pendingDirty.add(t)
+  }
+
+  /**
+   * Aktualisiert das Offscreen-Bitmap. Erster Aufruf: komplette Karte backen. Danach inkrementell —
+   * nur die akkumulierten Dirty-Tiles (`pendingDirty`, + 4 Nachbarn deren Border-Status kippen kann)
+   * + die Rand-Tiles von Nationen mit geändertem Beziehungs-Tint. Aufwand O(geänderte Tiles) statt
+   * O(Kartengröße) — auch über übersprungene Ticks hinweg (kein Voll-Rebake mehr als Notbremse).
    */
   function paintBitmap(): void {
     if (lut === null) buildLut()
@@ -842,6 +876,7 @@ export function createRenderer(
       offscreenCtx.putImageData(imageData, 0, 0)
       bitmapBaked = true
       prevBorderTints = new Map(borderTints)
+      pendingDirty.clear() // alles frisch gebacken → akkumulierte Dirty verworfen
       return
     }
 
@@ -886,11 +921,10 @@ export function createRenderer(
     }
     prevBorderTints = new Map(borderTints)
 
-    // (B) Owner-Änderungen dieses Ticks (Eroberungen): die gemeldeten Tiles + ihre 4 Nachbarn, deren
-    // Border-Status kippen kann. Tote Nationen verschwinden hierüber automatisch (ihre Tiles sind
-    // jetzt Eroberer-Tiles und damit dirty) — kein gesonderter Voll-Rebake nötig.
-    const dirty = state.dirtyTiles
-    for (const ref of dirty) {
+    // (B) Owner-Änderungen seit dem letzten Bake (Eroberungen) — AKKUMULIERT über evtl. übersprungene
+    // Ticks (`pendingDirty`, von `collectDirty` befüllt). Die gemeldeten Tiles + ihre 4 Nachbarn, deren
+    // Border-Status kippen kann. Tote Nationen verschwinden hierüber automatisch. Danach geleert.
+    for (const ref of pendingDirty) {
       if (flashesAdded < MAX_FLASHES_PER_TICK && ((mapState[ref] ?? 0) & OWNER_MASK) !== 0) {
         flashes.push({ tileX: ref % w, tileY: Math.floor(ref / w), startTime: now })
         flashesAdded++
@@ -898,6 +932,7 @@ export function createRenderer(
       recolor(ref)
       for (const n of neighbors4(ref, w, h)) recolor(n)
     }
+    pendingDirty.clear()
 
     // Nur den Dirty-Ausschnitt blitten (7-arg putImageData). Bei seam-übergreifenden Captures kann
     // die Box bis volle Breite/Höhe wachsen — nie schlechter als der bisherige Voll-Write.
@@ -1084,6 +1119,14 @@ export function createRenderer(
   let lastCentroidTick = -1
   let visited: Uint8Array = new Uint8Array(0)
   let bfsQueue: Int32Array = new Int32Array(0)
+  // Statische Sinus/Cosinus-Tabellen für den Torus-Schwerpunkt (Spalte x / Zeile y) — die Map-Maße
+  // sind fix, also einmal vorberechnen statt 4× Math.sin/cos PRO TILE (auf 2048² = ~17 Mio. trig/
+  // Scan, der Hauptkostenpunkt des Label-Spikes). Lookup statt Rechnen → der periodische 66 ms-
+  // Standbild fällt drastisch.
+  let sinX: Float64Array = new Float64Array(0)
+  let cosX: Float64Array = new Float64Array(0)
+  let sinY: Float64Array = new Float64Array(0)
+  let cosY: Float64Array = new Float64Array(0)
 
   function maybeRecomputeCentroids(): void {
     if (lastCentroidTick >= 0 && state.tick - lastCentroidTick < CENTROID_INTERVAL) return
@@ -1092,13 +1135,29 @@ export function createRenderer(
     const h = state.map.height
     const ms = state.map.state
     const n = ms.length
-    const kx = (2 * Math.PI) / w
-    const ky = (2 * Math.PI) / h
     if (visited.length !== n) {
       visited = new Uint8Array(n)
       bfsQueue = new Int32Array(n)
     } else {
       visited.fill(0)
+    }
+    if (sinX.length !== w) {
+      sinX = new Float64Array(w)
+      cosX = new Float64Array(w)
+      const kx = (2 * Math.PI) / w
+      for (let x = 0; x < w; x++) {
+        sinX[x] = Math.sin(x * kx)
+        cosX[x] = Math.cos(x * kx)
+      }
+    }
+    if (sinY.length !== h) {
+      sinY = new Float64Array(h)
+      cosY = new Float64Array(h)
+      const ky = (2 * Math.PI) / h
+      for (let y = 0; y < h; y++) {
+        sinY[y] = Math.sin(y * ky)
+        cosY[y] = Math.cos(y * ky)
+      }
     }
     const anchors: { owner: number; x: number; y: number }[] = []
     for (let start = 0; start < n; start++) {
@@ -1123,10 +1182,10 @@ export function createRenderer(
         const t = bfsQueue[head++] ?? 0
         const x = t % w
         const y = (t - x) / w
-        sx += Math.sin(x * kx)
-        cx += Math.cos(x * kx)
-        sy += Math.sin(y * ky)
-        cy += Math.cos(y * ky)
+        sx += sinX[x] ?? 0
+        cx += cosX[x] ?? 0
+        sy += sinY[y] ?? 0
+        cy += cosY[y] ?? 0
         count++
         const nbs = [
           ((x - 1 + w) % w) + y * w,
@@ -1530,11 +1589,13 @@ export function createRenderer(
     screenCtx.restore()
   }
 
-  // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert). `OffscreenCanvas` → worker-tauglich.
-  function renderSpriteCanvas(def: SpriteDef): OffscreenCanvas | null {
+  // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert).
+  function renderSpriteCanvas(def: SpriteDef): HTMLCanvasElement | null {
     const h = def.rows.length
     const w = def.rows[0]?.length ?? 0
-    const c = new OffscreenCanvas(w, h)
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
     const ctx = c.getContext('2d')
     if (ctx === null) return null
     for (let y = 0; y < h; y++) {
@@ -1549,36 +1610,36 @@ export function createRenderer(
     }
     return c
   }
-  const spriteCache = new Map<BuildingType, OffscreenCanvas | null>()
-  function getBuildingSprite(type: BuildingType): OffscreenCanvas | null {
+  const spriteCache = new Map<BuildingType, HTMLCanvasElement | null>()
+  function getBuildingSprite(type: BuildingType): HTMLCanvasElement | null {
     const cached = spriteCache.get(type)
     if (cached !== undefined) return cached
     const c = renderSpriteCanvas(BUILDING_SPRITES[type])
     spriteCache.set(type, c)
     return c
   }
-  let warshipSpriteCache: OffscreenCanvas | null | undefined
-  function getWarshipSprite(): OffscreenCanvas | null {
+  let warshipSpriteCache: HTMLCanvasElement | null | undefined
+  function getWarshipSprite(): HTMLCanvasElement | null {
     if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
     return warshipSpriteCache
   }
-  let bomberSpriteCache: OffscreenCanvas | null | undefined
-  function getBomberSprite(): OffscreenCanvas | null {
+  let bomberSpriteCache: HTMLCanvasElement | null | undefined
+  function getBomberSprite(): HTMLCanvasElement | null {
     if (bomberSpriteCache === undefined) bomberSpriteCache = renderSpriteCanvas(BOMBER_SPRITE)
     return bomberSpriteCache
   }
-  let boatSpriteCache: OffscreenCanvas | null | undefined
-  function getBoatSprite(): OffscreenCanvas | null {
+  let boatSpriteCache: HTMLCanvasElement | null | undefined
+  function getBoatSprite(): HTMLCanvasElement | null {
     if (boatSpriteCache === undefined) boatSpriteCache = renderSpriteCanvas(BOAT_SPRITE)
     return boatSpriteCache
   }
-  let tradeSpriteCache: OffscreenCanvas | null | undefined
-  function getTradeSprite(): OffscreenCanvas | null {
+  let tradeSpriteCache: HTMLCanvasElement | null | undefined
+  function getTradeSprite(): HTMLCanvasElement | null {
     if (tradeSpriteCache === undefined) tradeSpriteCache = renderSpriteCanvas(TRADE_SPRITE)
     return tradeSpriteCache
   }
-  let cartSpriteCache: OffscreenCanvas | null | undefined
-  function getCartSprite(): OffscreenCanvas | null {
+  let cartSpriteCache: HTMLCanvasElement | null | undefined
+  function getCartSprite(): HTMLCanvasElement | null {
     if (cartSpriteCache === undefined) cartSpriteCache = renderSpriteCanvas(CART_SPRITE)
     return cartSpriteCache
   }
@@ -1942,7 +2003,7 @@ export function createRenderer(
     // Sprite über die Besitzer-Scheibe legen (crisp, nur ab mittlerem Zoom — sonst zu winzig).
     const showShipSprites = r >= 4
     const drawShipSprite = (
-      sprite: OffscreenCanvas | null,
+      sprite: HTMLCanvasElement | null,
       wx: number,
       wy: number,
       size: number,
@@ -2775,9 +2836,9 @@ export function createRenderer(
 
   function render(): void {
     if (state.tick !== lastBitmapTick) {
-      // Wurden Ticks übersprungen (z.B. bei hohem Speed / Frame-Drops)? Dann reicht
-      // das inkrementelle Update des letzten Ticks nicht — einmal voll neu backen.
-      if (state.tick - lastBitmapTick !== 1) bitmapBaked = false
+      // Übersprungene Ticks (langsamer Frame / hohes Tempo) sind KEIN Problem mehr: ihre Dirty-Tiles
+      // wurden über `collectDirty` akkumuliert → `paintBitmap` zieht sie inkrementell nach. Kein
+      // Voll-Rebake als Notbremse mehr (der war die ~117 ms-Ruckler-Quelle, ADR-0030-Nachtrag).
       paintBitmap()
       lastBitmapTick = state.tick
     }
@@ -2983,7 +3044,7 @@ export function createRenderer(
     screenCanvas.remove()
   }
 
-  function getBitmap(): OffscreenCanvas {
+  function getBitmap(): HTMLCanvasElement {
     return offscreen
   }
 
@@ -2992,6 +3053,7 @@ export function createRenderer(
     camera,
     render,
     setViewport,
+    collectDirty,
     invalidate(): void {
       // Nach einem State-Swap (Resync) stimmt das inkrementell gebackene Bitmap nicht mehr —
       // beim nächsten render() komplett neu backen.

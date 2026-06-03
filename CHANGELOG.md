@@ -4,7 +4,21 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
-## [0.52.2] – 2026-06-03
+## [0.52.3] – 2026-06-03
+
+### Behoben
+
+- **Periodische komplette Standbilder weg (vor allem in Firefox):** Zuletzt lief das Spiel mit guter
+  Bildrate, fror dann aber alle paar Sekunden für einen Moment komplett ein — schlimmer als das frühere
+  gleichmäßige Ruckeln. Ursache war eine interne Umstellung der Karten-Zeichenfläche auf eine neue
+  Browser-Technik (als Vorbereitung für einen größeren Umbau): Firefox schiebt die über die Grafikkarte,
+  und das Hochladen der Karte dorthin erzeugte regelmäßige Mini-Hänger. Die Zeichenfläche läuft jetzt
+  wieder über den klassischen, flüssigen Weg. Das Bild ist exakt dasselbe; die neue Technik kommt
+  später zurück, wenn das Zeichnen auf einen eigenen Thread wandert (wo sie dann nichts mehr einfrieren
+  kann).
+- **Zeichnen allgemein entlastet:** Die laufende Bild-Aktualisierung sammelt geänderte Felder jetzt
+  sauber zusammen, und die Nationsnamen-Platzierung wurde deutlich verbilligt — weniger Last pro Bild,
+  auch wenn viel auf einmal passiert.
 
 ### Behoben
 

@@ -568,6 +568,9 @@ function startMatch(
     ais,
     netTransport: net?.transport,
     intervalMs: SIM_BASE_INTERVAL_MS,
+    // Pro committetem Tick die Dirty-Tiles an den Renderer reichen, BEVOR der nächste Tick sie leert
+    // → der Renderer zieht auch übersprungene Ticks inkrementell nach (kein Voll-Rebake-Ruckler).
+    onAfterTick: () => renderer.collectDirty(),
   })
   const transport = sim.transport
   const recorder = sim.recorder
