@@ -67,18 +67,20 @@ export function profileForStrength(sRaw: number): DifficultyProfile {
 
 /**
  * Eich-Stützpunkte `[s, ELO]` aus `scripts/ai-calibrate.ts` (gemessen, monoton, Anker ≈1000).
- * Platzhalter-linear bis zur ersten Messung; wird nach der Eichung mit echten Werten ersetzt.
+ * Neu geeicht 2026-06-03 (200 Seeds) NACH der Fabrik-Wirtschafts-Überarbeitung (v0.52.0): die
+ * verbesserte Fabrik-Nutzung half schwachen/mittleren Profilen relativ mehr → die Spreizung
+ * schrumpfte (oben 1410→1293, Mitte rauf), die Stufen liegen jetzt näher beieinander.
  */
 export const STRENGTH_ELO: ReadonlyArray<readonly [number, number]> = [
-  [0, 649],
-  [0.13, 659],
-  [0.25, 790],
-  [0.38, 950],
-  [0.5, 975],
-  [0.63, 1104],
-  [0.75, 1169],
-  [0.88, 1295],
-  [1, 1410],
+  [0, 659],
+  [0.13, 671],
+  [0.25, 858],
+  [0.38, 972],
+  [0.5, 1040],
+  [0.63, 1107],
+  [0.75, 1165],
+  [0.88, 1235],
+  [1, 1293],
 ]
 
 /** Lineare Interpolation/Inversion über eine monotone (x→y)-Stützpunkt-Tabelle. */
