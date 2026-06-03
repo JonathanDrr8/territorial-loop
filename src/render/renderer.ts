@@ -268,7 +268,7 @@ export interface Renderer {
    * Das Map-Auflösungs-Bitmap. Wird pro `render()`-Aufruf aktualisiert.
    * Read-only: Konsumenten (z.B. Minimap) zeichnen es ab, mutieren es nicht.
    */
-  getBitmap(): HTMLCanvasElement
+  getBitmap(): OffscreenCanvas
   /** Konvertiert eine Maus-Position (in CSS-Pixeln) in Welt-Koords. */
   screenToWorld(screenX: number, screenY: number): { readonly x: number; readonly y: number }
   /**
@@ -445,7 +445,12 @@ interface CaptureFlash {
   startTime: number
 }
 
-function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D {
+function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D
+function get2dContext(canvas: OffscreenCanvas, label: string): OffscreenCanvasRenderingContext2D
+function get2dContext(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  label: string,
+): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D {
   const ctx = canvas.getContext('2d')
   if (ctx === null) {
     throw new Error(`Renderer: 2D context for ${label} not available`)
@@ -473,10 +478,9 @@ export function createRenderer(
   const screenCtx = get2dContext(screenCanvas, 'screen')
   screenCtx.imageSmoothingEnabled = false
 
-  // Offscreen canvas in Map-Auflösung
-  const offscreen = document.createElement('canvas')
-  offscreen.width = state.map.width
-  offscreen.height = state.map.height
+  // Offscreen canvas in Map-Auflösung — `OffscreenCanvas` (kein DOM nötig) → läuft auch im Worker
+  // (ADR-0030). Wird nie in den DOM gehängt, nur intern gebacken + per drawImage aufs Screen-Canvas.
+  const offscreen = new OffscreenCanvas(state.map.width, state.map.height)
   const offscreenCtx = get2dContext(offscreen, 'offscreen')
   const imageData = offscreenCtx.createImageData(state.map.width, state.map.height)
 
@@ -1526,13 +1530,11 @@ export function createRenderer(
     screenCtx.restore()
   }
 
-  // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert).
-  function renderSpriteCanvas(def: SpriteDef): HTMLCanvasElement | null {
+  // Vorgerenderte Pixel-Sprites (einmal erstellt, dann crisp skaliert). `OffscreenCanvas` → worker-tauglich.
+  function renderSpriteCanvas(def: SpriteDef): OffscreenCanvas | null {
     const h = def.rows.length
     const w = def.rows[0]?.length ?? 0
-    const c = document.createElement('canvas')
-    c.width = w
-    c.height = h
+    const c = new OffscreenCanvas(w, h)
     const ctx = c.getContext('2d')
     if (ctx === null) return null
     for (let y = 0; y < h; y++) {
@@ -1547,36 +1549,36 @@ export function createRenderer(
     }
     return c
   }
-  const spriteCache = new Map<BuildingType, HTMLCanvasElement | null>()
-  function getBuildingSprite(type: BuildingType): HTMLCanvasElement | null {
+  const spriteCache = new Map<BuildingType, OffscreenCanvas | null>()
+  function getBuildingSprite(type: BuildingType): OffscreenCanvas | null {
     const cached = spriteCache.get(type)
     if (cached !== undefined) return cached
     const c = renderSpriteCanvas(BUILDING_SPRITES[type])
     spriteCache.set(type, c)
     return c
   }
-  let warshipSpriteCache: HTMLCanvasElement | null | undefined
-  function getWarshipSprite(): HTMLCanvasElement | null {
+  let warshipSpriteCache: OffscreenCanvas | null | undefined
+  function getWarshipSprite(): OffscreenCanvas | null {
     if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
     return warshipSpriteCache
   }
-  let bomberSpriteCache: HTMLCanvasElement | null | undefined
-  function getBomberSprite(): HTMLCanvasElement | null {
+  let bomberSpriteCache: OffscreenCanvas | null | undefined
+  function getBomberSprite(): OffscreenCanvas | null {
     if (bomberSpriteCache === undefined) bomberSpriteCache = renderSpriteCanvas(BOMBER_SPRITE)
     return bomberSpriteCache
   }
-  let boatSpriteCache: HTMLCanvasElement | null | undefined
-  function getBoatSprite(): HTMLCanvasElement | null {
+  let boatSpriteCache: OffscreenCanvas | null | undefined
+  function getBoatSprite(): OffscreenCanvas | null {
     if (boatSpriteCache === undefined) boatSpriteCache = renderSpriteCanvas(BOAT_SPRITE)
     return boatSpriteCache
   }
-  let tradeSpriteCache: HTMLCanvasElement | null | undefined
-  function getTradeSprite(): HTMLCanvasElement | null {
+  let tradeSpriteCache: OffscreenCanvas | null | undefined
+  function getTradeSprite(): OffscreenCanvas | null {
     if (tradeSpriteCache === undefined) tradeSpriteCache = renderSpriteCanvas(TRADE_SPRITE)
     return tradeSpriteCache
   }
-  let cartSpriteCache: HTMLCanvasElement | null | undefined
-  function getCartSprite(): HTMLCanvasElement | null {
+  let cartSpriteCache: OffscreenCanvas | null | undefined
+  function getCartSprite(): OffscreenCanvas | null {
     if (cartSpriteCache === undefined) cartSpriteCache = renderSpriteCanvas(CART_SPRITE)
     return cartSpriteCache
   }
@@ -1940,7 +1942,7 @@ export function createRenderer(
     // Sprite über die Besitzer-Scheibe legen (crisp, nur ab mittlerem Zoom — sonst zu winzig).
     const showShipSprites = r >= 4
     const drawShipSprite = (
-      sprite: HTMLCanvasElement | null,
+      sprite: OffscreenCanvas | null,
       wx: number,
       wy: number,
       size: number,
@@ -2981,7 +2983,7 @@ export function createRenderer(
     screenCanvas.remove()
   }
 
-  function getBitmap(): HTMLCanvasElement {
+  function getBitmap(): OffscreenCanvas {
     return offscreen
   }
 
