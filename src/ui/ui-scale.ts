@@ -19,20 +19,65 @@ export const UI_SCALE_DEFAULT = 1.3
 
 const elements = new Set<HTMLElement>()
 
-function load(): number {
+/**
+ * Effektive Fensterbreite eines 1920×1080-Fensters → bekommt den bewährten Default 1.3. Das HUD ist
+ * breiten-limitiert (Bau-Reihe + Rangliste), daher messen wir an `min(Breite, Höhe×1.7)`.
+ */
+const AUTO_REF_EFF = 1836
+
+/**
+ * Automatischer UI-Maßstab aus der Fenstergröße (CSS-Pixel berücksichtigen DPI bereits): kleines
+ * Fenster/Laptop → kleineres HUD, großer Monitor → größeres → passt sich „von selbst" an jedes
+ * System an. 1920×1080 ≈ Default 1.3 (kein Bruch für bestehende 1080p-Nutzer); auf [MIN, MAX]
+ * geklemmt. Wird vom manuellen Slider überschrieben.
+ */
+function computeAutoScale(): number {
   try {
-    const v = Number(window.localStorage.getItem(STORAGE_KEY))
-    if (Number.isFinite(v) && v >= UI_SCALE_MIN && v <= UI_SCALE_MAX) return v
+    const w = window.innerWidth
+    const h = window.innerHeight
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return UI_SCALE_DEFAULT
+    const eff = Math.min(w, h * 1.7)
+    const raw = Math.round((UI_SCALE_DEFAULT * (eff / AUTO_REF_EFF)) / 0.05) * 0.05
+    return Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, raw))
+  } catch {
+    return UI_SCALE_DEFAULT
+  }
+}
+
+/** Geladener Maßstab + ob er automatisch (kein gespeicherter manueller Override) bestimmt wurde. */
+function load(): { value: number; auto: boolean } {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (raw !== null) {
+      const v = Number(raw)
+      if (Number.isFinite(v) && v >= UI_SCALE_MIN && v <= UI_SCALE_MAX)
+        return { value: v, auto: false }
+    }
   } catch {
     /* ignore */
   }
-  return UI_SCALE_DEFAULT
+  return { value: computeAutoScale(), auto: true }
 }
 
-let scale = load()
+const loaded = load()
+let scale = loaded.value
+/** Solange true: der Maßstab folgt automatisch der Fenstergröße (kein manueller Slider-Override). */
+let isAuto = loaded.auto
 
 export function getUiScale(): number {
   return scale
+}
+
+/**
+ * Bei Fenster-Resize aufrufen: passt den Maßstab automatisch an die neue Größe an — ABER nur, wenn
+ * der Nutzer ihn nicht manuell per Slider gesetzt hat. Wendet die neue Größe sofort auf alle Panels an.
+ */
+export function refreshAutoScale(): void {
+  if (!isAuto) return
+  const next = computeAutoScale()
+  if (next === scale) return
+  scale = next
+  for (const el of elements) el.style.setProperty('zoom', String(scale))
 }
 
 /** Panel anmelden — wird sofort auf die aktuelle Größe gesetzt und bei Änderungen mitskaliert. */
@@ -57,6 +102,7 @@ export function unregisterScalable(el: HTMLElement): void {
 
 export function setUiScale(value: number): void {
   scale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value))
+  isAuto = false // manueller Override → Automatik aus (folgt nicht mehr der Fenstergröße)
   try {
     window.localStorage.setItem(STORAGE_KEY, String(scale))
   } catch {

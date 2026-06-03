@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.51.0] – 2026-06-03
+
+### Neu
+
+- **HUD passt sich automatisch an die Bildschirmgröße an:** Statt einer festen Standardgröße wählt das
+  Spiel die UI-Größe jetzt passend zum Fenster — kleines Laptop/Fenster → kompakteres HUD, großer
+  Monitor → größeres. Verändert sich die Fenstergröße, zieht es automatisch mit. Der „UI"-Regler oben
+  links überschreibt das weiterhin jederzeit (danach bleibt deine Wahl fix).
+
 ## [0.50.2] – 2026-06-03
 
 ### Behoben

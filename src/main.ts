@@ -62,7 +62,13 @@ import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
 import { createPauseMenu } from './ui/pause-menu'
 import { createTutorial, defaultTutorialSteps, type TutorialApi } from './ui/tutorial'
-import { clearScalables, getUiScale, registerScalable, unregisterScalable } from './ui/ui-scale'
+import {
+  clearScalables,
+  getUiScale,
+  refreshAutoScale,
+  registerScalable,
+  unregisterScalable,
+} from './ui/ui-scale'
 import type { MatchSettings } from './net/protocol'
 import {
   clearActiveSession,
@@ -1150,6 +1156,7 @@ function startMatch(
     if (viewportTimer !== null) clearTimeout(viewportTimer)
     viewportTimer = setTimeout(() => {
       viewportTimer = null
+      refreshAutoScale() // UI-Größe an die neue Fenstergröße anpassen (nur wenn nicht manuell gesetzt)
       if (isMobileLayout()) applyMobileDefaultLayout(container.clientWidth, container.clientHeight)
       applyMobileLayout()
     }, 150)
