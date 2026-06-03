@@ -24,7 +24,8 @@
     "format:check": "prettier --check \"**/*.{ts,js,json,md,html,css}\"",
     "prepare": "husky",
     "ai-tune": "tsx scripts/ai-tune.ts",
-    "ai-calibrate": "tsx scripts/ai-calibrate.ts"
+    "ai-calibrate": "tsx scripts/ai-calibrate.ts",
+    "perf": "tsx scripts/perf-bench.ts"
   },
   "dependencies": {
     "@fontsource/oswald": "^5.2.8",

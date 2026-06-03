@@ -17,6 +17,13 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 - **Kein Hänger mehr bei vielen Häfen:** Die Routen der Handelsschiffe werden jetzt nur noch einmal
   berechnet und gemerkt (das Wasser ändert sich ja nie), statt bei jeder Abfahrt neu. Auf Karten mit
   hunderten Nationen/Häfen war das vorher ein spürbarer periodischer Ruckler.
+- **Große Karten (Chaos-Preset) laufen jetzt flüssig:** Auf riesigen Karten mit hunderten Nationen
+  fror das Bild regelmäßig komplett ein (das „flüssig zwischen kompletten Standbildern"-Gefühl). Schuld
+  war das Neuzeichnen der Beziehungs-Färbung an den Grenzen: jeder Nationstod und jeder Groll-/Gunst-
+  Stufenwechsel hat die **ganze Karte** (Millionen Felder) neu eingefärbt. Jetzt werden nur noch die
+  Grenz-Felder der wenigen tatsächlich betroffenen Nationen aktualisiert. Gemessen auf der Chaos-Karte
+  (2048², 751 Nationen): von ~17 Standbildern pro 8 Sekunden auf **eins**, Bildrate fast verdoppelt —
+  und die Darstellung ist exakt dieselbe.
 
 ## [0.52.1] – 2026-06-03
 

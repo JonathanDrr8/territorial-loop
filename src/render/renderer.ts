@@ -514,7 +514,9 @@ export function createRenderer(
   // Verbündete grün, Nationen die einem kürzlich Land genommen haben rot (Intensität
   // = „Groll", klingt nach), alle anderen weiß.
   let borderTints = new Map<number, readonly [number, number, number]>()
-  let lastBorderSig = ''
+  // Tints vom letzten Bake — zum Erkennen, WELCHE Nationen ihren Beziehungs-Tint geändert haben,
+  // sodass nur deren Rand-Tiles neu gefärbt werden (statt der ganzen Karte, siehe paintBitmap).
+  let prevBorderTints = new Map<number, readonly [number, number, number]>()
 
   /**
    * Groll-Stufe (0–3) zwischen `p` und dem Menschen — in BEIDE Richtungen (ADR-0013): egal ob `p`
@@ -809,13 +811,8 @@ export function createRenderer(
    */
   function paintBitmap(): void {
     if (lut === null) buildLut()
-    // Beziehungs-Tints neu berechnen; ändert sich die Signatur (Allianz/Angriff/
-    // Größenstufe), müssen ALLE Grenzen neu — also einmal voll backen.
-    const sig = computeBorderTints()
-    if (sig !== lastBorderSig) {
-      lastBorderSig = sig
-      bitmapBaked = false
-    }
+    // Beziehungs-Tints (Allianz/Angriff/Groll/Gunst) aus Sicht des Menschen neu berechnen.
+    computeBorderTints()
     const w = state.map.width
     const h = state.map.height
 
@@ -824,11 +821,9 @@ export function createRenderer(
       for (let i = 0; i < len; i++) colorTile(i)
       offscreenCtx.putImageData(imageData, 0, 0)
       bitmapBaked = true
+      prevBorderTints = new Map(borderTints)
       return
     }
-
-    const dirty = state.dirtyTiles
-    if (dirty.length === 0) return // keine Owner-Änderung → Bitmap unverändert
 
     const mapState = state.map.state
     const now = performance.now()
@@ -840,34 +835,50 @@ export function createRenderer(
     let minY = h
     let maxX = -1
     let maxY = -1
+    const recolor = (ref: number): void => {
+      if (recolored.has(ref)) return
+      recolored.add(ref)
+      colorTile(ref)
+      const rx = ref % w
+      const ry = (ref - rx) / w
+      if (rx < minX) minX = rx
+      if (rx > maxX) maxX = rx
+      if (ry < minY) minY = ry
+      if (ry > maxY) maxY = ry
+    }
+
+    // (A) Beziehungs-Tint-Wechsel: NUR die Rand-Tiles der Nationen neu färben, deren Tint sich
+    // gegenüber dem letzten Bake geändert hat (der Tint wirkt ausschließlich auf Rand-Tiles, siehe
+    // colorTile). Das ersetzt die frühere Voll-Neubacke bei jeder Signatur-Änderung — die war auf
+    // großen Karten DER „komplette Standbild"-Freeze: jeder Nationstod und jeder Groll-/Gunst-
+    // Stufenwechsel (beide klingen laufend ab) buk sonst alle Millionen Tiles neu. `frontier` (eigene
+    // Rand-Tiles je Nation) pflegt die Sim bereits → Aufwand O(geänderte Ränder) statt O(Karte).
+    for (const [id, tint] of borderTints) {
+      const prev = prevBorderTints.get(id)
+      if (prev !== undefined && prev[0] === tint[0] && prev[1] === tint[1] && prev[2] === tint[2])
+        continue
+      const p = state.players.get(id)
+      if (p === undefined) continue
+      for (const ref of p.frontier) {
+        recolor(ref)
+        for (const n of neighbors4(ref, w, h)) recolor(n)
+      }
+    }
+    prevBorderTints = new Map(borderTints)
+
+    // (B) Owner-Änderungen dieses Ticks (Eroberungen): die gemeldeten Tiles + ihre 4 Nachbarn, deren
+    // Border-Status kippen kann. Tote Nationen verschwinden hierüber automatisch (ihre Tiles sind
+    // jetzt Eroberer-Tiles und damit dirty) — kein gesonderter Voll-Rebake nötig.
+    const dirty = state.dirtyTiles
     for (const ref of dirty) {
       if (flashesAdded < MAX_FLASHES_PER_TICK && ((mapState[ref] ?? 0) & OWNER_MASK) !== 0) {
         flashes.push({ tileX: ref % w, tileY: Math.floor(ref / w), startTime: now })
         flashesAdded++
       }
-      if (!recolored.has(ref)) {
-        recolored.add(ref)
-        colorTile(ref)
-        const rx = ref % w
-        const ry = (ref - rx) / w
-        if (rx < minX) minX = rx
-        if (rx > maxX) maxX = rx
-        if (ry < minY) minY = ry
-        if (ry > maxY) maxY = ry
-      }
-      for (const n of neighbors4(ref, w, h)) {
-        if (!recolored.has(n)) {
-          recolored.add(n)
-          colorTile(n)
-          const nx = n % w
-          const ny = (n - nx) / w
-          if (nx < minX) minX = nx
-          if (nx > maxX) maxX = nx
-          if (ny < minY) minY = ny
-          if (ny > maxY) maxY = ny
-        }
-      }
+      recolor(ref)
+      for (const n of neighbors4(ref, w, h)) recolor(n)
     }
+
     // Nur den Dirty-Ausschnitt blitten (7-arg putImageData). Bei seam-übergreifenden Captures kann
     // die Box bis volle Breite/Höhe wachsen — nie schlechter als der bisherige Voll-Write.
     if (maxX >= minX && maxY >= minY) {
