@@ -5,6 +5,7 @@ import { hashState } from '../src/core/hash'
 import { deserializeState, loadSnapshotInto, serializeState } from '../src/core/serialize'
 import type { Intent } from '../src/core/intent'
 import { getOwner, setOwner } from '../src/world/map'
+import { IS_LAND_BIT } from '../src/world/terrain'
 import { neighbors4 } from '../src/world/torus'
 
 function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
@@ -71,6 +72,79 @@ describe('serializeState / deserializeState', () => {
         target >= 0 ? [{ type: 'attack', playerId: 1, targetTile: target, troops: 1200 }] : []
       tick(original, intents)
       tick(restored, intents)
+      expect(hashState(restored)).toBe(hashState(original))
+    }
+  })
+
+  it('aktiver Handel: warmer vs. leerer (deserialisierter) Route-Cache laufen bit-genau gleich', () => {
+    // Beweist, dass der persistente Trade-Route-Cache (Perf) MP-deterministisch ist: er wird NICHT
+    // serialisiert, ein deserialisierter Client startet also mit LEEREM Cache. Da der Cache reine
+    // Memoization einer puren Funktion (planWaterRoute über die fixe Wasser-Topologie) ist, muss der
+    // kalt-startende Client trotzdem identische Handelsschiffe spawnen → identisches Gold → gleicher
+    // Hash. (Ein Cache, der das Spawn-Verhalten verändert, würde hier sofort desyncen.)
+    const W = 40
+    const H = 20
+    const base = createGame(
+      cfg({
+        mapWidth: W,
+        mapHeight: H,
+        terrain: 'flat',
+        players: [
+          { id: 1, name: 'A', color: 0xff0000ff, isHuman: false },
+          { id: 2, name: 'B', color: 0x00ff00ff, isHuman: false },
+        ],
+      }),
+    )
+    const idx = (x: number, y: number): number => y * W + x
+    // Vertikalen See (Spalten 18–21) carven → trennt links/rechts, beide Ufer in EINER Wasserkomponente.
+    for (let y = 0; y < H; y++)
+      for (let x = 18; x <= 21; x++) {
+        const t = idx(x, y)
+        base.map.terrain[t] = (base.map.terrain[t] ?? 0) & ~IS_LAND_BIT
+      }
+    // Territorien an die Ufer legen + je einen fertigen Hafen (Level 2 → 2 Schiffe/Fenster).
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x <= 17; x++) setOwner(base.map, idx(x, y), 1)
+      for (let x = 22; x < W; x++) setOwner(base.map, idx(x, y), 2)
+    }
+    const portA = idx(17, 10)
+    const portB = idx(22, 10)
+    base.buildings.set(portA, {
+      type: 'port',
+      ownerId: 1,
+      tile: portA,
+      level: 2,
+      completesAtTick: 0,
+    })
+    base.buildings.set(portB, {
+      type: 'port',
+      ownerId: 2,
+      tile: portB,
+      level: 2,
+      completesAtTick: 0,
+    })
+
+    // Roundtrip → korrekte waterComponents/frontiers für den modifizierten Terrain-/Owner-Stand.
+    const original = jsonRoundtrip(base)
+
+    // Cache über mehrere Handels-Fenster (TRADE_INTERVAL=120) aufwärmen; Schiffe müssen wirklich fahren.
+    let sawShips = false
+    for (let i = 0; i < 360; i++) {
+      tick(original, [])
+      if (original.tradeShips.length > 0) sawShips = true
+    }
+    expect(sawShips).toBe(true)
+    expect(original.tradeRouteCache.size).toBeGreaterThan(0)
+
+    // Snapshot → deserialisieren = LEERER Route-Cache, aber identischer Hash.
+    const restored = jsonRoundtrip(original)
+    expect(restored.tradeRouteCache.size).toBe(0)
+    expect(hashState(restored)).toBe(hashState(original))
+
+    // Beide ohne Intents weiter — trotz warmem vs. leerem Cache Tick für Tick bit-genau identisch.
+    for (let i = 0; i < 280; i++) {
+      tick(original, [])
+      tick(restored, [])
       expect(hashState(restored)).toBe(hashState(original))
     }
   })

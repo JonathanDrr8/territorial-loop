@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.52.2] – 2026-06-03
+
+### Behoben
+
+- **Komplette Standbilder bei großen Angriffen weg:** Wenn eine sehr breite Angriffsfront auf einmal
+  riesige Flächen verschluckt hat, fror das Spiel kurz komplett ein („flüssig, dann Standbild, dann
+  wieder flüssig"). Ursache war die Taschen-/Einkreisungs-Erkennung, die über alle in einem Tick
+  eroberten Felder lief. Sehr breite Eroberungen rollen jetzt über ein paar Ticks ab, statt alles in
+  einem einzigen — das Einnehmen sieht praktisch gleich aus, nur ohne Ruckler. Normale Angriffe sind
+  unverändert.
+- **Kein Hänger mehr bei vielen Häfen:** Die Routen der Handelsschiffe werden jetzt nur noch einmal
+  berechnet und gemerkt (das Wasser ändert sich ja nie), statt bei jeder Abfahrt neu. Auf Karten mit
+  hunderten Nationen/Häfen war das vorher ein spürbarer periodischer Ruckler.
+
 ## [0.52.1] – 2026-06-03
 
 ### Geändert

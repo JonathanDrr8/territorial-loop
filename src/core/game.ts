@@ -337,6 +337,14 @@ export interface GameState {
   boats: Boat[]
   /** Aktive Handelsschiffe. */
   tradeShips: TradeShip[]
+  /**
+   * Wasser-Routen-Cache für Handelsschiffe (Perf): `origin>dest` → fertiger Pfad (oder null =
+   * unerreichbar). Die Wasser-Topologie ist über die ganze Partie FIX (Terrain ändert sich nie) →
+   * eine Route zwischen zwei Hafen-Tiles ist dauerhaft gültig, muss also nur EINMAL gepathfindet
+   * werden. Transient (nicht serialisiert, beim Laden leer → lazy neu); reine Memoisierung einer
+   * deterministischen Funktion → MP-sicher, nicht im State-Hash.
+   */
+  tradeRouteCache: Map<string, readonly TileRef[] | null>
   /** Aktive Gold-Fuhren (pendeln Stadt/Hafen ↔ Fabrik über Land, ADR-0018). */
   goldCarts: GoldCart[]
   /** Aktive Kriegsschiffe. */
@@ -588,6 +596,7 @@ export function createGame(config: GameConfig): GameState {
     passableLandCount: countPassableLand(map),
     boats: [],
     tradeShips: [],
+    tradeRouteCache: new Map<string, readonly TileRef[] | null>(),
     goldCarts: [],
     ownerComponents: null,
     economyDirty: true,
@@ -3099,13 +3108,18 @@ function spawnTradeShips(state: GameState): void {
       }
     }
 
-    const routeCache = new Map<TileRef, TileRef[] | null>()
-    const routeTo = (dest: TileRef): TileRef[] | null => {
-      const cached = routeCache.get(dest)
+    // Wasser-Route persistent cachen (Topologie fix → einmal pathfinden, dann ewig gültig). Das war
+    // bei vielen Häfen der Haupt-Freeze (planWaterRoute-BFS pro Schiff/Tick). Cache-Treffer = O(1).
+    // Reine Memoization: Cache-Treffer liefert exakt dieselbe Route wie ein frischer BFS → das
+    // Spawn-Verhalten hängt NICHT vom Cache-Zustand ab → MP-deterministisch auch nach Resync
+    // (der Cache wird bewusst nicht serialisiert, sondern verlustfrei neu aufgebaut).
+    const routeTo = (dest: TileRef): readonly TileRef[] | null => {
+      const key = `${String(origin)}>${String(dest)}`
+      const cached = state.tradeRouteCache.get(key)
       if (cached !== undefined) return cached
       const r = planWaterRoute(state.map, state.waterComponents, origin, dest)
       const route = r !== null && r.length >= 2 ? r : null
-      routeCache.set(dest, route)
+      state.tradeRouteCache.set(key, route)
       return route
     }
 
@@ -3116,7 +3130,7 @@ function spawnTradeShips(state: GameState): void {
       state.tradeShips.push({
         fromOwnerId: originOwner,
         toOwnerId: getOwner(state.map, dest),
-        path,
+        path: [...path], // eigener (mutierbarer) Pfad je Schiff; der Cache-Eintrag bleibt unangetastet
         progress: 0,
         gold: tradeGold(path.length),
         originPort: origin,
@@ -3739,6 +3753,16 @@ const attackableScratch: TileRef[] = []
 const keyedScratch: { t: TileRef; key: number }[] = []
 const capturedScratch: TileRef[] = []
 
+/**
+ * Maximale Tiles, die EIN Angriff pro Tick erobert (Perf). Die Taschen-/Fragment-Erkennung nach der
+ * Eroberung (fillEnclosedPockets + annexEnclosedFragments) läuft über ALLE neu eroberten Tiles — bei
+ * riesigen Fronten (tausende Captures/Tick) war das der Haupt-Freeze („komplette Standbilder").
+ * Der Deckel bremst NUR extrem breite Sweeps (rollen dann über ein paar Ticks statt alles auf einmal,
+ * Reserve bleibt erhalten); normale Angriffe (< Deckel) sind unverändert. Bei 10 Ticks/s = ~1200
+ * Tiles/s Sweep-Tempo. MP-deterministisch (kein PRNG im Capture-Loop → alle Clients deckeln gleich).
+ */
+const MAX_CAPTURES_PER_TICK = 120
+
 function advanceAttack(state: GameState, attacker: Player, attack: Attack): boolean {
   if (attack.reserveTroops <= 0) return false
 
@@ -3779,6 +3803,8 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     const slowInt = Math.floor(slowed)
     wantCapture = slowInt + (state.rng.next() < slowed - slowInt ? 1 : 0)
   }
+  // Eroberungs-Deckel (Perf): bremst nur riesige Sweeps → bounded Taschen-/Fragment-Erkennung.
+  if (wantCapture > MAX_CAPTURES_PER_TICK) wantCapture = MAX_CAPTURES_PER_TICK
 
   if (wantCapture <= 0) return true
 

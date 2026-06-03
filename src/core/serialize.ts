@@ -146,6 +146,7 @@ export function deserializeState(data: SerializedGameState): GameState {
     passableLandCount: countPassableLand(map),
     boats: data.boats.map((b) => ({ ...b, path: [...b.path] })),
     tradeShips: data.tradeShips.map((t) => ({ ...t, path: [...t.path] })),
+    tradeRouteCache: new Map<string, readonly TileRef[] | null>(),
     goldCarts: data.goldCarts.map((c) => ({ ...c, path: [...c.path] })),
     ownerComponents: null,
     economyDirty: true,
