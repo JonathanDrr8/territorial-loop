@@ -473,6 +473,19 @@ const WILD_MOP_DOMINANCE = 0.7
 const FRAGMENT_CORE_TROOP_RATIO = 25
 
 /**
+ * Obergrenze, wie viele Tiles `floodEnclosedFragment` höchstens flutet, bevor es abbricht und das
+ * Fragment als „nicht eingeschlossen" wertet (Perf, ADR-0029-Nachtrag). Gemessen im Spätspiel auf
+ * großen Karten: die Anti-Zersplitterungs-Flut lief ~2000×/Tick und endete zu **100%** mit „nicht
+ * eingeschlossen" — sie flutete also vergeblich tief in große Opfer-Reiche (bis 22 500 Tiles in einem
+ * Aufruf), was die „kompletten Standbilder" mitverursachte. Ein eingeschlossenes Fragment, das wirklich
+ * geschluckt gehört, ist eine **kleine** abgesprengte Tasche (ADR-0017 Regel 1) — die liegt weit unter
+ * diesem Deckel. Große Stücke (> Deckel) werden nicht mehr automatisch verschluckt, sondern ganz normal
+ * Tile für Tile erobert (höchstens ein paar Ticks langsamer) — in der Praxis quasi nie relevant, da
+ * echte Einschlüsse selten und klein sind. Deterministisch (gleicher Deckel auf allen Clients).
+ */
+const FRAGMENT_FLOOD_CAP = 96
+
+/**
  * Terrain-Aufschlag für die Wave-Sortierung: höheres Terrain wird in der
  * Eroberungs-Reihenfolge wie zusätzliche Distanz behandelt (mag-Differenz zur
  * Ebene × Faktor). Hügel ≈ +3, Berg ≈ +6 Tiles „weiter weg" → die Welle
@@ -4291,6 +4304,13 @@ function floodEnclosedFragment(
     const ref = queue.pop()
     if (ref === undefined) break
     tiles.push(ref)
+    // Perf-Deckel (ADR-0029-Nachtrag): ein so großes Stück ist keine kleine eingeschlossene Tasche
+    // mehr → abbrechen und als nicht-eingeschlossen werten (sonst flutet das vergeblich durch ganze
+    // Reiche, siehe FRAGMENT_FLOOD_CAP). Kein PRNG → deterministisch.
+    if (tiles.length >= FRAGMENT_FLOOD_CAP) {
+      enclosed = false
+      break
+    }
     for (let d = 0; d < 4; d++) {
       const n = tileNeighbor4(ref, width, height, d)
       const o = getOwner(map, n)

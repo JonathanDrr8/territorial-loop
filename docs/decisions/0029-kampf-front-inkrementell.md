@@ -2,13 +2,41 @@
 
 ## Status
 
-Proposed (Plan — noch nicht umgesetzt). Schreibt sich an ADR-0012 (viele Bots) und ADR-0006
+Accepted (von Jonathan freigegeben 2026-06-03; Umsetzung in Arbeit). Schreibt sich an ADR-0012 (viele Bots) und ADR-0006
 (Mechanik-Tiefe) an. **Vor der Umsetzung von Jonathan abzusegnen** (determinismus-kritischer
 Kampf-Kern, MP-Lockstep ADR-0009).
 
 ## Datum
 
 2026-06-03
+
+## Nachtrag 2026-06-03 — Messung korrigiert die Diagnose (WICHTIG)
+
+Die ursprüngliche Annahme dieses Plans (der **Frontier-Scan** `collectAttackableTiles` sei der
+Hauptkostenpunkt) war **falsch**. Eine feinere Zeit-Aufteilung innerhalb `advanceAttack` (Chaos 2048²,
+Spielminute 10) ergab:
+
+| Sektion                                            | ms/Tick                      |
+| -------------------------------------------------- | ---------------------------- |
+| scan (`collectAttackableTiles`)                    | 20–22                        |
+| keysort (Key-Bau + Sort)                           | 7                            |
+| captureBody (Tile-Loop)                            | 10                           |
+| `fillEnclosedPockets`                              | 0,4                          |
+| **`annexEnclosedFragments` (Anti-Zersplitterung)** | **52–55** ← Hauptkostenpunkt |
+
+`floodEnclosedFragment` lief **~2 067×/Tick**, Ø 137 Tiles, **max 22 502**, und endete zu **100 %** mit
+„nicht eingeschlossen" — also fast reine Verschwendung (vergebliches Tiefen-Fluten in große Opfer-
+Reiche). **Umgesetzt (committet):** Flut-Deckel `FRAGMENT_FLOOD_CAP = 96` — bricht ab und wertet als
+nicht-eingeschlossen. Ergebnis (`npm run perf -- chaos --ticks 4000`): Ticks > 50 ms **1124 → 720**
+(−36 %), p50 28 → 25 ms. **Aber der Max-Tick blieb ~250 ms** → der Freeze ist **multi-phasig**
+(resolveAttacks UND tradeSpawn ~266 ms UND economy ~150 ms spitzen auf verschiedenen Ticks). Ein
+einzelner Algorithmus-Fix beseitigt das Standbild also NICHT sauber.
+
+**Schlussfolgerung:** Die inkrementelle Front (Phase 2 unten) lohnt weiterhin (scan 20 ms), ist aber
+nicht der Hebel gegen die Standbilder. Der strukturelle Fix gegen multi-phasige Spitzen ist der
+**Worker-Umbau (ADR-0030)** — dort kann ein teurer Tick die Oberfläche gar nicht mehr einfrieren. Die
+Algorithmus-Fixes hier senken die **Last** (gut für die Akku/schwache Hardware und für den Worker, der
+dann weniger zu tun hat), die „nie einfrieren"-Garantie kommt aus ADR-0030.
 
 ## Kontext — gemessenes Problem
 

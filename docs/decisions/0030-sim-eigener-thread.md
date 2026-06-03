@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (Plan — noch nicht umgesetzt). Alternative/Ergänzung zu ADR-0029. Größerer Architektur-
+Accepted (von Jonathan freigegeben 2026-06-03; nach ADR-0029). Größerer Architektur-
 Umbau → **vor der Umsetzung von Jonathan abzusegnen**. Sinnvoll **erst, falls ADR-0029 (Algorithmus)
 das Spätspiel nicht ausreichend glättet** — zuerst messen.
 
