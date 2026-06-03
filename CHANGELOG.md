@@ -4,7 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
-## [0.50.0] – 2026-06-02
+## [0.50.1] – 2026-06-03
+
+### Behoben
+
+- **Weniger Ruckeln:** Die Wirtschafts-Routen-Berechnung lief alle 2 Sekunden über die GANZE Karte —
+  selbst wenn (noch) niemand Fabriken hatte —, was kurze Hänger verursachte. Jetzt wird sie ganz
+  übersprungen, solange es kein Fabrik-Netz gibt, und braucht weniger Speicher. Dazu kleinere
+  Optimierungen im Angriffs- und Render-Pfad (weniger Speicher-Müll → seltenere GC-Hänger). Verhalten
+  bleibt identisch. (Bei vielen Fabriken auf riesigen Karten kann noch ein seltener Hänger bleiben —
+  daran arbeiten wir separat weiter.)
 
 ### Neu
 

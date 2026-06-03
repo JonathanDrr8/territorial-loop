@@ -834,6 +834,12 @@ export function createRenderer(
     const now = performance.now()
     let flashesAdded = 0
     const recolored = new Set<number>()
+    // Dirty-Bounding-Box (Perf R4): nur den geänderten Ausschnitt zurückschreiben statt des ganzen
+    // Buffers. Offscreen ist 1 Pixel je Tile → Tile-Index ergibt Pixel (x = ref % w, y = ref / w).
+    let minX = w
+    let minY = h
+    let maxX = -1
+    let maxY = -1
     for (const ref of dirty) {
       if (flashesAdded < MAX_FLASHES_PER_TICK && ((mapState[ref] ?? 0) & OWNER_MASK) !== 0) {
         flashes.push({ tileX: ref % w, tileY: Math.floor(ref / w), startTime: now })
@@ -842,15 +848,31 @@ export function createRenderer(
       if (!recolored.has(ref)) {
         recolored.add(ref)
         colorTile(ref)
+        const rx = ref % w
+        const ry = (ref - rx) / w
+        if (rx < minX) minX = rx
+        if (rx > maxX) maxX = rx
+        if (ry < minY) minY = ry
+        if (ry > maxY) maxY = ry
       }
       for (const n of neighbors4(ref, w, h)) {
         if (!recolored.has(n)) {
           recolored.add(n)
           colorTile(n)
+          const nx = n % w
+          const ny = (n - nx) / w
+          if (nx < minX) minX = nx
+          if (nx > maxX) maxX = nx
+          if (ny < minY) minY = ny
+          if (ny > maxY) maxY = ny
         }
       }
     }
-    offscreenCtx.putImageData(imageData, 0, 0)
+    // Nur den Dirty-Ausschnitt blitten (7-arg putImageData). Bei seam-übergreifenden Captures kann
+    // die Box bis volle Breite/Höhe wachsen — nie schlechter als der bisherige Voll-Write.
+    if (maxX >= minX && maxY >= minY) {
+      offscreenCtx.putImageData(imageData, 0, 0, minX, minY, maxX - minX + 1, maxY - minY + 1)
+    }
   }
 
   function drawFlashes(): void {

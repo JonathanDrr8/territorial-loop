@@ -128,10 +128,22 @@ export function findTerrainPath(
  * (Wasser, Berge, Niemandsland) bekommen -1. Zwei Tiles in derselben Komponente sind über Land
  * (inkl. Brücken) verbunden.
  */
-export function computeOwnerComponents(map: GameMap): Int32Array {
+// Wiederverwendeter Union-Find-Scratch (Perf): `parent` ist rein transient (nur innerhalb dieses
+// Aufrufs benutzt, synchron) → gefahrlos modul-global geteilt, spart pro Aufruf eine n-große
+// Int32Array-Allozierung (auf 1024²-Karten ~4 MB alle 20 Ticks). Das ERGEBNIS (`comp`) bleibt
+// dagegen per-State (siehe `out`-Param), damit zwei GameStates im selben Prozess (MP-Tests) sich
+// nicht gegenseitig überschreiben.
+let parentScratch = new Int32Array(0)
+
+/**
+ * @param out Optionaler wiederverwendbarer Ergebnis-Puffer (muss `width*height` lang sein). Der
+ *   Aufrufer reicht hier seinen eigenen, persistenten Puffer rein → keine n-große Allozierung pro
+ *   Aufruf. Fehlt er (oder falsche Länge), wird frisch alloziert (Test-/Erstaufruf).
+ */
+export function computeOwnerComponents(map: GameMap, out?: Int32Array): Int32Array {
   const { width, height, terrain } = map
   const n = width * height
-  const parent = new Int32Array(n)
+  const parent = parentScratch.length >= n ? parentScratch : (parentScratch = new Int32Array(n))
   for (let i = 0; i < n; i++) parent[i] = i
   const find = (start: number): number => {
     let r = start
@@ -159,7 +171,8 @@ export function computeOwnerComponents(map: GameMap): Int32Array {
     forEachLandNeighbor(map, i, owner, (j) => union(i, j))
   }
 
-  const comp = new Int32Array(n).fill(-1)
+  const comp = out !== undefined && out.length === n ? out : new Int32Array(n)
+  comp.fill(-1)
   for (let i = 0; i < n; i++) {
     if (isPassable(terrain, i) && getOwner(map, i) > 0) comp[i] = find(i)
   }

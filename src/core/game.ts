@@ -28,7 +28,7 @@ import {
   tileTroopWeight,
   type TerrainType,
 } from '../world/terrain'
-import { type TileRef, neighbors4, tileRef, torusDistance } from '../world/torus'
+import { type TileRef, neighbors4, tileNeighbor4, tileRef, torusDistance } from '../world/torus'
 import {
   ATTACK_CANCEL_TICKS,
   BASE_GOLD_PER_TICK,
@@ -3163,9 +3163,10 @@ export const FACTORY_CART_LIMIT = 3
 function recomputeGoldRoutes(state: GameState): void {
   const { map } = state
   const { width, height } = map
-  const comp = computeOwnerComponents(map)
-  state.ownerComponents = comp
 
+  // Gebäude ZUERST sammeln (vor der teuren Komponenten-Flut): gibt es keine Fabrik, existiert kein
+  // Gold-Netz → die ganze `computeOwnerComponents`-Analyse (über die KOMPLETTE Karte, alle 20 Ticks)
+  // ist überflüssig. Das war der gemessene Tick-Spike bei großen Karten/Reichen (Perf).
   const sources: TileRef[] = []
   const factories: { tile: TileRef; owner: number; level: number }[] = []
   for (const b of state.buildings.values()) {
@@ -3176,8 +3177,17 @@ function recomputeGoldRoutes(state: GameState): void {
     if (b.type === 'city' || b.type === 'port') sources.push(b.tile)
     else if (b.type === 'factory') factories.push({ tile: b.tile, owner, level: b.level })
   }
+  if (factories.length === 0) {
+    if (state.goldCarts.length > 0) state.goldCarts = [] // keine Fabrik → keine Fuhren
+    return // teure Komponenten-Flut komplett übersprungen
+  }
   sources.sort((a, b) => a - b)
   factories.sort((a, b) => a.tile - b.tile)
+
+  // Komponenten-Labeling (teuer) erst jetzt — mit wiederverwendetem per-State-Puffer (keine n-große
+  // Int32Array-Allozierung pro Lauf, MP-sicher da pro GameState eigener Puffer).
+  const comp = computeOwnerComponents(map, state.ownerComponents ?? undefined)
+  state.ownerComponents = comp
 
   // Phase 1: jede Quelle der NÄCHSTEN erreichbaren eigenen Fabrik zuordnen (Luftlinie, eindeutig).
   type Assign = { src: TileRef; fac: TileRef; level: number; dist: number }
@@ -3624,6 +3634,16 @@ function lootGoldOnCapture(attacker: Player, defender: Player): number {
 }
 
 /** Erweitert einen einzelnen Angriff um einen Tick. Returnt `true` wenn der Angriff weiter aktiv ist. */
+// Wiederverwendete Scratch-Puffer für advanceAttack/collectAttackableTiles (Perf R1): vermeiden pro
+// Angriff/Tick frische Allozierungen (Set + Arrays + ein Objekt je Front-Tile) → deutlich weniger
+// GC-Druck/-Aussetzer bei großen Angriffen. Die Sim ist single-threaded und verarbeitet einen
+// Angriff komplett, bevor der nächste sie überschreibt → gefahrlos wiederverwendbar. Verändert das
+// Ergebnis NICHT (gleiche Werte, gleiche Reihenfolge) → MP-Determinismus bleibt erhalten.
+const attackableSet = new Set<TileRef>()
+const attackableScratch: TileRef[] = []
+const keyedScratch: { t: TileRef; key: number }[] = []
+const capturedScratch: TileRef[] = []
+
 function advanceAttack(state: GameState, attacker: Player, attack: Attack): boolean {
   if (attack.reserveTroops <= 0) return false
 
@@ -3687,7 +3707,12 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   // omni hat keinen Richtungs-Fokus (focusPull 0), nutzt aber DENSELBEN Zusammenhalt
   // (FRONT_SMOOTHING) wie gerichtete Angriffe — sonst zerstreut sich die Eroberung in Fragmente.
   const focusPull = attack.omni === true ? 0 : vsTerraNullius ? 1 : NATION_FOCUS_PULL
-  const keyed = tiles.map((t) => {
+  // Wiederverwendeter Objekt-Pool (Perf R1) statt `tiles.map(...)` — füllt [0, n) komplett neu, der
+  // Sort-Aufruf bleibt identisch → bit-genau gleiches Ergebnis wie vorher.
+  const keyed = keyedScratch
+  keyed.length = tiles.length
+  let ki = 0
+  for (const t of tiles) {
     const tx = t % mapW
     const ty = Math.floor(t / mapW)
     const dist = torusDistance(tx, ty, focusX, focusY, mapW, mapH)
@@ -3697,8 +3722,16 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
     // Rauschen bricht die Front organisch auf (wellig statt schnurgerade), ohne den Zusammenhalt
     // zu zerstören — verhindert sowohl gerade Linien als auch zersplitterte Eroberung.
     const noise = (tileNoise(t) - 0.5) * FRONT_NOISE
-    return { t, key: dist * focusPull - own * FRONT_SMOOTHING + terrainPenalty + noise }
-  })
+    const key = dist * focusPull - own * FRONT_SMOOTHING + terrainPenalty + noise
+    let e = keyed[ki]
+    if (e === undefined) {
+      e = { t: 0, key: 0 }
+      keyed[ki] = e
+    }
+    e.t = t
+    e.key = key
+    ki++
+  }
   keyed.sort((a, b) => a.key - b.key)
 
   // Front-Schwerpunkt der diesen Tick eroberten Tiles akkumulieren (relativ zum
@@ -3710,7 +3743,10 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
   let sumDy = 0
   let captured = 0
   let defenderTilesTaken = 0
-  const capturedTiles: TileRef[] = []
+  // Wiederverwendetes Array (Perf R1) — fillEnclosedPockets kopiert es (`[...seeds]`),
+  // annexEnclosedFragments behandelt es readonly → kein Festhalten über den Aufruf hinaus.
+  const capturedTiles = capturedScratch
+  capturedTiles.length = 0
 
   for (let i = 0; i < wantCapture; i++) {
     if (attack.reserveTroops <= 0) break
@@ -3798,7 +3834,8 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
   const { width, height } = map
   const isEnclosedByAttacker = (ref: TileRef): boolean => {
     let hasPassable = false
-    for (const nn of neighbors4(ref, width, height)) {
+    for (let d = 0; d < 4; d++) {
+      const nn = tileNeighbor4(ref, width, height, d)
       if (!isPassable(map.terrain, nn)) continue
       hasPassable = true
       if (getOwner(map, nn) !== attacker.id) return false
@@ -3811,7 +3848,8 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
     guard++
     const next: TileRef[] = []
     for (const ref of frontier) {
-      for (const n of neighbors4(ref, width, height)) {
+      for (let d = 0; d < 4; d++) {
+        const n = tileNeighbor4(ref, width, height, d)
         if (!isPassable(map.terrain, n)) continue
         const o = getOwner(map, n)
         if (o === attacker.id) continue
@@ -3836,8 +3874,8 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
 function ownNeighborCount(state: GameState, tile: TileRef, ownerId: number): number {
   const { width, height } = state.map
   let n = 0
-  for (const nb of neighbors4(tile, width, height)) {
-    if (getOwner(state.map, nb) === ownerId) n++
+  for (let d = 0; d < 4; d++) {
+    if (getOwner(state.map, tileNeighbor4(tile, width, height, d)) === ownerId) n++
   }
   return n
 }
@@ -3861,22 +3899,27 @@ function collectAttackableTiles(
 ): { readonly frontWidth: number; readonly tiles: TileRef[] } {
   const { map } = state
   const { width, height } = map
-  const tilesSet = new Set<TileRef>()
+  // Wiederverwendete Scratch-Strukturen (Perf R1) statt frischem Set/Array pro Tick.
+  attackableSet.clear()
   let frontWidth = 0
 
   for (const ref of attacker.frontier) {
     let borders = false
-    for (const n of neighbors4(ref, width, height)) {
+    for (let d = 0; d < 4; d++) {
+      const n = tileNeighbor4(ref, width, height, d)
       if (!isPassable(map.terrain, n)) continue
       if (getOwner(map, n) === targetId) {
-        tilesSet.add(n)
+        attackableSet.add(n)
         borders = true
       }
     }
     if (borders) frontWidth++
   }
 
-  return { frontWidth, tiles: [...tilesSet] }
+  // Insertion-Order der Set (= deterministische Frontier-Reihenfolge) ins wiederverwendete Array.
+  attackableScratch.length = 0
+  for (const t of attackableSet) attackableScratch.push(t)
+  return { frontWidth, tiles: attackableScratch }
 }
 
 /** Erobert ein Tile für `attackerId`, aktualisiert tilesOwned und Frontier-Sets. */
@@ -3960,7 +4003,8 @@ function annexWild(state: GameState, w: Player, p: Player): void {
     const ref = queue.pop()
     if (ref === undefined) break
     if (getOwner(map, ref) !== w.id) continue
-    for (const n of neighbors4(ref, width, height)) {
+    for (let d = 0; d < 4; d++) {
+      const n = tileNeighbor4(ref, width, height, d)
       if (!seen.has(n) && getOwner(map, n) === w.id) {
         seen.add(n)
         queue.push(n)
@@ -4006,7 +4050,8 @@ function annexEnclosedFragments(
     const entrySeeds: TileRef[] = []
     const seenEntry = new Set<TileRef>()
     for (const ref of seeds) {
-      for (const n of neighbors4(ref, width, height)) {
+      for (let d = 0; d < 4; d++) {
+        const n = tileNeighbor4(ref, width, height, d)
         const o = getOwner(map, n)
         if (o <= 0 || o === attacker.id || seenEntry.has(n)) continue
         const victim = players.get(o)
@@ -4069,7 +4114,8 @@ function floodEnclosedFragment(
     const ref = queue.pop()
     if (ref === undefined) break
     tiles.push(ref)
-    for (const n of neighbors4(ref, width, height)) {
+    for (let d = 0; d < 4; d++) {
+      const n = tileNeighbor4(ref, width, height, d)
       const o = getOwner(map, n)
       if (o === victimId) {
         if (!seen.has(n)) {
@@ -4121,7 +4167,8 @@ function isLargestFragment(
         bigger = true
         break
       }
-      for (const n of neighbors4(ref, width, height)) {
+      for (let d = 0; d < 4; d++) {
+        const n = tileNeighbor4(ref, width, height, d)
         if (!seen.has(n) && getOwner(map, n) === victim.id) {
           seen.add(n)
           queue.push(n)
@@ -4250,11 +4297,10 @@ function updateFrontierAfterCapture(
   const newPlayer = players.get(newOwner)
   if (newPlayer === undefined) return
 
-  const refNeighbors = neighbors4(ref, width, height)
-
-  // Ist `ref` neue Frontier von `newOwner`?
+  // Ist `ref` neue Frontier von `newOwner`? (allokationsfreie Nachbar-Iteration, Perf R1)
   let refIsFrontier = false
-  for (const n of refNeighbors) {
+  for (let d = 0; d < 4; d++) {
+    const n = tileNeighbor4(ref, width, height, d)
     if (!isPassable(map.terrain, n)) continue
     if (getOwner(map, n) !== newOwner) {
       refIsFrontier = true
@@ -4264,7 +4310,8 @@ function updateFrontierAfterCapture(
   if (refIsFrontier) newPlayer.frontier.add(ref)
 
   // Nachbar-Status updaten
-  for (const n of refNeighbors) {
+  for (let d = 0; d < 4; d++) {
+    const n = tileNeighbor4(ref, width, height, d)
     const nOwner = getOwner(map, n)
     if (nOwner === 0) continue
     const nPlayer = players.get(nOwner)
@@ -4273,7 +4320,8 @@ function updateFrontierAfterCapture(
     if (nOwner === newOwner) {
       // n gehört newOwner — muss prüfen ob noch Land-Fremd-Nachbarn da sind
       let stillFrontier = false
-      for (const nn of neighbors4(n, width, height)) {
+      for (let dd = 0; dd < 4; dd++) {
+        const nn = tileNeighbor4(n, width, height, dd)
         if (!isPassable(map.terrain, nn)) continue
         if (getOwner(map, nn) !== newOwner) {
           stillFrontier = true
