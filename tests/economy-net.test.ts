@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { createMap, setOwner, type GameMap } from '../src/world/map'
+import { createMap, getOwner, setOwner, type GameMap } from '../src/world/map'
 import { IS_LAND_BIT, IMPASSABLE_HEIGHT } from '../src/world/terrain'
 import {
   computeOwnerComponents,
+  computeBuildingComponents,
   sameOwnerComponent,
   findLandPath,
   BRIDGE_SPAN,
@@ -119,5 +120,46 @@ describe('computeOwnerComponents (ADR-0018)', () => {
     expect(computeOwnerComponents(map)[tileRef(2, 0, w, 1)]).toBe(-1) // Wasser
     expect(computeOwnerComponents(map)[tileRef(3, 0, w, 1)]).toBe(-1) // Berg
     expect(computeOwnerComponents(map)[tileRef(1, 0, w, 1)]).toBeGreaterThanOrEqual(0) // owner1
+  })
+})
+
+describe('computeBuildingComponents — Äquivalenz zur Voll-Flut (Perf-Variante fürs Gold-Netz)', () => {
+  /** Karte mit: 1-Brücke, getrennter zweiter 1-Region, 2-Block, 3-Insel — mehrere Komponenten/Spieler. */
+  const map = mapFromAscii([
+    '##############',
+    '#1..1#2222#33#',
+    '#11###2##2####',
+    '#11###2222#1.#',
+    '##############',
+  ])
+  const w = map.width
+  const h = map.height
+  const owned: number[] = []
+  for (let i = 0; i < w * h; i++) if (getOwner(map, i) > 0) owned.push(i)
+  owned.sort((a, b) => a - b)
+
+  it('liefert für ALLE Gebäude-Paare dieselbe Verbindungs-Antwort wie computeOwnerComponents', () => {
+    const full = computeOwnerComponents(map)
+    const seeded = computeBuildingComponents(map, owned)
+    for (const a of owned) {
+      for (const b of owned) {
+        expect(sameOwnerComponent(seeded, a, b)).toBe(sameOwnerComponent(full, a, b))
+      }
+    }
+  })
+
+  it('labelt alle als Seed übergebenen besessenen Tiles (≥ 0)', () => {
+    const seeded = computeBuildingComponents(map, owned)
+    for (const i of owned) expect(seeded[i] ?? -1).toBeGreaterThanOrEqual(0)
+  })
+
+  it('schreibt in den wiederverwendeten out-Puffer (gleiches Ergebnis)', () => {
+    const buf = new Int32Array(w * h)
+    const a = computeBuildingComponents(map, owned)
+    const b = computeBuildingComponents(map, owned, buf)
+    expect(b).toBe(buf)
+    // Gleiche Verbindungs-Antworten wie ohne out-Puffer.
+    for (const x of owned)
+      for (const y of owned) expect(sameOwnerComponent(b, x, y)).toBe(sameOwnerComponent(a, x, y))
   })
 })
