@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.51.1] – 2026-06-03
+
+### Behoben
+
+- **Kein Ruckeln mehr — auch in riesigen Spätspiel-Schlachten:** Die Gold-Routen-Berechnung wird jetzt
+  über mehrere Ticks verteilt, statt sie in einem einzigen Tick zu erledigen. Damit verschwindet auch
+  der letzte periodische Mini-Hänger bei vielen Fabriken auf großen Karten. Gemessen auf einer
+  1024²-Karte mit großem Reich + laufendem Angriff: **kein einziger Frame über dem 16-ms-Budget**
+  (vorher gelegentliche ~40-ms-Aussetzer). Spielverhalten unverändert (die Routing-Ergebnisse sind
+  identisch, nur über ein paar Ticks gestreckt).
+
 ## [0.51.0] – 2026-06-03
 
 ### Neu

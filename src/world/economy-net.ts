@@ -179,52 +179,129 @@ export function computeOwnerComponents(map: GameMap, out?: Int32Array): Int32Arr
   return comp
 }
 
-// Wiederverwendeter BFS-Scratch für computeBuildingComponents (transient, synchron → modul-global ok).
-let bfsQueue = new Int32Array(0)
+/**
+ * Zustand einer (ggf. über mehrere Ticks verteilten) Gebäude-gesäten Flut. `comp` ist das Ergebnis
+ * (Index → Komponenten-ID, -1 = nicht erfasst), `queue`/`head`/`tail` die laufende BFS, `seedIdx`
+ * der Fortschritt durch die Seeds, `done` = fertig. Puffer werden wiederverwendet (kein Realloc).
+ */
+export interface EconFloodState {
+  comp: Int32Array
+  queue: Int32Array
+  head: number
+  tail: number
+  seedIdx: number
+  nextId: number
+  curOwner: number
+  curId: number
+  done: boolean
+}
+
+/** Frischer Flut-Zustand für eine Karte mit `n` Tiles. */
+export function createFloodState(n: number): EconFloodState {
+  return {
+    comp: new Int32Array(n),
+    queue: new Int32Array(n),
+    head: 0,
+    tail: 0,
+    seedIdx: 0,
+    nextId: 0,
+    curOwner: 0,
+    curId: -1,
+    done: false,
+  }
+}
+
+/** Einen neuen Flut-Lauf starten: `comp` auf -1, Cursor zurück (Puffer wiederverwendet, falls passend). */
+export function resetFlood(fs: EconFloodState, n: number): void {
+  if (fs.comp.length !== n) fs.comp = new Int32Array(n)
+  fs.comp.fill(-1)
+  if (fs.queue.length < n) fs.queue = new Int32Array(n)
+  fs.head = 0
+  fs.tail = 0
+  fs.seedIdx = 0
+  fs.nextId = 0
+  fs.curOwner = 0
+  fs.curId = -1
+  fs.done = false
+}
+
+/**
+ * Treibt die Flut um bis zu `budget` Tile-Expansionen voran (eine Region wird vollständig geflutet,
+ * bevor die nächste Seed-Region startet). `budget = Infinity` flutet alles in einem Aufruf (atomar);
+ * ein endliches Budget verteilt die Arbeit über mehrere Ticks (kein Spike). Setzt `fs.done`, sobald
+ * alle Seeds abgearbeitet sind. Deterministisch (feste Seed-/Nachbar-Reihenfolge, tick-getriebenes
+ * Budget) → MP-sicher. `seeds` müssen deterministisch sortiert sein.
+ */
+export function stepFlood(
+  map: GameMap,
+  seeds: readonly number[],
+  fs: EconFloodState,
+  budget: number,
+): void {
+  const { terrain } = map
+  const comp = fs.comp
+  const queue = fs.queue
+  let work = budget
+  while (work > 0) {
+    if (fs.head < fs.tail) {
+      const cur = queue[fs.head++] ?? 0
+      work--
+      const id = fs.curId
+      forEachLandNeighbor(map, cur, fs.curOwner, (j) => {
+        if ((comp[j] ?? -1) < 0) {
+          comp[j] = id
+          if (fs.tail < queue.length) queue[fs.tail++] = j
+        }
+      })
+    } else {
+      // Aktuelle Region fertig → nächste ungeflutete Seed-Region starten.
+      let started = false
+      while (fs.seedIdx < seeds.length) {
+        const s = seeds[fs.seedIdx++] ?? -1
+        if (s < 0 || s >= comp.length) continue
+        if ((comp[s] ?? -1) >= 0) continue // schon erfasst
+        if (!isPassable(terrain, s)) continue
+        const owner = getOwner(map, s)
+        if (owner <= 0) continue
+        fs.curId = fs.nextId++
+        fs.curOwner = owner
+        comp[s] = fs.curId
+        fs.head = 0
+        fs.tail = 0
+        queue[fs.tail++] = s
+        started = true
+        break
+      }
+      if (!started) {
+        fs.done = true
+        return
+      }
+    }
+  }
+}
+
+// Geteilter Flut-Zustand für die atomare computeBuildingComponents (Test/Einmal-Nutzung).
+let sharedFlood: EconFloodState | null = null
 
 /**
  * Wie [[computeOwnerComponents]], aber GEBÄUDE-ZENTRIERT: labelt nur die eigenen Land-Tiles, die von
  * einem der `seeds` (Gebäude-Tiles) über Land/Brücken erreichbar sind — statt die GANZE Karte zu
  * fluten. Für das Fabrik-Gold-Netz reicht das: gefragt wird nur die Verbindung ZWISCHEN Gebäuden
- * (Quelle↔Fabrik), und genau die sind die Seeds. Tiles ohne Gebäude-Anschluss bleiben -1 (werden nie
- * abgefragt). Spart die drei Voll-Karten-Durchläufe der Union-Find-Variante → deutlich billiger auf
- * großen Karten. `seeds` müssen deterministisch sortiert sein (Aufrufer); die Komponenten-IDs sind
- * beliebig, es zählt nur Gleichheit ([[sameOwnerComponent]]). `out` = wiederverwendbarer Puffer.
+ * (Quelle↔Fabrik), und genau die sind die Seeds. Atomar (= [[stepFlood]] mit unbegrenztem Budget);
+ * in-game läuft dieselbe Flut über mehrere Ticks verteilt. `out` = wiederverwendbarer Ergebnis-Puffer.
  */
 export function computeBuildingComponents(
   map: GameMap,
   seeds: readonly number[],
   out?: Int32Array,
 ): Int32Array {
-  const { width, height, terrain } = map
-  const n = width * height
-  const comp = out !== undefined && out.length === n ? out : new Int32Array(n)
-  comp.fill(-1)
-  if (bfsQueue.length < n) bfsQueue = new Int32Array(n)
-  const queue = bfsQueue
-  let nextId = 0
-  for (const seed of seeds) {
-    if (seed < 0 || seed >= n) continue
-    if ((comp[seed] ?? -1) >= 0) continue // schon von einer früheren Flut erfasst
-    if (!isPassable(terrain, seed)) continue
-    const owner = getOwner(map, seed)
-    if (owner <= 0) continue
-    const id = nextId++
-    comp[seed] = id
-    queue[0] = seed
-    let head = 0
-    let tail = 1
-    while (head < tail) {
-      const cur = queue[head++] ?? 0
-      forEachLandNeighbor(map, cur, owner, (j) => {
-        if ((comp[j] ?? -1) < 0) {
-          comp[j] = id
-          queue[tail++] = j
-        }
-      })
-    }
-  }
-  return comp
+  const n = map.width * map.height
+  if (sharedFlood === null) sharedFlood = createFloodState(n)
+  const fs = sharedFlood
+  if (out !== undefined && out.length === n) fs.comp = out
+  resetFlood(fs, n)
+  stepFlood(map, seeds, fs, Number.POSITIVE_INFINITY)
+  return fs.comp
 }
 
 /** Sind die Tiles `a` und `b` in derselben Owner-Land-Komponente (beide besessen)? */
