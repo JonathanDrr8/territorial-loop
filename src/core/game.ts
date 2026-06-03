@@ -14,7 +14,7 @@
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { getGeoMap } from '../world/geo-map'
 import {
-  computeOwnerComponents,
+  computeBuildingComponents,
   findLandPath,
   findTerrainPath,
   sameOwnerComponent,
@@ -345,6 +345,13 @@ export interface GameState {
    */
   ownerComponents: Int32Array | null
   /**
+   * Dirty-Flag fürs Gold-Netz (Perf): true, wenn sich seit dem letzten `recomputeGoldRoutes` etwas
+   * Relevantes geändert hat (Gebiet, Gebäude, Embargo). Ist es false, wird der periodische Recompute
+   * übersprungen (in ruhigen Phasen kein Aufwand). Deterministisch abgeleitet (alle Clients setzen es
+   * identisch) → nicht im State-Hash, beim Laden true (Routen einmal neu aufbauen).
+   */
+  economyDirty: boolean
+  /**
    * Flüchtige „+Gold"-Einblendungen (Fuhr-/Handelsschiff-Anlieferungen des Menschen) fürs Render —
    * rein darstellend, NICHT gehasht/serialisiert (wie dirtyTiles), nach kurzer Zeit verworfen.
    */
@@ -569,6 +576,7 @@ export function createGame(config: GameConfig): GameState {
     tradeShips: [],
     goldCarts: [],
     ownerComponents: null,
+    economyDirty: true,
     goldPops: [],
     warships: [],
     projectiles: [],
@@ -917,7 +925,12 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   advanceBombers(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
-  if (state.tick % ECONOMY_RECOMPUTE_INTERVAL === 0) recomputeGoldRoutes(state)
+  // Gold-Routen nur neu berechnen, wenn sich etwas geändert hat (Dirty-Skip, Perf) — in ruhigen
+  // Phasen entfällt der Recompute ganz. Nach dem Lauf ist der State wieder „sauber".
+  if (state.tick % ECONOMY_RECOMPUTE_INTERVAL === 0 && state.economyDirty) {
+    recomputeGoldRoutes(state)
+    state.economyDirty = false
+  }
   advanceGoldCarts(state)
   applyFactoryDiplomacy(state)
   decayGrudge(state)
@@ -1534,6 +1547,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
   if (existing !== undefined) {
     player.gold -= upgradeCost(existing)
     existing.level++
+    state.economyDirty = true
     return
   }
 
@@ -1553,6 +1567,7 @@ function applyBuildIntent(state: GameState, intent: BuildIntent): void {
     completesAtTick: state.tick + BUILD_TIME_TICKS,
     buildPrice: base, // Upgrade-Kosten skalieren an der BASIS (nicht an den Level-Gesamtkosten)
   })
+  state.economyDirty = true // neues Gebäude → Gold-Netz neu (Dirty-Skip)
 }
 
 function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
@@ -1568,6 +1583,7 @@ function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
   if (player.gold < cost) return
   player.gold -= cost
   b.level++
+  state.economyDirty = true // Level geändert (→ Fuhr-Gold) → Gold-Netz neu (Dirty-Skip)
 }
 
 /* ============================================================================
@@ -1738,6 +1754,7 @@ function applySetEmbargoIntent(state: GameState, intent: SetEmbargoIntent): void
     state.embargoes.delete(key)
     emitDiploEvent(state, from, to, 'event.embargoOff', { a: from.name, b: to.name }, from.color)
   }
+  state.economyDirty = true // Embargo wirkt auf Auslands-Fuhren → Gold-Netz neu (Dirty-Skip)
 }
 
 /**
@@ -2541,6 +2558,7 @@ function applyBomb(state: GameState, center: TileRef, attackerId: number): void 
       if (state.buildings.has(ref)) {
         state.buildings.delete(ref)
         state.dirtyTiles.push(ref)
+        state.economyDirty = true // Gebäude zerstört → Gold-Netz neu (Dirty-Skip)
       }
       const owner = getOwner(map, ref)
       if (owner > 0) {
@@ -3144,8 +3162,13 @@ function advanceTradeShips(state: GameState): void {
   state.tradeShips = survivors
 }
 
-/** Alle wie viele Ticks das Wirtschafts-Wegenetz (Land-Komponenten + Fuhren-Routen) neu berechnet wird. */
-const ECONOMY_RECOMPUTE_INTERVAL = 20
+/**
+ * Alle wie viele Ticks das Wirtschafts-Wegenetz (Land-Komponenten + Fuhren-Routen) HÖCHSTENS neu
+ * berechnet wird (nur wenn `economyDirty`). 40 statt 20 (Perf): halbiert die Häufigkeit des
+ * Recomputes; Gold-Routen aktualisieren sich dann alle ~4 s statt ~2 s (kaum spürbar, Gold fließt
+ * durchgehend — nur das Neu-Verkabeln nach Gebäude-/Gebietswechsel lahmt minimal).
+ */
+const ECONOMY_RECOMPUTE_INTERVAL = 40
 
 /** Lebensdauer einer „+Gold"-Einblendung (Ticks) — rein darstellend (auch vom Renderer genutzt). */
 export const GOLD_POP_LIFETIME = 14
@@ -3184,9 +3207,13 @@ function recomputeGoldRoutes(state: GameState): void {
   sources.sort((a, b) => a - b)
   factories.sort((a, b) => a.tile - b.tile)
 
-  // Komponenten-Labeling (teuer) erst jetzt — mit wiederverwendetem per-State-Puffer (keine n-große
-  // Int32Array-Allozierung pro Lauf, MP-sicher da pro GameState eigener Puffer).
-  const comp = computeOwnerComponents(map, state.ownerComponents ?? undefined)
+  // Komponenten-Labeling — GEBÄUDE-gesät statt Voll-Karten-Flut (Perf): nur eigene, von Quellen/
+  // Fabriken erreichbare Tiles werden gelabelt (genau die werden fürs Routing abgefragt). Spart die
+  // drei Voll-Karten-Durchläufe → deutlich billiger auf großen Karten. Seeds deterministisch sortiert
+  // (Quellen, dann Fabriken), per-State-Puffer wiederverwendet (MP-sicher).
+  const seeds: TileRef[] = sources.slice()
+  for (const f of factories) seeds.push(f.tile)
+  const comp = computeBuildingComponents(map, seeds, state.ownerComponents ?? undefined)
   state.ownerComponents = comp
 
   // Phase 1: jede Quelle der NÄCHSTEN erreichbaren eigenen Fabrik zuordnen (Luftlinie, eindeutig).
@@ -4230,6 +4257,7 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
   setOwner(map, ref, attackerId)
   state.dirtyTiles.push(ref) // Owner-Wechsel → Renderer malt dieses Tile (+ Nachbarn) neu
   state.recentCaptures.set(ref, state.tick) // frisch erobert → kurzes Aufleuchten im Render
+  state.economyDirty = true // Gebiet geändert → Gold-Routen ggf. neu (Dirty-Skip)
 
   // Gebäude auf dem eroberten Tile: rein defensive Posten (Verteidigung + Flugabwehr) werden
   // zerstört, alle anderen (Stadt/Hafen/Fabrik/Flughafen) übernimmt der Eroberer mitsamt Level.

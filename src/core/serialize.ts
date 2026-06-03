@@ -148,6 +148,7 @@ export function deserializeState(data: SerializedGameState): GameState {
     tradeShips: data.tradeShips.map((t) => ({ ...t, path: [...t.path] })),
     goldCarts: data.goldCarts.map((c) => ({ ...c, path: [...c.path] })),
     ownerComponents: null,
+    economyDirty: true,
     goldPops: [],
     warships: data.warships.map((w) => ({ ...w, path: [...w.path] })),
     projectiles: [],

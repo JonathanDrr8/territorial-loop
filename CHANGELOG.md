@@ -4,7 +4,24 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
-## [0.50.1] – 2026-06-03
+## [0.51.0] – 2026-06-03
+
+### Neu
+
+- **HUD passt sich automatisch an die Bildschirmgröße an:** Statt einer festen Standardgröße wählt das
+  Spiel die UI-Größe jetzt passend zum Fenster — kleines Laptop/Fenster → kompakteres HUD, großer
+  Monitor → größeres. Verändert sich die Fenstergröße, zieht es automatisch mit. Der „UI"-Regler oben
+  links überschreibt das weiterhin jederzeit (danach bleibt deine Wahl fix).
+
+## [0.50.2] – 2026-06-03
+
+### Behoben
+
+- **Deutlich weniger Ruckeln im späten Spiel:** Die Gold-Routen-Berechnung flutet jetzt nur noch das
+  eigene, von Gebäuden erreichbare Gebiet statt der ganzen Karte, läuft seltener und wird in ruhigen
+  Phasen ganz übersprungen (wenn sich nichts geändert hat). In großen Partien mit vielen Fabriken
+  fällt der periodische Hänger so von ~40 ms auf ~17 ms und tritt halb so oft auf; ohne Baugeschehen
+  ist er ganz weg. Verhalten (welche Fabrik welche Stadt versorgt) bleibt identisch.
 
 ### Behoben
 

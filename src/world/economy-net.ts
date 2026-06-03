@@ -179,6 +179,54 @@ export function computeOwnerComponents(map: GameMap, out?: Int32Array): Int32Arr
   return comp
 }
 
+// Wiederverwendeter BFS-Scratch für computeBuildingComponents (transient, synchron → modul-global ok).
+let bfsQueue = new Int32Array(0)
+
+/**
+ * Wie [[computeOwnerComponents]], aber GEBÄUDE-ZENTRIERT: labelt nur die eigenen Land-Tiles, die von
+ * einem der `seeds` (Gebäude-Tiles) über Land/Brücken erreichbar sind — statt die GANZE Karte zu
+ * fluten. Für das Fabrik-Gold-Netz reicht das: gefragt wird nur die Verbindung ZWISCHEN Gebäuden
+ * (Quelle↔Fabrik), und genau die sind die Seeds. Tiles ohne Gebäude-Anschluss bleiben -1 (werden nie
+ * abgefragt). Spart die drei Voll-Karten-Durchläufe der Union-Find-Variante → deutlich billiger auf
+ * großen Karten. `seeds` müssen deterministisch sortiert sein (Aufrufer); die Komponenten-IDs sind
+ * beliebig, es zählt nur Gleichheit ([[sameOwnerComponent]]). `out` = wiederverwendbarer Puffer.
+ */
+export function computeBuildingComponents(
+  map: GameMap,
+  seeds: readonly number[],
+  out?: Int32Array,
+): Int32Array {
+  const { width, height, terrain } = map
+  const n = width * height
+  const comp = out !== undefined && out.length === n ? out : new Int32Array(n)
+  comp.fill(-1)
+  if (bfsQueue.length < n) bfsQueue = new Int32Array(n)
+  const queue = bfsQueue
+  let nextId = 0
+  for (const seed of seeds) {
+    if (seed < 0 || seed >= n) continue
+    if ((comp[seed] ?? -1) >= 0) continue // schon von einer früheren Flut erfasst
+    if (!isPassable(terrain, seed)) continue
+    const owner = getOwner(map, seed)
+    if (owner <= 0) continue
+    const id = nextId++
+    comp[seed] = id
+    queue[0] = seed
+    let head = 0
+    let tail = 1
+    while (head < tail) {
+      const cur = queue[head++] ?? 0
+      forEachLandNeighbor(map, cur, owner, (j) => {
+        if ((comp[j] ?? -1) < 0) {
+          comp[j] = id
+          queue[tail++] = j
+        }
+      })
+    }
+  }
+  return comp
+}
+
 /** Sind die Tiles `a` und `b` in derselben Owner-Land-Komponente (beide besessen)? */
 export function sameOwnerComponent(comp: Int32Array, a: number, b: number): boolean {
   const ca = comp[a]
