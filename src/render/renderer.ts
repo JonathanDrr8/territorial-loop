@@ -256,6 +256,12 @@ export interface Renderer {
   readonly camera: Camera
   /** Liest den aktuellen GameState aus und zeichnet einen Frame. */
   render(): void
+  /**
+   * Setzt die Viewport-Größe (CSS-Pixel) + Geräte-Pixeldichte. Statt diese pro Frame aus dem DOM zu
+   * lesen, wird sie hier einmal pro Resize gesetzt (Perf + Worker-Vorbereitung, ADR-0030). Auf dem
+   * Hauptthread speist ein ResizeObserver/`window.resize` das; im Worker eine Größen-Message.
+   */
+  setViewport(width: number, height: number, devicePixelRatio: number): void
   /** Erzwingt ein vollständiges Neu-Backen des Karten-Bitmaps (nach Mid-Match-Resync/State-Swap). */
   invalidate(): void
   /**
@@ -474,20 +480,30 @@ export function createRenderer(
   const offscreenCtx = get2dContext(offscreen, 'offscreen')
   const imageData = offscreenCtx.createImageData(state.map.width, state.map.height)
 
-  function resize(): void {
-    const dpr = window.devicePixelRatio || 1
-    const w = container.clientWidth
-    const h = container.clientHeight
-    screenCanvas.style.width = w + 'px'
-    screenCanvas.style.height = h + 'px'
-    screenCanvas.width = Math.floor(w * dpr)
-    screenCanvas.height = Math.floor(h * dpr)
-    // Reset transform — wir skalieren manuell pro frame
+  // Viewport (CSS-Pixel) + Geräte-Pixeldichte — EINMAL pro Resize gesetzt, NICHT pro Frame aus dem
+  // Container gelesen (Perf: spart ~40 Layout-Abfragen/Frame; Vorbereitung Worker/ADR-0030: der
+  // Render-Pfad fasst kein DOM mehr an, die Größe kommt über `setViewport`). In Stufe 4 speist die
+  // ein Worker-Message statt `resizeFromContainer`.
+  let viewW = 0
+  let viewH = 0
+  let dpr = 1
+  function setViewport(width: number, height: number, devicePixelRatioArg: number): void {
+    viewW = width
+    viewH = height
+    dpr = devicePixelRatioArg || 1
+    screenCanvas.style.width = width + 'px'
+    screenCanvas.style.height = height + 'px'
+    screenCanvas.width = Math.floor(width * dpr)
+    screenCanvas.height = Math.floor(height * dpr)
+    // Reset transform — wir skalieren manuell pro Frame
     screenCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
     screenCtx.imageSmoothingEnabled = false
   }
-  resize()
-  window.addEventListener('resize', resize)
+  function resizeFromContainer(): void {
+    setViewport(container.clientWidth, container.clientHeight, window.devicePixelRatio || 1)
+  }
+  resizeFromContainer()
+  window.addEventListener('resize', resizeFromContainer)
 
   const camera: Camera = {
     x: state.map.width / 2,
@@ -897,8 +913,8 @@ export function createRenderer(
     }
     if (flashes.length === 0) return
 
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const halfW = cssW / 2
     const halfH = cssH / 2
@@ -932,8 +948,8 @@ export function createRenderer(
    */
   function drawCaptureFlashes(): void {
     if (state.recentCaptures.size === 0) return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const halfW = cssW / 2
     const halfH = cssH / 2
@@ -978,8 +994,8 @@ export function createRenderer(
   }
 
   function drawTiled(): void {
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const mapH = state.map.height
     const z = camera.zoom
@@ -1162,10 +1178,10 @@ export function createRenderer(
 
   /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
   function worldToScreenX(wx: number): number {
-    return (wx - camera.x) * camera.zoom + container.clientWidth / 2
+    return (wx - camera.x) * camera.zoom + viewW / 2
   }
   function worldToScreenY(wy: number): number {
-    return (wy - camera.y) * camera.zoom + container.clientHeight / 2
+    return (wy - camera.y) * camera.zoom + viewH / 2
   }
 
   /**
@@ -1180,8 +1196,8 @@ export function createRenderer(
     const nx = wx + mapW * Math.round((camera.x - wx) / mapW)
     const ny = wy + mapH * Math.round((camera.y - wy) / mapH)
     return {
-      sx: (nx - camera.x) * z + container.clientWidth / 2,
-      sy: (ny - camera.y) * z + container.clientHeight / 2,
+      sx: (nx - camera.x) * z + viewW / 2,
+      sy: (ny - camera.y) * z + viewH / 2,
     }
   }
 
@@ -1204,8 +1220,8 @@ export function createRenderer(
     const fny = fromY + mapH * Math.round((camera.y - fromY) / mapH)
     const tnx = toX + mapW * Math.round((fnx - toX) / mapW)
     const tny = toY + mapH * Math.round((fny - toY) / mapH)
-    const cw = container.clientWidth
-    const ch = container.clientHeight
+    const cw = viewW
+    const ch = viewH
     return {
       fromSx: (fnx - camera.x) * z + cw / 2,
       fromSy: (fny - camera.y) * z + ch / 2,
@@ -1231,8 +1247,8 @@ export function createRenderer(
 
   function drawLabels(): void {
     maybeRecomputeCentroids()
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     // Schrift skaliert mit dem Zoom (bei nahem Zoom größer/lesbarer), gedeckelt.
     const fontSize = Math.max(12, Math.min(26, Math.round(11 + z * 0.7)))
@@ -1377,8 +1393,8 @@ export function createRenderer(
    * Angriffe bleiben eine dezente Zahl in Besitzerfarbe.
    */
   function drawAttackFronts(): void {
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const humanId = lutHumanId
     screenCtx.save()
@@ -1783,8 +1799,8 @@ export function createRenderer(
     const w = state.map.width
     const z = camera.zoom
     const r = Math.max(5, z * 0.6)
-    const cw = container.clientWidth
-    const ch = container.clientHeight
+    const cw = viewW
+    const ch = viewH
     for (const p of state.players.values()) {
       if (!p.isAlive || p.wild || p.capitalTile === undefined) continue
       const tx = p.capitalTile % w
@@ -1811,8 +1827,8 @@ export function createRenderer(
 
   function drawBuildings(): void {
     if (state.buildings.size === 0) return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const mapH = state.map.height
     const z = camera.zoom
@@ -1897,8 +1913,8 @@ export function createRenderer(
   function drawShips(): void {
     if (state.boats.length === 0 && state.tradeShips.length === 0 && state.warships.length === 0)
       return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const mapH = state.map.height
     const r = Math.max(3, Math.min(7, camera.zoom * 2.5))
@@ -2048,13 +2064,7 @@ export function createRenderer(
       const wx = pr.fromX + dx * frac
       const wy = pr.fromY + dy * frac
       const { sx, sy } = nearestWrappedScreenPos(wx, wy)
-      if (
-        sx < -20 ||
-        sx > container.clientWidth + 20 ||
-        sy < -20 ||
-        sy > container.clientHeight + 20
-      )
-        continue
+      if (sx < -20 || sx > viewW + 20 || sy < -20 || sy > viewH + 20) continue
       // Helles Gelb statt Besitzerfarbe (die oft dunkel mit Wasser/Land verschmolz) → die
       // Leuchtspur hebt sich überall klar ab.
       const col = PROJECTILE_COLOR
@@ -2091,8 +2101,8 @@ export function createRenderer(
   /** Zeichnet fliegende Bomber (Besitzer-Scheibe + Flugzeug-Sprite + HP-Leiste). */
   function drawBombers(): void {
     if (state.bombers.length === 0) return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const mapH = state.map.height
     const r = Math.max(3, Math.min(8, camera.zoom * 2.6))
@@ -2236,8 +2246,8 @@ export function createRenderer(
 
   function drawHoverOutline(): void {
     if (hoverTile === null) return
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     screenCtx.save()
     screenCtx.lineWidth = 1.5
@@ -2262,8 +2272,8 @@ export function createRenderer(
     }
     if (markers.length === 0) return
 
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
 
     screenCtx.save()
     screenCtx.lineWidth = 3
@@ -2289,8 +2299,8 @@ export function createRenderer(
     // Sanfte 1.5 Hz Pulsation, alpha pulsiert zwischen 0.5 und 0.95
     const pulse = 0.5 + Math.abs(Math.sin(time * Math.PI * 1.5)) * 0.45
 
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
 
     screenCtx.save()
@@ -2342,8 +2352,8 @@ export function createRenderer(
     if (state.boats.length === 0) return
     const time = performance.now() * 0.001
     const pulse = 0.5 + Math.abs(Math.sin(time * Math.PI * 1.5)) * 0.45
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const mapW = state.map.width
     const baseR = 9 + Math.sin(time * Math.PI * 2) * 2
 
@@ -2407,8 +2417,8 @@ export function createRenderer(
     const valid = canBuildAt(state, humanId, ref, buildPreviewType)
     const ring = valid ? '#5dd75d' : '#e05a5a'
     const fill = valid ? 'rgba(93,215,93,0.30)' : 'rgba(224,90,90,0.30)'
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const radius = Math.max(7, Math.min(13, z * 4.5))
     const glyph = BUILDING_GLYPH[buildPreviewType]
@@ -2465,8 +2475,8 @@ export function createRenderer(
     const mapW = state.map.width
     const mapH = state.map.height
     const z = camera.zoom
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     screenCtx.save()
     screenCtx.lineWidth = 1
     for (const b of state.buildings.values()) {
@@ -2515,8 +2525,8 @@ export function createRenderer(
     const r = (b.type === 'flak' ? flakRange(b.level) : defenseRange(b.level)) * z
     const tx = hoverTile.x + 0.5
     const ty = hoverTile.y + 0.5
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     screenCtx.save()
     // Flak in einem Luftabwehr-Blau, Verteidigung im gewohnten Amber.
     screenCtx.strokeStyle = b.type === 'flak' ? 'rgba(120,200,255,0.75)' : 'rgba(232,180,74,0.7)'
@@ -2545,8 +2555,8 @@ export function createRenderer(
     const mapW = state.map.width
     const mapH = state.map.height
     const z = camera.zoom
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const isFlak = buildPreviewType === 'flak'
     screenCtx.save()
     screenCtx.strokeStyle = isFlak ? 'rgba(120,200,255,0.6)' : 'rgba(232,180,74,0.55)'
@@ -2588,8 +2598,8 @@ export function createRenderer(
     if (bomberPreviewRoute === null || hoverTile === null || lutHumanId < 0) return
     const mapW = state.map.width
     const mapH = state.map.height
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const target = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
     // Nächsten eigenen, fertigen Flughafen finden, der STARTEN kann — exakt wie der Sim
@@ -2698,8 +2708,8 @@ export function createRenderer(
     if (!warshipPreview || hoverTile === null || lutHumanId < 0) return
     const mapW = state.map.width
     const mapH = state.map.height
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const target = tileRef(hoverTile.x, hoverTile.y, mapW, mapH)
     const isWater = ((state.map.terrain[target] ?? 0) & IS_LAND_BIT) === 0
@@ -2771,8 +2781,8 @@ export function createRenderer(
     }
     // Kamera-Box & weit rausgezoomt: nur EINE Welt-Kopie sichtbar → Rest schwarz, und alles
     // auf den Welt-Block clippen, damit keine gewrappten Objekt-Kopien in den Rändern geistern.
-    const cssW = container.clientWidth
-    const cssH = container.clientHeight
+    const cssW = viewW
+    const cssH = viewH
     const z = camera.zoom
     const mapW = state.map.width
     const mapH = state.map.height
@@ -2958,8 +2968,8 @@ export function createRenderer(
     screenX: number,
     screenY: number,
   ): { readonly x: number; readonly y: number } {
-    const halfW = container.clientWidth / 2
-    const halfH = container.clientHeight / 2
+    const halfW = viewW / 2
+    const halfH = viewH / 2
     return {
       x: (screenX - halfW) / camera.zoom + camera.x,
       y: (screenY - halfH) / camera.zoom + camera.y,
@@ -2967,7 +2977,7 @@ export function createRenderer(
   }
 
   function destroy(): void {
-    window.removeEventListener('resize', resize)
+    window.removeEventListener('resize', resizeFromContainer)
     screenCanvas.remove()
   }
 
@@ -2979,6 +2989,7 @@ export function createRenderer(
     canvas: screenCanvas,
     camera,
     render,
+    setViewport,
     invalidate(): void {
       // Nach einem State-Swap (Resync) stimmt das inkrementell gebackene Bitmap nicht mehr —
       // beim nächsten render() komplett neu backen.
