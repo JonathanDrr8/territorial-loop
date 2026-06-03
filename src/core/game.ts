@@ -14,10 +14,13 @@
 import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
 import { getGeoMap } from '../world/geo-map'
 import {
-  computeBuildingComponents,
+  createFloodState,
   findLandPath,
   findTerrainPath,
+  resetFlood,
   sameOwnerComponent,
+  stepFlood,
+  type EconFloodState,
 } from '../world/economy-net'
 import {
   PLAINS_MAG,
@@ -352,6 +355,17 @@ export interface GameState {
    */
   economyDirty: boolean
   /**
+   * Amortisierter Wirtschafts-Recompute (Perf): die Gebäude-Komponenten-Flut läuft über mehrere
+   * Ticks verteilt (kein Spike auf Riesenkarten). Alles transient/deterministisch (tick-getrieben),
+   * nicht serialisiert. `econActive` = Zyklus läuft; `econFlood` = laufende Flut (Lazy); `econSeeds/
+   * econSources/econFactories` = beim Zyklusstart eingefrorener Gebäude-Stand fürs Routing am Ende.
+   */
+  econFlood: EconFloodState | null
+  econActive: boolean
+  econSeeds: TileRef[]
+  econSources: TileRef[]
+  econFactories: { tile: TileRef; owner: number; level: number }[]
+  /**
    * Flüchtige „+Gold"-Einblendungen (Fuhr-/Handelsschiff-Anlieferungen des Menschen) fürs Render —
    * rein darstellend, NICHT gehasht/serialisiert (wie dirtyTiles), nach kurzer Zeit verworfen.
    */
@@ -577,6 +591,11 @@ export function createGame(config: GameConfig): GameState {
     goldCarts: [],
     ownerComponents: null,
     economyDirty: true,
+    econFlood: null,
+    econActive: false,
+    econSeeds: [],
+    econSources: [],
+    econFactories: [],
     goldPops: [],
     warships: [],
     projectiles: [],
@@ -925,12 +944,9 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   advanceBombers(state)
   spawnTradeShips(state)
   advanceTradeShips(state)
-  // Gold-Routen nur neu berechnen, wenn sich etwas geändert hat (Dirty-Skip, Perf) — in ruhigen
-  // Phasen entfällt der Recompute ganz. Nach dem Lauf ist der State wieder „sauber".
-  if (state.tick % ECONOMY_RECOMPUTE_INTERVAL === 0 && state.economyDirty) {
-    recomputeGoldRoutes(state)
-    state.economyDirty = false
-  }
+  // Gold-Routen amortisiert neu berechnen: nur bei Änderungen (Dirty-Skip), höchstens alle INTERVAL
+  // Ticks, und die teure Flut über mehrere Ticks verteilt → kein Tick-Spike (Perf).
+  advanceEconomyRoutes(state)
   advanceGoldCarts(state)
   applyFactoryDiplomacy(state)
   decayGrudge(state)
@@ -3183,15 +3199,20 @@ export const FACTORY_CART_LIMIT = 3
  * Doppel-Gold). Periodisch neu bestimmt → ein neues, näheres Gebäude verdrängt ein ferneres
  * (Re-Routing). Gültige Fuhren behalten ihren Pfad (kein erneutes Pathfinding).
  */
-function recomputeGoldRoutes(state: GameState): void {
-  const { map } = state
-  const { width, height } = map
+interface EconFactory {
+  tile: TileRef
+  owner: number
+  level: number
+}
 
-  // Gebäude ZUERST sammeln (vor der teuren Komponenten-Flut): gibt es keine Fabrik, existiert kein
-  // Gold-Netz → die ganze `computeOwnerComponents`-Analyse (über die KOMPLETTE Karte, alle 20 Ticks)
-  // ist überflüssig. Das war der gemessene Tick-Spike bei großen Karten/Reichen (Perf).
+/**
+ * Sammelt fertige Quellen (Stadt/Hafen) + Fabriken (deterministisch sortiert). `null`, wenn es keine
+ * Fabrik gibt → dann existiert kein Gold-Netz (die teure Komponenten-Flut entfällt komplett).
+ */
+function gatherEconomy(state: GameState): { sources: TileRef[]; factories: EconFactory[] } | null {
+  const { map } = state
   const sources: TileRef[] = []
-  const factories: { tile: TileRef; owner: number; level: number }[] = []
+  const factories: EconFactory[] = []
   for (const b of state.buildings.values()) {
     if (!isBuildingComplete(b, state.tick)) continue
     const owner = getOwner(map, b.tile)
@@ -3200,21 +3221,24 @@ function recomputeGoldRoutes(state: GameState): void {
     if (b.type === 'city' || b.type === 'port') sources.push(b.tile)
     else if (b.type === 'factory') factories.push({ tile: b.tile, owner, level: b.level })
   }
-  if (factories.length === 0) {
-    if (state.goldCarts.length > 0) state.goldCarts = [] // keine Fabrik → keine Fuhren
-    return // teure Komponenten-Flut komplett übersprungen
-  }
+  if (factories.length === 0) return null
   sources.sort((a, b) => a - b)
   factories.sort((a, b) => a.tile - b.tile)
+  return { sources, factories }
+}
 
-  // Komponenten-Labeling — GEBÄUDE-gesät statt Voll-Karten-Flut (Perf): nur eigene, von Quellen/
-  // Fabriken erreichbare Tiles werden gelabelt (genau die werden fürs Routing abgefragt). Spart die
-  // drei Voll-Karten-Durchläufe → deutlich billiger auf großen Karten. Seeds deterministisch sortiert
-  // (Quellen, dann Fabriken), per-State-Puffer wiederverwendet (MP-sicher).
-  const seeds: TileRef[] = sources.slice()
-  for (const f of factories) seeds.push(f.tile)
-  const comp = computeBuildingComponents(map, seeds, state.ownerComponents ?? undefined)
-  state.ownerComponents = comp
+/**
+ * Phasen 1–4: Quellen↔Fabriken zuordnen + Gold-Fuhren (in-/ausländisch) aus der fertigen Komponenten-
+ * Karte `comp` bauen. Gültige Fuhren behalten ihren Pfad (kein erneutes Pathfinding).
+ */
+function routeGoldCarts(
+  state: GameState,
+  sources: readonly TileRef[],
+  factories: readonly EconFactory[],
+  comp: Int32Array,
+): void {
+  const { map } = state
+  const { width, height } = map
 
   // Phase 1: jede Quelle der NÄCHSTEN erreichbaren eigenen Fabrik zuordnen (Luftlinie, eindeutig).
   type Assign = { src: TileRef; fac: TileRef; level: number; dist: number }
@@ -3322,6 +3346,50 @@ function recomputeGoldRoutes(state: GameState): void {
     }
   }
   state.goldCarts = next
+}
+
+/** Tiles pro Tick für die amortisierte Komponenten-Flut — verteilt die Kosten → kein Tick-Spike. */
+const ECON_FLOOD_BUDGET = 24_000
+
+/**
+ * Amortisierter Wirtschafts-Recompute (Perf): startet höchstens alle ECONOMY_RECOMPUTE_INTERVAL Ticks
+ * — und nur wenn `economyDirty` — einen Zyklus, der die Gebäude-Komponenten-Flut über mehrere Ticks
+ * verteilt (Budget ECON_FLOOD_BUDGET Tiles/Tick) und am Ende die Fuhren-Routen baut. So entsteht auch
+ * auf Riesenkarten während aktiver Schlachten KEIN Tick-Spike mehr. Vollständig tick-getrieben →
+ * deterministisch/MP-sicher. Bei kleinen Reichen (< Budget) ist die Flut in einem Tick fertig
+ * (identisch zum früheren atomaren Verhalten).
+ */
+function advanceEconomyRoutes(state: GameState): void {
+  if (!state.econActive) {
+    // Im Leerlauf: höchstens alle INTERVAL Ticks und nur bei Änderungen einen neuen Zyklus starten.
+    if (state.tick % ECONOMY_RECOMPUTE_INTERVAL !== 0 || !state.economyDirty) return
+    state.economyDirty = false // Zyklus friert den aktuellen Stand ein
+    const gathered = gatherEconomy(state)
+    if (gathered === null) {
+      if (state.goldCarts.length > 0) state.goldCarts = [] // keine Fabrik → keine Fuhren
+      return
+    }
+    state.econSources = gathered.sources
+    state.econFactories = gathered.factories
+    const seeds: TileRef[] = gathered.sources.slice()
+    for (const f of gathered.factories) seeds.push(f.tile)
+    state.econSeeds = seeds
+    const n = state.map.width * state.map.height
+    if (state.econFlood === null) state.econFlood = createFloodState(n)
+    resetFlood(state.econFlood, n)
+    state.econActive = true
+  }
+  const fs = state.econFlood
+  if (fs === null) {
+    state.econActive = false
+    return
+  }
+  stepFlood(state.map, state.econSeeds, fs, ECON_FLOOD_BUDGET)
+  if (fs.done) {
+    state.ownerComponents = fs.comp
+    routeGoldCarts(state, state.econSources, state.econFactories, fs.comp)
+    state.econActive = false
+  }
 }
 
 /**

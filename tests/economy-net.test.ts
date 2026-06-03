@@ -4,6 +4,9 @@ import { IS_LAND_BIT, IMPASSABLE_HEIGHT } from '../src/world/terrain'
 import {
   computeOwnerComponents,
   computeBuildingComponents,
+  createFloodState,
+  resetFlood,
+  stepFlood,
   sameOwnerComponent,
   findLandPath,
   BRIDGE_SPAN,
@@ -161,5 +164,18 @@ describe('computeBuildingComponents — Äquivalenz zur Voll-Flut (Perf-Variante
     // Gleiche Verbindungs-Antworten wie ohne out-Puffer.
     for (const x of owned)
       for (const y of owned) expect(sameOwnerComponent(b, x, y)).toBe(sameOwnerComponent(a, x, y))
+  })
+
+  it('stepFlood ist budget-unabhängig: Tile-für-Tile (Budget 1) == atomar — Basis der Amortisierung', () => {
+    const atomic = computeBuildingComponents(map, owned, new Int32Array(w * h))
+    const fs = createFloodState(w * h)
+    resetFlood(fs, w * h)
+    let guard = 0
+    while (!fs.done && guard++ < 100000) stepFlood(map, owned, fs, 1)
+    expect(fs.done).toBe(true)
+    // Verbindungs-Antworten identisch, egal ob in einem Rutsch oder über viele winzige Schritte.
+    for (const a of owned)
+      for (const b of owned)
+        expect(sameOwnerComponent(fs.comp, a, b)).toBe(sameOwnerComponent(atomic, a, b))
   })
 })
