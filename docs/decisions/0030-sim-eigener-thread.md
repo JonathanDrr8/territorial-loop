@@ -117,3 +117,94 @@ Thread ändert nur, **wo** gerechnet wird).
 3. **Backend bleibt unangetastet** — die Sim-Last verschwindet nicht durchs Verlagern auf einen Server
    (gleiche Rechenarbeit + 16-MB-Zustand pro Tick zu streamen wäre teurer); der `server/`-Pfad ist und
    bleibt für die Mehrspieler-Koordination da, nicht zum Auslagern der Einzelspieler-Rechenlast.
+
+## Detaillierter Stufenplan (datei-genau, von Jonathan abzusegnen)
+
+Vorab kartiert (Explore, 2026-06-03): `core/`/`world/`/`ai/`/`net/` sind worker-rein. Reibungspunkte:
+der **Renderer** (`src/render/renderer.ts`) liest direkt `document`/`window`/`devicePixelRatio`/
+`container.clientWidth/Height` (~40 Stellen) + treibt `requestAnimationFrame`; **Input** (`src/input/`)
+macht **synchrone** State-Abfragen (`canBuildAt`/`snapBuildTile`/`canReachByLand`, Hover-Picking); die
+**Kamera** lebt im Renderer-Objekt und wird vom Input mutiert; **HUD/Tooltips** (`src/ui/`) lesen jeden
+Frame direkt aus `state`. Bestehend: **keine** Worker/OffscreenCanvas/SAB-Nutzung; `vite.config.ts` ohne
+Worker-Config.
+
+**Architektur-Entscheidung:** Sim **und** Renderer (inkl. Minimap + Tooltip-INHALT) laufen im Worker;
+der Hauptthread macht nur DOM/HUD/Input/Audio/Kamera. **Kein SharedArrayBuffer** — der teure Owner-Array
+wird nie über die Grenze kopiert, weil das Zeichnen im Worker bleibt (OffscreenCanvas). Picking/Tooltip/
+Bau-Checks lösen wir per **Round-Trip** (1 Frame Latenz, für ein 10-Hz-Strategiespiel unkritisch). Das HUD
+bekommt pro Tick ein **kompaktes View-Model** (KB-Bereich). Keine COOP/COEP-Header nötig.
+
+**Leitprinzip:** Nach JEDER Stufe ist das Spiel voll lauffähig (kein Big-Bang). Stufen 1–3 entkoppeln
+_auf dem Hauptthread_ (verifizierbar, kein Worker) — der eigentliche Thread-Sprung ist Stufe 4 hinter
+einem Feature-Flag.
+
+### Stufe 0 — Infrastruktur, kein Verhaltenswechsel
+
+- **Neu** `src/worker/protocol.ts`: alle Nachrichten-Typen als discriminated unions. Main→Worker:
+  `init(config, offscreenCanvas)`, `intent(Intent)`, `camera(x,y,zoom)`, `viewport(w,h,dpr)`,
+  `hover(tile|null)`, `buildQuery(id, tile, type, level)`, `control(pause|speed|leave|snapshot)`.
+  Worker→Main: `ready`, `viewModel(snapshot)`, `hoverResult(tooltipData)`, `buildQueryResult(id, …)`,
+  `event/log`, `desyncSnapshot`.
+- **Ändern** `vite.config.ts`: `worker: { format: 'es' }`.
+- **Verify:** `npm run build` + `npm run typecheck` grün; Spiel unverändert (Worker noch nicht verdrahtet).
+
+### Stufe 1 — Renderer von DOM/Fenster entkoppeln (läuft NOCH auf Main)
+
+- **Ändern** `src/render/renderer.ts`: Konstruktor nimmt ein `canvas: HTMLCanvasElement | OffscreenCanvas`
+  - ein `viewport: { width, height, dpr }` (per `setViewport()` von außen gesetzt) statt `container`/
+    `window.devicePixelRatio` abzufragen. Alle `container.clientWidth/Height` → `this.viewport.*`. Resize:
+    Main hängt einen `ResizeObserver` an den Container und ruft `renderer.setViewport(...)`. Sprite-/
+    Offscreen-Canvases: `document.createElement('canvas')` → `new OffscreenCanvas(w,h)` (im Worker und Main
+    gültig). `requestAnimationFrame` **raus** aus dem Renderer — `main.ts` treibt `render()` weiter im
+    `renderLoop`.
+- **Ändern** `src/main.ts`: Renderer mit dem echten Canvas + ResizeObserver verdrahten (Verhalten gleich).
+- **Verify:** in-browser Smoke + Screenshot (Darstellung pixelgleich); alle Presets starten; resize testen.
+
+### Stufe 2 — Sim-Host kapseln (läuft NOCH auf Main)
+
+- **Neu** `src/worker/sim-host.ts`: `createSimHost(config)` bündelt `LocalTransport`/`NetworkTransport` +
+  `ais` + `tick()` + den View-Model-Bau. Exponiert `submit(intent)`, `control(...)`, Callbacks
+  `onViewModel(vm)` / `onCommitted(...)`. Timer per Injection (`setInterval`), damit Worker-tauglich.
+- **Ändern** `src/main.ts`: die heutige Transport-/KI-/Tick-Verdrahtung durch `createSimHost` ersetzen
+  (immer noch auf Main). **Verify:** Spiel + MP-E2E-Tests unverändert (`npm run test:run`).
+
+### Stufe 3 — View-Model + asynchrone Abfrage-Schicht (läuft NOCH auf Main)
+
+- **Neu** `src/worker/view-model.ts`: `buildViewModel(state, humanId)` → schlankes Objekt (Rangliste Top-N
+  - alle Spieler-Kernwerte, eigenes Gold/Truppen/Rate/Rang, Diplomatie-Lage, offene Bündnisangebote,
+    Economy-Aufschlüsselung, Ereignislog-Deltas, Phase/Tick). Plus `resolveHover(state, tile)` →
+    Tooltip-Daten und `buildQuery(state, …)` → `{ canBuild, snappedTile, cost, … }`.
+- **Ändern** `src/ui/hud.ts`, `event-log.ts`, `alliance-prompt.ts`, `action-wheel.ts`, `mobile-topbar.ts`,
+  `minimap.ts`, `hover-tooltip.ts`: aus dem **View-Model** lesen statt direkt aus `state`. `src/input/`:
+  Bau-/Reach-/Hover-Abfragen über eine `GameQuery`-Schnittstelle (auf Main sync hinterlegt, async-fähig
+  geschnitten). **Verify:** alle HUD-Panels + Tooltips + Bauen/Boot/Angriff identisch (in-browser Smoke).
+
+### Stufe 4 — Thread-Sprung (hinter Feature-Flag `?worker` / Einstellung)
+
+- **Neu** `src/worker/sim.worker.ts`: hält `state`, `createSimHost`, den Renderer (OffscreenCanvas via
+  `init`), Minimap-Render, `resolveHover`/`buildQuery`. Verarbeitet Main-Nachrichten, postet `viewModel`
+  pro Tick + `hoverResult`/`buildQueryResult` auf Anfrage.
+- **Ändern** `src/main.ts`: bei aktivem Flag Canvas per `transferControlToOffscreen()` an den Worker;
+  `ResizeObserver`→`viewport`-Message; Input→`intent`/`hover`/`buildQuery`-Messages; Kamera-Mutationen→
+  `camera`-Message; HUD aus empfangenem `viewModel`. Ohne Flag: der Stufe-3-Pfad auf Main (Fallback +
+  für Browser ohne OffscreenCanvas).
+- **Verify (Kern-Gate):** in-browser Chaos 2048² Spätspiel, Frame-Gaps messen → **konstant ~60 fps, keine
+  Gaps > ~30 ms**, auch wenn ein Sim-Tick lange dauert; Eingabe reagiert ≤1–2 Frames; alle Panels/Tooltips
+  funktionieren; Screenshot-Vergleich.
+
+### Stufe 5 — Mehrspieler + Lebenszyklus durch den Worker
+
+- `NetworkTransport`-Commits, Pause/Tempo, Snapshot/Resync (ADR-0009), Replay, Match-Ende über Worker-
+  Nachrichten. **Verify:** zwei Tabs, Raum-Code, identischer Verlauf, kein Desync; Reconnect/Resync.
+
+### Stufe 6 — Flag entfernen, aufräumen, mit 0.52.2 zusammen deployen
+
+- OffscreenCanvas-Feature-Detection → Worker als Default, Main-Pfad nur als Fallback. Flag/Doku/Changelog.
+- **Verify:** volle Suite grün; in-browser über alle Presets; dann Merge `fix/freeze-standbilder` → main +
+  Deploy (so mit Jonathan vereinbart: alles wartet bis hierher).
+
+### Risiko-Reihenfolge
+
+Stufen 1–3 sind reine Entkopplung auf dem Hauptthread → jederzeit lauffähig + einzeln verifizierbar, **null**
+Determinismus-Risiko (gleicher Code, gleicher Thread). Das echte Risiko (und der Gewinn) steckt in Stufe 4;
+das Feature-Flag erlaubt Seite-an-Seite-Vergleich und sofortiges Zurückschalten.
