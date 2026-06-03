@@ -81,6 +81,28 @@ export function neighbors4(ref: TileRef, w: number, h: number): readonly TileRef
 }
 
 /**
+ * Allokationsfreie Einzel-Nachbar-Variante von [[neighbors4]]: liefert den `dir`-ten 4-Nachbarn
+ * (0 = Ost/x+1, 1 = West/x−1, 2 = Süd/y+1, 3 = Nord/y−1) — **identische Werte UND Reihenfolge** wie
+ * `neighbors4(...)[dir]` (ruft intern dasselbe `tileRef`), aber ohne pro Aufruf zwei Arrays zu
+ * allozieren. Für heiße Schleifen (`for (let d = 0; d < 4; d++)` statt `for…of neighbors4`) → kein
+ * GC-Druck. Verändert das Ergebnis nicht (MP-deterministisch).
+ */
+export function tileNeighbor4(ref: TileRef, w: number, h: number, dir: number): TileRef {
+  const y = Math.floor(ref / w)
+  const x = ref - y * w
+  switch (dir) {
+    case 0:
+      return tileRef(x + 1, y, w, h)
+    case 1:
+      return tileRef(x - 1, y, w, h)
+    case 2:
+      return tileRef(x, y + 1, w, h)
+    default:
+      return tileRef(x, y - 1, w, h)
+  }
+}
+
+/**
  * Die 8 Nachbarn eines Tiles (orthogonal + diagonal) — alle wrap-aware.
  * Reihenfolge deterministisch: erst die 4 orthogonalen, dann die 4 Diagonalen.
  */
