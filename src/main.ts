@@ -34,6 +34,9 @@ import { NetworkTransport } from './net/transport'
 import { createSimHost } from './worker/sim-host'
 import { applyTickDelta, createShadow, fullRefresh } from './worker/shadow-state'
 import { buildTickDelta } from './worker/tick-delta'
+import { createSimClient, type SimController } from './worker/sim-client'
+import type { AiConfig } from './worker/sim-protocol'
+import type { Recorder } from './core/replay'
 import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -430,6 +433,14 @@ function startMatch(
   // So friert (Stufe 2: Sim im Worker) die Oberfläche nie ein, egal wie lange ein Tick rechnet. Hier
   // einmalig über den Voll-Snapshot-Pfad gebaut (rekonstruiert Terrain/Komponenten/Frontier).
   const shadow = createShadow(state)
+  // ?worker (ADR-0030 Stufe 2, opt-in, nur Single-Player): die Sim läuft im Web Worker, der
+  // Hauptthread hält nur den Schatten und friert nie ein. MP bleibt vorerst auf dem Nicht-Worker-
+  // Pfad (Stufe 3); der Nicht-Worker-Pfad ist weiter der Default/Fallback.
+  const useWorker = net === undefined && new URLSearchParams(window.location.search).has('worker')
+  // Quelle für die Sim-Event-Seiteneffekte (Sound/Musik/Phase-Ende/Ranked/Alarm): im Worker-Pfad
+  // tickt nur der Schatten (der `state` auf Main ist eingefroren) → dort den Schatten lesen; sonst
+  // den autoritativen `state` (dessen Boot-/Bomber-Objekte sind persistent → Sound-Dedup bleibt scharf).
+  const liveSim = useWorker ? shadow : state
   const renderer = createRenderer(container, shadow, localHumanId)
   // Geo-Karten (ADR-0016) sind meer-umrandete Kontinent-Ausschnitte → fest „Box (fest)" (eine
   // Welt-Kopie + harte Ränder), damit sie nicht kacheln/wrappen. Prozedural: Menü-Wahl.
@@ -461,7 +472,7 @@ function startMatch(
     },
   }
 
-  let lastPhase: 'running' | 'ended' = state.phase
+  let lastPhase: 'running' | 'ended' = liveSim.phase
   let endChimePlayed = false
   // „Du wirst angegriffen"-Ton: Set der Nationen, die gerade DICH angreifen; ein neuer Angreifer
   // löst den Alarm aus (mit Abklingzeit, damit es bei vielen Fronten nicht hämmert).
@@ -479,8 +490,8 @@ function startMatch(
   const SOUND_CUTOFF_VIEWPORTS = 1.5
   /** Pan (−1..1) + Lautstärke (0..1) eines Tiles relativ zur Kamera; `null` = außerhalb Hörweite. */
   function panGainForTile(tile: number): { pan: number; gain: number } | null {
-    const w = state.map.width
-    const h = state.map.height
+    const w = liveSim.map.width
+    const h = liveSim.map.height
     const tx = tile % w
     const ty = Math.floor(tile / w)
     const wrap = (a: number, b: number, size: number): number => {
@@ -514,16 +525,16 @@ function startMatch(
    * Client-Audio-Logik, nicht im State-Hash.
    */
   function computeMusicIntensity(): number {
-    if (state.phase !== 'running') return 0
+    if (liveSim.phase !== 'running') return 0
     let attacks = 0
-    for (const p of state.players.values()) attacks += p.attacks.length
+    for (const p of liveSim.players.values()) attacks += p.attacks.length
     const a = Math.min(1, attacks / 50)
-    const bombs = Math.min(1, state.bombImpacts.length / 5)
+    const bombs = Math.min(1, liveSim.bombImpacts.length / 5)
     // Verteidigen: jemand greift gerade DICH an.
     const defending = prevIncomingAttackers.size > 0 ? 0.25 : 0
     // Angreifen: eigene laufende Angriffe (+ ihre noch ausstehenden Reserve-Truppen) heben die
     // Intensität symmetrisch zum Verteidigen — Basis-Bump beim Loslegen, dann sanft mit der Menge.
-    const me = humanId >= 0 ? state.players.get(humanId) : undefined
+    const me = humanId >= 0 ? liveSim.players.get(humanId) : undefined
     let attacking = 0
     if (me !== undefined && me.attacks.length > 0) {
       let reserve = 0
@@ -533,7 +544,7 @@ function startMatch(
     // Bombardieren: ein eigener Bomber in der Luft (Anflug/Einschlag) treibt die Musik ebenfalls.
     let bombing = 0
     if (humanId >= 0) {
-      for (const b of state.bombers) {
+      for (const b of liveSim.bombers) {
         if (b.ownerId === humanId) {
           bombing = 0.3
           break
@@ -553,42 +564,61 @@ function startMatch(
   // Sim-Naht (ADR-0009): UI/Eingabe reichen Intents per `submit` ein, `tick()` läuft aus
   // `onCommitted`. Single-Player: LocalTransport mit lokaler Takt-Uhr + lokaler KI. Mehrspieler:
   // der schon verbundene NetworkTransport (KI + Takt auf dem Server).
+  // KI: im Nicht-Worker-Pfad lokal erzeugt; im Worker-Pfad erzeugt der Worker sie aus `aiConfigs`.
   const ais: AI[] = []
+  const aiConfigs: AiConfig[] = []
   if (net === undefined) {
     // Ranglisten-Match: alle (nicht-wilden) KI spielen exakt auf dem Spieler-ELO (ADR-0022).
     const rankedProfile = rankedElo !== undefined ? profileForElo(rankedElo) : undefined
     for (const p of state.players.values()) {
       if (p.isHuman) continue
-      // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
-      // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
-      const override = !p.wild ? rankedProfile : undefined
-      ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
+      if (useWorker) {
+        aiConfigs.push({ playerId: p.id, wild: p.wild === true })
+      } else {
+        // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
+        // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
+        const override = !p.wild ? rankedProfile : undefined
+        ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
+      }
     }
   }
 
-  // Sim-Treiber-Naht gekapselt (ADR-0030 Stufe 2): Transport + KI-Quelle + tick()-Treiben +
-  // Replay-Recorder + Desync-Hash-Meldung leben jetzt in `createSimHost` (browser-frei → später
-  // worker-tauglich). Dünne Aliase, damit die net-spezifischen Handler unten unverändert an
-  // `net.transport` hängen und die Steuer-Aufrufe (`transport.setRunning/setIntervalMs/destroy`)
-  // gleich bleiben.
-  const sim = createSimHost({
-    state,
-    ais,
-    netTransport: net?.transport,
-    intervalMs: SIM_BASE_INTERVAL_MS,
-    // Pro committetem Tick: Delta aus dem autoritativen `state` ziehen und auf den Render-Schatten
-    // anwenden (ADR-0030 Stufe 1b). `onAfterTick` läuft NACH `tick(state)` → `state.dirtyTiles` hält
-    // genau diesen Tick; `applyTickDelta` setzt `shadow.dirtyTiles`, danach zieht `collectDirty()` die
-    // geänderten Tiles inkrementell. Bei Owner-Overflow (große Front) hat der Schatten den Layer voll
-    // ersetzt → `invalidate()` (Voll-Rebake) statt inkrementell.
-    onAfterTick: () => {
-      const didFull = applyTickDelta(shadow, buildTickDelta(state))
-      if (didFull) renderer.invalidate()
-      else renderer.collectDirty()
-    },
-  })
-  const transport = sim.transport
-  const recorder = sim.recorder
+  // Renderer-Naht nach jedem auf den Schatten angewandten Delta: Owner-Overflow → Voll-Rebake,
+  // sonst inkrementell (collectDirty zieht shadow.dirtyTiles, auch über mehrere Ticks).
+  const onSimApplied = (didFull: boolean): void => {
+    if (didFull) renderer.invalidate()
+    else renderer.collectDirty()
+  }
+
+  // Sim-Treiber (ADR-0030): Worker-Pfad (`?worker`, SP) — die Sim tickt im Web Worker und schickt
+  // pro Tick ein Delta, der Main wendet es auf den Schatten an. Nicht-Worker-Pfad (Default/Fallback,
+  // auch MP) — `createSimHost` tickt den autoritativen `state` auf demselben Thread, der Schatten
+  // wird in `onAfterTick` aus `buildTickDelta` aktualisiert. Beide teilen die `SimController`-Naht
+  // (`submit`/`setRunning`/`setIntervalMs`/`destroy`).
+  let recorder: Recorder | undefined
+  let sim: SimController
+  if (useWorker) {
+    sim = createSimClient({
+      shadow,
+      config,
+      ais: aiConfigs,
+      difficulty: menu.difficulty,
+      ...(rankedElo !== undefined ? { rankedElo } : {}),
+      intervalMs: SIM_BASE_INTERVAL_MS,
+      onApplied: onSimApplied,
+    })
+  } else {
+    const host = createSimHost({
+      state,
+      ais,
+      netTransport: net?.transport,
+      intervalMs: SIM_BASE_INTERVAL_MS,
+      // `onAfterTick` läuft NACH `tick(state)` → `state.dirtyTiles` hält genau diesen Tick.
+      onAfterTick: () => onSimApplied(applyTickDelta(shadow, buildTickDelta(state))),
+    })
+    recorder = host.recorder
+    sim = host
+  }
   const rawSubmit = (intent: Intent): void => {
     sim.submit(intent)
   }
@@ -930,7 +960,7 @@ function startMatch(
           return
         }
         paused = !paused
-        transport.setRunning(!paused)
+        sim.setRunning(!paused)
         hud.setSpeed(paused ? 0 : speed)
       },
       cycleSpeed(dir): void {
@@ -940,7 +970,7 @@ function startMatch(
         const next = levels[Math.max(0, Math.min(levels.length - 1, idx + dir))]
         if (next === undefined || next === speed) return
         speed = next
-        transport.setIntervalMs(SIM_BASE_INTERVAL_MS / speed)
+        sim.setIntervalMs(SIM_BASE_INTERVAL_MS / speed)
         if (!paused) hud.setSpeed(speed)
       },
       recenterSelf(): void {
@@ -1183,7 +1213,7 @@ function startMatch(
       humanId,
       setPaused: (p) => {
         paused = p
-        transport.setRunning(!p)
+        sim.setRunning(!p)
         hud.setSpeed(p ? 0 : speed)
       },
       onFinish: () => {
@@ -1209,9 +1239,9 @@ function startMatch(
       if (!spectator && tutorial !== true) renderer.pulseSpawn(humanId)
     }
     // Sieg-/Niederlage-Ton genau einmal beim Phasen-Wechsel
-    if (state.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
+    if (liveSim.phase === 'ended' && lastPhase === 'running' && !endChimePlayed) {
       endChimePlayed = true
-      const won = state.winner === humanId
+      const won = liveSim.winner === humanId
       if (won) {
         sound.victory()
       } else {
@@ -1235,8 +1265,8 @@ function startMatch(
     // der Spieler säße bis dahin ohne Rückmeldung vor eingefrorenen Werten). Rein client-seitig
     // (kein Sim-State angefasst), greift in Solo wie Mehrspieler. Teilt sich `endChimePlayed` als
     // Einmal-Guard mit dem Sieg-Pfad oben → kein doppelter Ton / keine doppelte ELO-Wertung.
-    if (!endChimePlayed && !spectator && state.phase === 'running') {
-      const me = state.players.get(humanId)
+    if (!endChimePlayed && !spectator && liveSim.phase === 'running') {
+      const me = liveSim.players.get(humanId)
       if (me !== undefined && !me.isAlive) {
         endChimePlayed = true
         sound.defeat()
@@ -1256,12 +1286,12 @@ function startMatch(
         }
       }
     }
-    lastPhase = state.phase
+    lastPhase = liveSim.phase
     // Neuer eingehender Angriff auf dich → kurzer Alarm-Ton (nicht im Zuschauer-Modus).
-    if (humanId >= 0 && state.phase === 'running') {
+    if (humanId >= 0 && liveSim.phase === 'running') {
       const cur = new Set<number>()
       let newThreat = false
-      for (const p of state.players.values()) {
+      for (const p of liveSim.players.values()) {
         for (const atk of p.attacks) {
           if (atk.targetPlayerId === humanId) {
             cur.add(p.id)
@@ -1270,17 +1300,17 @@ function startMatch(
         }
       }
       prevIncomingAttackers = cur
-      if (newThreat && state.tick - lastAlarmTick >= ALARM_COOLDOWN_TICKS) {
-        lastAlarmTick = state.tick
+      if (newThreat && liveSim.tick - lastAlarmTick >= ALARM_COOLDOWN_TICKS) {
+        lastAlarmTick = liveSim.tick
         sound.alarm()
       }
     }
     // Schiff/Flugzeug/Bombe: neue State-Einträge → positionsabhängige Sounds (pro Client gefiltert).
-    if (state.phase === 'running' && sound.isEnabled()) {
+    if (liveSim.phase === 'running' && sound.isEnabled()) {
       // Bomben — jeder hört sie (Lautstärke nach Distanz), pro Frame begrenzt gegen Kakophonie.
       let bombsThisFrame = 0
       const nextSeenBomb = new Set<string>()
-      for (const imp of state.bombImpacts) {
+      for (const imp of liveSim.bombImpacts) {
         const key = `${String(imp.tile)}:${String(imp.atTick)}`
         nextSeenBomb.add(key)
         if (seenBombImpacts.has(key) || bombsThisFrame >= MAX_BOMB_SOUNDS_PER_FRAME) continue
@@ -1292,17 +1322,17 @@ function startMatch(
       }
       seenBombImpacts = nextSeenBomb
       // Bomber-Start — nur Starter (Besitzer) UND Ziel (Besitzer des Ziel-Tiles) hören es.
-      for (const b of state.bombers) {
+      for (const b of liveSim.bombers) {
         if (seenBombers.has(b)) continue
         seenBombers.add(b)
         if (humanId < 0) continue
-        if (b.ownerId === humanId || getOwner(state.map, b.targetTile) === humanId) {
+        if (b.ownerId === humanId || getOwner(liveSim.map, b.targetTile) === humanId) {
           const pg = panGainForTile(b.targetTile) ?? { pan: 0, gain: 0.85 }
           sound.planeLaunch(pg.pan, Math.max(0.5, pg.gain))
         }
       }
       // Transportboot — nur der eigene Versand (du selbst).
-      for (const bt of state.boats) {
+      for (const bt of liveSim.boats) {
         if (seenBoats.has(bt)) continue
         seenBoats.add(bt)
         if (humanId >= 0 && bt.ownerId === humanId) {
@@ -1314,7 +1344,7 @@ function startMatch(
     // Adaptiver Soundtrack (Prototyp): beim ersten laufenden Frame starten (User-Geste vorbei),
     // dann pro Frame die Intensität nachführen.
     if (music !== null) {
-      if (!musicStarted && state.phase === 'running') {
+      if (!musicStarted && liveSim.phase === 'running') {
         music.start()
         musicStarted = true
       }
@@ -1382,7 +1412,7 @@ function startMatch(
   // HUD-Sandbox (aus den Einstellungen geöffnet): Match pausieren und den Editor sofort aufmachen,
   // damit man das HUD am echten Layout einrichten kann, ohne ein echtes Spiel zu starten.
   if (hudSandbox === true) {
-    transport.setRunning(false)
+    sim.setRunning(false)
     hud.setSpeed(0)
     paused = true
     hudEditor.open()
@@ -1391,7 +1421,7 @@ function startMatch(
   return {
     destroy(): void {
       destroyed = true
-      transport.destroy()
+      sim.destroy()
       if (renderRafId !== null) {
         cancelAnimationFrame(renderRafId)
         renderRafId = null

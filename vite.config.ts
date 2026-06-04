@@ -132,6 +132,11 @@ function hudDefaultsPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [appVersionPlugin(), lockstepServerPlugin(), hudDefaultsPlugin()],
+  // Sim-Worker (ADR-0030 Stufe 2) wird via `new Worker(new URL('./sim.worker.ts', import.meta.url),
+  // { type: 'module' })` geladen → ES-Module-Worker auch im Production-Build (statt iife).
+  worker: {
+    format: 'es',
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

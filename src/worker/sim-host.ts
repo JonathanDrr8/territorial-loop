@@ -51,6 +51,14 @@ export interface SimHostOptions {
    * heute ungenutzt.
    */
   readonly onAfterTick?: (turn: number, intents: readonly Intent[]) => void
+  /**
+   * Optionale Takt-Uhr für den `LocalTransport` (Single-Player). Default ist `window` — im Web Worker
+   * (ADR-0030 Stufe 2) gibt es kein `window`, dort wird ein `self`-basierter Timer injiziert.
+   */
+  readonly timer?: {
+    setInterval(handler: () => void, ms: number): number
+    clearInterval(id: number): void
+  }
 }
 
 export function createSimHost(opts: SimHostOptions): SimHost {
@@ -68,6 +76,7 @@ export function createSimHost(opts: SimHostOptions): SimHost {
       },
       intervalMs,
       running: true,
+      ...(opts.timer !== undefined ? { timer: opts.timer } : {}),
     })
 
   // Jeden committeten Turn mitschneiden → Replay-Log (config + turns) reproduziert das Match
