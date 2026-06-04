@@ -3,10 +3,26 @@ import { describe, expect, it } from 'vitest'
 import { createGame, tick, type GameConfig } from '../src/core/game'
 import { hashState } from '../src/core/hash'
 import type { Intent } from '../src/core/intent'
+import type { Warship } from '../src/core/ships'
 import { getOwner } from '../src/world/map'
 import { neighbors4 } from '../src/world/torus'
 import { buildTickDelta } from '../src/worker/tick-delta'
 import { applyTickDelta, createShadow } from '../src/worker/shadow-state'
+
+/** Minimal-Kriegsschiff für die Schiff-Listen-Tests (synthetisch; Kämpfe wären zu aufwändig). */
+function makeWarship(overrides: Partial<Warship> = {}): Warship {
+  return {
+    ownerId: 1,
+    path: [1, 2],
+    progress: 0,
+    dir: 1,
+    hp: 4,
+    cooldown: 0,
+    mode: 'patrol',
+    returning: false,
+    ...overrides,
+  }
+}
 
 function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
   return {
@@ -115,5 +131,61 @@ describe('TickDelta / Schatten-State (ADR-0030 — Sim-auf-Worker-Naht)', () => 
     for (const id of [1, 2, 3]) {
       expect(shadow.players.get(id)?.frontier.size).toBe(s.players.get(id)?.frontier.size)
     }
+  })
+
+  it('render-flüchtige Listen landen im Schatten (goldPops/bombImpacts/flakShots/projectiles)', () => {
+    const s = createGame(cfg())
+    const shadow = createShadow(s)
+    // Synthetische Render-Einträge — die entstehen sonst nur in Spätspiel-Kämpfen.
+    s.goldPops.push({ tile: 5, amount: 300, ownerId: 1, atTick: s.tick })
+    s.bombImpacts.push({ tile: 9, atTick: s.tick })
+    s.flakShots.push({ fromX: 1, fromY: 2, toX: 3, toY: 4, atTick: s.tick, ownerId: 2 })
+    const target = makeWarship({ ownerId: 2, path: [20, 21], progress: 0.5 })
+    s.projectiles.push({
+      shooter: makeWarship({ path: [10, 11, 12], progress: 1.5 }),
+      target,
+      targetKind: 'warship',
+      fromX: 1,
+      fromY: 1,
+      travel: 1,
+      impactAt: 5,
+    })
+
+    applyTickDelta(shadow, buildTickDelta(s))
+
+    expect(shadow.goldPops).toEqual(s.goldPops)
+    expect(shadow.bombImpacts).toEqual(s.bombImpacts)
+    expect(shadow.flakShots).toEqual(s.flakShots)
+    expect(shadow.projectiles.length).toBe(1)
+    const p = shadow.projectiles[0]
+    // Ziel-Position (path/progress) übernommen — aber als eigenständige Kopie (postMessage-sicher),
+    // KEINE lebende Referenz aufs State-Schiff.
+    expect(p?.target.path).toEqual([20, 21])
+    expect(p?.target.progress).toBe(0.5)
+    expect(p?.target).not.toBe(target)
+  })
+
+  it('Schiff-Identität bleibt bei gleicher Länge erhalten, bricht bei Längenänderung', () => {
+    const s = createGame(cfg())
+    const shadow = createShadow(s)
+    s.warships.push(makeWarship({ path: [1, 2] }), makeWarship({ path: [3, 4] }))
+    applyTickDelta(shadow, buildTickDelta(s))
+    expect(shadow.warships.length).toBe(2)
+    const ref0 = shadow.warships[0]
+    const ref1 = shadow.warships[1]
+
+    // Tick ohne Längenänderung (nur progress ändert sich) → gleiche Schatten-Objekte (Identität).
+    const ws0 = s.warships[0]
+    if (ws0 !== undefined) ws0.progress = 0.7
+    applyTickDelta(shadow, buildTickDelta(s))
+    expect(shadow.warships[0]).toBe(ref0)
+    expect(shadow.warships[1]).toBe(ref1)
+    expect(shadow.warships[0]?.progress).toBe(0.7) // Wert wurde in-place aktualisiert
+
+    // Längenänderung (ein Schiff entfernt) → Neuaufbau, Identität bricht erwartungsgemäß.
+    s.warships.pop()
+    applyTickDelta(shadow, buildTickDelta(s))
+    expect(shadow.warships.length).toBe(1)
+    expect(shadow.warships[0]).not.toBe(ref0)
   })
 })

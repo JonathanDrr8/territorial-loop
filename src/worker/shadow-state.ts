@@ -19,6 +19,24 @@ import type { SerializedGameState } from '../core/serialize'
 import { getOwner } from '../world/map'
 import type { TickDelta } from './tick-delta'
 
+/**
+ * Schiff-Liste identitäts-erhaltend übernehmen: bei GLEICHER Länge die vorhandenen Schatten-Objekte
+ * in-place aktualisieren (`Object.assign`) → ihre Objekt-Identität bleibt über Ticks erhalten, sodass
+ * main-seitige Identitäts-Caches (Kriegsschiff-Box-Auswahl im Renderer als `Set<Warship>`, perspektivisch
+ * die Sound-Dedup) weiter greifen. Ändert sich die Länge (Schiff gespawnt/gestorben), wird die Liste neu
+ * aufgebaut (Auswahl-Verlust dort akzeptiert — selten, harmlos). Die `src`-Elemente sind bereits frische
+ * Deep-Copies (aus `buildTickDelta` bzw. strukturell geklont über `postMessage`), inkl. eigener `path`.
+ */
+function reconcileShips<T extends object>(prev: T[], src: readonly T[]): T[] {
+  if (prev.length !== src.length) return src.slice()
+  for (let i = 0; i < src.length; i++) {
+    const dst = prev[i]
+    const next = src[i]
+    if (dst !== undefined && next !== undefined) Object.assign(dst, next)
+  }
+  return prev
+}
+
 /** Initialer Schatten aus dem aktuellen autoritativen State (über den Voll-Snapshot-Pfad). */
 export function createShadow(state: GameState): GameState {
   return deserializeState(serializeState(state))
@@ -86,12 +104,18 @@ export function applyTickDelta(shadow: GameState, delta: TickDelta): boolean {
 
   // --- dynamische Listen (eigene mutable Kopien für den Schatten) ---
   shadow.buildings = new Map(delta.buildings.map(([t, b]) => [t, { ...b }]))
-  shadow.boats = delta.boats.map((b) => ({ ...b, path: [...b.path] }))
-  shadow.tradeShips = delta.tradeShips.map((t) => ({ ...t, path: [...t.path] }))
-  shadow.goldCarts = delta.goldCarts.map((c) => ({ ...c, path: [...c.path] }))
-  shadow.warships = delta.warships.map((w) => ({ ...w, path: [...w.path] }))
-  shadow.bombers = delta.bombers.map((b) => ({ ...b, path: [...b.path] }))
+  // Schiffe identitäts-erhaltend (s. reconcileShips) — sonst bräche die Kriegsschiff-Box-Auswahl.
+  shadow.boats = reconcileShips(shadow.boats, delta.boats)
+  shadow.tradeShips = reconcileShips(shadow.tradeShips, delta.tradeShips)
+  shadow.goldCarts = reconcileShips(shadow.goldCarts, delta.goldCarts)
+  shadow.warships = reconcileShips(shadow.warships, delta.warships)
+  shadow.bombers = reconcileShips(shadow.bombers, delta.bombers)
   shadow.events = delta.events.map((e) => ({ ...e }))
+  // Render-flüchtige Listen (nicht hash-relevant) — der Renderer liest sie aus dem Schatten.
+  shadow.goldPops = delta.goldPops.map((g) => ({ ...g }))
+  shadow.projectiles = delta.projectiles.map((p) => ({ ...p }))
+  shadow.bombImpacts = delta.bombImpacts.map((b) => ({ ...b }))
+  shadow.flakShots = delta.flakShots.map((f) => ({ ...f }))
 
   // --- Diplomatie/Beziehungen (readonly Collections → in-place leeren + neu füllen) ---
   shadow.alliances.clear()

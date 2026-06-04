@@ -32,6 +32,8 @@ import type { Intent } from './core/intent'
 import { APP_VERSION } from 'virtual:app-version'
 import { NetworkTransport } from './net/transport'
 import { createSimHost } from './worker/sim-host'
+import { applyTickDelta, createShadow, fullRefresh } from './worker/shadow-state'
+import { buildTickDelta } from './worker/tick-delta'
 import { t } from './i18n'
 import { createInputHandler, type InputHandler } from './input/input'
 import { createRenderer } from './render/renderer'
@@ -423,7 +425,12 @@ function startMatch(
   const localHumanId = spectator ? -1 : humanId
   // Reconnect lädt den Server-Snapshot direkt als State; sonst frisch generieren.
   const state = net?.initialState ?? createGame(config)
-  const renderer = createRenderer(container, state, localHumanId)
+  // Schatten-State (ADR-0030 Stufe 1b): die Sim tickt den autoritativen `state`, Render/HUD/Input
+  // lesen aber aus diesem read-only Schatten, der pro Tick aus `buildTickDelta` aktualisiert wird.
+  // So friert (Stufe 2: Sim im Worker) die Oberfläche nie ein, egal wie lange ein Tick rechnet. Hier
+  // einmalig über den Voll-Snapshot-Pfad gebaut (rekonstruiert Terrain/Komponenten/Frontier).
+  const shadow = createShadow(state)
+  const renderer = createRenderer(container, shadow, localHumanId)
   // Geo-Karten (ADR-0016) sind meer-umrandete Kontinent-Ausschnitte → fest „Box (fest)" (eine
   // Welt-Kopie + harte Ränder), damit sie nicht kacheln/wrappen. Prozedural: Menü-Wahl.
   renderer.setCameraMode(config.mapId !== undefined ? 'fixed' : menu.cameraMode)
@@ -442,7 +449,8 @@ function startMatch(
   const music = !spectator && audio.master > 0 && audio.music > 0 ? createMusicEngine() : null
   music?.setVolume(audio.master * audio.music)
   ;(window as unknown as { __TL__: unknown }).__TL__ = {
-    state,
+    state, // autoritativ (für Hash-Debugging / Determinismus-Checks)
+    shadow, // read-only Render-Schatten (ADR-0030)
     renderer,
     sound,
     music,
@@ -568,9 +576,16 @@ function startMatch(
     ais,
     netTransport: net?.transport,
     intervalMs: SIM_BASE_INTERVAL_MS,
-    // Pro committetem Tick die Dirty-Tiles an den Renderer reichen, BEVOR der nächste Tick sie leert
-    // → der Renderer zieht auch übersprungene Ticks inkrementell nach (kein Voll-Rebake-Ruckler).
-    onAfterTick: () => renderer.collectDirty(),
+    // Pro committetem Tick: Delta aus dem autoritativen `state` ziehen und auf den Render-Schatten
+    // anwenden (ADR-0030 Stufe 1b). `onAfterTick` läuft NACH `tick(state)` → `state.dirtyTiles` hält
+    // genau diesen Tick; `applyTickDelta` setzt `shadow.dirtyTiles`, danach zieht `collectDirty()` die
+    // geänderten Tiles inkrementell. Bei Owner-Overflow (große Front) hat der Schatten den Layer voll
+    // ersetzt → `invalidate()` (Voll-Rebake) statt inkrementell.
+    onAfterTick: () => {
+      const didFull = applyTickDelta(shadow, buildTickDelta(state))
+      if (didFull) renderer.invalidate()
+      else renderer.collectDirty()
+    },
   })
   const transport = sim.transport
   const recorder = sim.recorder
@@ -585,11 +600,11 @@ function startMatch(
   const treasonAllyName = (intent: Intent): string | null => {
     if (intent.type !== 'attack' && intent.type !== 'boat') return null
     const tile = intent.targetTile
-    if (tile < 0 || tile >= state.map.state.length) return null
-    const owner = getOwner(state.map, tile)
+    if (tile < 0 || tile >= shadow.map.state.length) return null
+    const owner = getOwner(shadow.map, tile)
     if (owner <= 0 || owner === humanId) return null
-    if (!areAllied(state.alliances, humanId, owner)) return null
-    return state.players.get(owner)?.name ?? null
+    if (!areAllied(shadow.alliances, humanId, owner)) return null
+    return shadow.players.get(owner)?.name ?? null
   }
 
   // Angriff/Boot auf einen Verbündeten erst nach Bestätigung absenden (= Verrat, Ächtung).
@@ -619,7 +634,7 @@ function startMatch(
 
   const hud = createHUD(
     container,
-    state,
+    shadow,
     (pct) => {
       sliderPct = pct
     },
@@ -636,11 +651,11 @@ function startMatch(
         type: 'defend',
         playerId: humanId,
         attackerId,
-        troops: Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
+        troops: Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
       }),
     (tile) => {
       // ⌖ „Zum Kampf springen": Kamera auf das (Front-)Tile zentrieren.
-      const w = state.map.width
+      const w = shadow.map.width
       renderer.camera.x = (tile % w) + 0.5
       renderer.camera.y = Math.floor(tile / w) + 0.5
     },
@@ -656,6 +671,7 @@ function startMatch(
   // weiter zu driften.
   net?.transport.setSnapshotHandler((_turn, snap) => {
     loadSnapshotInto(state, snap)
+    fullRefresh(shadow, snap) // Schatten gleich mit-resyncen (ADR-0030), sonst rendert er veraltet
     renderer.invalidate()
     hud.flashResync()
   })
@@ -689,7 +705,7 @@ function startMatch(
 
   const minimap = createMinimap({
     container,
-    state,
+    state: shadow,
     camera: renderer.camera,
     getBitmap: renderer.getBitmap,
     getViewportSize: () => ({
@@ -701,9 +717,9 @@ function startMatch(
 
   const tooltip = createHoverTooltip(
     container,
-    state,
+    shadow,
     humanId,
-    () => Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
+    () => Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
     (h) => renderer.setHoverHighlight(h),
   )
   // Gemeinsame Feed-Spalte unten rechts, ÜBER der Minimap (klassisches Layout): oben die
@@ -733,7 +749,7 @@ function startMatch(
   // Reihenfolge zählt: Bündnis-Karten zuerst (oben), Log danach (unten, direkt über der Minimap).
   const alliancePrompt = createAlliancePrompt(
     feedColumn,
-    state,
+    shadow,
     humanId,
     (requesterId) =>
       submit({
@@ -744,7 +760,7 @@ function startMatch(
     (requesterId) => submit({ type: 'decline-alliance', playerId: humanId, requesterId }),
     () => sound.alliance(),
   )
-  const eventLog = createEventLog(feedColumn, state, centerCamera)
+  const eventLog = createEventLog(feedColumn, shadow, centerCamera)
 
   // HUD-Editor (ADR-0024 Phase 3): „HUD anpassen"-Knopf oben links → Panels verschieben/
   // skalieren/ausblenden, Design wählen. Alle Panels sind jetzt registriert.
@@ -762,10 +778,10 @@ function startMatch(
 
   const buildMenu = createBuildMenu(
     container,
-    state,
+    shadow,
     humanId,
     (intent) => submit(intent),
-    () => Math.floor(((state.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
+    () => Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
   )
 
   const confirmDialog = createConfirmDialog(container)
@@ -820,13 +836,13 @@ function startMatch(
   const input = createInputHandler({
     canvas: renderer.canvas,
     camera: renderer.camera,
-    mapWidth: state.map.width,
-    mapHeight: state.map.height,
+    mapWidth: shadow.map.width,
+    mapHeight: shadow.map.height,
     playerId: humanId,
     interactive: !spectator,
     cameraMode: menu.cameraMode,
     emit: (intent) => submit(intent),
-    getPlayerTroops: () => state.players.get(humanId)?.troops ?? 0,
+    getPlayerTroops: () => shadow.players.get(humanId)?.troops ?? 0,
     getSliderPct: () => sliderPct,
     setSliderPct: (pct) => {
       sliderPct = pct
@@ -884,25 +900,25 @@ function startMatch(
       buildMenu.open(tile, screenX, screenY)
     },
     canPlaceBuilding: (tile, type) => {
-      if (!canBuildAt(state, humanId, tile, type)) return false
+      if (!canBuildAt(shadow, humanId, tile, type)) return false
       // Auf bestehendem Gebäude = Upgrade (Level-Feld ignoriert) → keine Level-Direktbau-Kosten.
-      if (state.buildings.has(tile)) return true
+      if (shadow.buildings.has(tile)) return true
       // Level-Direktbau: canBuildAt prüft nur die L1-Kosten — das gewählte Ziel-Level muss voll
       // bezahlbar sein, sonst Geist rot (und der Klick platziert nichts).
       const level = inputHandler?.getBuildLevel() ?? 1
       if (level <= 1) return true
-      const me = state.players.get(humanId)
-      return me !== undefined && me.gold >= buildCostAtLevel(state, humanId, type, level)
+      const me = shadow.players.get(humanId)
+      return me !== undefined && me.gold >= buildCostAtLevel(shadow, humanId, type, level)
     },
-    snapBuildTarget: (tile, type) => snapBuildTile(state, humanId, tile, type),
+    snapBuildTarget: (tile, type) => snapBuildTile(shadow, humanId, tile, type),
     // Doppelklick-Boot: nur fremdes/neutrales LAND, das NICHT über Land erreichbar ist (also reine
     // Wasser-Anbindung) → ein Land-Angriff wäre wirkungslos, gemeint ist ein Transportboot.
     shouldBoatTo: (tile) =>
-      isLand(state.map.terrain, tile) &&
-      getOwner(state.map, tile) !== humanId &&
-      !canReachByLand(state, humanId, tile),
+      isLand(shadow.map.terrain, tile) &&
+      getOwner(shadow.map, tile) !== humanId &&
+      !canReachByLand(shadow, humanId, tile),
     // Touch: Tipp auf eigenes Gebiet wirkt wie Shift+Linksklick (Rundum-Ausbreiten).
-    ownsTile: (tile) => getOwner(state.map, tile) === humanId,
+    ownsTile: (tile) => getOwner(shadow.map, tile) === humanId,
     // Drag-Platzieren: nur den Bau-Geist schieben (kein Tooltip, das das Gebäude verdecken würde).
     onBuildPreviewMove: (worldX, worldY) => renderer.setHoverTile(worldX, worldY),
     events: {
@@ -975,14 +991,14 @@ function startMatch(
     // Live-Baupreis je Gebäude fürs Bau-Rad (grün=bezahlbar, rot=zu teuer) — auf dem Handy
     // sieht man sonst weder Preis noch Gold beim Tippen.
     buildInfo: (tp) => {
-      const meP = humanId >= 0 ? state.players.get(humanId) : undefined
-      const cost = humanId >= 0 ? buildCostFor(state, humanId, tp) : 0
+      const meP = humanId >= 0 ? shadow.players.get(humanId) : undefined
+      const cost = humanId >= 0 ? buildCostFor(shadow, humanId, tp) : 0
       return { cost, affordable: meP !== undefined && meP.gold >= cost }
     },
     // Pro-Level-Kosten fürs Direktbauen (Stufen-Leiste im Bau-Rad).
     buildLevelInfo: (tp, level) => {
-      const meP = humanId >= 0 ? state.players.get(humanId) : undefined
-      const cost = humanId >= 0 ? buildCostAtLevel(state, humanId, tp, level) : 0
+      const meP = humanId >= 0 ? shadow.players.get(humanId) : undefined
+      const cost = humanId >= 0 ? buildCostAtLevel(shadow, humanId, tp, level) : 0
       return { cost, affordable: meP !== undefined && meP.gold >= cost }
     },
     onSetBuildLevel: (level) => inputHandler?.setBuildLevel(level),
@@ -1181,7 +1197,7 @@ function startMatch(
 
   function renderLoop(): void {
     if (destroyed) return
-    tutorialApi?.tick(state)
+    tutorialApi?.tick(shadow)
     // Erste Zentrierung wiederholen, sobald das Canvas garantiert final dimensioniert
     // ist (initialer Aufruf kann vor dem finalen Layout passieren).
     if (recenterPending) {
@@ -1322,7 +1338,8 @@ function startMatch(
     // würde man sie übersehen, weil der Feed im Tab statt frei sichtbar liegt.
     if (mobileCockpit) mobileTopbar.setRankAlert(alliancePrompt.pendingCount() > 0)
     // Cockpit-Rad (Mobile): Live-Werte ins Rad — Truppen/Rate/Gold/Rang/% + „unter Angriff".
-    const me = state.players.get(humanId)
+    // Reine Anzeige → liest den Schatten (ADR-0030).
+    const me = shadow.players.get(humanId)
     if (me !== undefined && me.isAlive && !spectator) {
       const troops = totalTroops(me)
       const nowMs = performance.now()
@@ -1335,16 +1352,18 @@ function startMatch(
         wheelRatePrevMs = nowMs
       }
       const totalTiles =
-        state.passableLandCount > 0 ? state.passableLandCount : state.map.width * state.map.height
+        shadow.passableLandCount > 0
+          ? shadow.passableLandCount
+          : shadow.map.width * shadow.map.height
       let rankPos = 1
       let underAttack = false
-      for (const p of state.players.values()) {
+      for (const p of shadow.players.values()) {
         if (p.id !== humanId && p.isAlive && !p.wild && totalTroops(p) > troops) rankPos++
         for (const atk of p.attacks) if (atk.targetPlayerId === humanId) underAttack = true
       }
       const wheelStats = {
         troops,
-        cap: effectiveMaxTroops(state, humanId),
+        cap: effectiveMaxTroops(shadow, humanId),
         rate: wheelRate,
         gold: me.gold,
         rankPos,

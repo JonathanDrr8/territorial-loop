@@ -17,7 +17,7 @@
 
 import type { Building } from '../core/buildings'
 import type { GameEvent, GamePhase, GameState, Player } from '../core/game'
-import type { Boat, Bomber, GoldCart, TradeShip, Warship } from '../core/ships'
+import type { Boat, Bomber, GoldCart, Projectile, TradeShip, Warship } from '../core/ships'
 import type { TileRef } from '../world/torus'
 
 /** Spieler-Felder ohne das ableitbare `frontier`-Set (wie `SerializedPlayer` in serialize.ts). */
@@ -48,6 +48,16 @@ export interface TickDelta {
   readonly goodwill: readonly (readonly [number, number])[]
   readonly recentCaptures: readonly (readonly [TileRef, number])[]
   readonly events: readonly GameEvent[]
+  /**
+   * Render-flüchtige Listen (Explosionen/+Gold/Flak-Spuren/Projektile) — NICHT hash-/serialisiert,
+   * aber der Renderer (liest künftig den Schatten) braucht sie fürs Zeichnen. Deep-Copy in
+   * `buildTickDelta`; bei `Projectile` wird das Ziel als eigenständige Kopie mit `path`+`progress`
+   * mitgegeben (postMessage-sicher — `shipWorldPos` braucht nur diese beiden Felder).
+   */
+  readonly goldPops: GameState['goldPops']
+  readonly projectiles: readonly Projectile[]
+  readonly bombImpacts: GameState['bombImpacts']
+  readonly flakShots: GameState['flakShots']
 }
 
 /** Ab dieser Delta-Größe (Anteil der Karte) lohnt sich ein Voll-Owner-Transfer statt vieler Einzel-Tiles. */
@@ -100,5 +110,16 @@ export function buildTickDelta(state: GameState): TickDelta {
     goodwill: [...state.goodwill.entries()],
     recentCaptures: [...state.recentCaptures.entries()],
     events: state.events.map((e) => ({ ...e })),
+    goldPops: state.goldPops.map((g) => ({ ...g })),
+    // Projektil: Schütze + Ziel als eigenständige Kopien (mit eigener `path`-Kopie) — sonst hielte
+    // das Delta lebende Schiff-Referenzen (bräche über `postMessage`); der Renderer liest aus dem
+    // Ziel nur `path`/`progress` (Flugbahn-Interpolation).
+    projectiles: state.projectiles.map((p) => ({
+      ...p,
+      shooter: { ...p.shooter, path: [...p.shooter.path] },
+      target: { ...p.target, path: [...p.target.path] },
+    })),
+    bombImpacts: state.bombImpacts.map((b) => ({ ...b })),
+    flakShots: state.flakShots.map((f) => ({ ...f })),
   }
 }
