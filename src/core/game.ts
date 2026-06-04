@@ -4514,7 +4514,13 @@ export function updateFrontierAfterCapture(
   newOwner: number,
 ): void {
   const { map, players } = state
-  const { width, height } = map
+  // Hotpath (Perf, bit-identisch): Array-Refs hoisten, ref's 4 Nachbarn EINMAL berechnen (statt 8×
+  // tileNeighbor4) + isPassable/getOwner inline. Reihenfolge dir 0=E,1=W,2=S,3=N unverändert → exakt
+  // dieselbe Frontier-add/delete-Reihenfolge (treibt collectAttackableTiles, daher hash-relevant).
+  const w = map.width
+  const h = map.height
+  const terr = map.terrain
+  const st = map.state
 
   if (oldOwner > 0) {
     players.get(oldOwner)?.frontier.delete(ref)
@@ -4523,12 +4529,21 @@ export function updateFrontierAfterCapture(
   const newPlayer = players.get(newOwner)
   if (newPlayer === undefined) return
 
-  // Ist `ref` neue Frontier von `newOwner`? (allokationsfreie Nachbar-Iteration, Perf R1)
+  const ry = (ref / w) | 0
+  const rx = ref - ry * w
+  const rn0 = ry * w + (rx + 1 < w ? rx + 1 : 0)
+  const rn1 = ry * w + (rx - 1 >= 0 ? rx - 1 : w - 1)
+  const rn2 = (ry + 1 < h ? ry + 1 : 0) * w + rx
+  const rn3 = (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
+
+  // Ist `ref` neue Frontier von `newOwner`? (irgendein passabler Nachbar ≠ newOwner)
   let refIsFrontier = false
   for (let d = 0; d < 4; d++) {
-    const n = tileNeighbor4(ref, width, height, d)
-    if (!isPassable(map.terrain, n)) continue
-    if (getOwner(map, n) !== newOwner) {
+    const n = d === 0 ? rn0 : d === 1 ? rn1 : d === 2 ? rn2 : rn3
+    const tv = terr[n]
+    if (tv === undefined || (tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT)
+      continue
+    if (((st[n] ?? 0) & OWNER_MASK) !== newOwner) {
       refIsFrontier = true
       break
     }
@@ -4537,19 +4552,34 @@ export function updateFrontierAfterCapture(
 
   // Nachbar-Status updaten
   for (let d = 0; d < 4; d++) {
-    const n = tileNeighbor4(ref, width, height, d)
-    const nOwner = getOwner(map, n)
+    const n = d === 0 ? rn0 : d === 1 ? rn1 : d === 2 ? rn2 : rn3
+    const nOwner = (st[n] ?? 0) & OWNER_MASK
     if (nOwner === 0) continue
     const nPlayer = players.get(nOwner)
     if (nPlayer === undefined) continue
 
     if (nOwner === newOwner) {
-      // n gehört newOwner — muss prüfen ob noch Land-Fremd-Nachbarn da sind
+      // n gehört newOwner — prüfen ob noch passable Land-Fremd-Nachbarn da sind
+      const ny = (n / w) | 0
+      const nx = n - ny * w
       let stillFrontier = false
       for (let dd = 0; dd < 4; dd++) {
-        const nn = tileNeighbor4(n, width, height, dd)
-        if (!isPassable(map.terrain, nn)) continue
-        if (getOwner(map, nn) !== newOwner) {
+        const nn =
+          dd === 0
+            ? ny * w + (nx + 1 < w ? nx + 1 : 0)
+            : dd === 1
+              ? ny * w + (nx - 1 >= 0 ? nx - 1 : w - 1)
+              : dd === 2
+                ? (ny + 1 < h ? ny + 1 : 0) * w + nx
+                : (ny - 1 >= 0 ? ny - 1 : h - 1) * w + nx
+        const tv = terr[nn]
+        if (
+          tv === undefined ||
+          (tv & IS_LAND_BIT) === 0 ||
+          (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT
+        )
+          continue
+        if (((st[nn] ?? 0) & OWNER_MASK) !== newOwner) {
           stillFrontier = true
           break
         }
