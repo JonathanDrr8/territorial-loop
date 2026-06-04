@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.52.5] – 2026-06-04
+
+### Behoben
+
+- **Weniger Ruckler in Firefox:** Zwei Stellen entfernt, an denen Firefox bei Gleitkomma-Rechnungen
+  ausgebremst wurde — das Zeichnen der vielen runden Marker (Nationen/Schiffe/Ringe) läuft jetzt über
+  Bézier-Kurven statt `arc()`, und das Karten-Wrapping (Torus) nimmt für die häufigsten Werte einen
+  schnellen Abkürzungs-Pfad. Beides ist bit-genau dasselbe Ergebnis (Aussehen und Multiplayer
+  unverändert), nur ohne die Firefox-Bremse. Die großen Spätspiel-Hänger haben eine andere Ursache
+  (die Simulation selbst) und werden separat angegangen.
+
 ## [0.52.4] – 2026-06-03
 
 ### Behoben

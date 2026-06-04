@@ -1,6 +1,6 @@
 {
   "name": "territorial-loop",
-  "version": "0.52.4",
+  "version": "0.52.5",
   "private": true,
   "type": "module",
   "description": "Territorial-RTS Browserspiel mit loopender Spielwelt (Torus-Topologie)",

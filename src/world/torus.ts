@@ -19,6 +19,14 @@ export type TileRef = number
  * negativen Werten negativ bleibt.
  */
 export function wrap(v: number, dim: number): number {
+  // Schnellpfad: liegt v bereits in [0, dim) — der mit Abstand häufigste Fall (alle Tiles außer am
+  // Karten-Rand, alle bereits-gewrappten Koordinaten) — direkt zurückgeben. BIT-IDENTISCH zur
+  // Formel unten (für v in [0,dim) gilt `((v%dim)+dim)%dim === v`), also MP-deterministisch.
+  // Grund: `%` auf JS-Zahlen kompiliert SpiderMonkey (Firefox) zu einem `fmod`-Aufruf (V8 inlined es),
+  // der bei Millionen Wrap-Aufrufen pro Spätspiel-Tick den Hauptthread sekundenlang blockiert
+  // (gemessen per eu-stack auf echter Firefox: __fmod = heißester Sim-Leaf). Der Schnellpfad meidet
+  // beide `%` im Normalfall komplett.
+  if (v >= 0 && v < dim) return v
   return ((v % dim) + dim) % dim
 }
 

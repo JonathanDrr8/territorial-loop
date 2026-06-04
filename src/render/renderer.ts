@@ -455,8 +455,12 @@ interface CaptureFlash {
   startTime: number
 }
 
-function get2dContext(canvas: HTMLCanvasElement, label: string): CanvasRenderingContext2D {
-  const ctx = canvas.getContext('2d')
+function get2dContext(
+  canvas: HTMLCanvasElement,
+  label: string,
+  options?: CanvasRenderingContext2DSettings,
+): CanvasRenderingContext2D {
+  const ctx = canvas.getContext('2d', options)
   if (ctx === null) {
     throw new Error(`Renderer: 2D context for ${label} not available`)
   }
@@ -484,14 +488,16 @@ export function createRenderer(
   screenCtx.imageSmoothingEnabled = false
 
   // Offscreen canvas in Map-Auflösung. Wird nie in den DOM gehängt, nur intern gebacken + per
-  // drawImage aufs Screen-Canvas. (HTMLCanvasElement statt OffscreenCanvas: Firefox routet
-  // OffscreenCanvas-2D über den GPU-Pfad → periodische putImageData/drawImage-Sync-Stalls. Der
-  // Worker-Umbau bringt OffscreenCanvas via transferControlToOffscreen in Stufe 4 zurück — dort
-  // läuft das Rendern off-main-thread, GPU-Sync friert die UI dann nicht mehr ein. Siehe ADR-0030.)
+  // drawImage aufs Screen-Canvas.
+  // `willReadFrequently: true` zwingt Firefox, dieses Canvas im SOFTWARE-/CPU-Speicher zu halten statt
+  // auf der GPU. Wir schreiben pro Sim-Tick per `putImageData` rein — auf einem GPU-beschleunigten
+  // Canvas löst genau das in Firefox periodische CPU↔GPU-Sync-Stopps aus (komplette Standbilder NUR
+  // während das Spiel läuft, zoom-unabhängig; Chrome/headless betroffen nicht). CPU-Backing → das
+  // `putImageData` ist ein billiger memcpy, der drawImage-Blit aufs (GPU-)Screen-Canvas bleibt schnell.
   const offscreen = document.createElement('canvas')
   offscreen.width = state.map.width
   offscreen.height = state.map.height
-  const offscreenCtx = get2dContext(offscreen, 'offscreen')
+  const offscreenCtx = get2dContext(offscreen, 'offscreen', { willReadFrequently: true })
   const imageData = offscreenCtx.createImageData(state.map.width, state.map.height)
 
   // Viewport (CSS-Pixel) + Geräte-Pixeldichte — EINMAL pro Resize gesetzt, NICHT pro Frame aus dem
@@ -1252,6 +1258,24 @@ export function createRenderer(
   }
 
   /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
+  // Vollkreis als Pfad OHNE ctx.arc(): Firefox' arc() normalisiert den Winkel intern per `fmod` —
+  // bei hunderten Kreisen pro Frame (Nationen-/Schiff-Marker, Reichweiten-Ringe, Eroberungs-Funken)
+  // war das auf Firefox-GPU der GEMESSENE Haupt-Standbild-Verursacher (eu-stack auf Jonathans echter
+  // Firefox: heißester rechnender Leaf = __fmod, aufgerufen aus genau einer Canvas-Funktion aus unserem
+  // Render-JS; Chrome/headless haben eine schnellere arc-Implementierung → dort nie ein Problem). Vier
+  // Bézier-Kurven approximieren den Kreis pixelgenau, komplett ohne fmod. Signatur spiegelt
+  // arc(cx,cy,r,start,end) wider, damit das reine Umbenennen der 30 Aufrufstellen reichte — Start/Ende
+  // werden ignoriert (alle Aufrufer zeichnen Vollkreise 0..2π).
+  const CIRCLE_KAPPA = 0.5522847498307936
+  function circ(cx: number, cy: number, r: number, _start = 0, _end = 0): void {
+    const k = r * CIRCLE_KAPPA
+    screenCtx.moveTo(cx + r, cy)
+    screenCtx.bezierCurveTo(cx + r, cy + k, cx + k, cy + r, cx, cy + r)
+    screenCtx.bezierCurveTo(cx - k, cy + r, cx - r, cy + k, cx - r, cy)
+    screenCtx.bezierCurveTo(cx - r, cy - k, cx - k, cy - r, cx, cy - r)
+    screenCtx.bezierCurveTo(cx + k, cy - r, cx + r, cy - k, cx + r, cy)
+  }
+
   function worldToScreenX(wx: number): number {
     return (wx - camera.x) * camera.zoom + viewW / 2
   }
@@ -1593,7 +1617,7 @@ export function createRenderer(
       screenCtx.lineWidth = lw
       for (const c of g.circles ?? []) {
         screenCtx.beginPath()
-        screenCtx.arc(c[0], c[1], c[2], 0, Math.PI * 2)
+        circ(c[0], c[1], c[2], 0, Math.PI * 2)
         screenCtx.stroke()
       }
       for (const d of g.paths) screenCtx.stroke(glyphPath(d))
@@ -1762,7 +1786,7 @@ export function createRenderer(
       const cartOwner = state.players.get(cart.ownerId)
       if (cartOwner !== undefined) {
         screenCtx.beginPath()
-        screenCtx.arc(cx, cy, cartSize * 0.62, 0, Math.PI * 2)
+        circ(cx, cy, cartSize * 0.62, 0, Math.PI * 2)
         screenCtx.fillStyle = rgbaToCssLocal(cartOwner.color)
         screenCtx.fill()
       }
@@ -1771,7 +1795,7 @@ export function createRenderer(
         screenCtx.drawImage(cartSprite, cx - cartSize / 2, cy - cartSize / 2, cartSize, cartSize)
       } else {
         screenCtx.beginPath()
-        screenCtx.arc(cx, cy, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2)
+        circ(cx, cy, Math.max(2, camera.zoom * 1.2), 0, Math.PI * 2)
         screenCtx.fillStyle = 'rgba(255,224,120,0.95)'
         screenCtx.fill()
       }
@@ -1796,7 +1820,7 @@ export function createRenderer(
         const x0 = sx - gap
         for (let s = 0; s < FACTORY_CART_LIMIT; s++) {
           screenCtx.beginPath()
-          screenCtx.arc(x0 + s * gap, py, r, 0, Math.PI * 2)
+          circ(x0 + s * gap, py, r, 0, Math.PI * 2)
           screenCtx.fillStyle = s < load ? 'rgba(255,224,120,0.95)' : 'rgba(255,255,255,0.22)'
           screenCtx.fill()
         }
@@ -1831,7 +1855,7 @@ export function createRenderer(
       const x0 = sx - ((slots - 1) * gap) / 2
       for (let s = 0; s < slots; s++) {
         screenCtx.beginPath()
-        screenCtx.arc(x0 + s * gap, py, r, 0, Math.PI * 2)
+        circ(x0 + s * gap, py, r, 0, Math.PI * 2)
         screenCtx.fillStyle = s < parked ? 'rgba(232,136,74,0.95)' : 'rgba(255,255,255,0.22)'
         screenCtx.fill()
       }
@@ -1931,7 +1955,7 @@ export function createRenderer(
           screenCtx.globalAlpha = inProgress ? 0.55 : 1
           // Marker-Hintergrund + Spielerfarbe-Ring
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+          circ(sx, sy, radius, 0, Math.PI * 2)
           screenCtx.fillStyle = 'rgba(15,15,20,0.92)'
           screenCtx.fill()
           screenCtx.lineWidth = 2
@@ -2002,7 +2026,7 @@ export function createRenderer(
           const sy = worldToScreenY(wy + dy * mapH)
           if (sx < -rad || sx > cssW + rad || sy < -rad || sy > cssH + rad) continue
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, rad, 0, Math.PI * 2)
+          circ(sx, sy, rad, 0, Math.PI * 2)
           screenCtx.fillStyle = fill
           screenCtx.fill()
           screenCtx.lineWidth = 1.5
@@ -2074,7 +2098,7 @@ export function createRenderer(
       // Angriffs-Reichweiten-Ring (Toggle) um eigene Kriegsschiffe.
       if (shipRangesVisible && ws.ownerId === lutHumanId) {
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, NAVAL_RANGE * camera.zoom, 0, Math.PI * 2)
+        circ(sx, sy, NAVAL_RANGE * camera.zoom, 0, Math.PI * 2)
         screenCtx.strokeStyle = 'rgba(120,200,255,0.5)'
         screenCtx.lineWidth = 1.5
         screenCtx.setLineDash([5, 4])
@@ -2084,7 +2108,7 @@ export function createRenderer(
       // Auswahl-Ring (Box-Select) — heller cyan Kreis um gewählte Schiffe.
       if (selectedWarships.has(ws)) {
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, warR + 3, 0, Math.PI * 2)
+        circ(sx, sy, warR + 3, 0, Math.PI * 2)
         screenCtx.strokeStyle = 'rgba(120,230,255,0.95)'
         screenCtx.lineWidth = 2.5
         screenCtx.stroke()
@@ -2093,7 +2117,7 @@ export function createRenderer(
       // der Beziehungs-Ring (weiß=eigen, grün=verbündet, rot=Groll, schwarz=neutral).
       const owner = state.players.get(ws.ownerId)
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, warR, 0, Math.PI * 2)
+      circ(sx, sy, warR, 0, Math.PI * 2)
       screenCtx.fillStyle =
         owner === undefined ? 'rgba(15,18,24,0.85)' : rgbaToCssLocal(owner.color)
       screenCtx.fill()
@@ -2161,12 +2185,12 @@ export function createRenderer(
       screenCtx.shadowColor = col
       screenCtx.shadowBlur = Math.max(4, z * 0.6)
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+      circ(sx, sy, r, 0, Math.PI * 2)
       screenCtx.fillStyle = col
       screenCtx.fill()
       screenCtx.shadowBlur = 0
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, r * 0.5, 0, Math.PI * 2)
+      circ(sx, sy, r * 0.5, 0, Math.PI * 2)
       screenCtx.fillStyle = '#fffef2'
       screenCtx.fill()
     }
@@ -2190,7 +2214,7 @@ export function createRenderer(
       // Besitzer-Scheibe + Beziehungs-Ring (zeigt, wessen Bomber das ist).
       const owner = state.players.get(b.ownerId)
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+      circ(sx, sy, r, 0, Math.PI * 2)
       screenCtx.fillStyle =
         owner === undefined ? 'rgba(15,18,24,0.85)' : rgbaToCssLocal(owner.color)
       screenCtx.fill()
@@ -2236,13 +2260,13 @@ export function createRenderer(
       // Äußerer Rauch-/Druckring.
       screenCtx.globalAlpha = alpha
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, rad, 0, Math.PI * 2)
+      circ(sx, sy, rad, 0, Math.PI * 2)
       screenCtx.fillStyle = '#e8732a'
       screenCtx.fill()
       // Heißer Kern.
       screenCtx.globalAlpha = alpha * 1.3
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, rad * 0.55, 0, Math.PI * 2)
+      circ(sx, sy, rad * 0.55, 0, Math.PI * 2)
       screenCtx.fillStyle = '#ffd24a'
       screenCtx.fill()
     }
@@ -2279,7 +2303,7 @@ export function createRenderer(
       screenCtx.shadowColor = col
       screenCtx.shadowBlur = Math.max(3, z * 0.5)
       screenCtx.beginPath()
-      screenCtx.arc(head.sx, head.sy, Math.max(1.6, z * 0.22), 0, Math.PI * 2)
+      circ(head.sx, head.sy, Math.max(1.6, z * 0.22), 0, Math.PI * 2)
       screenCtx.fillStyle = col
       screenCtx.fill()
       screenCtx.shadowBlur = 0
@@ -2363,7 +2387,7 @@ export function createRenderer(
       const { sx, sy } = nearestWrappedScreenPos(m.worldX, m.worldY)
       if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+      circ(sx, sy, radius, 0, Math.PI * 2)
       screenCtx.stroke()
     }
     screenCtx.restore()
@@ -2400,7 +2424,7 @@ export function createRenderer(
         const { sx, sy } = nearestWrappedScreenPos(fx, fy)
         if (sx < -baseR || sx > cssW + baseR || sy < -baseR || sy > cssH + baseR) continue
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
+        circ(sx, sy, baseR, 0, Math.PI * 2)
         screenCtx.stroke()
         const tickLen = 4
         screenCtx.beginPath()
@@ -2448,13 +2472,13 @@ export function createRenderer(
       // Weicher Warn-Halo.
       screenCtx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${(pulse * 0.16).toFixed(3)})`
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, baseR + 3, 0, Math.PI * 2)
+      circ(sx, sy, baseR + 3, 0, Math.PI * 2)
       screenCtx.fill()
       // Gestrichelter Reticle-Kreis in Besitzerfarbe.
       screenCtx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, ${pulse.toFixed(3)})`
       screenCtx.setLineDash([4, 3])
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, baseR, 0, Math.PI * 2)
+      circ(sx, sy, baseR, 0, Math.PI * 2)
       screenCtx.stroke()
       screenCtx.setLineDash([])
       // Fadenkreuz-Ticks.
@@ -2518,7 +2542,7 @@ export function createRenderer(
               : 0
         if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)
+          circ(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)
           screenCtx.strokeStyle = valid ? 'rgba(93,215,93,0.5)' : 'rgba(224,90,90,0.5)'
           screenCtx.lineWidth = 1.5
           screenCtx.setLineDash([4, 4])
@@ -2526,7 +2550,7 @@ export function createRenderer(
           screenCtx.setLineDash([])
         }
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+        circ(sx, sy, radius, 0, Math.PI * 2)
         screenCtx.fillStyle = fill
         screenCtx.fill()
         screenCtx.lineWidth = 2
@@ -2569,7 +2593,7 @@ export function createRenderer(
           const sy = worldToScreenY(ty + dy * mapH)
           if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          circ(sx, sy, r, 0, Math.PI * 2)
           if (friendly) {
             screenCtx.fillStyle = `rgba(${rgb},0.07)`
             screenCtx.fill()
@@ -2613,7 +2637,7 @@ export function createRenderer(
         const sy = worldToScreenY(ty + dy * mapH)
         if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+        circ(sx, sy, r, 0, Math.PI * 2)
         screenCtx.stroke()
       }
     }
@@ -2654,7 +2678,7 @@ export function createRenderer(
           const sy = worldToScreenY(ty + dy * mapH)
           if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
           screenCtx.beginPath()
-          screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+          circ(sx, sy, r, 0, Math.PI * 2)
           screenCtx.fill()
           screenCtx.stroke()
         }
@@ -2751,7 +2775,7 @@ export function createRenderer(
         const sy = worldToScreenY(ty + dy * mapH)
         if (sx < -rr || sx > cssW + rr || sy < -rr || sy > cssH + rr) continue
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, rr, 0, Math.PI * 2)
+        circ(sx, sy, rr, 0, Math.PI * 2)
         screenCtx.fill()
         screenCtx.stroke()
         targetSx = sx
@@ -2838,7 +2862,7 @@ export function createRenderer(
         const sy = worldToScreenY(ty + dy * mapH)
         if (sx < -rr || sx > cssW + rr || sy < -rr || sy > cssH + rr) continue
         screenCtx.beginPath()
-        screenCtx.arc(sx, sy, rr, 0, Math.PI * 2)
+        circ(sx, sy, rr, 0, Math.PI * 2)
         screenCtx.fill()
         screenCtx.stroke()
       }
@@ -2846,12 +2870,53 @@ export function createRenderer(
     screenCtx.restore()
   }
 
+  // Temporärer Phasen-Profiler (nur aktiv mit `?diag` in der URL): misst je Render-Phase die Zeit und
+  // gibt alle 2 s EINE Konsolenzeile aus. Pro Frame allokationsfrei (feste Map-Akkumulatoren, keine
+  // Pro-Frame-Strings) — dient NUR der Firefox-Diagnose und wird danach wieder entfernt.
+  const DIAG = typeof location !== 'undefined' && location.search.includes('diag')
+  const diagAcc = new Map<string, number>()
+  let diagFrames = 0
+  let diagT0 = 0
+  let diagLastFrame = 0
+  let diagFrameSum = 0
+  let diagRenderSum = 0
+  const diagEl =
+    DIAG && typeof document !== 'undefined'
+      ? (() => {
+          const el = document.createElement('div')
+          el.style.cssText =
+            'position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.82);color:#0f0;font:12px ui-monospace,monospace;padding:6px 8px;white-space:pre;pointer-events:none;border-radius:4px'
+          document.body.appendChild(el)
+          return el
+        })()
+      : null
+  function D(fn: () => void): void {
+    if (!DIAG) {
+      fn()
+      return
+    }
+    const t = performance.now()
+    fn()
+    diagAcc.set(fn.name, (diagAcc.get(fn.name) ?? 0) + (performance.now() - t))
+  }
+
   function render(): void {
+    const rt0 = performance.now()
+    if (DIAG) {
+      if (diagLastFrame > 0) diagFrameSum += rt0 - diagLastFrame
+      diagLastFrame = rt0
+    }
     if (state.tick !== lastBitmapTick) {
       // Übersprungene Ticks (langsamer Frame / hohes Tempo) sind KEIN Problem mehr: ihre Dirty-Tiles
       // wurden über `collectDirty` akkumuliert → `paintBitmap` zieht sie inkrementell nach. Kein
       // Voll-Rebake als Notbremse mehr (der war die ~117 ms-Ruckler-Quelle, ADR-0030-Nachtrag).
-      paintBitmap()
+      if (DIAG) {
+        const pt = performance.now()
+        paintBitmap()
+        diagAcc.set('paintBitmap', (diagAcc.get('paintBitmap') ?? 0) + (performance.now() - pt))
+      } else {
+        paintBitmap()
+      }
       lastBitmapTick = state.tick
     }
     // Kamera-Box & weit rausgezoomt: nur EINE Welt-Kopie sichtbar → Rest schwarz, und alles
@@ -2879,35 +2944,66 @@ export function createRenderer(
       )
       screenCtx.clip()
     }
-    drawTiled()
-    drawCaptureFlashes()
-    drawFlashes()
-    drawDefenseZones()
-    drawHoverOutline()
-    drawAttackFronts()
-    drawAttackTargets()
-    drawBoatTargets()
-    drawShips()
-    drawProjectiles()
-    drawBuildingLinks()
-    drawAirportHangars()
-    drawBuildings()
-    drawCapitals()
-    drawHoverHighlight()
-    drawHoveredDefenseRange()
-    drawAllOwnDefenseRanges()
-    drawBuildPreview()
-    drawBomberPreview()
-    drawWarshipPreview()
-    drawMarkers()
-    drawSpawnPulse()
-    drawLabels()
-    drawFlakShots()
-    drawBombers() // Bomber fliegen über allem
-    drawBombImpacts()
-    drawGoldPops()
+    D(drawTiled)
+    D(drawCaptureFlashes)
+    D(drawFlashes)
+    D(drawDefenseZones)
+    D(drawHoverOutline)
+    D(drawAttackFronts)
+    D(drawAttackTargets)
+    D(drawBoatTargets)
+    D(drawShips)
+    D(drawProjectiles)
+    D(drawBuildingLinks)
+    D(drawAirportHangars)
+    D(drawBuildings)
+    D(drawCapitals)
+    D(drawHoverHighlight)
+    D(drawHoveredDefenseRange)
+    D(drawAllOwnDefenseRanges)
+    D(drawBuildPreview)
+    D(drawBomberPreview)
+    D(drawWarshipPreview)
+    D(drawMarkers)
+    D(drawSpawnPulse)
+    D(drawLabels)
+    D(drawFlakShots)
+    D(drawBombers) // Bomber fliegen über allem
+    D(drawBombImpacts)
+    D(drawGoldPops)
     if (clipped) screenCtx.restore()
-    drawSelectionBox()
+    D(drawSelectionBox)
+    if (DIAG) {
+      diagRenderSum += performance.now() - rt0
+      diagFrames++
+      const tnow = performance.now()
+      if (diagT0 === 0) diagT0 = tnow
+      if (tnow - diagT0 >= 2000) {
+        const entries = [...diagAcc.entries()].sort((a, b) => b[1] - a[1])
+        const frameMs = diagFrameSum / Math.max(1, diagFrames)
+        const renderMs = diagRenderSum / diagFrames
+        const restMs = Math.max(0, frameMs - renderMs)
+        let line = `[diag] ${String(diagFrames)}f FRAME=${frameMs.toFixed(1)} RENDER=${renderMs.toFixed(1)} REST(sim/gc)=${restMs.toFixed(1)} | `
+        for (const [k, v] of entries)
+          line += `${k.replace('draw', '')}=${(v / diagFrames).toFixed(2)} `
+        // eslint-disable-next-line no-console
+        console.log(line)
+        if (diagEl !== null) {
+          const fps = Math.round(1000 / Math.max(1, frameMs))
+          let ov = `${String(fps)} fps · ${String(screenCanvas.width)}×${String(screenCanvas.height)}px (dpr ${dpr.toFixed(2)})\n`
+          ov += `FRAME ${frameMs.toFixed(1)}ms = RENDER ${renderMs.toFixed(1)} + REST(sim/gc) ${restMs.toFixed(1)}\n`
+          ov += `--- Render-Phasen Ø ms ---\n`
+          for (const [k, v] of entries.slice(0, 6))
+            ov += `${(v / diagFrames).toFixed(2)}  ${k.replace('draw', '')}\n`
+          diagEl.textContent = ov
+        }
+        diagAcc.clear()
+        diagFrames = 0
+        diagFrameSum = 0
+        diagRenderSum = 0
+        diagT0 = tnow
+      }
+    }
   }
 
   function addClickMarker(worldX: number, worldY: number): void {
@@ -2977,7 +3073,7 @@ export function createRenderer(
       const radius = 14 + eased * 138
       const alpha = (1 - local) * 0.75
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, radius, 0, Math.PI * 2)
+      circ(sx, sy, radius, 0, Math.PI * 2)
       screenCtx.strokeStyle = `rgba(${spawnPulse.rgb},${alpha.toFixed(3)})`
       screenCtx.lineWidth = 3
       screenCtx.stroke()
@@ -2986,7 +3082,7 @@ export function createRenderer(
     const coreAlpha = Math.max(0, 1 - t * 2.2) * 0.9
     if (coreAlpha > 0) {
       screenCtx.beginPath()
-      screenCtx.arc(sx, sy, 5, 0, Math.PI * 2)
+      circ(sx, sy, 5, 0, Math.PI * 2)
       screenCtx.fillStyle = `rgba(255,255,255,${coreAlpha.toFixed(3)})`
       screenCtx.fill()
     }
@@ -3030,7 +3126,7 @@ export function createRenderer(
     const pulse = 0.55 + Math.abs(Math.sin(time * Math.PI * 1.8)) * 0.45
     screenCtx.save()
     screenCtx.beginPath()
-    screenCtx.arc(sx, sy, r, 0, Math.PI * 2)
+    circ(sx, sy, r, 0, Math.PI * 2)
     screenCtx.strokeStyle = `rgba(255,255,255,${pulse.toFixed(2)})`
     screenCtx.lineWidth = 2
     screenCtx.setLineDash([4, 3])
