@@ -11,7 +11,7 @@
  * iteriert, Intents nach `playerId` sortiert.
  */
 
-import { createMap, getOwner, setOwner, type GameMap } from '../world/map'
+import { createMap, getOwner, OWNER_MASK, setOwner, type GameMap } from '../world/map'
 import { getGeoMap } from '../world/geo-map'
 import {
   createFloodState,
@@ -23,6 +23,9 @@ import {
   type EconFloodState,
 } from '../world/economy-net'
 import {
+  HEIGHT_MASK,
+  IMPASSABLE_HEIGHT,
+  IS_LAND_BIT,
   PLAINS_MAG,
   generateTerrain,
   isLand,
@@ -4062,11 +4065,18 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
 
 /** Anzahl der 4-Nachbarn von `tile`, die `ownerId` gehören (0..4). */
 function ownNeighborCount(state: GameState, tile: TileRef, ownerId: number): number {
-  const { width, height } = state.map
+  // Inline wie in collectAttackableTiles (Perf-Hotpath, bit-identisch zu getOwner∘tileNeighbor4).
+  const map = state.map
+  const w = map.width
+  const h = map.height
+  const st = map.state
+  const y = (tile / w) | 0
+  const x = tile - y * w
   let n = 0
-  for (let d = 0; d < 4; d++) {
-    if (getOwner(state.map, tileNeighbor4(tile, width, height, d)) === ownerId) n++
-  }
+  if (((st[y * w + (x + 1 < w ? x + 1 : 0)] ?? 0) & OWNER_MASK) === ownerId) n++
+  if (((st[y * w + (x - 1 >= 0 ? x - 1 : w - 1)] ?? 0) & OWNER_MASK) === ownerId) n++
+  if (((st[(y + 1 < h ? y + 1 : 0) * w + x] ?? 0) & OWNER_MASK) === ownerId) n++
+  if (((st[(y - 1 >= 0 ? y - 1 : h - 1) * w + x] ?? 0) & OWNER_MASK) === ownerId) n++
   return n
 }
 
@@ -4088,17 +4098,35 @@ function collectAttackableTiles(
   targetId: number,
 ): { readonly frontWidth: number; readonly tiles: TileRef[] } {
   const { map } = state
-  const { width, height } = map
-  // Wiederverwendete Scratch-Strukturen (Perf R1) statt frischem Set/Array pro Tick.
+  // Hotpath (Perf): Array-Refs hoisten + Nachbar-/passable-/owner-Tests inline statt je 4 Funktions-
+  // Calls (tileNeighbor4/isPassable/getOwner) pro Frontier-Tile. SpiderMonkey zahlt Call- und
+  // `%`-Overhead überproportional (vgl. wrap-Schnellpfad in torus.ts) → das ist der #1-Sim-Hotspot.
+  // BIT-IDENTISCH: gleiche Nachbar-Reihenfolge (dir 0=E,1=W,2=S,3=N), gleiche Masken/Definitionen wie
+  // tileNeighbor4/isPassable/getOwner, gleiche attackableSet-Insertion-Order → gleiches `tiles`.
+  const w = map.width
+  const h = map.height
+  const terr = map.terrain
+  const st = map.state
   attackableSet.clear()
   let frontWidth = 0
 
   for (const ref of attacker.frontier) {
+    const y = (ref / w) | 0
+    const x = ref - y * w
     let borders = false
     for (let d = 0; d < 4; d++) {
-      const n = tileNeighbor4(ref, width, height, d)
-      if (!isPassable(map.terrain, n)) continue
-      if (getOwner(map, n) === targetId) {
+      // Nachbar inline (wrap-Schnellpfad): tileRef(x±1,y) bzw. tileRef(x,y±1).
+      let n: number
+      if (d === 0) n = y * w + (x + 1 < w ? x + 1 : 0)
+      else if (d === 1) n = y * w + (x - 1 >= 0 ? x - 1 : w - 1)
+      else if (d === 2) n = (y + 1 < h ? y + 1 : 0) * w + x
+      else n = (y - 1 >= 0 ? y - 1 : h - 1) * w + x
+      // isPassable(terr, n) inline.
+      const tv = terr[n]
+      if (tv === undefined || (tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT)
+        continue
+      // getOwner(map, n) === targetId inline.
+      if (((st[n] ?? 0) & OWNER_MASK) === targetId) {
         attackableSet.add(n)
         borders = true
       }
