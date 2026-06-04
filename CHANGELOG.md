@@ -4,6 +4,19 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.53.0] – 2026-06-04
+
+### Neu
+
+- **Kein Einfrieren mehr im Spätspiel:** Die Spielberechnung läuft jetzt im Hintergrund, getrennt
+  vom Zeichnen und der Bedienung. Kamera, HUD und Klicks reagieren damit jederzeit sofort — auch
+  wenn gerade eine riesige Schlachtenfront abgerechnet wird oder hunderte Nationen gleichzeitig
+  aktiv sind. Betrifft den Einzelspieler, ohne dass etwas einzustellen wäre. Sehr alte Browser
+  spielen wie bisher.
+- **Deutlich weniger Ruckler im Spätspiel:** Große Schlachten und Masseneroberungen wurden intern
+  stark beschleunigt — der Sprung von flüssig zu kurz hakelig bei vielen aktiven Nationen fällt
+  spürbar kleiner aus.
+
 ## [0.52.5] – 2026-06-04
 
 ### Behoben
