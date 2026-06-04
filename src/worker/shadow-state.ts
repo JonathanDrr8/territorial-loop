@@ -13,9 +13,10 @@
  * + tick) ist in `tests/tick-delta.test.ts` verifiziert: `hashState(shadow) === hashState(state)`.
  */
 
-import type { GameState } from '../core/game'
+import { initializeAllFrontiers, updateFrontierAfterCapture, type GameState } from '../core/game'
 import { deserializeState, loadSnapshotInto, serializeState } from '../core/serialize'
 import type { SerializedGameState } from '../core/serialize'
+import { getOwner } from '../world/map'
 import type { TickDelta } from './tick-delta'
 
 /** Initialer Schatten aus dem aktuellen autoritativen State (über den Voll-Snapshot-Pfad). */
@@ -42,21 +43,36 @@ export function applyTickDelta(shadow: GameState, delta: TickDelta): boolean {
   shadow.phase = delta.phase
   shadow.winner = delta.winner
 
-  // --- Owner-Layer ---
+  // --- Owner-Layer + Frontier-Pflege ---
   const ms = shadow.map.state
   let didFull = false
   if (delta.ownerFull !== null) {
     ms.set(delta.ownerFull)
     shadow.dirtyTiles = []
+    // Owner komplett ersetzt → alle Frontiers neu aufbauen. initializeAllFrontiers ADDIERT nur
+    // (in deserializeState sind die Sets frisch leer), darum hier erst leeren.
+    for (const p of shadow.players.values()) p.frontier.clear()
+    initializeAllFrontiers(shadow)
     didFull = true
   } else {
     const tiles = delta.ownerTiles
     const vals = delta.ownerValues
-    const dirty: number[] = new Array<number>(tiles.length)
-    for (let i = 0; i < tiles.length; i++) {
+    const n = tiles.length
+    const dirty: number[] = new Array<number>(n)
+    const oldOwners: number[] = new Array<number>(n)
+    // Alte Owner VOR dem Schreiben merken (für die Frontier-Pflege).
+    for (let i = 0; i < n; i++) {
       const t = tiles[i] ?? 0
-      ms[t] = vals[i] ?? 0
       dirty[i] = t
+      oldOwners[i] = getOwner(shadow.map, t)
+    }
+    // Neue Owner schreiben (Karte erst final machen) …
+    for (let i = 0; i < n; i++) ms[dirty[i] ?? 0] = vals[i] ?? 0
+    // … dann Frontiers inkrementell gegen die FINALE Karte pflegen — exakt die Sim-Logik
+    // (`updateFrontierAfterCapture`), daher kein Drift. Idempotent bei doppelten Tiles.
+    for (let i = 0; i < n; i++) {
+      const t = dirty[i] ?? 0
+      updateFrontierAfterCapture(shadow, t, oldOwners[i] ?? 0, getOwner(shadow.map, t))
     }
     shadow.dirtyTiles = dirty // damit renderer.collectDirty() die geänderten Tiles inkrementell zieht
   }

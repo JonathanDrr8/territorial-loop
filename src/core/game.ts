@@ -4479,7 +4479,7 @@ function captureTile(state: GameState, ref: TileRef, attackerId: number): void {
  *      - Nachbar `n` gehört einem anderen Spieler: er hat jetzt einen weiteren
  *        Fremd-Nachbarn → ist (immer noch / jetzt erst) im Frontier
  */
-function updateFrontierAfterCapture(
+export function updateFrontierAfterCapture(
   state: GameState,
   ref: TileRef,
   oldOwner: number,

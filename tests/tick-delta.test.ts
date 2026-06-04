@@ -88,18 +88,32 @@ describe('TickDelta / Schatten-State (ADR-0030 — Sim-auf-Worker-Naht)', () => 
     expect(hashState(shadow)).toBe(hashState(s))
   })
 
-  it('Spieler-frontier des Schattens bleibt erhalten (wird NICHT vom Delta überschrieben)', () => {
+  it('Schatten-frontier bleibt über 120 Ticks korrekt (== autoritativ, Set-gleich)', () => {
     const s = createGame(cfg())
     const shadow = createShadow(s)
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 120; i++) {
       tick(s, attackIntents(s))
       applyTickDelta(shadow, buildTickDelta(s))
     }
-    // Jeder Schatten-Spieler hat noch ein frontier-Set (Referenz erhalten, nicht via Object.assign weg).
     for (const id of [1, 2, 3]) {
-      const p = shadow.players.get(id)
-      expect(p).toBeDefined()
-      expect(p?.frontier instanceof Set).toBe(true)
+      const a = s.players.get(id)?.frontier
+      const b = shadow.players.get(id)?.frontier
+      expect(b instanceof Set).toBe(true)
+      expect(b?.size).toBe(a?.size)
+      let missing = 0
+      if (a !== undefined && b !== undefined) for (const t of a) if (!b.has(t)) missing++
+      expect(missing).toBe(0)
+    }
+  })
+
+  it('Owner-Overflow rebaut die Frontiers korrekt', () => {
+    const s = createGame(cfg())
+    const shadow = createShadow(s)
+    for (let i = 0; i < 30; i++) tick(s, attackIntents(s))
+    s.dirtyTiles = Array.from({ length: s.map.state.length }, (_, i) => i)
+    applyTickDelta(shadow, buildTickDelta(s))
+    for (const id of [1, 2, 3]) {
+      expect(shadow.players.get(id)?.frontier.size).toBe(s.players.get(id)?.frontier.size)
     }
   })
 })
