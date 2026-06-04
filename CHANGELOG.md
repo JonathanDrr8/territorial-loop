@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.54.0] – 2026-06-04
+
+### Neu
+
+- **Kein Einfrieren im Mehrspieler mehr:** Die Spielberechnung läuft jetzt auch in Online-Partien
+  im Hintergrund, getrennt vom Zeichnen und der Bedienung. Kamera, HUD und Klicks bleiben damit
+  jederzeit flüssig — auch in großen Spätspiel-Partien mit vielen Nationen. (Im Einzelspieler war
+  das seit 0.53.0 so; jetzt gilt es überall.)
+
 ## [0.53.0] – 2026-06-04
 
 ### Neu
