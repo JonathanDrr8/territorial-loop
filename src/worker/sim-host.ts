@@ -13,7 +13,7 @@ import { tick, type GameState } from '../core/game'
 import { hashState } from '../core/hash'
 import type { Intent } from '../core/intent'
 import { createRecorder, type Recorder } from '../core/replay'
-import { LocalTransport, type IntentTransport, type NetworkTransport } from '../net/transport'
+import { LocalTransport, type HashReportingTransport, type IntentTransport } from '../net/transport'
 import type { AI } from '../ai/ai'
 
 export interface SimHost {
@@ -43,7 +43,7 @@ export interface SimHostOptions {
    * `LocalTransport` mit lokaler Takt-Uhr + lokaler KI wird erzeugt. Für die Desync-Hash-Meldung
    * (nur Mehrspieler relevant) wird dieser Transport auch in `onCommitted` genutzt.
    */
-  readonly netTransport?: NetworkTransport | undefined
+  readonly netTransport?: HashReportingTransport | undefined
   /** Tick-Intervall in ms (vom Aufrufer, z.B. `SIM_BASE_INTERVAL_MS`). */
   readonly intervalMs: number
   /**

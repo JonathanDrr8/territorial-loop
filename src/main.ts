@@ -25,7 +25,7 @@ import {
   type PlayerDef,
 } from './core/game'
 import { areAllied } from './core/diplomacy'
-import { deserializeState, loadSnapshotInto } from './core/serialize'
+import { deserializeState, loadSnapshotInto, serializeState } from './core/serialize'
 import { getOwner } from './world/map'
 import { isLand } from './world/terrain'
 import type { Intent } from './core/intent'
@@ -434,13 +434,11 @@ function startMatch(
   // einmalig über den Voll-Snapshot-Pfad gebaut (rekonstruiert Terrain/Komponenten/Frontier).
   const shadow = createShadow(state)
   // Sim im Web Worker (ADR-0030): die Sim läuft auf einem eigenen Thread, der Hauptthread hält nur den
-  // Schatten und friert nie ein. **Default für Einzelspieler** (Freeze-Fix für alle), abschaltbar via
-  // `?noworker`. Voraussetzung: Browser kann Module-Worker. MP/Zuschauer bleiben Nicht-Worker (laufen
-  // über `net`; MP-über-Worker = Stufe 3). Schlägt der Worker-Start fehl → Fallback auf den Hauptthread.
+  // Schatten und friert nie ein. **Default für Einzelspieler UND Mehrspieler** (Stufe 3; im MP bleibt der
+  // WebSocket auf Main, nur das Ticken wandert in den Worker), abschaltbar via `?noworker`. Voraussetzung:
+  // Browser kann Module-Worker. Schlägt der Worker-Start fehl → Fallback auf den Hauptthread.
   const wantWorker =
-    net === undefined &&
-    typeof Worker !== 'undefined' &&
-    !new URLSearchParams(window.location.search).has('noworker')
+    typeof Worker !== 'undefined' && !new URLSearchParams(window.location.search).has('noworker')
   // Tatsächlich genutzter Pfad (kann durch Fallback unten auf false fallen) + die Quelle für die
   // Sim-Event-Seiteneffekte (Sound/Musik/Phase-Ende/Ranked/Alarm): im Worker-Pfad tickt nur der Schatten
   // (der `state` auf Main ist eingefroren) → Schatten lesen; sonst den autoritativen `state`.
@@ -608,15 +606,31 @@ function startMatch(
   let simClient: SimController | null = null
   if (wantWorker) {
     try {
-      simClient = createSimClient({
-        shadow,
-        config,
-        ais: aiConfigs,
-        difficulty: menu.difficulty,
-        ...(rankedElo !== undefined ? { rankedElo } : {}),
-        intervalMs: SIM_BASE_INTERVAL_MS,
-        onApplied: onSimApplied,
-      })
+      simClient =
+        net !== undefined
+          ? // Mehrspieler: der WebSocket (net.transport) bleibt auf Main, der Worker tickt nur die
+            // committeten Turns. Reconnect: den deserialisierten Server-State für den Worker zurück-
+            // serialisieren (selten, bit-identisch). Resync-Snapshot blitzt „Resync…" über onResync.
+            createSimClient({
+              shadow,
+              config,
+              intervalMs: SIM_BASE_INTERVAL_MS,
+              onApplied: onSimApplied,
+              net: net.transport,
+              onResync: () => hud.flashResync(),
+              ...(net.initialState !== undefined
+                ? { snapshot: serializeState(net.initialState) }
+                : {}),
+            })
+          : createSimClient({
+              shadow,
+              config,
+              ais: aiConfigs,
+              difficulty: menu.difficulty,
+              ...(rankedElo !== undefined ? { rankedElo } : {}),
+              intervalMs: SIM_BASE_INTERVAL_MS,
+              onApplied: onSimApplied,
+            })
     } catch (err) {
       console.warn(
         '[territorial-loop] Web-Worker-Start fehlgeschlagen — Fallback auf Hauptthread',
@@ -721,12 +735,16 @@ function startMatch(
   // Closure-Halter (Renderer/HUD/Minimap) sehen die Korrektur sofort — backen das Bitmap neu
   // und blitzen kurz „Resync…" auf. So schnappt ein abgedrifteter Client zurück, statt still
   // weiter zu driften.
-  net?.transport.setSnapshotHandler((_turn, snap) => {
-    loadSnapshotInto(state, snap)
-    fullRefresh(shadow, snap) // Schatten gleich mit-resyncen (ADR-0030), sonst rendert er veraltet
-    renderer.invalidate()
-    hud.flashResync()
-  })
+  // NUR im Nicht-Worker-MP-Pfad: im MP-Worker-Pfad registriert der sim-client den Snapshot-Handler
+  // selbst (lädt autoritativ IM Worker, snapshot't den Schatten auf Main, blitzt via onResync).
+  if (net !== undefined && !usingWorker) {
+    net.transport.setSnapshotHandler((_turn, snap) => {
+      loadSnapshotInto(state, snap)
+      fullRefresh(shadow, snap) // Schatten gleich mit-resyncen (ADR-0030), sonst rendert er veraltet
+      renderer.invalidate()
+      hud.flashResync()
+    })
+  }
   // HUD am Debug-Hook erreichbar (z.B. `__TL__.hud.flashResync()` zum Desync-UI-Testen).
   ;(window as unknown as { __TL__: { hud?: unknown } }).__TL__.hud = hud
 

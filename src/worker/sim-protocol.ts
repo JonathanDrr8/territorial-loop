@@ -33,11 +33,20 @@ export type MainToWorker =
       readonly intervalMs: number
       /** Reconnect/Resync: vom Server erhaltener Voll-Snapshot statt frisch generieren. */
       readonly snapshot?: SerializedGameState
+      /**
+       * Mehrspieler (Stufe 3): keine lokale KI/Takt-Uhr — der Worker baut einen `WorkerNetTransport`,
+       * die committeten Turns kommen per `net-commit` vom Hauptthread. SP (default `false`): LocalTransport
+       * + lokale KI aus `ais`/`difficulty`.
+       */
+      readonly mp?: boolean
     }
   | { readonly type: 'submit'; readonly intents: readonly Intent[] }
   | { readonly type: 'set-running'; readonly running: boolean }
   | { readonly type: 'set-interval'; readonly ms: number }
   | { readonly type: 'request-full-refresh' }
+  // Mehrspieler (Stufe 3): vom Server committeter Turn / Korrektur-Snapshot, vom Hauptthread durchgereicht.
+  | { readonly type: 'net-commit'; readonly turn: number; readonly intents: readonly Intent[] }
+  | { readonly type: 'net-snapshot'; readonly snapshot: SerializedGameState }
   | { readonly type: 'destroy' }
 
 /** Worker → Main. */
@@ -49,3 +58,5 @@ export type WorkerToMain =
       readonly snapshot: SerializedGameState
     }
   | { readonly type: 'tick-delta'; readonly delta: TickDelta }
+  // Mehrspieler (Stufe 3): der im Worker berechnete State-Hash je Turn → Main meldet ihn dem Server.
+  | { readonly type: 'hash'; readonly turn: number; readonly hash: number }

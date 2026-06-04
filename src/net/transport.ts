@@ -47,6 +47,16 @@ export interface IntentTransport {
   destroy(): void
 }
 
+/**
+ * Ein `IntentTransport`, der zusätzlich seinen State-Hash je Turn melden kann (Desync-Erkennung,
+ * server-autoritatives Lockstep). Erfüllt von {@link NetworkTransport} (meldet an den Server) und vom
+ * `WorkerNetTransport` (meldet aus dem Sim-Worker zurück an den Hauptthread, der ihn an den Server gibt).
+ * `createSimHost` braucht genau diese Fläche von seinem `netTransport`.
+ */
+export interface HashReportingTransport extends IntentTransport {
+  reportHash(turn: number, hash: number): void
+}
+
 /** Liefert die „server-seitigen" Intents eines Turns (lokal: die KI-Entscheidungen). */
 export type ServerIntentSource = () => readonly Intent[]
 
