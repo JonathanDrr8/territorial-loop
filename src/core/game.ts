@@ -4023,15 +4023,31 @@ function advanceAttack(state: GameState, attacker: Player, attack: Attack): bool
  * nur die Nachbarn der gerade eroberten Tiles, in wenigen Wellen (begrenzt).
  */
 function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly TileRef[]): void {
-  const { map } = state
-  const { width, height } = map
+  // Hotpath (Perf, bit-identisch): Array-Refs hoisten + Nachbar/passable/owner inline. Capture-
+  // Reihenfolge (Wellen, dir 0..3) unverändert → identische Eroberungen.
+  const map = state.map
+  const w = map.width
+  const h = map.height
+  const terr = map.terrain
+  const st = map.state
+  const attackerId = attacker.id
   const isEnclosedByAttacker = (ref: TileRef): boolean => {
+    const ry = (ref / w) | 0
+    const rx = ref - ry * w
     let hasPassable = false
     for (let d = 0; d < 4; d++) {
-      const nn = tileNeighbor4(ref, width, height, d)
-      if (!isPassable(map.terrain, nn)) continue
+      const nn =
+        d === 0
+          ? ry * w + (rx + 1 < w ? rx + 1 : 0)
+          : d === 1
+            ? ry * w + (rx - 1 >= 0 ? rx - 1 : w - 1)
+            : d === 2
+              ? (ry + 1 < h ? ry + 1 : 0) * w + rx
+              : (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
+      const tv = terr[nn] ?? 0
+      if ((tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT) continue
       hasPassable = true
-      if (getOwner(map, nn) !== attacker.id) return false
+      if (((st[nn] ?? 0) & OWNER_MASK) !== attackerId) return false
     }
     return hasPassable
   }
@@ -4041,11 +4057,21 @@ function fillEnclosedPockets(state: GameState, attacker: Player, seeds: readonly
     guard++
     const next: TileRef[] = []
     for (const ref of frontier) {
+      const ry = (ref / w) | 0
+      const rx = ref - ry * w
       for (let d = 0; d < 4; d++) {
-        const n = tileNeighbor4(ref, width, height, d)
-        if (!isPassable(map.terrain, n)) continue
-        const o = getOwner(map, n)
-        if (o === attacker.id) continue
+        const n =
+          d === 0
+            ? ry * w + (rx + 1 < w ? rx + 1 : 0)
+            : d === 1
+              ? ry * w + (rx - 1 >= 0 ? rx - 1 : w - 1)
+              : d === 2
+                ? (ry + 1 < h ? ry + 1 : 0) * w + rx
+                : (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
+        const tv = terr[n] ?? 0
+        if ((tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT) continue
+        const o = (st[n] ?? 0) & OWNER_MASK
+        if (o === attackerId) continue
         // Echte (nicht-wilde) fremde Nationen NICHT hier schlucken — dafür gibt es
         // annexEnclosedFragments (mit Regeln zu Kerngebiet/Allianz/Übermacht). Nur Wildnis und
         // wilde Taschen weiter sofort füllen („keine Blasen hinter der durchbrochenen Front").
@@ -4258,7 +4284,10 @@ function annexEnclosedFragments(
   capturedTiles: readonly TileRef[],
 ): void {
   const { map, players } = state
-  const { width, height } = map
+  // Array-Refs hoisten + Nachbar/owner inline (Perf, bit-identisch; entrySeeds wird ohnehin sortiert).
+  const w = map.width
+  const h = map.height
+  const st = map.state
   let seeds: readonly TileRef[] = capturedTiles
   let guard = 0
   while (seeds.length > 0 && guard < 16) {
@@ -4268,9 +4297,18 @@ function annexEnclosedFragments(
     const entrySeeds: TileRef[] = []
     const seenEntry = new Set<TileRef>()
     for (const ref of seeds) {
+      const ry = (ref / w) | 0
+      const rx = ref - ry * w
       for (let d = 0; d < 4; d++) {
-        const n = tileNeighbor4(ref, width, height, d)
-        const o = getOwner(map, n)
+        const n =
+          d === 0
+            ? ry * w + (rx + 1 < w ? rx + 1 : 0)
+            : d === 1
+              ? ry * w + (rx - 1 >= 0 ? rx - 1 : w - 1)
+              : d === 2
+                ? (ry + 1 < h ? ry + 1 : 0) * w + rx
+                : (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
+        const o = (st[n] ?? 0) & OWNER_MASK
         if (o <= 0 || o === attacker.id || seenEntry.has(n)) continue
         const victim = players.get(o)
         if (victim === undefined || !victim.isAlive || victim.wild) continue
@@ -4322,8 +4360,14 @@ function floodEnclosedFragment(
   victimId: number,
   encloserId: number,
 ): { readonly tiles: TileRef[]; readonly enclosed: boolean } {
-  const { map } = state
-  const { width, height } = map
+  // Hotpath (Perf, bit-identisch): Array-Refs hoisten + Nachbar/Owner/isLand/isPassable inline
+  // (dieselbe Technik wie collectAttackableTiles). Traversal-Reihenfolge (LIFO-pop, Push in dir
+  // 0..3) und alle enclosed-Bedingungen unverändert → identische `tiles`/`enclosed`.
+  const map = state.map
+  const w = map.width
+  const h = map.height
+  const terr = map.terrain
+  const st = map.state
   const tiles: TileRef[] = []
   const seen = new Set<TileRef>([seed])
   const queue: TileRef[] = [seed]
@@ -4339,21 +4383,31 @@ function floodEnclosedFragment(
       enclosed = false
       break
     }
+    const ry = (ref / w) | 0
+    const rx = ref - ry * w
     for (let d = 0; d < 4; d++) {
-      const n = tileNeighbor4(ref, width, height, d)
-      const o = getOwner(map, n)
+      const n =
+        d === 0
+          ? ry * w + (rx + 1 < w ? rx + 1 : 0)
+          : d === 1
+            ? ry * w + (rx - 1 >= 0 ? rx - 1 : w - 1)
+            : d === 2
+              ? (ry + 1 < h ? ry + 1 : 0) * w + rx
+              : (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
+      const o = (st[n] ?? 0) & OWNER_MASK
       if (o === victimId) {
         if (!seen.has(n)) {
           seen.add(n)
           queue.push(n)
         }
-      } else if (!isLand(map.terrain, n)) {
-        // Offenes Wasser / Küste = Fluchtweg (Seezugang) — ein Stück an der Küste ist NICHT
-        // „rundum umzingelt", auch wenn an Land ringsum nur der Angreifer steht. Berge bleiben
-        // dagegen Wände (isLand, aber nicht passierbar) → fallen in den else-Zweig unten.
-        enclosed = false
-      } else if (isPassable(map.terrain, n) && (o === 0 || o !== encloserId)) {
-        enclosed = false // passabler Nachbar = Wildnis / dritte Nation / zweiter Umschließer
+      } else {
+        // !isLand (Wasser/Küste = Fluchtweg) inline; sonst passabler Fremd-Nachbar inline.
+        const tv = terr[n] ?? 0
+        if ((tv & IS_LAND_BIT) === 0) {
+          enclosed = false
+        } else if ((tv & HEIGHT_MASK) !== IMPASSABLE_HEIGHT && (o === 0 || o !== encloserId)) {
+          enclosed = false // passabler Nachbar = Wildnis / dritte Nation / zweiter Umschließer
+        }
       }
     }
     if (!enclosed) break // Fluchtweg gefunden → kein weiteres Fluten nötig
