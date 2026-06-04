@@ -48,6 +48,13 @@ export function createSimClient(opts: SimClientOptions): SimClient {
   const { shadow, onApplied } = opts
   const worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' })
 
+  // Lädt/läuft der Worker nicht (Modul-Load-Fehler u.ä. passieren asynchron, nicht beim Konstruktor),
+  // bliebe der Schatten still stehen. Wenigstens sichtbar machen — der Konstruktor-Fehler (kein
+  // Worker-Support) wird dagegen vom Aufrufer (main.ts) abgefangen und fällt auf den Hauptthread zurück.
+  worker.onerror = (e): void => {
+    console.error('[territorial-loop] Sim-Worker-Fehler', e.message || e)
+  }
+
   worker.onmessage = (ev: MessageEvent<WorkerToMain>): void => {
     const msg = ev.data
     switch (msg.type) {

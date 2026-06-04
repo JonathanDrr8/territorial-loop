@@ -20,21 +20,57 @@ import { getOwner } from '../world/map'
 import type { TickDelta } from './tick-delta'
 
 /**
- * Schiff-Liste identitäts-erhaltend übernehmen: bei GLEICHER Länge die vorhandenen Schatten-Objekte
- * in-place aktualisieren (`Object.assign`) → ihre Objekt-Identität bleibt über Ticks erhalten, sodass
- * main-seitige Identitäts-Caches (Kriegsschiff-Box-Auswahl im Renderer als `Set<Warship>`, perspektivisch
- * die Sound-Dedup) weiter greifen. Ändert sich die Länge (Schiff gespawnt/gestorben), wird die Liste neu
- * aufgebaut (Auswahl-Verlust dort akzeptiert — selten, harmlos). Die `src`-Elemente sind bereits frische
- * Deep-Copies (aus `buildTickDelta` bzw. strukturell geklont über `postMessage`), inkl. eigener `path`.
+ * Schiff-Liste identitäts-erhaltend übernehmen: vorhandene Schatten-Objekte werden in-place
+ * aktualisiert (`Object.assign`) statt ersetzt → ihre Objekt-Identität bleibt über Ticks erhalten,
+ * sodass main-seitige Identitäts-Caches (Kriegsschiff-Box-Auswahl im Renderer als `Set<Warship>`,
+ * Sound-Dedup als `WeakSet` über Boote/Bomber) weiter greifen.
+ *
+ * - Ohne `keyOf`: Schnellpfad bei GLEICHER Länge (Index-Zuordnung); bei Längenänderung Neuaufbau
+ *   (Auswahl-Verlust dort akzeptiert — selten, harmlos). Für warships/tradeShips/goldCarts.
+ * - Mit `keyOf`: schlüssel-basiertes Matching → die Identität eines Schiffs bleibt über seine ganze
+ *   Lebensdauer erhalten, AUCH wenn andere Schiffe dazukommen/wegfallen (Länge sich ändert). Nötig für
+ *   Boote/Bomber, deren Töne main-seitig per WeakSet auf Objektidentität entdoppelt werden — sonst
+ *   spielte jedes Spawn/Despawn die Hupe/den Start aller eigenen Schiffe erneut. `keyOf` muss aus
+ *   STABILEN (lebensdauer-konstanten) Feldern bauen (Boot: owner/origin/ziel; Bomber: owner/heimat/ziel).
+ *
+ * Die `src`-Elemente sind bereits frische Deep-Copies (aus `buildTickDelta` bzw. strukturell geklont
+ * über `postMessage`), inkl. eigener `path`. Schatten-only → kein Determinismus-Einfluss.
  */
-function reconcileShips<T extends object>(prev: T[], src: readonly T[]): T[] {
-  if (prev.length !== src.length) return src.slice()
-  for (let i = 0; i < src.length; i++) {
-    const dst = prev[i]
-    const next = src[i]
-    if (dst !== undefined && next !== undefined) Object.assign(dst, next)
+function reconcileShips<T extends object>(
+  prev: T[],
+  src: readonly T[],
+  keyOf?: (s: T) => string,
+): T[] {
+  if (keyOf === undefined) {
+    if (prev.length !== src.length) return src.slice()
+    for (let i = 0; i < src.length; i++) {
+      const dst = prev[i]
+      const next = src[i]
+      if (dst !== undefined && next !== undefined) Object.assign(dst, next)
+    }
+    return prev
   }
-  return prev
+  // Schlüssel-basiert: vorhandene Objekte je Schlüssel wiederverwenden (1× pro Schlüssel), Rest neu.
+  const byKey = new Map<string, T>()
+  for (const p of prev) {
+    const k = keyOf(p)
+    if (!byKey.has(k)) byKey.set(k, p) // erstes Vorkommen je Schlüssel
+  }
+  const out: T[] = new Array<T>(src.length)
+  const used = new Set<T>()
+  for (let i = 0; i < src.length; i++) {
+    const next = src[i]
+    if (next === undefined) continue
+    const reuse = byKey.get(keyOf(next))
+    if (reuse !== undefined && !used.has(reuse)) {
+      Object.assign(reuse, next)
+      out[i] = reuse
+      used.add(reuse)
+    } else {
+      out[i] = next
+    }
+  }
+  return out
 }
 
 /** Initialer Schatten aus dem aktuellen autoritativen State (über den Voll-Snapshot-Pfad). */
@@ -104,12 +140,22 @@ export function applyTickDelta(shadow: GameState, delta: TickDelta): boolean {
 
   // --- dynamische Listen (eigene mutable Kopien für den Schatten) ---
   shadow.buildings = new Map(delta.buildings.map(([t, b]) => [t, { ...b }]))
-  // Schiffe identitäts-erhaltend (s. reconcileShips) — sonst bräche die Kriegsschiff-Box-Auswahl.
-  shadow.boats = reconcileShips(shadow.boats, delta.boats)
+  // Schiffe identitäts-erhaltend (s. reconcileShips). Boote/Bomber schlüssel-basiert (stabile Felder
+  // owner/origin/ziel), damit ihre Töne (WeakSet-Dedup) auch bei Schiff-Anzahl-Änderung nicht erneut
+  // spielen. Warships/Handel/Fuhren: Längen-Schnellpfad (Kriegsschiff-Auswahl überlebt den Normalfall).
+  shadow.boats = reconcileShips(
+    shadow.boats,
+    delta.boats,
+    (b) => `${String(b.ownerId)}:${String(b.path[0] ?? -1)}:${String(b.targetTile)}`,
+  )
   shadow.tradeShips = reconcileShips(shadow.tradeShips, delta.tradeShips)
   shadow.goldCarts = reconcileShips(shadow.goldCarts, delta.goldCarts)
   shadow.warships = reconcileShips(shadow.warships, delta.warships)
-  shadow.bombers = reconcileShips(shadow.bombers, delta.bombers)
+  shadow.bombers = reconcileShips(
+    shadow.bombers,
+    delta.bombers,
+    (b) => `${String(b.ownerId)}:${String(b.homeAirport)}:${String(b.targetTile)}`,
+  )
   shadow.events = delta.events.map((e) => ({ ...e }))
   // Render-flüchtige Listen (nicht hash-relevant) — der Renderer liest sie aus dem Schatten.
   shadow.goldPops = delta.goldPops.map((g) => ({ ...g }))

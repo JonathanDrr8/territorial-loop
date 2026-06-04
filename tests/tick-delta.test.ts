@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createGame, tick, type GameConfig } from '../src/core/game'
 import { hashState } from '../src/core/hash'
 import type { Intent } from '../src/core/intent'
-import type { Warship } from '../src/core/ships'
+import type { Boat, Warship } from '../src/core/ships'
 import { getOwner } from '../src/world/map'
 import { neighbors4 } from '../src/world/torus'
 import { buildTickDelta } from '../src/worker/tick-delta'
@@ -19,6 +19,19 @@ function makeWarship(overrides: Partial<Warship> = {}): Warship {
     hp: 4,
     cooldown: 0,
     mode: 'patrol',
+    returning: false,
+    ...overrides,
+  }
+}
+
+/** Minimal-Transportboot (synthetisch) für den Schiff-Identitäts-Test. */
+function makeBoat(overrides: Partial<Boat> = {}): Boat {
+  return {
+    ownerId: 1,
+    troops: 100,
+    path: [10, 11, 12],
+    progress: 0,
+    targetTile: 12,
     returning: false,
     ...overrides,
   }
@@ -187,5 +200,31 @@ describe('TickDelta / Schatten-State (ADR-0030 — Sim-auf-Worker-Naht)', () => 
     applyTickDelta(shadow, buildTickDelta(s))
     expect(shadow.warships.length).toBe(1)
     expect(shadow.warships[0]).not.toBe(ref0)
+  })
+
+  it('Boot-Identität bleibt schlüssel-basiert erhalten — auch bei Schiff-Anzahl-Änderung (Sound-Dedup)', () => {
+    const s = createGame(cfg())
+    const shadow = createShadow(s)
+    // Zwei Boote mit unterschiedlichem Schlüssel (owner:origin:ziel).
+    s.boats.push(
+      makeBoat({ path: [10, 11], targetTile: 11 }),
+      makeBoat({ path: [20, 21], targetTile: 21 }),
+    )
+    applyTickDelta(shadow, buildTickDelta(s))
+    expect(shadow.boats.length).toBe(2)
+    const ref0 = shadow.boats[0]
+    const ref1 = shadow.boats[1]
+
+    // Ein DRITTES Boot spawnt → Array-Länge ändert sich. Die beiden bestehenden Boote (gleicher
+    // Schlüssel) MÜSSEN dieselben Objekte bleiben — sonst spielt die WeakSet-Sound-Dedup im Worker-
+    // Pfad ihre Hupe erneut. (Beim einfachen Längen-Reconcile der warships bräche die Identität hier.)
+    s.boats.push(makeBoat({ path: [30, 31], targetTile: 31 }))
+    const b0 = s.boats[0]
+    if (b0 !== undefined) b0.progress = 0.5
+    applyTickDelta(shadow, buildTickDelta(s))
+    expect(shadow.boats.length).toBe(3)
+    expect(shadow.boats[0]).toBe(ref0)
+    expect(shadow.boats[1]).toBe(ref1)
+    expect(shadow.boats[0]?.progress).toBe(0.5) // Wert in-place aktualisiert
   })
 })

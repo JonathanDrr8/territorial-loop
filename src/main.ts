@@ -433,14 +433,19 @@ function startMatch(
   // So friert (Stufe 2: Sim im Worker) die Oberfläche nie ein, egal wie lange ein Tick rechnet. Hier
   // einmalig über den Voll-Snapshot-Pfad gebaut (rekonstruiert Terrain/Komponenten/Frontier).
   const shadow = createShadow(state)
-  // ?worker (ADR-0030 Stufe 2, opt-in, nur Single-Player): die Sim läuft im Web Worker, der
-  // Hauptthread hält nur den Schatten und friert nie ein. MP bleibt vorerst auf dem Nicht-Worker-
-  // Pfad (Stufe 3); der Nicht-Worker-Pfad ist weiter der Default/Fallback.
-  const useWorker = net === undefined && new URLSearchParams(window.location.search).has('worker')
-  // Quelle für die Sim-Event-Seiteneffekte (Sound/Musik/Phase-Ende/Ranked/Alarm): im Worker-Pfad
-  // tickt nur der Schatten (der `state` auf Main ist eingefroren) → dort den Schatten lesen; sonst
-  // den autoritativen `state` (dessen Boot-/Bomber-Objekte sind persistent → Sound-Dedup bleibt scharf).
-  const liveSim = useWorker ? shadow : state
+  // Sim im Web Worker (ADR-0030): die Sim läuft auf einem eigenen Thread, der Hauptthread hält nur den
+  // Schatten und friert nie ein. **Default für Einzelspieler** (Freeze-Fix für alle), abschaltbar via
+  // `?noworker`. Voraussetzung: Browser kann Module-Worker. MP/Zuschauer bleiben Nicht-Worker (laufen
+  // über `net`; MP-über-Worker = Stufe 3). Schlägt der Worker-Start fehl → Fallback auf den Hauptthread.
+  const wantWorker =
+    net === undefined &&
+    typeof Worker !== 'undefined' &&
+    !new URLSearchParams(window.location.search).has('noworker')
+  // Tatsächlich genutzter Pfad (kann durch Fallback unten auf false fallen) + die Quelle für die
+  // Sim-Event-Seiteneffekte (Sound/Musik/Phase-Ende/Ranked/Alarm): im Worker-Pfad tickt nur der Schatten
+  // (der `state` auf Main ist eingefroren) → Schatten lesen; sonst den autoritativen `state`.
+  let usingWorker = false
+  let liveSim: GameState = state
   const renderer = createRenderer(container, shadow, localHumanId)
   // Geo-Karten (ADR-0016) sind meer-umrandete Kontinent-Ausschnitte → fest „Box (fest)" (eine
   // Welt-Kopie + harte Ränder), damit sie nicht kacheln/wrappen. Prozedural: Menü-Wahl.
@@ -564,23 +569,26 @@ function startMatch(
   // Sim-Naht (ADR-0009): UI/Eingabe reichen Intents per `submit` ein, `tick()` läuft aus
   // `onCommitted`. Single-Player: LocalTransport mit lokaler Takt-Uhr + lokaler KI. Mehrspieler:
   // der schon verbundene NetworkTransport (KI + Takt auf dem Server).
-  // KI: im Nicht-Worker-Pfad lokal erzeugt; im Worker-Pfad erzeugt der Worker sie aus `aiConfigs`.
-  const ais: AI[] = []
+  // KI: für den Worker als serialisierbare `aiConfigs` (der Worker erzeugt die KI selbst); für den
+  // Hauptthread-Pfad (Nicht-Worker, MP oder Worker-Fallback) lokale AI-Objekte über `buildAis()`.
   const aiConfigs: AiConfig[] = []
-  if (net === undefined) {
+  if (net === undefined && wantWorker) {
+    for (const p of state.players.values()) {
+      if (!p.isHuman) aiConfigs.push({ playerId: p.id, wild: p.wild === true })
+    }
+  }
+  const buildAis = (): AI[] => {
+    const out: AI[] = []
+    if (net !== undefined) return out // MP: KI läuft auf dem Server
     // Ranglisten-Match: alle (nicht-wilden) KI spielen exakt auf dem Spieler-ELO (ADR-0022).
     const rankedProfile = rankedElo !== undefined ? profileForElo(rankedElo) : undefined
     for (const p of state.players.values()) {
       if (p.isHuman) continue
-      if (useWorker) {
-        aiConfigs.push({ playerId: p.id, wild: p.wild === true })
-      } else {
-        // Wilde Nationen bekommen eine passive KI (expandieren v.a. in neutrales Land, greifen
-        // zurückhaltend an, bauen/diplomatisieren nie) — sonst die normale KI je Schwierigkeit.
-        const override = !p.wild ? rankedProfile : undefined
-        ais.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
-      }
+      // Wilde Nationen: passive KI (expandieren v.a. in Wildnis, greifen zurückhaltend an, bauen nie).
+      const override = !p.wild ? rankedProfile : undefined
+      out.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
     }
+    return out
   }
 
   // Renderer-Naht nach jedem auf den Schatten angewandten Delta: Owner-Overflow → Voll-Rebake,
@@ -590,27 +598,39 @@ function startMatch(
     else renderer.collectDirty()
   }
 
-  // Sim-Treiber (ADR-0030): Worker-Pfad (`?worker`, SP) — die Sim tickt im Web Worker und schickt
-  // pro Tick ein Delta, der Main wendet es auf den Schatten an. Nicht-Worker-Pfad (Default/Fallback,
-  // auch MP) — `createSimHost` tickt den autoritativen `state` auf demselben Thread, der Schatten
-  // wird in `onAfterTick` aus `buildTickDelta` aktualisiert. Beide teilen die `SimController`-Naht
-  // (`submit`/`setRunning`/`setIntervalMs`/`destroy`).
+  // Sim-Treiber (ADR-0030): Worker-Pfad (**Default SP**) — die Sim tickt im Web Worker und schickt pro
+  // Tick ein Delta, der Main wendet es auf den Schatten an. Nicht-Worker-Pfad (MP, `?noworker`, oder
+  // Fallback falls der Worker-Start scheitert) — `createSimHost` tickt den autoritativen `state` auf
+  // demselben Thread, der Schatten wird in `onAfterTick` aus `buildTickDelta` aktualisiert. Beide teilen
+  // die `SimController`-Naht (`submit`/`setRunning`/`setIntervalMs`/`destroy`).
   let recorder: Recorder | undefined
   let sim: SimController
-  if (useWorker) {
-    sim = createSimClient({
-      shadow,
-      config,
-      ais: aiConfigs,
-      difficulty: menu.difficulty,
-      ...(rankedElo !== undefined ? { rankedElo } : {}),
-      intervalMs: SIM_BASE_INTERVAL_MS,
-      onApplied: onSimApplied,
-    })
+  let simClient: SimController | null = null
+  if (wantWorker) {
+    try {
+      simClient = createSimClient({
+        shadow,
+        config,
+        ais: aiConfigs,
+        difficulty: menu.difficulty,
+        ...(rankedElo !== undefined ? { rankedElo } : {}),
+        intervalMs: SIM_BASE_INTERVAL_MS,
+        onApplied: onSimApplied,
+      })
+    } catch (err) {
+      console.warn(
+        '[territorial-loop] Web-Worker-Start fehlgeschlagen — Fallback auf Hauptthread',
+        err,
+      )
+    }
+  }
+  if (simClient !== null) {
+    sim = simClient
+    usingWorker = true
   } else {
     const host = createSimHost({
       state,
-      ais,
+      ais: buildAis(),
       netTransport: net?.transport,
       intervalMs: SIM_BASE_INTERVAL_MS,
       // `onAfterTick` läuft NACH `tick(state)` → `state.dirtyTiles` hält genau diesen Tick.
@@ -619,6 +639,8 @@ function startMatch(
     recorder = host.recorder
     sim = host
   }
+  // Seiteneffekt-Quelle festlegen, sobald der echte Pfad feststeht (Worker → Schatten, sonst `state`).
+  liveSim = usingWorker ? shadow : state
   const rawSubmit = (intent: Intent): void => {
     sim.submit(intent)
   }
