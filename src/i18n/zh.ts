@@ -32,6 +32,7 @@ export const zh: Record<string, string> = {
   'field.wildCount': '野生国家',
   'field.difficulty': 'AI 难度',
   'field.victory': '胜利 %',
+  'field.attackSize': '初始攻击 %',
   'field.seed': '种子（可选）',
   'field.seedPlaceholder': '留空 = 随机',
   'field.reroll': '重新骰',

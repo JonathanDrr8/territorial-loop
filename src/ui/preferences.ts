@@ -96,6 +96,9 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     ) {
       result.victoryPct = parsed.victoryPct
     }
+    if (typeof parsed.attackPct === 'number' && parsed.attackPct >= 5 && parsed.attackPct <= 100) {
+      result.attackPct = Math.round(parsed.attackPct)
+    }
     if (isDifficulty(parsed.difficulty)) result.difficulty = parsed.difficulty
     if (isTempo(parsed.tempo)) result.tempo = parsed.tempo
     if (isTerrain(parsed.terrain)) result.terrain = parsed.terrain

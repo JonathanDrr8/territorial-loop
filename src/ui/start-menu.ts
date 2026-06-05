@@ -52,6 +52,8 @@ export interface StartMenuValues {
   /** Anzahl passiver „wilder Nationen"/Barbaren (eroberbarer Puffer). */
   wildCount: number
   victoryPct: number
+  /** Start-Angriffsgröße in % — initialer Wert des In-Game-Angriffs-Sliders. */
+  attackPct: number
   difficulty: Difficulty
   tempo: MatchTempo
   terrain: TerrainChoice

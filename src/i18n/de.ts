@@ -33,6 +33,7 @@ export const de: Record<string, string> = {
   'field.wildCount': 'Wilde Nationen',
   'field.difficulty': 'KI-Schwierigkeit',
   'field.victory': 'Sieg-%',
+  'field.attackSize': 'Start-Angriff %',
   'field.seed': 'Seed (optional)',
   'field.seedPlaceholder': 'leer = zufällig',
   'field.reroll': 'Würfeln',

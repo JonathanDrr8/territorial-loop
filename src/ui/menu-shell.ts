@@ -454,6 +454,7 @@ export function createMenuShell(
     ai: () => number
     wild: () => number
     victory: () => number
+    attack: () => number
     difficulty: () => Difficulty
     terrain: () => TerrainChoice
     captureMode: () => boolean
@@ -479,6 +480,7 @@ export function createMenuShell(
       aiCount: playFields?.ai() ?? values.aiCount,
       wildCount: playFields?.wild() ?? values.wildCount,
       victoryPct: playFields?.victory() ?? values.victoryPct,
+      attackPct: playFields?.attack() ?? values.attackPct,
       difficulty: playFields?.difficulty() ?? values.difficulty,
       tempo: values.tempo,
       terrain: playFields?.terrain() ?? values.terrain,
@@ -591,6 +593,8 @@ export function createMenuShell(
     section(settings, t('section.match'))
     const victory = makeSliderRow(t('field.victory'), 50, 100, 5, values.victoryPct, '%')
     settings.appendChild(victory.element)
+    const attack = makeSliderRow(t('field.attackSize'), 5, 100, 5, values.attackPct, '%')
+    settings.appendChild(attack.element)
     const seed = makeTextRow(t('field.seed'), values.seed ?? '', {
       placeholder: t('field.seedPlaceholder'),
       maxLength: 32,
@@ -743,6 +747,7 @@ export function createMenuShell(
       ai: ai.getValue,
       wild: wild.getValue,
       victory: victory.getValue,
+      attack: attack.getValue,
       difficulty: difficulty.getValue,
       terrain: terrain.getValue,
       captureMode: capture.getValue,

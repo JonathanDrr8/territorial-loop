@@ -134,6 +134,7 @@ const DEFAULT_MENU: StartMenuValues = {
   aiCount: 3,
   wildCount: 2,
   victoryPct: 90,
+  attackPct: DEFAULT_SLIDER_PCT,
   difficulty: 'standard',
   tempo: 'normal',
   terrain: 'continents',
@@ -558,7 +559,7 @@ function startMatch(
     return Math.min(1, Math.max(a, bombs * 0.7) + personal)
   }
 
-  let sliderPct = DEFAULT_SLIDER_PCT
+  let sliderPct = menu.attackPct
   let paused = false
   let speed: 1 | 2 | 5 = 1
   let renderRafId: number | null = null
@@ -747,6 +748,8 @@ function startMatch(
   }
   // HUD am Debug-Hook erreichbar (z.B. `__TL__.hud.flashResync()` zum Desync-UI-Testen).
   ;(window as unknown as { __TL__: { hud?: unknown } }).__TL__.hud = hud
+  // Start-Angriffsgröße aus dem Menü auf den HUD-Slider übertragen (Default-Wert beim Match-Start).
+  hud.setSliderPct(sliderPct)
 
   // MP-Host-Pause: der Server broadcastet den autoritativen Pause-Zustand. Während Pause kommen
   // keine Commits → der Sim steht ohnehin still; hier nur die Anzeige (PAUSE-Overlay) nachziehen.

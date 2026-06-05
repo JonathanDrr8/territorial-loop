@@ -9,6 +9,7 @@ const DEFAULTS: StartMenuValues = {
   aiCount: 3,
   wildCount: 2,
   victoryPct: 90,
+  attackPct: 30,
   difficulty: 'standard',
   tempo: 'normal',
   terrain: 'flat',
@@ -48,6 +49,7 @@ describe('preferences', () => {
       aiCount: 5,
       wildCount: 4,
       victoryPct: 75,
+      attackPct: 50,
       difficulty: 'advanced',
       tempo: 'siege',
       terrain: 'islands',
@@ -105,6 +107,19 @@ describe('preferences', () => {
       JSON.stringify({ ...DEFAULTS, aiCount: 999 }),
     )
     expect(loadMenuPrefs(DEFAULTS).aiCount).toBe(DEFAULTS.aiCount)
+  })
+
+  it('ignores out-of-range attackPct, falls back to default', () => {
+    window.localStorage.setItem(
+      'territorial-loop:menu-prefs:v1',
+      JSON.stringify({ ...DEFAULTS, attackPct: 250 }),
+    )
+    expect(loadMenuPrefs(DEFAULTS).attackPct).toBe(DEFAULTS.attackPct)
+  })
+
+  it('round-trips a valid attackPct', () => {
+    saveMenuPrefs({ ...DEFAULTS, attackPct: 60 })
+    expect(loadMenuPrefs(DEFAULTS).attackPct).toBe(60)
   })
 
   it('returns defaults when stored JSON is malformed', () => {

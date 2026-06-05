@@ -32,6 +32,7 @@ export const ru: Record<string, string> = {
   'field.wildCount': 'Дикие нации',
   'field.difficulty': 'Сложность ИИ',
   'field.victory': 'Победа %',
+  'field.attackSize': 'Старт. атака %',
   'field.seed': 'Сид (необязательно)',
   'field.seedPlaceholder': 'пусто = случайный',
   'field.reroll': 'Перебросить',

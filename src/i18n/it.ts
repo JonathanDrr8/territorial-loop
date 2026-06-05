@@ -32,6 +32,7 @@ export const it: Record<string, string> = {
   'field.wildCount': 'Nazioni selvagge',
   'field.difficulty': "Difficoltà dell'IA",
   'field.victory': 'Vittoria %',
+  'field.attackSize': 'Attacco iniziale %',
   'field.seed': 'Seme (opzionale)',
   'field.seedPlaceholder': 'vuoto = casuale',
   'field.reroll': 'Rilancia',

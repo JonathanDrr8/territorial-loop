@@ -32,6 +32,7 @@ export const ja: Record<string, string> = {
   'field.wildCount': '野生国家',
   'field.difficulty': 'AI の難易度',
   'field.victory': '勝利 %',
+  'field.attackSize': '初期攻撃 %',
   'field.seed': 'シード（任意）',
   'field.seedPlaceholder': '空 = ランダム',
   'field.reroll': '振り直す',
