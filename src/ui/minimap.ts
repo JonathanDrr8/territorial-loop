@@ -116,6 +116,37 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   if (ctx === null) throw new Error('Minimap: 2D context not available')
   ctx.imageSmoothingEnabled = false
 
+  // Klick/Ziehen auf die Karte → Kamera dorthin springen (zentrieren). Die Welt-Position wird aus
+  // der Klick-Pixel-Position über die TATSÄCHLICH gerenderte Canvas-Größe (getBoundingClientRect)
+  // zurückgerechnet → robust gegen UI-Skalierung. Ziehen scrubt die Kamera kontinuierlich; der
+  // Torus-Wrap nutzt dasselbe ((v%s)+s)%s-Idiom wie der Pan-Code in input.ts.
+  canvas.style.cursor = 'pointer'
+  canvas.style.touchAction = 'none' // Touch-Drag auf der Minimap scrollt nicht die Seite
+  let panning = false
+  const jumpToPointer = (e: PointerEvent): void => {
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+    const worldX = ((e.clientX - rect.left) / rect.width) * mapW
+    const worldY = ((e.clientY - rect.top) / rect.height) * mapH
+    camera.x = ((worldX % mapW) + mapW) % mapW
+    camera.y = ((worldY % mapH) + mapH) % mapH
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    panning = true
+    canvas.setPointerCapture(e.pointerId)
+    jumpToPointer(e)
+  })
+  canvas.addEventListener('pointermove', (e) => {
+    if (panning) jumpToPointer(e)
+  })
+  const endPan = (e: PointerEvent): void => {
+    panning = false
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
+  }
+  canvas.addEventListener('pointerup', endPan)
+  canvas.addEventListener('pointercancel', endPan)
+
   /** Box-Geometrie (Minimap-Pixel) des sichtbaren Viewports. */
   function viewportBox(): { x: number; y: number; bw: number; bh: number } {
     const viewport = getViewportSize()
