@@ -4581,7 +4581,6 @@ export function updateFrontierAfterCapture(
   }
 
   const newPlayer = players.get(newOwner)
-  if (newPlayer === undefined) return
 
   const ry = (ref / w) | 0
   const rx = ref - ry * w
@@ -4591,20 +4590,29 @@ export function updateFrontierAfterCapture(
   const rn3 = (ry - 1 >= 0 ? ry - 1 : h - 1) * w + rx
 
   // Ist `ref` neue Frontier von `newOwner`? (irgendein passabler Nachbar ≠ newOwner)
-  let refIsFrontier = false
-  for (let d = 0; d < 4; d++) {
-    const n = d === 0 ? rn0 : d === 1 ? rn1 : d === 2 ? rn2 : rn3
-    const tv = terr[n]
-    if (tv === undefined || (tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT)
-      continue
-    if (((st[n] ?? 0) & OWNER_MASK) !== newOwner) {
-      refIsFrontier = true
-      break
+  // Nur wenn `newOwner` ein echter Spieler ist. Bei einer Neutralisierung (newOwner === 0,
+  // z.B. Bomben-Krater) gibt es keinen `newPlayer` — FRÜHER wurde hier returnt, wodurch die
+  // Nachbar-Schleife unten übersprungen wurde. Das ließ einen eingeschlossenen Krater
+  // unenehmbar (Krater-Nachbarn fehlten in der Frontier) und ließ die inkrementelle Frontier
+  // gegen initializeAllFrontiers driften (versteckter MP-Resync-Desync). Darum: KEIN return mehr.
+  if (newPlayer !== undefined) {
+    let refIsFrontier = false
+    for (let d = 0; d < 4; d++) {
+      const n = d === 0 ? rn0 : d === 1 ? rn1 : d === 2 ? rn2 : rn3
+      const tv = terr[n]
+      if (tv === undefined || (tv & IS_LAND_BIT) === 0 || (tv & HEIGHT_MASK) === IMPASSABLE_HEIGHT)
+        continue
+      if (((st[n] ?? 0) & OWNER_MASK) !== newOwner) {
+        refIsFrontier = true
+        break
+      }
     }
+    if (refIsFrontier) newPlayer.frontier.add(ref)
   }
-  if (refIsFrontier) newPlayer.frontier.add(ref)
 
-  // Nachbar-Status updaten
+  // Nachbar-Status updaten — läuft AUCH bei Neutralisierung (newOwner === 0): die Nachbarn des
+  // jetzt herrenlosen Tiles grenzen an begehbares neutrales Land und gehören damit in die Frontier
+  // ihres Besitzers (sonst bleibt der Bomben-Krater uneinnehmbar / Frontier driftet → Desync).
   for (let d = 0; d < 4; d++) {
     const n = d === 0 ? rn0 : d === 1 ? rn1 : d === 2 ? rn2 : rn3
     const nOwner = (st[n] ?? 0) & OWNER_MASK
