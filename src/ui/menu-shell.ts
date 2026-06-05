@@ -131,6 +131,9 @@ export function createMenuShell(
   // Über Rerender (Sprachwechsel) hinweg erhaltener Zustand.
   let values: StartMenuValues = { ...initial }
   let activeTab: TabId = 'play'
+  // Gewählte Vorgabe-Karte (Klein/Standard/…) — im äußeren Scope, damit die Hervorhebung
+  // Tab-Wechsel und Sprach-Rerender übersteht (lokal in buildPlayTab ging sie sonst verloren).
+  let activePresetKey: string | null = null
   let reconnect: { room: string; onReconnect: () => void } | null = null
 
   // Karten-Backdrop einmal pro Menü-Öffnung generieren (gleich über alle Tab-Wechsel hinweg).
@@ -638,17 +641,27 @@ export function createMenuShell(
       setRange(victory.element, preset.victoryPct)
       refreshPreview()
     }
-    // Gewählte Vorgabe bleibt hervorgehoben (Akzent-Rand + dezenter Hintergrund), damit man sieht,
-    // welche gerade aktiv ist.
-    let activePresetCard: HTMLButtonElement | null = null
-    const markPreset = (card: HTMLButtonElement): void => {
-      if (activePresetCard !== null && activePresetCard !== card) {
-        activePresetCard.style.borderColor = 'var(--tl-panel-border-color)'
-        activePresetCard.style.background = 'var(--tl-panel-bg)'
+    // Gewählte Vorgabe bleibt hervorgehoben: Akzent-Rand + Glow + dezenter Hintergrund. Der Glow
+    // (box-shadow) unterscheidet „aktiv" klar vom bloßen Hover (der nur den Rand färbt) — ohne ihn
+    // sah Klicken-mit-Maus-drauf nach nichts aus. Der aktive Key lebt im äußeren Scope, die
+    // Karten-Map ist pro Tab-Aufbau lokal; setActive überträgt den Look auf die DOM-Karte.
+    const cardByKey = new Map<string, HTMLButtonElement>()
+    const ACTIVE_GLOW = '0 0 0 1px var(--tl-accent), 0 0 14px -2px var(--tl-accent)'
+    const setCardActive = (card: HTMLButtonElement, active: boolean): void => {
+      card.style.borderColor = active ? 'var(--tl-accent)' : 'var(--tl-panel-border-color)'
+      card.style.background = active
+        ? 'color-mix(in srgb, var(--tl-accent) 16%, var(--tl-panel-bg))'
+        : 'var(--tl-panel-bg)'
+      card.style.boxShadow = active ? ACTIVE_GLOW : 'none'
+    }
+    const markPreset = (key: string): void => {
+      if (activePresetKey !== null && activePresetKey !== key) {
+        const prev = cardByKey.get(activePresetKey)
+        if (prev !== undefined) setCardActive(prev, false)
       }
-      activePresetCard = card
-      card.style.borderColor = 'var(--tl-accent)'
-      card.style.background = 'rgba(232,193,74,0.14)'
+      activePresetKey = key
+      const card = cardByKey.get(key)
+      if (card !== undefined) setCardActive(card, true)
     }
     for (const preset of MATCH_PRESETS) {
       const card = document.createElement('button')
@@ -667,7 +680,7 @@ export function createMenuShell(
         'flex-direction: column',
         'gap: 3px',
         'align-items: center',
-        'transition: border-color 0.12s, background 0.12s',
+        'transition: border-color 0.12s, background 0.12s, box-shadow 0.12s',
       ].join(';')
       const name = document.createElement('div')
       name.textContent = t(`preset.${preset.key}`)
@@ -676,17 +689,20 @@ export function createMenuShell(
       sub.textContent = t('preset.sub', { ai: preset.aiCount, wild: preset.wildCount })
       sub.style.cssText = 'font-size: 11px; opacity: 0.7'
       card.append(name, sub)
+      cardByKey.set(preset.key, card)
       card.addEventListener('mouseenter', () => {
-        if (card !== activePresetCard) card.style.borderColor = 'var(--tl-accent)'
+        if (preset.key !== activePresetKey) card.style.borderColor = 'var(--tl-accent)'
       })
       card.addEventListener('mouseleave', () => {
-        if (card !== activePresetCard) card.style.borderColor = 'var(--tl-panel-border-color)'
+        if (preset.key !== activePresetKey) card.style.borderColor = 'var(--tl-panel-border-color)'
       })
       card.addEventListener('click', () => {
         applyPreset(preset)
-        markPreset(card)
+        markPreset(preset.key)
       })
       presetRow.appendChild(card)
+      // Beim (Neu-)Aufbau die zuvor gewählte Vorgabe sofort wieder hervorheben (Tab-/Sprachwechsel).
+      if (preset.key === activePresetKey) setCardActive(card, true)
     }
 
     const previewRow = document.createElement('div')
