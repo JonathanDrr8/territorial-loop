@@ -163,6 +163,21 @@ const ZOOM_STEP = 1.15
 /** Schrittweite (Prozentpunkte) der Angriffsgröße pro Shift+Mausrad-Raste. */
 const ATTACK_STEP_PCT = 10
 
+/**
+ * Nächste Angriffsgrößen-Stufe für Shift+Mausrad. Stufen: 1, 10, 20, …, 100 (1 % als
+ * kleinste Stufe). Von 10 runter springt direkt auf 1, von 1 hoch auf 10 — keine
+ * 1-%-Einzelschritte beim Verstellen. Zwischenwerte (z. B. ein per Menü gesetzter
+ * Startwert wie 25) rasten zur nächsten 10er-Stufe in Scroll-Richtung.
+ */
+export function nextAttackStepPct(cur: number, up: boolean): number {
+  if (up) {
+    return cur < ATTACK_STEP_PCT
+      ? ATTACK_STEP_PCT
+      : Math.min(100, (Math.floor(cur / ATTACK_STEP_PCT) + 1) * ATTACK_STEP_PCT)
+  }
+  return cur <= ATTACK_STEP_PCT ? 1 : (Math.ceil(cur / ATTACK_STEP_PCT) - 1) * ATTACK_STEP_PCT
+}
+
 export function createInputHandler(deps: InputDeps): InputHandler {
   const { canvas, camera, mapWidth, mapHeight, emit, events } = deps
 
@@ -652,15 +667,10 @@ export function createInputHandler(deps: InputDeps): InputHandler {
       deps.onBomberModeChange?.(true, bomberRoute)
       return
     }
-    // Shift+Mausrad → Angriffsgröße ändern (statt Zoom). Feinschritte (1 %) unter 10 %,
-    // gröber (10 %) darüber — runter UND wieder hoch, sodass 1 % erreichbar ist.
+    // Shift+Mausrad → Angriffsgröße ändern (statt Zoom). Stufen: 1, 10, 20, …, 100
+    // (1 % als kleinste Stufe; von 10 runter springt auf 1, von 1 hoch auf 10).
     if (e.shiftKey && deps.setSliderPct !== undefined && deps.interactive !== false) {
-      const cur = deps.getSliderPct()
-      const up = e.deltaY < 0
-      const fine = up ? cur < 10 : cur <= 10
-      const step = fine ? 1 : ATTACK_STEP_PCT
-      const next = Math.max(1, Math.min(100, cur + (up ? step : -step)))
-      deps.setSliderPct(next)
+      deps.setSliderPct(nextAttackStepPct(deps.getSliderPct(), e.deltaY < 0))
       return
     }
     // Welt-Punkt unter Cursor merken, damit der Zoom dort "zentriert" wirkt
