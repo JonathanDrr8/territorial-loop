@@ -4,6 +4,18 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.54.1] – 2026-06-05
+
+### Behoben
+
+- **Bombenkrater wieder einnehmbar:** Eine Bombe mitten ins Reich hinterließ manchmal ein neutrales
+  Loch, das sich partout nicht zurückerobern ließ — die eigene Grenze „sah" das Loch schlicht nicht.
+  Behoben: Krater am eigenen Rand lassen sich wieder normal einnehmen. (Schloss nebenbei eine seltene
+  Ursache für Mehrspieler-Aussetzer nach einem Wiederverbinden.)
+- **Flüsse auf jedem Browser identisch:** Eine Rechenstelle der Fluss-Erzeugung konnte auf verschiedenen
+  Browsern minimal unterschiedlich ausfallen — jetzt erzeugt derselbe Karten-Seed überall exakt dasselbe
+  Flussbild (saubere, faire Mehrspieler-Starts).
+
 ## [0.54.0] – 2026-06-04
 
 ### Neu
