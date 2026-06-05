@@ -244,7 +244,12 @@ function carveRivers(
       const a = pts[k]
       const b = pts[k + 1]
       if (a === undefined || b === undefined) continue
-      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)))
+      // Math.sqrt (IEEE-754: korrekt gerundet → cross-engine bit-identisch) statt Math.hypot
+      // (NICHT garantiert korrekt gerundet). Das Ergebnis speist ein Math.ceil → eine 1-ULP-
+      // Abweichung zwischen Engines könnte `steps` und damit die gecarvten Wasser-Tiles verschieben.
+      const rdx = b.x - a.x
+      const rdy = b.y - a.y
+      const steps = Math.max(1, Math.ceil(Math.sqrt(rdx * rdx + rdy * rdy)))
       for (let s = 0; s <= steps; s++) {
         const t = s / steps
         carveAt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
