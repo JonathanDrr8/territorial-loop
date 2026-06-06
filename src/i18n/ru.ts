@@ -679,4 +679,10 @@ export const ru: Record<string, string> = {
   'field.rivers': 'Реки',
   'field.rivers.hint': 'только континенты/острова, судоходны',
   'field.riverDensity': 'Частота рек',
+
+  // ── Закреплённая панель информации под курсором ──────────────────────────────
+  'hover.title': 'Под курсором',
+  'hover.empty': 'Наведите курсор на карту',
+  'hover.building': 'Здание',
+  'hover.water': 'Вода',
 }

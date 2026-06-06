@@ -694,4 +694,10 @@ export const fr: Record<string, string> = {
   'field.rivers': 'Rivières',
   'field.rivers.hint': 'continents/îles seulement, navigables',
   'field.riverDensity': 'Fréquence des rivières',
+
+  // ── Panneau fixe d'info au survol ────────────────────────────────────────────
+  'hover.title': 'Sous le curseur',
+  'hover.empty': 'Déplacez le curseur sur la carte',
+  'hover.building': 'Bâtiment',
+  'hover.water': 'Eau',
 }

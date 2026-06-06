@@ -50,6 +50,7 @@ import { createConfirmDialog } from './ui/confirm-dialog'
 import { createEventLog } from './ui/event-log'
 import { createAlliancePrompt } from './ui/alliance-prompt'
 import { createHoverTooltip } from './ui/hover-tooltip'
+import { createHoverInfo } from './ui/hover-info'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
@@ -795,6 +796,11 @@ function startMatch(
     () => Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
     (h) => renderer.setHoverHighlight(h),
   )
+  // Festes Hover-Info-Panel (zusätzlich zum mitwandernden Tooltip): zeigt dauerhaft Besitzer/
+  // Truppen/Gebäude des Tiles unter dem Cursor. `hoverWorld` hält die aktuelle Maus-Welt-Position;
+  // der renderLoop füttert das Panel daraus pro Frame (live aus dem Schatten-State).
+  const hoverInfo = createHoverInfo(container, shadow, humanId)
+  let hoverWorld: { worldX: number; worldY: number } | null = null
   // Gemeinsame Feed-Spalte unten rechts, ÜBER der Minimap (klassisches Layout): oben die
   // interaktiven Bündnis-Anfragen, darunter das passive Ereignislog. Anker unten → wächst nach
   // oben. Die Spalte trägt das `zoom` für beide Karten (Kinder registrieren sich nicht selbst).
@@ -928,10 +934,12 @@ function startMatch(
     onHover: (worldX, worldY, screenX, screenY) => {
       tooltip.show(worldX, worldY, screenX, screenY, renderer.camera.zoom)
       renderer.setHoverTile(worldX, worldY)
+      hoverWorld = { worldX, worldY }
     },
     onHoverEnd: () => {
       tooltip.hide()
       renderer.clearHoverTile()
+      hoverWorld = null
     },
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
@@ -1403,6 +1411,8 @@ function startMatch(
     // Editieren durch neue Einträge. Beim Schließen laufen alle Updates sofort wieder.
     if (!hudEditor.isOpen()) {
       hud.update()
+      // Festes Hover-Info-Panel aus der aktuellen Maus-Welt-Position (live aus dem Schatten-State).
+      hoverInfo.update(hoverWorld)
       // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
       alliancePrompt.update()
       eventLog.update()
@@ -1475,6 +1485,7 @@ function startMatch(
       hud.destroy()
       minimap.destroy()
       tooltip.destroy()
+      hoverInfo.destroy()
       eventLog.destroy()
       alliancePrompt.destroy()
       unregisterPanel('feed')

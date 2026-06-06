@@ -687,4 +687,10 @@ export const en: Record<string, string> = {
   'field.rivers': 'Rivers',
   'field.rivers.hint': 'continents/islands only, navigable',
   'field.riverDensity': 'River Frequency',
+
+  // ── Fixed hover info panel ───────────────────────────────────────────────────
+  'hover.title': 'Under cursor',
+  'hover.empty': 'Move cursor over the map',
+  'hover.building': 'Building',
+  'hover.water': 'Water',
 }

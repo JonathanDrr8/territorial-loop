@@ -695,4 +695,10 @@ export const de: Record<string, string> = {
   'field.rivers': 'Flüsse',
   'field.rivers.hint': 'nur Kontinente/Inseln, befahrbar',
   'field.riverDensity': 'Fluss-Häufigkeit',
+
+  // ── Festes Hover-Info-Panel ──────────────────────────────────────────────────
+  'hover.title': 'Unter dem Cursor',
+  'hover.empty': 'Maus über die Karte bewegen',
+  'hover.building': 'Gebäude',
+  'hover.water': 'Wasser',
 }

@@ -690,4 +690,10 @@ export const it: Record<string, string> = {
   'field.rivers': 'Fiumi',
   'field.rivers.hint': 'solo continenti/isole, navigabili',
   'field.riverDensity': 'Frequenza dei fiumi',
+
+  // ── Pannello fisso info al passaggio del cursore ─────────────────────────────
+  'hover.title': 'Sotto il cursore',
+  'hover.empty': 'Muovi il cursore sulla mappa',
+  'hover.building': 'Edificio',
+  'hover.water': 'Acqua',
 }

@@ -631,4 +631,10 @@ export const zh: Record<string, string> = {
   'field.rivers': '河流',
   'field.rivers.hint': '仅大陆/岛屿，可通航',
   'field.riverDensity': '河流频率',
+
+  // ── 固定悬停信息面板 ─────────────────────────────────────────────────────────
+  'hover.title': '光标下',
+  'hover.empty': '将光标移到地图上',
+  'hover.building': '建筑',
+  'hover.water': '水域',
 }

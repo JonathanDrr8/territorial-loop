@@ -639,4 +639,10 @@ export const ja: Record<string, string> = {
   'field.rivers': '川',
   'field.rivers.hint': '大陸/島のみ・航行可',
   'field.riverDensity': '川の密度',
+
+  // ── 固定ホバー情報パネル ─────────────────────────────────────────────────────
+  'hover.title': 'カーソル位置',
+  'hover.empty': 'カーソルをマップ上に移動',
+  'hover.building': '建物',
+  'hover.water': '水域',
 }
