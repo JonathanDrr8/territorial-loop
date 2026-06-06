@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.55.1] – 2026-06-07
+
+### Behoben
+
+- **Eroberte Städte & Fabriken bringen wieder Gold:** Wer eine gegnerische Stadt oder Fabrik
+  erobert hatte, bekam dafür kein Gold — die zugehörige Gold-Fuhre lieferte weiter an den alten
+  Besitzer. Jetzt wechselt sie korrekt mit, das eroberte Gebäude zahlt ab sofort an dich.
+- **Reichweiten-Ring beim Aufrüsten:** Hoverst du über einen Verteidigungs- oder Flak-Posten, den
+  du aufrüsten willst, zeigt der Reichweiten-Ring jetzt die größere Reichweite des nächsten Levels
+  (vorher immer die von Stufe 1).
+
 ## [0.55.0] – 2026-06-07
 
 ### Neu
