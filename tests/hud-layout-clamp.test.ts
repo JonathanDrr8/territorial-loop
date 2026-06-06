@@ -47,8 +47,8 @@ describe('HUD-Layout: Panels bleiben im Viewport', () => {
     setViewport(500, 400)
     const el = panel('clamp-1', 100, 50)
     setPanel('clamp-1', { x: 9999, y: 9999 }) // weit ausserhalb
-    expect(el.style.left).toBe('400px') // 500 - 100
-    expect(el.style.top).toBe('350px') // 400 - 50
+    expect(el.style.left).toBe('476px') // vw 500 - MARGIN 24 (24px bleiben sichtbar)
+    expect(el.style.top).toBe('376px') // vh 400 - MARGIN 24
   })
 
   it('zieht ein Panel bei einem Fenster-Resize zurück ins Bild', () => {
@@ -58,8 +58,8 @@ describe('HUD-Layout: Panels bleiben im Viewport', () => {
     expect(el.style.left).toBe('1000px')
     setViewport(500, 400) // Fenster verkleinern
     window.dispatchEvent(new Event('resize'))
-    expect(el.style.left).toBe('400px')
-    expect(el.style.top).toBe('350px')
+    expect(el.style.left).toBe('476px')
+    expect(el.style.top).toBe('376px')
   })
 
   it('lässt eine gültige Position unverändert', () => {

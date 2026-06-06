@@ -49,10 +49,14 @@ function save(): void {
   notifySettingsChanged()
 }
 
+/** Mind. so viele Pixel eines Panels bleiben sichtbar — deckt sich mit dem Editor-Drag-Spielraum. */
+const CLAMP_MARGIN = 24
+
 /**
- * Hält ein absolut positioniertes Panel im sichtbaren Bereich (Clamp gegen den Viewport). Nötig,
- * weil gespeicherte Pixel-Positionen nach einem Resize/Drehen (oder auf einem kleineren Gerät)
- * sonst aus dem Bild wandern. Nutzt die tatsächlich gerenderte (ggf. skalierte) Größe.
+ * Hält ein absolut positioniertes Panel ERREICHBAR: mindestens {@link CLAMP_MARGIN}px bleiben im
+ * Bild. Das Panel darf am Rand parken (wie beim Editor-Ziehen), aber nie ganz aus dem Bild wandern —
+ * nötig, weil gespeicherte Pixel-Positionen nach Resize/Drehen (oder auf kleinerem Gerät) sonst
+ * unerreichbar werden. Nutzt die tatsächlich gerenderte (ggf. skalierte) Größe.
  */
 function clampToViewport(el: HTMLElement): void {
   const rect = el.getBoundingClientRect()
@@ -62,11 +66,11 @@ function clampToViewport(el: HTMLElement): void {
   const left = parseFloat(el.style.left)
   const top = parseFloat(el.style.top)
   if (!Number.isNaN(left)) {
-    const clamped = Math.max(0, Math.min(left, Math.max(0, vw - rect.width)))
+    const clamped = Math.max(CLAMP_MARGIN - rect.width, Math.min(left, vw - CLAMP_MARGIN))
     if (clamped !== left) el.style.left = `${Math.round(clamped).toString()}px`
   }
   if (!Number.isNaN(top)) {
-    const clamped = Math.max(0, Math.min(top, Math.max(0, vh - rect.height)))
+    const clamped = Math.max(CLAMP_MARGIN - rect.height, Math.min(top, vh - CLAMP_MARGIN))
     if (clamped !== top) el.style.top = `${Math.round(clamped).toString()}px`
   }
 }
