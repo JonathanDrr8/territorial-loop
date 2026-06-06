@@ -107,6 +107,19 @@ describe('AccountDb', () => {
     db.close()
   })
 
+  it('deleteByToken entfernt den Account endgültig (ADR-0027 Phase 3)', () => {
+    const db = freshDb()
+    db.getOrCreateGuest('tok-1', 'Merkur')
+    db.setRanked('tok-1', 1400, 5, 1, 1400)
+    expect(db.getByToken('tok-1')).not.toBeNull()
+
+    expect(db.deleteByToken('tok-1')).toBe(true)
+    expect(db.getByToken('tok-1')).toBeNull()
+    expect(db.leaderboard(10)).toEqual([]) // aus der Rangliste verschwunden
+    expect(db.deleteByToken('tok-1')).toBe(false) // zweites Mal: nichts mehr zu löschen
+    db.close()
+  })
+
   it('Migrationen sind idempotent (zweites Öffnen wirft nicht)', () => {
     // Datei-DB wäre nötig für echtes Reopen; hier prüfen wir, dass open + Schema mehrfach geht.
     const db1 = freshDb()

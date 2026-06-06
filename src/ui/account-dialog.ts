@@ -7,9 +7,19 @@
  */
 
 import { t } from '../i18n'
-import { currentUsername, loginAccount, logout, recoverAccount, registerAccount } from './account'
+import {
+  currentUsername,
+  deleteAccount,
+  loginAccount,
+  logout,
+  recoverAccount,
+  registerAccount,
+} from './account'
 
 const ACCENT = 'var(--tl-accent)'
+
+/** Kontakt für Datenschutz-Auskunft/Löschanfragen (ADR-0027). Vor echtem öffentlichem Start prüfen. */
+const PRIVACY_CONTACT = 'datenschutz@jarhost.de'
 
 type Mode = 'login' | 'register' | 'recover'
 
@@ -42,6 +52,20 @@ const BTN_PRIMARY = [
   'margin-top: 14px',
   `background: ${ACCENT}`,
   'color: #1a1a1a',
+  'border: none',
+  'border-radius: 8px',
+  'font-weight: 700',
+  'font-size: 14px',
+  'cursor: pointer',
+  'font-family: var(--tl-font)',
+].join(';')
+
+const BTN_DANGER = [
+  'width: 100%',
+  'padding: 10px',
+  'margin-top: 14px',
+  'background: #8a3a3a',
+  'color: #fff',
   'border: none',
   'border-radius: 8px',
   'font-weight: 700',
@@ -153,6 +177,15 @@ export function createAccountDialog(opts: AccountDialogOptions): AccountDialogAp
     return b
   }
 
+  function dangerButton(labelKey: string, onClick: () => void): HTMLButtonElement {
+    const b = document.createElement('button')
+    b.textContent = t(labelKey)
+    b.style.cssText = BTN_DANGER
+    b.addEventListener('click', onClick)
+    panel.appendChild(b)
+    return b
+  }
+
   function errorText(code: string): string {
     const key =
       code === 'taken'
@@ -179,7 +212,11 @@ export function createAccountDialog(opts: AccountDialogOptions): AccountDialogAp
         opts.onChange?.()
         render()
       })
-      linkRow([['account.btn.close', destroy]])
+      dangerButton('account.btn.deleteAccount', showDeleteAccount)
+      linkRow([
+        ['account.btn.privacy', showPrivacy],
+        ['account.btn.close', destroy],
+      ])
       return
     }
 
@@ -199,6 +236,7 @@ export function createAccountDialog(opts: AccountDialogOptions): AccountDialogAp
       linkRow([
         ['account.switch.toRegister', () => switchTo('register')],
         ['account.switch.toRecover', () => switchTo('recover')],
+        ['account.btn.privacy', showPrivacy],
       ])
     } else if (mode === 'register') {
       heading('account.title.register')
@@ -270,6 +308,49 @@ export function createAccountDialog(opts: AccountDialogOptions): AccountDialogAp
     panel.appendChild(box)
     msg(t('account.recoveryHint'), false)
     primaryButton('account.btn.savedIt', destroy)
+  }
+
+  /** Konto-Löschen mit Passwort-Bestätigung (ADR-0027 Phase 3). */
+  function showDeleteAccount(): void {
+    panel.textContent = ''
+    heading('account.delete.title')
+    msg(t('account.delete.warning'), true)
+    const pass = field('account.delete.passwordPrompt', 'password', 'current-password')
+    let busyDel = false
+    dangerButton('account.delete.confirm', () => {
+      if (busyDel) return
+      busyDel = true
+      void deleteAccount(opts.serverUrl, pass.value).then((res) => {
+        busyDel = false
+        if (!res.ok) {
+          msg(
+            res.error === 'wrongpw'
+              ? t('account.delete.wrongPassword')
+              : errorText(res.error ?? 'invalid'),
+            true,
+          )
+          return
+        }
+        opts.onChange?.()
+        panel.textContent = ''
+        heading('account.delete.title')
+        msg(t('account.delete.done'), false)
+        primaryButton('account.btn.close', destroy)
+      })
+    })
+    linkRow([['account.delete.cancel', render]])
+  }
+
+  /** Kurzer, ehrlicher Datenschutz-Hinweis (ADR-0027 Phase 3): was gespeichert wird + Kontakt. */
+  function showPrivacy(): void {
+    panel.textContent = ''
+    heading('account.privacy.title')
+    const body = document.createElement('div')
+    body.textContent = t('account.privacy.body', { email: PRIVACY_CONTACT })
+    body.style.cssText =
+      'margin-top: 12px; font-size: 13px; line-height: 1.55; opacity: 0.9; white-space: pre-line'
+    panel.appendChild(body)
+    linkRow([['account.btn.back', render]])
   }
 
   render()

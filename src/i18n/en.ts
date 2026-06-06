@@ -128,6 +128,9 @@ export const en: Record<string, string> = {
   'account.btn.logout': 'Sign out',
   'account.btn.close': 'Close',
   'account.btn.savedIt': "I've saved it",
+  'account.btn.deleteAccount': 'Delete account',
+  'account.btn.privacy': 'Privacy',
+  'account.btn.back': 'Back',
   'account.switch.toRegister': 'No account yet? Create one',
   'account.switch.toLogin': 'Already have an account? Sign in',
   'account.switch.toRecover': 'Forgot password?',
@@ -139,6 +142,17 @@ export const en: Record<string, string> = {
   'account.error.username': 'Username: 3–24 characters (letters, digits, _ and -).',
   'account.error.password': 'Password: at least 6 characters.',
   'account.error.offline': 'Server unreachable.',
+  'account.delete.title': 'Delete account?',
+  'account.delete.warning':
+    'This permanently deletes your account and all related data (display name, ELO rating and record, saved settings) from the server. This cannot be undone.',
+  'account.delete.passwordPrompt': 'Enter your password to confirm',
+  'account.delete.confirm': 'Delete permanently',
+  'account.delete.cancel': 'Cancel',
+  'account.delete.wrongPassword': 'Wrong password.',
+  'account.delete.done': "Account deleted. You're playing as an anonymous guest again.",
+  'account.privacy.title': 'Privacy',
+  'account.privacy.body':
+    'For the online leaderboard this game stores only the essentials: your display name plus your ELO rating and record. If you create an account, a username, an encrypted password and — only if you provide one — an email are added; your cross-device settings are then stored with the account too. No ads, no tracking, no sharing with third parties. You can delete your account yourself at any time above. Questions or access/deletion requests: {email}',
 
   // Tutorial (guided match)
   'tutorial.title': 'Tutorial',

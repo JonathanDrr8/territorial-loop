@@ -125,6 +125,9 @@ export const fr: Record<string, string> = {
   'account.btn.logout': 'Se déconnecter',
   'account.btn.close': 'Fermer',
   'account.btn.savedIt': "Je l'ai sauvegardé",
+  'account.btn.deleteAccount': 'Supprimer le compte',
+  'account.btn.privacy': 'Confidentialité',
+  'account.btn.back': 'Retour',
   'account.switch.toRegister': 'Pas encore de compte ? Crées-en un',
   'account.switch.toLogin': 'Déjà un compte ? Connecte-toi',
   'account.switch.toRecover': 'Mot de passe oublié ?',
@@ -136,6 +139,17 @@ export const fr: Record<string, string> = {
   'account.error.username': "Nom d'utilisateur : 3–24 caractères (lettres, chiffres, _ et -).",
   'account.error.password': 'Mot de passe : au moins 6 caractères.',
   'account.error.offline': 'Serveur injoignable.',
+  'account.delete.title': 'Supprimer le compte ?',
+  'account.delete.warning':
+    'Cela supprime définitivement ton compte et toutes les données associées (pseudo, classement ELO et bilan, réglages sauvegardés) du serveur. Cette action est irréversible.',
+  'account.delete.passwordPrompt': 'Saisis ton mot de passe pour confirmer',
+  'account.delete.confirm': 'Supprimer définitivement',
+  'account.delete.cancel': 'Annuler',
+  'account.delete.wrongPassword': 'Mot de passe incorrect.',
+  'account.delete.done': "Compte supprimé. Tu joues de nouveau en tant qu'invité anonyme.",
+  'account.privacy.title': 'Confidentialité',
+  'account.privacy.body':
+    "Pour le classement en ligne, ce jeu ne stocke que l'essentiel : ton pseudo, ton classement ELO et ton bilan. Si tu crées un compte, un nom d'utilisateur, un mot de passe chiffré et — seulement si tu l'indiques — une adresse e-mail s'y ajoutent ; tes réglages entre appareils sont alors aussi enregistrés dans le compte. Pas de publicité, pas de traçage, pas de partage avec des tiers. Tu peux supprimer ton compte toi-même à tout moment ci-dessus. Questions ou demandes d'accès/suppression : {email}",
 
   // Tutoriel (partie guidée)
   'tutorial.title': 'Tutoriel',

@@ -157,3 +157,47 @@ describe('Account: Passwort-Reset per Recovery-Code', () => {
     expect(rec.status).toBe(401)
   })
 })
+
+describe('Account: Löschen (ADR-0027 Phase 3)', () => {
+  it('löscht das Konto mit korrektem Passwort; danach kein Login/Profil mehr', async () => {
+    await post('/account/register', { token: TOKEN, username: 'Merkur', password: 'geheim123' })
+
+    const del = await post('/account/delete', { token: TOKEN, password: 'geheim123' })
+    expect(del.status).toBe(200)
+    expect((await del.json()) as { ok: boolean }).toEqual({ ok: true })
+
+    // Konto ist weg: Login schlägt fehl, /me kennt das Token nicht mehr.
+    expect(
+      (await post('/account/login', { username: 'Merkur', password: 'geheim123' })).status,
+    ).toBe(401)
+    expect((await fetch(`${base()}/account/me?token=${TOKEN}`)).status).toBe(404)
+  })
+
+  it('lehnt das Löschen bei falschem Passwort ab (Konto bleibt erhalten)', async () => {
+    await post('/account/register', { token: TOKEN, username: 'Merkur', password: 'geheim123' })
+
+    const del = await post('/account/delete', { token: TOKEN, password: 'falsch' })
+    expect(del.status).toBe(401)
+    expect(((await del.json()) as { error: string }).error).toBe('wrongpw')
+
+    // Konto existiert weiterhin (Login geht).
+    expect(
+      (await post('/account/login', { username: 'Merkur', password: 'geheim123' })).status,
+    ).toBe(200)
+  })
+
+  it('lehnt das Löschen eines reinen Gasts (ohne Konto) ab', async () => {
+    // Gast anlegen (über /rank/submit), aber NICHT zu einem Account aufwerten.
+    await post('/rank/submit', {
+      token: TOKEN,
+      name: 'Gast',
+      elo: 1000,
+      wins: 0,
+      losses: 0,
+      peak: 1000,
+    })
+    const del = await post('/account/delete', { token: TOKEN, password: 'egal' })
+    expect(del.status).toBe(400)
+    expect(((await del.json()) as { error: string }).error).toBe('guestonly')
+  })
+})

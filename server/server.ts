@@ -261,6 +261,30 @@ async function handleRecover(
   sendJson(res, 200, { ok: true, token: auth.guestToken })
 }
 
+/**
+ * Konto löschen (ADR-0027 Phase 3): entfernt die komplette Account-Zeile endgültig (DSGVO: echtes
+ * DELETE, kein Soft-Delete). Nur für echte Konten (mit Username) und nur gegen das richtige Passwort
+ * — verhindert das Löschen durch Dritte an einem offenen Gerät.
+ */
+async function handleDelete(
+  data: Record<string, unknown>,
+  res: ServerResponse,
+  db: AccountDb,
+): Promise<void> {
+  const token = String(data.token ?? '')
+  const password = String(data.password ?? '')
+  if (!TOKEN_RE.test(token)) return sendJson(res, 400, { error: 'token' })
+  const acc = db.getByToken(token)
+  if (acc === null) return sendJson(res, 404, { error: 'unknown' })
+  if (acc.username === null) return sendJson(res, 400, { error: 'guestonly' })
+  const auth = db.authByUsername(acc.username)
+  if (auth === null || auth.pwHash.length === 0) return sendJson(res, 401, { error: 'invalid' })
+  if (!(await verifyPassword(password, auth.pwHash, auth.pwSalt)))
+    return sendJson(res, 401, { error: 'wrongpw' })
+  db.deleteByToken(token)
+  sendJson(res, 200, { ok: true })
+}
+
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -780,6 +804,11 @@ export function startServer(port: number = PORT, dbPath?: string): Promise<Runni
     }
     if (req.url === '/account/recover' && req.method === 'POST') {
       readJsonBody(req, res, 2000, (d) => handleRecover(d, res, db))
+      return
+    }
+    // Konto löschen (ADR-0027 Phase 3): POST { token, password } → endgültiges DELETE.
+    if (req.url === '/account/delete' && req.method === 'POST') {
+      readJsonBody(req, res, 2000, (d) => handleDelete(d, res, db))
       return
     }
     // „Wer bin ich" zum gespeicherten Gast-Token (username gesetzt = eingeloggt).

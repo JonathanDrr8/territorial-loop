@@ -155,6 +155,8 @@ export interface AccountDb {
   setSettings(guestToken: string, settingsJson: string): void
   /** Liest den Einstellungs-Blob (JSON-String) oder null. */
   getSettings(guestToken: string): string | null
+  /** Löscht den Account (gesamte Zeile) zu einem Gast-Token endgültig. True, wenn etwas gelöscht wurde. */
+  deleteByToken(guestToken: string): boolean
   /** Schließt die DB (Tests/Shutdown). */
   close(): void
 }
@@ -217,6 +219,7 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
     'UPDATE accounts SET settings = @settings, updated_at = @ts WHERE guest_token = @token',
   )
   const selSettings = db.prepare('SELECT settings FROM accounts WHERE guest_token = ?')
+  const delByToken = db.prepare('DELETE FROM accounts WHERE guest_token = ?')
 
   return {
     getOrCreateGuest(guestToken, displayName) {
@@ -323,6 +326,10 @@ export function openDb(dbPath: string = DEFAULT_DB_PATH, now: () => number = Dat
     getSettings(guestToken) {
       const r = selSettings.get(guestToken) as Record<string, unknown> | undefined
       return r === undefined ? null : ((r.settings as string | null) ?? null)
+    },
+
+    deleteByToken(guestToken) {
+      return delByToken.run(guestToken).changes > 0
     },
 
     close() {

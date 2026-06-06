@@ -127,6 +127,9 @@ export const de: Record<string, string> = {
   'account.btn.logout': 'Abmelden',
   'account.btn.close': 'Schließen',
   'account.btn.savedIt': 'Habe ich gespeichert',
+  'account.btn.deleteAccount': 'Konto löschen',
+  'account.btn.privacy': 'Datenschutz',
+  'account.btn.back': 'Zurück',
   'account.switch.toRegister': 'Noch kein Konto? Erstellen',
   'account.switch.toLogin': 'Schon ein Konto? Anmelden',
   'account.switch.toRecover': 'Passwort vergessen?',
@@ -138,6 +141,17 @@ export const de: Record<string, string> = {
   'account.error.username': 'Benutzername: 3–24 Zeichen (Buchstaben, Ziffern, _ und -).',
   'account.error.password': 'Passwort: mindestens 6 Zeichen.',
   'account.error.offline': 'Server nicht erreichbar.',
+  'account.delete.title': 'Konto löschen?',
+  'account.delete.warning':
+    'Das löscht dein Konto und alle zugehörigen Daten (Anzeigename, ELO-Wertung und Bilanz, gespeicherte Einstellungen) endgültig vom Server. Das lässt sich nicht rückgängig machen.',
+  'account.delete.passwordPrompt': 'Zur Bestätigung dein Passwort eingeben',
+  'account.delete.confirm': 'Endgültig löschen',
+  'account.delete.cancel': 'Abbrechen',
+  'account.delete.wrongPassword': 'Passwort falsch.',
+  'account.delete.done': 'Konto gelöscht. Du spielst jetzt wieder als anonymer Gast.',
+  'account.privacy.title': 'Datenschutz',
+  'account.privacy.body':
+    'Dieses Spiel speichert für die Online-Rangliste nur das Nötigste: deinen Anzeigenamen sowie deine ELO-Wertung und Bilanz. Legst du ein Konto an, kommen ein Benutzername, ein verschlüsselt gespeichertes Passwort und – nur falls du sie angibst – eine E-Mail hinzu; auch deine geräteübergreifenden Einstellungen werden dann am Konto gespeichert. Keine Werbung, kein Tracking, keine Weitergabe an Dritte. Du kannst dein Konto jederzeit oben selbst löschen. Fragen oder Auskunfts-/Löschwünsche: {email}',
 
   // Tutorial (geführtes Match)
   'tutorial.title': 'Tutorial',

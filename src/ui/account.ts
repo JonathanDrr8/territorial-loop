@@ -174,3 +174,23 @@ export function logout(): void {
   resetGuestToken()
   resetRanked()
 }
+
+/**
+ * Löscht das eigene Konto endgültig (ADR-0027 Phase 3). Verlangt das Passwort zur Bestätigung
+ * (server-geprüft). Bei Erfolg wird lokal abgemeldet → zurück zum anonymen Gast.
+ */
+export async function deleteAccount(serverWsUrl: string, password: string): Promise<AccountResult> {
+  try {
+    const { status, json } = await postJson(serverWsUrl, '/account/delete', {
+      token: guestToken(),
+      password,
+    })
+    if (status === 200 && json.ok === true) {
+      logout()
+      return { ok: true }
+    }
+    return { ok: false, error: typeof json.error === 'string' ? json.error : 'server' }
+  } catch {
+    return { ok: false, error: 'offline' }
+  }
+}

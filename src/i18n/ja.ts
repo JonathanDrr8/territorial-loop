@@ -124,6 +124,9 @@ export const ja: Record<string, string> = {
   'account.btn.logout': 'ログアウト',
   'account.btn.close': '閉じる',
   'account.btn.savedIt': '保存しました',
+  'account.btn.deleteAccount': 'アカウントを削除',
+  'account.btn.privacy': 'プライバシー',
+  'account.btn.back': '戻る',
   'account.switch.toRegister': 'アカウントをお持ちでない方は作成してください',
   'account.switch.toLogin': 'すでにアカウントをお持ちですか？ログイン',
   'account.switch.toRecover': 'パスワードを忘れましたか？',
@@ -135,6 +138,17 @@ export const ja: Record<string, string> = {
   'account.error.username': 'ユーザー名：3〜24 文字（英数字、_ および -）。',
   'account.error.password': 'パスワード：6 文字以上必要です。',
   'account.error.offline': 'サーバーに接続できません。',
+  'account.delete.title': 'アカウントを削除しますか？',
+  'account.delete.warning':
+    'アカウントおよびすべての関連データ（表示名、ELO レーティングと戦績、保存済み設定）がサーバーから完全に削除されます。この操作は取り消せません。',
+  'account.delete.passwordPrompt': '確認のためパスワードを入力してください',
+  'account.delete.confirm': '完全に削除',
+  'account.delete.cancel': 'キャンセル',
+  'account.delete.wrongPassword': 'パスワードが正しくありません。',
+  'account.delete.done': 'アカウントを削除しました。再び匿名ゲストとしてプレイしています。',
+  'account.privacy.title': 'プライバシー',
+  'account.privacy.body':
+    'このゲームはオンラインランキング向けに最低限の情報のみを保存します：表示名と ELO レーティング・戦績。アカウントを作成すると、ユーザー名・暗号化されたパスワード、そして（提供した場合のみ）メールアドレスが追加されます。デバイスをまたいだ設定もアカウントに保存されます。広告なし、追跡なし、第三者への提供なし。アカウントはいつでも上記のボタンから自分で削除できます。お問い合わせまたはデータの開示・削除のご要望は：{email}',
 
   // チュートリアル（ガイド付き対戦）
   'tutorial.title': 'チュートリアル',

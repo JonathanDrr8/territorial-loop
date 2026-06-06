@@ -125,6 +125,9 @@ export const it: Record<string, string> = {
   'account.btn.logout': 'Esci',
   'account.btn.close': 'Chiudi',
   'account.btn.savedIt': "L'ho salvato",
+  'account.btn.deleteAccount': 'Elimina account',
+  'account.btn.privacy': 'Privacy',
+  'account.btn.back': 'Indietro',
   'account.switch.toRegister': 'Non hai un account? Creane uno',
   'account.switch.toLogin': 'Hai già un account? Accedi',
   'account.switch.toRecover': 'Hai dimenticato la password?',
@@ -136,6 +139,17 @@ export const it: Record<string, string> = {
   'account.error.username': 'Nome utente: 3–24 caratteri (lettere, cifre, _ e -).',
   'account.error.password': 'Password: almeno 6 caratteri.',
   'account.error.offline': 'Server non raggiungibile.',
+  'account.delete.title': "Eliminare l'account?",
+  'account.delete.warning':
+    'Questa operazione elimina definitivamente il tuo account e tutti i dati correlati (nome visualizzato, classifica ELO e storico, impostazioni salvate) dal server. Non è possibile annullare questa azione.',
+  'account.delete.passwordPrompt': 'Inserisci la password per confermare',
+  'account.delete.confirm': 'Elimina definitivamente',
+  'account.delete.cancel': 'Annulla',
+  'account.delete.wrongPassword': 'Password errata.',
+  'account.delete.done': 'Account eliminato. Ora giochi di nuovo come ospite anonimo.',
+  'account.privacy.title': 'Privacy',
+  'account.privacy.body':
+    "Per la classifica online, questo gioco memorizza solo l'essenziale: il tuo nome visualizzato, il tuo punteggio ELO e il tuo storico. Se crei un account, vengono aggiunti un nome utente, una password cifrata e — solo se la fornisci — un indirizzo e-mail; anche le tue impostazioni tra dispositivi vengono salvate nell'account. Nessuna pubblicità, nessun tracciamento, nessuna condivisione con terze parti. Puoi eliminare il tuo account in qualsiasi momento dalla sezione sopra. Domande o richieste di accesso/cancellazione: {email}",
 
   // Tutorial (partita guidata)
   'tutorial.title': 'Tutorial',

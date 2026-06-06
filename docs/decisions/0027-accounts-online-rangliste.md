@@ -1,6 +1,6 @@
 # ADR-0027: Accounts + Online-Rangliste
 
-**Status:** Accepted — Phase 1 + 2 umgesetzt (Branch `feature/accounts`, noch nicht gemergt/deployed)
+**Status:** Accepted — Phase 1–2 live (v0.28.0/0.29.0); Phase 3 (Konto löschen + Datenschutz-Hinweis) umgesetzt
 **Datum:** 2026-06-01
 
 ## Kontext
@@ -71,11 +71,11 @@ MP-Wertung umstellbar, sobald das Spiel kompetitiv/öffentlich wird.
 
 ## Phasen
 
-| Phase                      | Inhalt                                                                                                     | Liefert                                  |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **1 — Fundament**          | SQLite + Gast-Token + ELO/Bilanz serverseitig persistent + Online-Bestenliste                              | Persistente Online-Rangliste, ohne Login |
-| **2 — Eigener Account**    | Username + Passwort (scrypt) + Recovery-Code, Email optional, Login/Register-UI, Gast → Account „upgraden" | Wiederherstellung + Cross-Device         |
-| **3 — Sozial + Pflichten** | Profilname in Lobby/Rangliste, „Account löschen", Datenschutz-/Kontaktseite                                | Sichtbare Profile, rechtlich sauber      |
+| Phase                      | Inhalt                                                                                                                                                                                                    | Liefert                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **1 — Fundament**          | SQLite + Gast-Token + ELO/Bilanz serverseitig persistent + Online-Bestenliste                                                                                                                             | Persistente Online-Rangliste, ohne Login          |
+| **2 — Eigener Account**    | Username + Passwort (scrypt) + Recovery-Code, Email optional, Login/Register-UI, Gast → Account „upgraden"                                                                                                | Wiederherstellung + Cross-Device                  |
+| **3 — Sozial + Pflichten** | **Umgesetzt:** „Konto löschen" (passwort-bestätigt, echtes DELETE) + knapper Datenschutz-Hinweis (was gespeichert wird + Kontakt) im Account-Dialog, 9 Sprachen. (Profilname in Lobby/Rangliste separat.) | Selbst-Löschung + Transparenz, rechtlich sauberer |
 
 ## Offene Punkte
 

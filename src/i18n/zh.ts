@@ -122,6 +122,9 @@ export const zh: Record<string, string> = {
   'account.btn.logout': '退出登录',
   'account.btn.close': '关闭',
   'account.btn.savedIt': '已保存',
+  'account.btn.deleteAccount': '删除账户',
+  'account.btn.privacy': '隐私',
+  'account.btn.back': '返回',
   'account.switch.toRegister': '还没有账户？立即创建',
   'account.switch.toLogin': '已有账户？登录',
   'account.switch.toRecover': '忘记密码？',
@@ -132,6 +135,17 @@ export const zh: Record<string, string> = {
   'account.error.username': '用户名：3–24 个字符（字母、数字、_ 和 -）。',
   'account.error.password': '密码：至少 6 个字符。',
   'account.error.offline': '服务器不可达。',
+  'account.delete.title': '删除账户？',
+  'account.delete.warning':
+    '这将从服务器上永久删除您的账户及所有相关数据（显示名称、ELO 评分和战绩、已保存的设置）。此操作无法撤销。',
+  'account.delete.passwordPrompt': '输入密码以确认',
+  'account.delete.confirm': '永久删除',
+  'account.delete.cancel': '取消',
+  'account.delete.wrongPassword': '密码错误。',
+  'account.delete.done': '账户已删除。您现在再次以匿名访客身份游玩。',
+  'account.privacy.title': '隐私',
+  'account.privacy.body':
+    '本游戏仅为在线排行榜存储必要的信息：您的显示名称以及 ELO 评分和战绩。若您注册账户，还会添加用户名、加密存储的密码，以及（仅在您提供的情况下）电子邮件地址；您的跨设备设置也将保存在账户中。无广告，无追踪，不向第三方共享数据。您可以随时在上方自行删除账户。如有疑问或访问/删除请求，请联系：{email}',
 
   // 教程（引导对局）
   'tutorial.title': '教程',
