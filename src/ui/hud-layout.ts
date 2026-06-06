@@ -49,6 +49,44 @@ function save(): void {
   notifySettingsChanged()
 }
 
+/**
+ * Hält ein absolut positioniertes Panel im sichtbaren Bereich (Clamp gegen den Viewport). Nötig,
+ * weil gespeicherte Pixel-Positionen nach einem Resize/Drehen (oder auf einem kleineren Gerät)
+ * sonst aus dem Bild wandern. Nutzt die tatsächlich gerenderte (ggf. skalierte) Größe.
+ */
+function clampToViewport(el: HTMLElement): void {
+  const rect = el.getBoundingClientRect()
+  if (rect.width === 0 && rect.height === 0) return // noch nicht gerendert/gemessen
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const left = parseFloat(el.style.left)
+  const top = parseFloat(el.style.top)
+  if (!Number.isNaN(left)) {
+    const clamped = Math.max(0, Math.min(left, Math.max(0, vw - rect.width)))
+    if (clamped !== left) el.style.left = `${Math.round(clamped).toString()}px`
+  }
+  if (!Number.isNaN(top)) {
+    const clamped = Math.max(0, Math.min(top, Math.max(0, vh - rect.height)))
+    if (clamped !== top) el.style.top = `${Math.round(clamped).toString()}px`
+  }
+}
+
+/** Alle angemeldeten Panels neu in den sichtbaren Bereich klemmen (Fenster-Resize/Drehung). */
+function clampAll(): void {
+  for (const el of panels.values()) clampToViewport(el)
+}
+
+let resizeArmed = false
+function armResizeClamp(): void {
+  if (resizeArmed) return
+  resizeArmed = true
+  try {
+    window.addEventListener('resize', clampAll)
+  } catch {
+    /* kein window (Tests ohne DOM) */
+  }
+}
+
 /** Wendet den (evtl. vorhandenen) Override eines Panels auf sein DOM-Element an. */
 function apply(id: string): void {
   const el = panels.get(id)
@@ -83,12 +121,15 @@ function apply(id: string): void {
     el.style.maxHeight = `${o.h.toString()}px`
   }
   if (o.hidden === true) el.style.display = 'none'
+  // Nach dem Anwenden einer absoluten Position sicherstellen, dass das Panel im Bild bleibt.
+  if (o.x !== undefined || o.y !== undefined) clampToViewport(el)
 }
 
 /** Panel anmelden — bekommt sofort seinen gespeicherten Override (falls vorhanden). */
 export function registerPanel(id: string, el: HTMLElement): void {
   panels.set(id, el)
   apply(id)
+  armResizeClamp()
 }
 
 /** Panel abmelden (z. B. zu Match-Ende). */
