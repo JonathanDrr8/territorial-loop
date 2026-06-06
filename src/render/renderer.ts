@@ -220,7 +220,7 @@ function rgbaToCssLocal(rgba: number): string {
  * die es in Canvas-Text sonst bräuchte). `paths` = SVG-`d`-Strings, `circles` = [cx,cy,r].
  */
 const MAP_GLYPHS: Record<
-  'warning' | 'swords' | 'ban' | 'alliance',
+  'warning' | 'swords' | 'ban' | 'alliance' | 'laurel',
   { paths: readonly string[]; circles?: readonly (readonly [number, number, number])[] }
 > = {
   warning: { paths: ['M12 3.5L2.3 20.5h19.4L12 3.5z', 'M12 9.5v4.5', 'M12 17.4v.2'] },
@@ -238,6 +238,17 @@ const MAP_GLYPHS: Record<
   alliance: {
     paths: [
       'M12 20.5C7 17 3.5 13.6 3.5 9.8 3.5 7 5.6 5 8 5c1.7 0 3 1 4 2.4C13 6 14.3 5 16 5c2.4 0 4.5 2 4.5 4.8 0 3.8-3.5 7.2-8.5 10.7z',
+    ],
+  },
+  // Lorbeerkranz (Platz-1-Auszeichnung): zwei symmetrische, nach innen gebogene Zweige mit Blättern.
+  laurel: {
+    paths: [
+      'M12 21C6.5 19.5 4 14.5 5.5 8 6 6 7 4.5 8.5 3.5',
+      'M12 21C17.5 19.5 20 14.5 18.5 8 18 6 17 4.5 15.5 3.5',
+      'M8.1 9.4C6.5 9.2 5.5 10 5.1 11.2',
+      'M8.8 6.3C7.3 6.3 6.3 7.1 5.9 8.4',
+      'M15.9 9.4C17.5 9.2 18.5 10 18.9 11.2',
+      'M15.2 6.3C16.7 6.3 17.7 7.1 18.1 8.4',
     ],
   },
 }
@@ -1351,7 +1362,6 @@ export function createRenderer(
     const z = camera.zoom
     // Schrift skaliert mit dem Zoom (bei nahem Zoom größer/lesbarer), gedeckelt.
     const fontSize = Math.max(12, Math.min(26, Math.round(11 + z * 0.7)))
-    const gap = Math.round(fontSize * 0.6)
     const margin = fontSize + 4
     screenCtx.save()
     screenCtx.font = `bold ${fontSize.toString()}px ui-monospace, SFMono-Regular, Menlo, monospace`
@@ -1365,8 +1375,19 @@ export function createRenderer(
     // Bei vielen Nationen (viele Bots/Wilde) würden alle Labels die Karte zukleistern.
     // Dann werden Neben-Nationen wie Wilde behandelt: erst ab nahem Zoom beschriftet.
     let liveOthers = 0
+    // Truppen-Maximum (für die größenskalierten Labels) + truppenstärkste echte Nation (Lorbeer = Platz 1).
+    // Reine Darstellung aus dem (auf allen Clients gleichen) State — kein Determinismus-Einfluss.
+    let maxTroops = 1
+    let topTroopsId = -1
+    let topTroops = -1
     for (const p of state.players.values()) {
-      if (p.isAlive && p.tilesOwned > 0 && p.id !== lutHumanId) liveOthers++
+      if (!p.isAlive || p.tilesOwned <= 0) continue
+      if (p.id !== lutHumanId) liveOthers++
+      if (p.troops > maxTroops) maxTroops = p.troops
+      if (!p.wild && p.troops > topTroops) {
+        topTroops = p.troops
+        topTroopsId = p.id
+      }
     }
     const crowded = liveOthers > LABEL_CROWD_THRESHOLD
     // Nationen, die GERADE den Menschen angreifen → ihr Label bleibt auch off-screen sichtbar
@@ -1456,26 +1477,38 @@ export function createRenderer(
       // wilden Nation auseinanderhält. Verräter: roter Name + Warndreieck links.
       const name = p.wild ? `${t('nation.wild')} ${String(wildOrdinal(p.id))}` : p.name
       const troopsLabel = fmtCompactRender(p.troops)
+      // Label-Größe skaliert mit der Truppenstärke (sub-linear, relativ zum aktuellen Maximum):
+      // dominante Nationen stechen heraus, Zwerge bleiben klein, aber lesbar.
+      const rel = Math.sqrt(Math.max(0, p.troops) / maxTroops)
+      const nf = Math.max(11, Math.round(fontSize * (0.82 + 0.85 * rel)))
+      const ng = Math.round(nf * 0.6)
+      screenCtx.font = `bold ${nf.toString()}px ui-monospace, SFMono-Regular, Menlo, monospace`
+      screenCtx.lineWidth = Math.max(3, Math.round(nf * 0.24))
       // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
       const nameColor = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
-      screenCtx.strokeText(name, lx, ly - gap)
-      screenCtx.strokeText(troopsLabel, lx, ly + gap)
+      screenCtx.strokeText(name, lx, ly - ng)
+      screenCtx.strokeText(troopsLabel, lx, ly + ng)
       screenCtx.fillStyle = nameColor
-      screenCtx.fillText(name, lx, ly - gap)
+      screenCtx.fillText(name, lx, ly - ng)
       screenCtx.fillStyle = 'rgba(255,255,255,0.8)'
-      screenCtx.fillText(troopsLabel, lx, ly + gap)
+      screenCtx.fillText(troopsLabel, lx, ly + ng)
+      const nameW = screenCtx.measureText(name).width
       // Verräter-Warndreieck links vom (zentrierten) Namen, in derselben roten Farbe.
       if (traitor) {
-        const gs = Math.round(fontSize * 0.95)
-        const nameW = screenCtx.measureText(name).width
-        drawMapGlyph('warning', lx - nameW / 2 - gs * 0.62, ly - gap, gs, nameColor)
+        const gs = Math.round(nf * 0.95)
+        drawMapGlyph('warning', lx - nameW / 2 - gs * 0.62, ly - ng, gs, nameColor)
+      }
+      // Lorbeerkranz rechts vom Namen: Auszeichnung der truppenstärksten Nation (Platz 1).
+      if (p.id === topTroopsId) {
+        const gs = Math.round(nf * 1.15)
+        drawMapGlyph('laurel', lx + nameW / 2 + gs * 0.6, ly - ng, gs, '#ffe08a')
       }
       // Diplo-Marker über dem Namen: Herz = bietet dir ein Bündnis, Verbots-Schild = embargoiert dich.
       if (flagged) {
-        const gs = Math.round(fontSize * 1.1)
-        const my = ly - gap - Math.round(fontSize * 1.05)
+        const gs = Math.round(nf * 1.1)
+        const my = ly - ng - Math.round(nf * 1.05)
         const both = offersAlliance && embargoesYou
         if (offersAlliance) drawMapGlyph('alliance', both ? lx - gs * 0.6 : lx, my, gs, '#ffffff')
         if (embargoesYou) drawMapGlyph('ban', both ? lx + gs * 0.6 : lx, my, gs, '#ffffff')
