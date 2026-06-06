@@ -4,6 +4,17 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.55.0] – 2026-06-07
+
+### Neu
+
+- **Konto löschen + Datenschutz:** Wer ein Konto hat, kann es jetzt selbst endgültig löschen
+  (mit Passwort-Bestätigung) — samt aller gespeicherten Daten. Dazu ein kurzer, ehrlicher
+  Datenschutz-Hinweis im Konto-Dialog, der sagt, was überhaupt gespeichert wird. In allen 9 Sprachen.
+- **Nationen-Namen wachsen mit der Stärke:** Der Name einer Nation auf der Karte ist jetzt umso
+  größer, je mehr Truppen sie hat — Großmächte stechen sofort heraus, kleine Nationen bleiben dezent.
+  Die truppenstärkste Nation trägt zusätzlich einen goldenen Lorbeerkranz neben dem Namen.
+
 ## [0.54.1] – 2026-06-05
 
 ### Behoben
