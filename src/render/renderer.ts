@@ -2560,6 +2560,12 @@ export function createRenderer(
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.font = `bold ${Math.round(radius * 1.3).toString()}px ui-monospace, monospace`
+    // Upgrade-Vorschau: steht auf dem Ziel-Tile schon ein Posten desselben Typs, zeigt der
+    // Reichweiten-Ring die Reichweite des NÄCHSTEN Levels (nach dem Upgrade), sonst die von Level 1
+    // (Neubau). Vorher war es immer Level 1 → beim Upgraden sah man die erhöhte Reichweite nicht.
+    const upgradeHere = state.buildings.get(ref)
+    const previewLevel =
+      upgradeHere !== undefined && upgradeHere.type === buildPreviewType ? upgradeHere.level + 1 : 1
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const sx = worldToScreenX(tx + dx * mapW)
@@ -2569,9 +2575,9 @@ export function createRenderer(
         // (Verbindung läuft über Land-Wege, ADR-0018) → kein Ring beim Fabrik-Bau.
         const previewRadiusTiles =
           buildPreviewType === 'defense'
-            ? defenseRange(1)
+            ? defenseRange(previewLevel)
             : buildPreviewType === 'flak'
-              ? flakRange(1)
+              ? flakRange(previewLevel)
               : 0
         if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
