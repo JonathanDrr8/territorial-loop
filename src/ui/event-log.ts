@@ -220,8 +220,17 @@ export function createEventLog(
     box.style.flex = constrained ? '1 1 0' : '0 1 auto'
     let limit = DEFAULT_VISIBLE
     if (constrained) {
+      // Editor-Override: Box füllt die gesetzte Spaltenhöhe; list wächst frei mit (Höhe zurücksetzen).
+      list.style.height = ''
+      list.style.justifyContent = ''
       const avail = box.clientHeight - head.offsetHeight
       limit = Math.max(3, Math.min(MAX_VISIBLE, Math.floor(avail / ROW_PX)))
+    } else {
+      // Ohne Override: feste Höhe für DEFAULT_VISIBLE Zeilen reservieren, damit der Log nicht mit der
+      // Event-Anzahl pulsiert (neue Events / verblassende Einträge änderten sonst die sichtbare Höhe
+      // von selbst). Neueste unten (flex-end), bei wenig Einträgen ruhiger Leerraum oben.
+      list.style.height = `${(DEFAULT_VISIBLE * ROW_PX).toString()}px`
+      list.style.justifyContent = 'flex-end'
     }
     const html: string[] = []
     // Von hinten (neueste zuerst) nach vorne, bis `limit` sichtbare gesammelt sind.
