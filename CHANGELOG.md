@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.55.2] – 2026-06-07
+
+### Behoben
+
+- **HUD-Elemente bleiben im Bild:** Verschobene/skalierte HUD-Panels konnten nach dem Verkleinern
+  oder Drehen des Fensters aus dem sichtbaren Bereich wandern. Sie bleiben jetzt erreichbar (höchstens
+  am Rand geparkt) und werden bei einem Resize automatisch zurückgeholt.
+- **Ereignis-Log mit ruhiger Höhe:** Das Ereignis-Log änderte während des Spiels von selbst seine
+  Größe (wuchs/schrumpfte mit den Einträgen). Es behält jetzt eine stabile Höhe.
+
 ## [0.55.1] – 2026-06-07
 
 ### Behoben
