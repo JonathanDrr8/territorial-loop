@@ -246,3 +246,51 @@ describe('upgrade intent', () => {
     expect(state.buildings.get(tile)?.level).toBe(3)
   })
 })
+
+describe('Eroberte Wirtschaftsgebäude: Gold-Fuhre wechselt den Besitzer', () => {
+  it('die Inland-Fuhre einer eroberten Fabrik+Quelle gehört danach dem Eroberer (nicht mehr dem alten Besitzer)', () => {
+    const state = createGame(cfg())
+    const w = state.map.width
+    // Quelle (Stadt) + Fabrik direkt nebeneinander, beide Spieler 1, fertig → erzeugt eine Inland-Fuhre.
+    const cityTile = 10 * w + 10
+    const facTile = 10 * w + 11
+    setOwner(state.map, cityTile, 1)
+    setOwner(state.map, facTile, 1)
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.buildings.set(facTile, {
+      type: 'factory',
+      ownerId: 1,
+      tile: facTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    state.economyDirty = true
+    for (let i = 0; i < 90; i++) tick(state, []) // >2× ECONOMY_RECOMPUTE_INTERVAL → Routen neu gebaut
+
+    const cart = state.goldCarts.find((c) => c.factoryTile === facTile)
+    expect(cart).toBeDefined()
+    expect(cart?.ownerId).toBe(1)
+
+    // Eroberung: Tiles + Gebäude wechseln zu Spieler 2 (wie captureTile es täte).
+    const cityB = state.buildings.get(cityTile)
+    const facB = state.buildings.get(facTile)
+    if (cityB === undefined || facB === undefined) throw new Error('building missing')
+    setOwner(state.map, cityTile, 2)
+    setOwner(state.map, facTile, 2)
+    state.buildings.set(cityTile, { ...cityB, ownerId: 2 })
+    state.buildings.set(facTile, { ...facB, ownerId: 2 })
+    state.economyDirty = true
+    for (let i = 0; i < 90; i++) tick(state, []) // >2× ECONOMY_RECOMPUTE_INTERVAL → Routen neu gebaut
+
+    // Die (über die gleiche Route wiederverwendete) Fuhre muss jetzt Spieler 2 gehören.
+    const cart2 = state.goldCarts.find((c) => c.factoryTile === facTile)
+    expect(cart2).toBeDefined()
+    expect(cart2?.ownerId).toBe(2)
+  })
+})

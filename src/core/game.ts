@@ -3375,7 +3375,10 @@ function routeGoldCarts(
   for (const a of kept) {
     const existing = cartByRoute.get(`${String(a.src)}>${String(a.fac)}`)
     if (existing !== undefined && sameOwnerComponent(comp, a.src, a.fac)) {
-      next.push(existing)
+      // Route bleibt, aber Besitzer/Level können sich geändert haben (Fabrik oder Quelle erobert).
+      // Owner + Gold der wiederverwendeten Fuhre auf den aktuellen Stand ziehen — sonst liefert sie
+      // weiter an den alten Besitzer (erobertes Gebäude produziert dann kein Gold für den Eroberer).
+      next.push({ ...existing, ownerId: getOwner(map, a.src), gold: CART_GOLD_PER_LEVEL * a.level })
       continue
     }
     const path = findLandPath(map, comp, a.src, a.fac)
@@ -3415,7 +3418,13 @@ function routeGoldCarts(
       if (c === undefined) continue
       const existing = cartByRoute.get(`${String(f.tile)}>${String(c.tile)}`)
       if (existing !== undefined && lc[c.tile] === fcomp) {
-        next.push(existing)
+        // Wie bei den Inland-Fuhren: Besitzer/Gold der wiederverwendeten Auslands-Fuhre auf den
+        // aktuellen Fabrik-Stand aktualisieren (Fabrik könnte erobert oder ge-levelt worden sein).
+        next.push({
+          ...existing,
+          ownerId: f.owner,
+          gold: FACTORY_FOREIGN_MULT * CART_GOLD_PER_LEVEL * f.level,
+        })
         continue
       }
       const path = findTerrainPath(map, f.tile, c.tile, FACTORY_LINK_RANGE * 3)
