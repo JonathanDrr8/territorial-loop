@@ -73,6 +73,10 @@ export const fr: Record<string, string> = {
   'camera.period': 'Boîte (sans couture)',
   'camera.fixed': 'Boîte (fixe)',
   'camera.dynamic': 'Boîte dynamique',
+  'field.mapStyle': 'Style de carte',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlas',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Bâtiments autorisés',
   'settings.buildings.body':
     'Les bâtiments désactivés ne peuvent être construits par personne dans la partie — pas même l’IA.',

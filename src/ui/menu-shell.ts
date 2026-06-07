@@ -56,6 +56,7 @@ import { createMapPreview } from './map-preview'
 import { isGeoMapId } from './geo-loader'
 import { loadAudioVolumes, saveAudioVolumes, saveMenuPrefs } from './preferences'
 import { getTheme, setTheme, THEMES } from './theme'
+import { getMapStyleName, MAP_STYLE_OPTIONS, setMapStyle } from './map-style'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
 
@@ -902,6 +903,21 @@ export function createMenuShell(
       values.cameraMode,
     )
     p.appendChild(camera.element)
+
+    // Karten-Stil: nur die DARSTELLUNG des Terrains (Farbpalette/Relief/Kontur), kein Sim-State →
+    // reine Client-Präferenz (wie das Theme), MP-sicher. Wechsel backt das Terrain-Bitmap live neu.
+    const mapStyleRow = makeSelectRow<string>(
+      t('field.mapStyle'),
+      MAP_STYLE_OPTIONS.map(([key, labelKey]) => [key, t(labelKey)] as const),
+      getMapStyleName(),
+    )
+    const mapStyleSelect = mapStyleRow.element.querySelector('select')
+    if (mapStyleSelect !== null) {
+      mapStyleSelect.addEventListener('change', () => {
+        setMapStyle(mapStyleSelect.value)
+      })
+    }
+    p.appendChild(mapStyleRow.element)
 
     // Audio: Gesamt-/Effekt-/Musik-Lautstärke als Regler (0 % = aus). Eigenständig persistiert
     // (reine Präsentation, nicht in den Match-Settings/MP) — von startMatch beim Match-Start gelesen.

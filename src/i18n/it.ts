@@ -73,6 +73,10 @@ export const it: Record<string, string> = {
   'camera.period': 'Riquadro (senza giunture)',
   'camera.fixed': 'Riquadro (fisso)',
   'camera.dynamic': 'Riquadro dinamico',
+  'field.mapStyle': 'Stile mappa',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlante',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Edifici consentiti',
   'settings.buildings.body':
     'Gli edifici disattivati non possono essere costruiti da nessuno nella partita — nemmeno dall’IA.',

@@ -75,6 +75,10 @@ export const en: Record<string, string> = {
   'camera.period': 'Box (seamless)',
   'camera.fixed': 'Box (fixed)',
   'camera.dynamic': 'Dynamic box',
+  'field.mapStyle': 'Map style',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlas',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Allowed buildings',
   'settings.buildings.body':
     'Disabled buildings cannot be built by anyone in the match — not even the AI.',

@@ -15,6 +15,7 @@ import { t } from '../i18n'
 import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } from './hud-layout'
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
+import { getMapStyleName, MAP_STYLES, setMapStyle } from './map-style'
 import { getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
 import {
   FIXED_PRESET_IDS,
@@ -926,6 +927,29 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       themeRow.appendChild(b)
     }
     paneDesign.appendChild(themeRow)
+
+    // Karten-Stil (Terrain-Darstellung, map-style.ts): wechselt live — der Renderer abonniert die
+    // Änderung und backt das Terrain-Bitmap neu. Rein lokal/MP-sicher, kein Sim-State.
+    const mapStyleRow = document.createElement('div')
+    mapStyleRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center'
+    const mapStyleLabel = document.createElement('span')
+    mapStyleLabel.textContent = `${t('field.mapStyle')}:`
+    mapStyleLabel.style.cssText = 'font-size:11px;opacity:0.7'
+    mapStyleRow.appendChild(mapStyleLabel)
+    const mapStyleBtns = new Map<string, HTMLButtonElement>()
+    for (const [key, def] of Object.entries(MAP_STYLES)) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = t(def.labelKey)
+      styleThemeBtn(b, key === getMapStyleName())
+      b.addEventListener('click', () => {
+        setMapStyle(key)
+        for (const [k, btn] of mapStyleBtns) styleThemeBtn(btn, k === key)
+      })
+      mapStyleBtns.set(key, b)
+      mapStyleRow.appendChild(b)
+    }
+    paneDesign.appendChild(mapStyleRow)
 
     // Layout-Schalter: Slider-Heimat + Knopf-Anordnung (über hud-prefs, live).
     const layoutRow = document.createElement('div')
