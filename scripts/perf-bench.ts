@@ -33,7 +33,7 @@ import {
   type GameConfig,
   type PlayerDef,
 } from '../src/core/game'
-import { createAI, type AI } from '../src/ai/ai'
+import { createAI, setAiProfiler, type AI } from '../src/ai/ai'
 
 interface Preset {
   readonly key: string
@@ -217,6 +217,19 @@ function runPhaseProfile(p: Preset, ticks: number): void {
     curTotal += dt
   })
 
+  // Feinere Aufschlüsselung INNERHALB ai-decide (eigener Zeitstrahl, läuft vor tick()). Geht nur in
+  // `samples` (separate Sub-Tabelle), NICHT in cur/curTotal — sonst würde ai-decide doppelt zählen.
+  let aiLast = 0
+  setAiProfiler((step) => {
+    const now = performance.now()
+    if (step === 'begin') {
+      aiLast = now
+      return
+    }
+    push(step, now - aiLast)
+    aiLast = now
+  })
+
   const tickTotals: { t: number; total: number; top: string; topDt: number }[] = []
   for (let t = 0; t < ticks; t++) {
     cur.clear()
@@ -240,17 +253,31 @@ function runPhaseProfile(p: Preset, ticks: number): void {
     tickTotals.push({ t, total: curTotal, top, topDt })
   }
   setPhaseProfiler(null)
+  setAiProfiler(null)
 
-  // Phasen-Tabelle (nach Gesamt-Anteil absteigend).
+  // Phasen-Tabelle (nach Gesamt-Anteil absteigend). 'ai:'-Schritte sind die Aufschlüsselung VON
+  // ai-decide → eigene Sub-Tabelle, nicht in `grand` (sonst Doppelzählung).
   const stats: PhaseStat[] = []
+  const aiStats: PhaseStat[] = []
   let grand = 0
   for (const [phase, arr] of samples) {
     const sum = arr.reduce((a, b) => a + b, 0)
-    grand += sum
     const sorted = [...arr].sort((a, b) => a - b)
-    stats.push({ phase, sum, p99: percentile(sorted, 0.99), max: sorted[sorted.length - 1] ?? 0 })
+    const row: PhaseStat = {
+      phase,
+      sum,
+      p99: percentile(sorted, 0.99),
+      max: sorted[sorted.length - 1] ?? 0,
+    }
+    if (phase.startsWith('ai:')) {
+      aiStats.push(row)
+    } else {
+      grand += sum
+      stats.push(row)
+    }
   }
   stats.sort((a, b) => b.sum - a.sum)
+  aiStats.sort((a, b) => b.sum - a.sum)
 
   process.stdout.write(
     `\nperf-bench --phases — Preset "${p.key}" (${p.mapWidth}², ${String(
@@ -277,6 +304,24 @@ function runPhaseProfile(p: Preset, ticks: number): void {
     '-'.repeat(head.length) +
       `\n${pad('GESAMT', 14)}${pad('100%', 9)}${pad(r1(totalMs / ticks), 9)}\n`,
   )
+
+  // ai-decide Aufschlüsselung (Anteil je Schritt AM ai-decide, nicht am Gesamt).
+  if (aiStats.length > 0) {
+    const aiGrand = aiStats.reduce((a, s) => a + s.sum, 0)
+    process.stdout.write('\nai-decide Aufschlüsselung (Anteil an der KI-Zeit):\n')
+    process.stdout.write(head + '\n' + '-'.repeat(head.length) + '\n')
+    for (const s of aiStats) {
+      const pct = aiGrand > 0 ? (s.sum / aiGrand) * 100 : 0
+      process.stdout.write(
+        pad(s.phase, 14) +
+          pad(`${r1(pct)}%`, 9) +
+          pad(r1(s.sum / ticks), 9) +
+          pad(r1(s.p99), 9) +
+          pad(r1(s.max), 9) +
+          '\n',
+      )
+    }
+  }
 
   // Die 10 langsamsten Ticks (mit Spitzen-Phase) — zeigt Spikes statt nur Durchschnitt.
   const worst = [...tickTotals].sort((a, b) => b.total - a.total).slice(0, 10)

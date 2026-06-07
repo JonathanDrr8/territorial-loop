@@ -179,6 +179,18 @@ export interface AiContext {
   readonly ganged: boolean
 }
 
+/**
+ * Optionaler Profiling-Haken für `decide()` (nur fürs `perf-bench --phases`-Skript gesetzt). Wird
+ * nach jedem Plan-Teilschritt mit dessen Namen aufgerufen ('begin' = Startmarke je Entscheidung).
+ * Liest nur die Uhr im Aufrufer → mutiert keinen State, ändert Verhalten/Determinismus NICHT;
+ * in Prod null → ein billiger Null-Check pro Teilschritt.
+ */
+export type AiProfiler = (step: string) => void
+let aiProfiler: AiProfiler | null = null
+export function setAiProfiler(p: AiProfiler | null): void {
+  aiProfiler = p
+}
+
 export function assessContext(state: GameState, player: Player): AiContext {
   const { width, height } = state.map
   // Rang nach Gebiet (nur lebende, nicht-wilde Spieler zählen).
@@ -1299,14 +1311,18 @@ export function createAI(
       if (state.tick < nextDecisionTick) return []
       nextDecisionTick = state.tick + rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
+      const prof = aiProfiler
+      prof?.('begin')
       const intents: Intent[] = []
 
       // Lage einmal pro Entscheidung lesen → moduliert Aggression/Bau/Diplomatie (ADR-0022-Nachtrag).
       const ctx = assessContext(state, player)
+      prof?.('ai:assess')
 
       // Militär zuerst (bleibt das primäre Verhalten).
       const military = planMilitary(state, player, ctx)
       if (military !== null) intents.push(military)
+      prof?.('ai:military')
 
       // Gelegentlich ein Kriegsschiff zur Handelsblockade.
       if (rng.next() < profile.warshipChance) {
@@ -1316,12 +1332,14 @@ export function createAI(
 
       // Vorhandene Kriegsschiffe aktiv auf feindliche Handels-Routen lenken (Abfangen).
       for (const m of planWarshipHunts(state, player)) intents.push(m)
+      prof?.('ai:warship')
 
       // Gelegentlich einen Bomber auf Feind-Infrastruktur werfen (Gold offensiv nutzen).
       if (rng.next() < profile.bomberChance) {
         const bomber = planBomber(state, player)
         if (bomber !== null) intents.push(bomber)
       }
+      prof?.('ai:bomber')
 
       // Wirtschaft/Bau. Ist nichts Neues nötig, stattdessen ein bestehendes Gebäude aufwerten
       // (vertieft die Wirtschaft). planUpgrade zieht keinen PRNG → Strom bleibt aligned.
@@ -1334,6 +1352,7 @@ export function createAI(
           if (upgrade !== null) intents.push(upgrade)
         }
       }
+      prof?.('ai:build')
 
       // Diplomatie.
       if (rng.next() < profile.diploChance) {
@@ -1347,6 +1366,7 @@ export function createAI(
         const gift = planDonation(state, player)
         if (gift !== null) intents.push(gift)
       }
+      prof?.('ai:diplo')
 
       return intents
     },
