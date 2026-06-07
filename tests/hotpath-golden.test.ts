@@ -33,11 +33,12 @@ function cfg(): GameConfig {
 
 /**
  * Vom Stand VOR der Hotpath-Optimierung aufgezeichnet (commit f499376-Linie).
- * Neu aufgezeichnet 2026-06-07 nach der Balance-Senkung MAX_TROOPS_PER_TILE 950→800: die
- * geänderte Cap-Konstante verändert den Sim-Verlauf bewusst → neue (deterministisch reproduzierte)
- * Hashes. Der Test bleibt der Tripwire für ungewollte Hotpath-Algorithmus-Änderungen.
+ * Neu aufgezeichnet 2026-06-07 nach der Balance-Runde (MAX_TROOPS_PER_TILE 950→800 +
+ * TROOP_GROWTH_FACTOR 0.6): die geänderten Cap-/Wachstums-Konstanten verändern den Sim-Verlauf
+ * bewusst → neue (deterministisch reproduzierte) Hashes. Der Test bleibt der Tripwire für
+ * ungewollte Hotpath-Algorithmus-Änderungen.
  */
-const GOLDEN: Record<number, number> = { 100: 2510979138, 200: 3925132582, 300: 3230173315 }
+const GOLDEN: Record<number, number> = { 100: 2954437461, 200: 711772432, 300: 649858908 }
 
 describe('Angriffs-Hotpath — golden hash', () => {
   it('deterministisches Selbstspiel bleibt bit-identisch (collectAttackableTiles & Co.)', () => {

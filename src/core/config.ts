@@ -107,6 +107,15 @@ export function maxTroops(numTilesOwned: number, opts: { readonly bot?: boolean 
  */
 export const OVER_CAP_DECAY = 0.03
 
+/**
+ * Globaler Verlangsamungs-Faktor auf die Wachstums-Produktivität (`toAdd`). 2026-06-07 eingeführt
+ * (×0.6): die Wachstumsformel ist 1:1 OpenFront, aber unsere ~10× kleinere Truppen-Skala ließ sie
+ * doppelt so schnell füllen wie OpenFront (Spawn 15s vs. ~33s für 10→90% des Caps). 0.6 bringt uns
+ * OpenFront-nah (Spawn ~26s), ohne 1:1 zu kopieren. Ändert nur die absolute Rate, nicht die
+ * Kurvenform (Optimum bleibt ~42% des Caps). MP-deterministisch (fließt über `Math.floor` in State).
+ */
+export const TROOP_GROWTH_FACTOR = 0.6
+
 export function troopIncreaseRate(
   troops: number,
   max: number,
@@ -122,7 +131,7 @@ export function troopIncreaseRate(
   // dieselbe Größe `troops`. Der Aufrufer entscheidet, welche Bevölkerung das ist —
   // für Wachstum: die FREIE Bevölkerung gegen ihren freien Cap-Platz (siehe
   // growPopulations), damit gebundene Angriffstruppen das Wachstum nicht verzerren.
-  let toAdd = 10 + detPow(troops, 0.73) / 4
+  let toAdd = (10 + detPow(troops, 0.73) / 4) * TROOP_GROWTH_FACTOR
   if (opts.bot === true) toAdd *= 0.5
   const ratio = 1 - troops / max
   return Math.floor(toAdd * ratio)

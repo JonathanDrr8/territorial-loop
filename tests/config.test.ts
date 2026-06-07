@@ -47,8 +47,8 @@ describe('maxTroops', () => {
 
 describe('troopIncreaseRate', () => {
   it('produces positive growth at zero troops (seed growth)', () => {
-    // toAdd = 10 + 0^0.73 / 4 = 10; ratio = 1; rate = 10
-    expect(troopIncreaseRate(0, 100_000)).toBe(10)
+    // toAdd = (10 + 0^0.73 / 4) * TROOP_GROWTH_FACTOR(0.6) = 6; ratio = 1; rate = 6
+    expect(troopIncreaseRate(0, 100_000)).toBe(6)
   })
 
   it('is zero at cap (no overflow growth)', () => {
