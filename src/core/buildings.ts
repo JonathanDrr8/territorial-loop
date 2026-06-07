@@ -211,10 +211,15 @@ export function airportSlots(level: number): number {
   return level
 }
 
-/** Flak-Reichweite (Tiles): L1 10 / L2 14 / L3 18 — etwas größer als der Verteidigungsposten,
- * damit ein Level-1-Posten Bomber schon aus etwas mehr Abstand erreicht. */
-export const FLAK_BASE_RANGE = 10
-export const FLAK_RANGE_PER_LEVEL = 4
+/**
+ * Flak-Reichweite (Tiles): L1 16 / L2 21 / L3 26.
+ * 2026-06-07 von 10/14/18 erhöht (Basis 10→16, je Level 4→5): Sim-Messung zeigte, dass Bomber
+ * (die aktiv die flak-ärmste Route wählen) bei Reichweite 10 kaum getroffen wurden — 4 Flaks holten
+ * nur ~8 % runter, 8 Flaks ~31 %. Bei 16 sind es ~42 % / ~75 %: spürbare Flugabwehr, ohne Bomber
+ * komplett nutzlos zu machen (das wäre erst bei ~20+).
+ */
+export const FLAK_BASE_RANGE = 16
+export const FLAK_RANGE_PER_LEVEL = 5
 export function flakRange(level: number): number {
   return FLAK_BASE_RANGE + (level - 1) * FLAK_RANGE_PER_LEVEL
 }
