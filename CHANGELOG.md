@@ -4,6 +4,28 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.57.0] – 2026-06-07
+
+### Neu
+
+- **Kartenstil wählbar:** In Einstellungen → Darstellung gibt es drei Karten-Looks zur Wahl:
+  **Standard**, **Landkarte** und **Minimal** — verändert nur das Aussehen der Karte
+  (Farben und Relief), wirkt sofort, auch mitten im Match.
+
+### Geändert
+
+- **Hover-Info-Panel in voller Tiefe:** Das feste „Unter dem Cursor"-Panel zeigt jetzt
+  genauso viel wie der mitwandernde Tooltip: Truppen, Cap-Anteil, Beziehungs-Status
+  (Gunst/Groll), Allianz-Restzeit, Gebäude-Effekte mit Upgrade-Vorschau, mögliche Beute
+  und Schiffe. In Einstellungen → Darstellung lässt sich außerdem wählen, ob **beide**
+  Anzeigen sichtbar sind, **nur das feste Panel** oder **nur der Cursor-Tooltip**.
+
+### Behoben
+
+- **HUD auf schmalen Fenstern:** Auf stark verschmälerten Fenstern (z. B. beim Kacheln)
+  schoben sich die unteren Panels übereinander. Das HUD zieht sich jetzt weiter zusammen,
+  sodass Truppen/Gold-Leiste und Aktionsleiste nicht mehr kollidieren.
+
 ## [0.56.0] – 2026-06-07
 
 ### Neu
