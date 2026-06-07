@@ -50,30 +50,52 @@ function save(): void {
 }
 
 /** Mind. so viele Pixel eines Panels bleiben sichtbar — deckt sich mit dem Editor-Drag-Spielraum. */
-const CLAMP_MARGIN = 24
-
 /**
- * Hält ein absolut positioniertes Panel ERREICHBAR: mindestens {@link CLAMP_MARGIN}px bleiben im
- * Bild. Das Panel darf am Rand parken (wie beim Editor-Ziehen), aber nie ganz aus dem Bild wandern —
- * nötig, weil gespeicherte Pixel-Positionen nach Resize/Drehen (oder auf kleinerem Gerät) sonst
- * unerreichbar werden. Nutzt die tatsächlich gerenderte (ggf. skalierte) Größe.
+ * Hält ein absolut positioniertes Panel GANZ im Bild — das komplette Panel bleibt sichtbar, nichts
+ * wandert über den Rand. Nötig, weil gespeicherte Pixel-Positionen nach Resize/Drehen (oder auf
+ * kleinerem Gerät) sonst teilweise/ganz aus dem Bild fallen.
+ *
+ * Korrigiert über das TATSÄCHLICH gerenderte Rect (inkl. Skalierung UND `transform`, z.B. das
+ * mittig per `translateX(-50%)` verankerte Aktions-Panel): der Überstand wird als Delta auf
+ * `left`/`top` zurückgerechnet. Panels, die größer als der Viewport sind, werden oben/links bündig
+ * gesetzt (sie decken ihn ab, kein großer Rand).
  */
 function clampToViewport(el: HTMLElement): void {
   const rect = el.getBoundingClientRect()
   if (rect.width === 0 && rect.height === 0) return // noch nicht gerendert/gemessen
   const vw = window.innerWidth
   const vh = window.innerHeight
-  const left = parseFloat(el.style.left)
-  const top = parseFloat(el.style.top)
-  if (!Number.isNaN(left)) {
-    const clamped = Math.max(CLAMP_MARGIN - rect.width, Math.min(left, vw - CLAMP_MARGIN))
-    if (clamped !== left) el.style.left = `${Math.round(clamped).toString()}px`
+  let dx = 0
+  if (rect.right > vw) dx = vw - rect.right // zu weit rechts → nach links schieben
+  if (rect.left + dx < 0) dx = -rect.left // zu weit links / größer als Viewport → linke Kante auf 0
+  let dy = 0
+  if (rect.bottom > vh) dy = vh - rect.bottom
+  if (rect.top + dy < 0) dy = -rect.top
+  if (dx !== 0) {
+    const left = parseFloat(el.style.left)
+    if (!Number.isNaN(left)) el.style.left = `${Math.round(left + dx).toString()}px`
   }
-  if (!Number.isNaN(top)) {
-    const clamped = Math.max(CLAMP_MARGIN - rect.height, Math.min(top, vh - CLAMP_MARGIN))
-    if (clamped !== top) el.style.top = `${Math.round(clamped).toString()}px`
+  if (dy !== 0) {
+    const top = parseFloat(el.style.top)
+    if (!Number.isNaN(top)) el.style.top = `${Math.round(top + dy).toString()}px`
   }
 }
+
+/**
+ * Re-Clamp, sobald sich die GRÖSSE eines Panels ändert (Schrift-/Content-/Skalierungs-Settle nach
+ * dem ersten Anwenden, oder wachsende Panels wie der Feed). Klemmt nur die Position → ändert nie die
+ * Größe → keine Endlosschleife. `null`, wo es kein ResizeObserver gibt (z.B. jsdom in Tests) — dann
+ * reichen Sofort-Clamp + Fenster-Resize.
+ */
+const panelResizeObserver: ResizeObserver | null = (() => {
+  try {
+    return new ResizeObserver((entries) => {
+      for (const e of entries) clampToViewport(e.target as HTMLElement)
+    })
+  } catch {
+    return null
+  }
+})()
 
 /** Alle angemeldeten Panels neu in den sichtbaren Bereich klemmen (Fenster-Resize/Drehung). */
 function clampAll(): void {
@@ -134,10 +156,13 @@ export function registerPanel(id: string, el: HTMLElement): void {
   panels.set(id, el)
   apply(id)
   armResizeClamp()
+  panelResizeObserver?.observe(el) // bei Größen-Settle/-Wachstum nachklemmen
 }
 
 /** Panel abmelden (z. B. zu Match-Ende). */
 export function unregisterPanel(id: string): void {
+  const el = panels.get(id)
+  if (el !== undefined) panelResizeObserver?.unobserve(el)
   panels.delete(id)
 }
 

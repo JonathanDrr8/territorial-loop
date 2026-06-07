@@ -330,8 +330,10 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
           gy = sb
         }
       }
-      nx = Math.max(0, Math.min(nx, container.clientWidth - 24))
-      ny = Math.max(0, Math.min(ny, container.clientHeight - 24))
+      // Ganz im Bild halten (Panel komplett sichtbar) — deckt sich mit clampToViewport beim
+      // Loslassen, damit nichts nach innen springt.
+      nx = Math.max(0, Math.min(nx, container.clientWidth - f0.w))
+      ny = Math.max(0, Math.min(ny, container.clientHeight - f0.h))
       el.style.left = `${Math.round(nx).toString()}px`
       el.style.top = `${Math.round(ny).toString()}px`
       showGuideV(gx)

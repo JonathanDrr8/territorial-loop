@@ -7,19 +7,23 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { registerPanel, setPanel, unregisterPanel } from '../src/ui/hud-layout'
 
+// Rect spiegelt die gesetzte style-Position wider (die echte Klemme rechnet über das gerenderte Rect).
 function mockRect(el: HTMLElement, w: number, h: number): void {
-  el.getBoundingClientRect = () =>
-    ({
+  el.getBoundingClientRect = () => {
+    const left = parseFloat(el.style.left) || 0
+    const top = parseFloat(el.style.top) || 0
+    return {
       width: w,
       height: h,
-      top: 0,
-      left: 0,
-      right: w,
-      bottom: h,
-      x: 0,
-      y: 0,
+      top,
+      left,
+      right: left + w,
+      bottom: top + h,
+      x: left,
+      y: top,
       toJSON: () => ({}),
-    }) as DOMRect
+    } as DOMRect
+  }
 }
 
 function setViewport(w: number, h: number): void {
@@ -43,23 +47,23 @@ afterEach(() => {
 })
 
 describe('HUD-Layout: Panels bleiben im Viewport', () => {
-  it('klemmt eine out-of-bounds-Position schon beim Anwenden in den sichtbaren Bereich', () => {
+  it('klemmt eine out-of-bounds-Position schon beim Anwenden GANZ ins Bild', () => {
     setViewport(500, 400)
     const el = panel('clamp-1', 100, 50)
     setPanel('clamp-1', { x: 9999, y: 9999 }) // weit ausserhalb
-    expect(el.style.left).toBe('476px') // vw 500 - MARGIN 24 (24px bleiben sichtbar)
-    expect(el.style.top).toBe('376px') // vh 400 - MARGIN 24
+    expect(el.style.left).toBe('400px') // vw 500 - Breite 100 → Panel komplett sichtbar
+    expect(el.style.top).toBe('350px') // vh 400 - Höhe 50
   })
 
-  it('zieht ein Panel bei einem Fenster-Resize zurück ins Bild', () => {
+  it('zieht ein Panel bei einem Fenster-Resize ganz zurück ins Bild', () => {
     setViewport(1200, 800)
     const el = panel('clamp-2', 100, 50)
     setPanel('clamp-2', { x: 1000, y: 700 }) // im grossen Fenster ok
     expect(el.style.left).toBe('1000px')
     setViewport(500, 400) // Fenster verkleinern
     window.dispatchEvent(new Event('resize'))
-    expect(el.style.left).toBe('476px')
-    expect(el.style.top).toBe('376px')
+    expect(el.style.left).toBe('400px') // vw 500 - Breite 100
+    expect(el.style.top).toBe('350px') // vh 400 - Höhe 50
   })
 
   it('lässt eine gültige Position unverändert', () => {
@@ -68,5 +72,14 @@ describe('HUD-Layout: Panels bleiben im Viewport', () => {
     setPanel('clamp-3', { x: 200, y: 150 })
     expect(el.style.left).toBe('200px')
     expect(el.style.top).toBe('150px')
+  })
+
+  it('setzt ein viewport-größeres Panel links bündig (deckt den Viewport ab)', () => {
+    setViewport(400, 300)
+    const el = panel('clamp-4', 600, 50) // breiter als der Viewport
+    setPanel('clamp-4', { x: 9999, y: 100 })
+    expect(el.style.left).toBe('0px') // linke Kante bündig
+    setPanel('clamp-4', { x: -9999, y: 100 })
+    expect(el.style.left).toBe('0px') // ebenfalls linke Kante bündig (kein großer Rand)
   })
 })
