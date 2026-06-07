@@ -53,7 +53,7 @@ import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
 import { isLand } from '../world/terrain'
-import { neighbors4, tileRef, tileXY, torusDistance } from '../world/torus'
+import { neighbors4, tileRef, tileXY, torusDistance, type TileRef } from '../world/torus'
 
 export type Difficulty = 'beginner' | 'easy' | 'standard' | 'advanced' | 'expert'
 
@@ -1220,28 +1220,40 @@ export function createAI(
       }
     }
 
-    // Nächster eigener fertiger Flughafen zu einem Ziel (für Routen-/Flak-Schätzung).
-    const nearestAirport = (target: number): number => {
+    // Eigene fertige Flughäfen EINMAL sammeln (Perf: vorher scannte `nearestAirport` je Ziel erneut
+    // ALLE Gebäude → O(Gebäude²)). Jetzt nur über diese kurze Liste suchen.
+    const airports: TileRef[] = []
+    for (const b of state.buildings.values()) {
+      if (b.type === 'airport' && b.ownerId === player.id && isBuildingComplete(b, state.tick))
+        airports.push(b.tile)
+    }
+    if (airports.length === 0) return null
+    const nearestAirport = (target: number): { tile: number; d: number } => {
       const tx = target % width
       const ty = Math.floor(target / width)
       let best = -1
       let bestD = Infinity
-      for (const b of state.buildings.values()) {
-        if (b.type !== 'airport' || b.ownerId !== player.id || !isBuildingComplete(b, state.tick))
-          continue
-        const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+      for (const a of airports) {
+        const d = torusDistance(tx, ty, a % width, Math.floor(a / width), width, height)
         if (d < bestD) {
           bestD = d
-          best = b.tile
+          best = a
         }
       }
-      return best
+      return { tile: best, d: bestD }
     }
 
-    const routes: BomberRoute[] = ['direct', 'arc-left', 'arc-right']
-    let bestTarget = -1
-    let bestRoute: BomberRoute = 'direct'
-    let bestScore = -Infinity
+    // 1) BILLIGE Vorauswahl über alle feindlichen Gebäude — Score OHNE die teure Routen-/Flak-Rechnung
+    //    (bombValue + Groll + Stärke; routeDmg kommt erst für die Shortlist dazu). So muss nur eine
+    //    kleine Top-K-Menge durch die teure Auswertung, statt jedes Gebäude (Perf: O(Gebäude × Flaks ×
+    //    Pfadlänge) → O(K × …)).
+    interface Cand {
+      readonly tile: TileRef
+      readonly airport: TileRef
+      readonly pre: number
+      readonly d: number
+    }
+    const cands: Cand[] = []
     for (const [tile, b] of state.buildings) {
       const owner = b.ownerId
       if (owner === player.id || owner <= 0) continue
@@ -1249,12 +1261,34 @@ export function createAI(
       const grudge = state.grudge.get(directedKey(owner, player.id)) ?? 0
       const goodwill = state.goodwill.get(directedKey(owner, player.id)) ?? 0
       if (goodwill - grudge > FRIEND_SPARE_THRESHOLD) continue // Gunst-Partner verschonen
-      const airport = nearestAirport(tile)
-      if (airport < 0) continue
+      const na = nearestAirport(tile)
+      if (na.tile < 0) continue
+      // Annektieren-vs-zerstören: stärkere Gegner (kann man nicht überrennen) bevorzugt bomben;
+      // schwache nimmt man lieber per Bodenangriff ein, statt Bomben zu verschwenden.
+      const ep = state.players.get(owner)
+      const strength = ep !== undefined ? ep.troops / Math.max(1, player.troops) : 1
+      const strengthBonus = Math.min(2, Math.max(0, strength - 1)) * 2
+      const pre = bombValue(b.type) + Math.min(grudge / 30, 5) + strengthBonus
+      cands.push({ tile, airport: na.tile, pre, d: na.d })
+    }
+    if (cands.length === 0) return null
+    // Top-K nach Vor-Score; deterministischer Tie-Break: näher, dann kleinere Tile-Nr.
+    cands.sort((x, y) => y.pre - x.pre || x.d - y.d || x.tile - y.tile)
+    const SHORTLIST = 12
+
+    // 2) Nur die Shortlist durch die teure Routen-/Flak-Rechnung; finaler Score = pre − routeDmg
+    //    (identische Formel wie zuvor, nur auf die aussichtsreichen Ziele beschränkt).
+    const routes: BomberRoute[] = ['direct', 'arc-left', 'arc-right']
+    let bestTarget = -1
+    let bestRoute: BomberRoute = 'direct'
+    let bestScore = -Infinity
+    for (let i = 0; i < Math.min(SHORTLIST, cands.length); i++) {
+      const c = cands[i]
+      if (c === undefined) continue
       let routeDmg = Infinity
       let route: BomberRoute = 'direct'
       for (const r of routes) {
-        const path = planBomberRoute(width, height, airport, tile, r)
+        const path = planBomberRoute(width, height, c.airport, c.tile, r)
         const dmg = estimateBomberFlakDamage(state, player.id, path)
         if (dmg < routeDmg) {
           routeDmg = dmg
@@ -1262,15 +1296,10 @@ export function createAI(
         }
       }
       if (routeDmg >= BOMBER_HP) continue // würde abgeschossen → Ziel überspringen
-      // Annektieren-vs-zerstören: stärkere Gegner (kann man nicht überrennen) bevorzugt bomben;
-      // schwache nimmt man lieber per Bodenangriff ein, statt Bomben zu verschwenden.
-      const ep = state.players.get(owner)
-      const strength = ep !== undefined ? ep.troops / Math.max(1, player.troops) : 1
-      const strengthBonus = Math.min(2, Math.max(0, strength - 1)) * 2
-      const score = bombValue(b.type) + Math.min(grudge / 30, 5) + strengthBonus - routeDmg
-      if (score > bestScore || (score === bestScore && (bestTarget < 0 || tile < bestTarget))) {
+      const score = c.pre - routeDmg
+      if (score > bestScore || (score === bestScore && (bestTarget < 0 || c.tile < bestTarget))) {
         bestScore = score
-        bestTarget = tile
+        bestTarget = c.tile
         bestRoute = route
       }
     }
