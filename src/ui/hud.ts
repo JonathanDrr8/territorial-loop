@@ -538,7 +538,11 @@ export function createHUD(
   const rankBody = document.createElement('div')
   rankBody.style.cssText = 'line-height: 1.5'
   // Klick auf eine Ranglisten-Zeile → Kamera auf das Zentrum dieser Nation.
-  rankBody.addEventListener('click', (e) => {
+  // WICHTIG: `pointerdown` statt `click`. Die Liste wird jeden Frame per innerHTML neu aufgebaut;
+  // ein echter Klick (mousedown → ~80 ms → mouseup) überspannt mehrere Neuaufbauten → das gedrückte
+  // Element ist beim mouseup weg → KEIN `click`-Event. `pointerdown` feuert beim Drücken (vor dem
+  // nächsten Neuaufbau) → robust. (Synthetische/sehr schnelle Klicks gingen, echte nicht.)
+  rankBody.addEventListener('pointerdown', (e) => {
     const row = (e.target as HTMLElement | null)?.closest('[data-center]')
     if (row instanceof HTMLElement && row.dataset.center !== undefined) {
       onCenterPlayer(Number(row.dataset.center))
