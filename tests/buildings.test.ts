@@ -71,9 +71,9 @@ describe('building cost functions', () => {
       level: 1,
       completesAtTick: 0,
     })
-    // 4 Tiles entfernt (< CITY_MIN_DISTANCE 8) → kein Bau
+    // 4 Tiles entfernt (< CITY_MIN_DISTANCE) → kein Bau
     expect(canBuildAt(state, 1, row * w + 9, 'city')).toBe(false)
-    // 10 Tiles entfernt (>= 8) → Bau erlaubt
+    // 10 Tiles entfernt (>= CITY_MIN_DISTANCE) → Bau erlaubt
     expect(canBuildAt(state, 1, row * w + 15, 'city')).toBe(true)
     // Andere Gebäude (Verteidigung) sind vom Stadt-Abstand NICHT betroffen
     expect(canBuildAt(state, 1, row * w + 9, 'defense')).toBe(true)

@@ -1,6 +1,10 @@
 # ADR-0033: Städte als wachsende Siedlungen
 
 **Status:** Accepted — Scheiben 1 (Stufen + Sprites) + 2 (Mindestabstand + Radius-Ring) umgesetzt & released (0.58.0, 2026-06-07); Scheibe 3 (Politur „zu nah"-Tönung) optional offen.
+**Nachtrag 2026-06-07 (0.58.2):** `CITY_MIN_DISTANCE` von 8 → **5** gesenkt. Befund: 8 Tiles war zu groß —
+ein kompaktes Reich bis ~150 Tiles (Radius < 8) hatte gemessen **null** gültige Zweitstadt-Plätze, d. h.
+„kann keine Städte platzieren". 5 entsperrt Reiche ab ~80 Tiles und hält Städte trotzdem verteilt
+(klärt die offene Frage 2 unten).
 **Bezug:** baut auf ADR-0031 (A2-Gold-Senke: Städte bis Level 6, verdoppelnde Kosten — bereits umgesetzt).
 
 ## Kontext
