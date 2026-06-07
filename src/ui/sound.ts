@@ -12,6 +12,10 @@ export interface SoundEngine {
   click(): void
   victory(): void
   defeat(): void
+  /** Kurzer, dezenter Ton beim Loslassen eines eigenen Angriffs („Angriff losgeschickt"). */
+  attack(): void
+  /** Sehr leiser, sanfter „Schwung"-Tick während sich das eigene Gebiet ausbreitet (gedrosselt!). */
+  spread(): void
   /** Kurzer Warnton „du wirst angegriffen". */
   alarm(): void
   /** Sanfter Zwei-Ton-Hinweis „neues Bündnis-Angebot". */
@@ -154,6 +158,18 @@ export function createSoundEngine(): SoundEngine {
       // Absteigender Akkord mit dunklerer Welle
       playTone(440, 0.22, { type: 'sawtooth', volume: 0.08 })
       playTone(330, 0.32, { type: 'sawtooth', volume: 0.08, delay: 0.18 })
+    },
+    attack(): void {
+      // Kurzer, dezenter „Angriff losgeschickt" — ein leiser Triangle-Pluck mit kleinem Abwärts-
+      // Sweep (Vorwärts-/Aussende-Gefühl) plus ein zarter höherer Sinus-Oberton für Präsenz.
+      playTone(440, 0.1, { type: 'triangle', volume: 0.05, attack: 0.004, sweepTo: 300 })
+      playTone(660, 0.06, { type: 'sine', volume: 0.03, attack: 0.004 })
+    },
+    spread(): void {
+      // Sehr leiser, sanfter Sinus-„Hauch" mit kleinem Aufwärts-Sweep (Schwung) — kaum mehr als ein
+      // Wisch. Wird beim Ausbreiten gedrosselt aufgerufen (s. main.ts), sonst spammt es bei
+      // Massen-Eroberung. Bewusst die leiseste Stimme im ganzen Mix.
+      playTone(500, 0.05, { type: 'sine', volume: 0.02, attack: 0.006, sweepTo: 620 })
     },
     alarm(): void {
       // Zwei kurze, dringliche Töne (Warnung) — dezent, aber auffällig.

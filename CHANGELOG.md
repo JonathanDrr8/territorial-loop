@@ -4,6 +4,23 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.56.0] – 2026-06-07
+
+### Neu
+
+- **Dein Reich sticht hervor:** Der eigene Nations-Name auf der Karte ist jetzt etwas größer und in
+  hellem Cyan — du findest dich auf einen Blick, unabhängig von der Truppenstärke.
+- **Mehr Soundeffekte:** Dezente Töne beim Angreifen und beim Ausbreiten der eigenen Nation (über den
+  Audio-Regler steuerbar, bewusst nicht aufdringlich).
+
+## [0.55.3] – 2026-06-07
+
+### Behoben
+
+- **Reichweiten-Vorschau beim Direktbau:** Platzierst du einen Verteidigungs- oder Flak-Posten direkt
+  auf einem höheren Level, zeigt der Vorschau-Ring jetzt die größere Reichweite dieses Levels (vorher
+  immer die von Stufe 1). Ergänzt den vorigen Fix, der nur das Aufrüsten bestehender Posten betraf.
+
 ## [0.55.2] – 2026-06-07
 
 ### Behoben

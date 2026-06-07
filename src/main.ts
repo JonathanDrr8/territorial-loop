@@ -485,6 +485,14 @@ function startMatch(
   let lastAlarmTick = -Infinity
   const ALARM_COOLDOWN_TICKS = 25
 
+  // „Ausbreiten"-Ton: wächst das eigene Gebiet (egal ob neutrale Wildnis oder erobertes Feindland),
+  // spielt ein sehr leiser, gedrosselter „Schwung"-Tick. Pro Sim-Tick werden bei Expansion viele
+  // Tiles gewonnen → harte Wall-Clock-Drosselung gegen Lärm-Spam; klingt von selbst aus, sobald
+  // keine neuen Tiles mehr dazukommen. `-1` = Baseline noch nicht gesetzt (kein Ton am Spawn).
+  let lastTilesOwned = -1
+  let lastSpreadSoundMs = -Infinity
+  const SPREAD_SOUND_COOLDOWN_MS = 300
+
   // Schiff-/Flugzeug-/Bomben-Sounds (reine Präsentation): erkennt neue Boote/Bomber/Einschläge im
   // State und spielt sie positionsabhängig. Die „Wer hört's"-Regel wird pro Client am lokalen
   // Spieler (`humanId`) ausgewertet — nicht im Sim-State, MP-sicher.
@@ -659,6 +667,11 @@ function startMatch(
   liveSim = usingWorker ? shadow : state
   const rawSubmit = (intent: Intent): void => {
     sim.submit(intent)
+    // „Angriff losgeschickt"-Ton (reine Präsentation, kein Sim-State): zentral hier, damit ALLE
+    // Wege einen eigenen Angriff hörbar machen — Normal-Klick, Shift+Klick (Rundum), Bau-Menü.
+    // Bei Verrat (Angriff auf Verbündete) läuft rawSubmit erst nach der Bestätigung → Ton zum
+    // tatsächlichen Absenden. Nur eigene Angriffe (playerId === humanId), nie im Zuschauer-Modus.
+    if (intent.type === 'attack' && intent.playerId === humanId && !spectator) sound.attack()
   }
 
   /**
@@ -928,8 +941,9 @@ function startMatch(
       hud.setSliderPct(pct)
     },
     onAttackClick: (x, y) => {
+      // Klick-Marker nur fürs Auge; der „Angriff"-Ton läuft zentral in rawSubmit (deckt auch
+      // Shift+Klick/Bau-Menü ab — sonst wäre der Ton hier doppelt für den Normal-Klick).
       renderer.addClickMarker(x, y)
-      sound.click()
     },
     onHover: (worldX, worldY, screenX, screenY) => {
       tooltip.show(worldX, worldY, screenX, screenY, renderer.camera.zoom)
@@ -943,13 +957,14 @@ function startMatch(
     },
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
-      renderer.setBuildPreview(mode)
+      renderer.setBuildPreview(mode, inputHandler?.getBuildLevel() ?? 1)
       actionWheel.setBuildMode(mode) // Bau-Rad hebt das gewählte Gebäude hervor (Mobile-Cockpit)
     },
-    // Level-Direktbau: gewähltes Bau-Level → beide Stufen-Leisten (HUD + Bau-Rad) synchron halten.
+    // Level-Direktbau: gewähltes Bau-Level → beide Stufen-Leisten (HUD + Bau-Rad) + Vorschau-Ring synchron.
     onBuildLevelChange: (level) => {
       hud.setBuildLevel(level)
       actionWheel.setBuildLevel(level)
+      renderer.setBuildLevel(level)
     },
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
@@ -1391,6 +1406,20 @@ function startMatch(
           sound.boatHorn(pg?.pan ?? 0)
         }
       }
+    }
+    // Ausbreiten-Sound (reine Präsentation, kein Sim-State): wächst `tilesOwned` der eigenen Nation,
+    // einen sehr leisen, gedrosselten „Schwung"-Tick spielen. Wall-Clock-Cooldown (kein Tick-Zähler),
+    // weil rein Audio/Frame-Timing. Baseline beim ersten Frame nur merken (kein Ton am Spawn).
+    if (liveSim.phase === 'running' && sound.isEnabled() && humanId >= 0 && !spectator) {
+      const owned = liveSim.players.get(humanId)?.tilesOwned ?? 0
+      if (lastTilesOwned >= 0 && owned > lastTilesOwned) {
+        const nowMs = performance.now()
+        if (nowMs - lastSpreadSoundMs >= SPREAD_SOUND_COOLDOWN_MS) {
+          lastSpreadSoundMs = nowMs
+          sound.spread()
+        }
+      }
+      lastTilesOwned = owned
     }
     // Adaptiver Soundtrack (Prototyp): beim ersten laufenden Frame starten (User-Geste vorbei),
     // dann pro Frame die Intensität nachführen.

@@ -13,7 +13,7 @@
  * portabel und für unsere Map-Größen mehr als schnell genug.
  */
 
-import type { BuildingType } from '../core/buildings'
+import { type BuildingType, MAX_BUILDING_LEVEL } from '../core/buildings'
 import {
   airportSlots,
   BUILD_TIME_TICKS,
@@ -304,7 +304,9 @@ export interface Renderer {
   /** Wie viele Off-Screen-Nationen-Namen (nächste X zur Bildmitte) am Rand gezeigt werden. */
   setOffscreenLabelCount(n: number): void
   /** Aktiviert/deaktiviert die Bau-Platzierungs-Vorschau (Geist am Cursor). */
-  setBuildPreview(type: BuildingType | null): void
+  setBuildPreview(type: BuildingType | null, level?: number): void
+  /** Aktualisiert das gewählte Direkt-Bau-Level der Vorschau (Reichweiten-Ring). */
+  setBuildLevel(level: number): void
   /** Bomber-Ziel-Vorschau (Flugroute + Einschlagsradius am Cursor); null = aus. */
   setBomberPreview(route: BomberRoute | null): void
   /** Kriegsschiff-Ziel-Vorschau (Reichweiten-Ring am Wasser-Ziel + Linie vom Hafen). */
@@ -1112,6 +1114,7 @@ export function createRenderer(
   let offscreenLabelCount = 7
   // Bau-Platzierungs-Vorschau: Geist am Hover-Tile (null = inaktiv).
   let buildPreviewType: BuildingType | null = null
+  let buildPreviewLevel = 1 // gewähltes Direkt-Bau-Level (für den Vorschau-Reichweiten-Ring)
   // Bomber-Ziel-Vorschau: aktive Route (null = kein Bomber-Modus).
   let bomberPreviewRoute: BomberRoute | null = null
   // Kriegsschiff-Ziel-Vorschau aktiv (Taste 8)?
@@ -1480,13 +1483,16 @@ export function createRenderer(
       // Label-Größe skaliert mit der Truppenstärke (sub-linear, relativ zum aktuellen Maximum):
       // dominante Nationen stechen heraus, Zwerge bleiben klein, aber lesbar.
       const rel = Math.sqrt(Math.max(0, p.troops) / maxTroops)
-      const nf = Math.max(11, Math.round(fontSize * (0.82 + 0.85 * rel)))
+      // Der eigene Name wird zusätzlich leicht vergrößert (isHuman), damit man sich auf der Karte
+      // sofort findet — unabhängig von der Truppenstärke.
+      const nf = Math.max(11, Math.round(fontSize * (0.82 + 0.85 * rel) * (isHuman ? 1.18 : 1)))
       const ng = Math.round(nf * 0.6)
       screenCtx.font = `bold ${nf.toString()}px ui-monospace, SFMono-Regular, Menlo, monospace`
-      screenCtx.lineWidth = Math.max(3, Math.round(nf * 0.24))
-      // Verbündete Nationen: Name grün, Verräter rot — Beziehung sofort erkennbar.
+      screenCtx.lineWidth = Math.max(3, Math.round(nf * (isHuman ? 0.3 : 0.24)))
+      // Eigener Name: dezenter heller Cyan-Akzent (hebt sich von weiß/grün/rot/gold ab). Sonst:
+      // Verbündete grün, Verräter rot, Rest weiß — Beziehung sofort erkennbar.
       screenCtx.globalAlpha = offscreen ? 0.6 : 1
-      const nameColor = traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
+      const nameColor = isHuman ? '#bfeaff' : traitor ? '#e8736b' : allied ? '#5adc78' : '#ffffff'
       screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
       screenCtx.strokeText(name, lx, ly - ng)
       screenCtx.strokeText(troopsLabel, lx, ly + ng)
@@ -2564,8 +2570,13 @@ export function createRenderer(
     // Reichweiten-Ring die Reichweite des NÄCHSTEN Levels (nach dem Upgrade), sonst die von Level 1
     // (Neubau). Vorher war es immer Level 1 → beim Upgraden sah man die erhöhte Reichweite nicht.
     const upgradeHere = state.buildings.get(ref)
-    const previewLevel =
-      upgradeHere !== undefined && upgradeHere.type === buildPreviewType ? upgradeHere.level + 1 : 1
+    // Upgrade auf bestehendem Gebäude → Ziel-Level = aktuelles+1; sonst das gewählte Direkt-Bau-Level.
+    const previewLevel = Math.min(
+      MAX_BUILDING_LEVEL,
+      upgradeHere !== undefined && upgradeHere.type === buildPreviewType
+        ? upgradeHere.level + 1
+        : buildPreviewLevel,
+    )
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const sx = worldToScreenX(tx + dx * mapW)
@@ -3216,8 +3227,12 @@ export function createRenderer(
     setHoverHighlight,
     setCameraMode,
     setOffscreenLabelCount,
-    setBuildPreview(type: BuildingType | null): void {
+    setBuildPreview(type: BuildingType | null, level = 1): void {
       buildPreviewType = type
+      buildPreviewLevel = level
+    },
+    setBuildLevel(level: number): void {
+      buildPreviewLevel = level
     },
     setBomberPreview(route: BomberRoute | null): void {
       bomberPreviewRoute = route
