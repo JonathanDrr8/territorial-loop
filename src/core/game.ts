@@ -357,6 +357,13 @@ export interface GameState {
    * deterministischen Funktion → MP-sicher, nicht im State-Hash.
    */
   tradeRouteCache: Map<string, readonly TileRef[] | null>
+  /**
+   * Transienter Cache der id-sortierten Spielerliste (Perf): Spieler werden nur in `createGame`
+   * gesetzt, nie gelöscht → die Reihenfolge ist über die ganze Partie invariant. `orderedPlayers`
+   * baut die Liste einmal und gibt sie wieder (statt sie ≥6×/Tick neu zu spreaden+sortieren). Nicht
+   * serialisiert (nach Deserialize lazy neu); identische Reihenfolge → verhaltensneutral, MP-sicher.
+   */
+  orderedPlayersCache?: Player[]
   /** Aktive Gold-Fuhren (pendeln Stadt/Hafen ↔ Fabrik über Land, ADR-0018). */
   goldCarts: GoldCart[]
   /** Aktive Kriegsschiffe. */
@@ -4712,5 +4719,11 @@ export function updateFrontierAfterCapture(
 
 /** Spieler in deterministischer Reihenfolge (nach ID aufsteigend). */
 function orderedPlayers(state: GameState): Player[] {
-  return [...state.players.values()].sort((a, b) => a.id - b.id)
+  // Cache-Treffer, solange die Spieler-Menge unverändert ist (nie players.delete → praktisch immer
+  // nach dem ersten Aufruf). Liefert exakt dieselbe id-sortierte Liste → verhaltensneutral.
+  const cache = state.orderedPlayersCache
+  if (cache !== undefined && cache.length === state.players.size) return cache
+  const list = [...state.players.values()].sort((a, b) => a.id - b.id)
+  state.orderedPlayersCache = list
+  return list
 }

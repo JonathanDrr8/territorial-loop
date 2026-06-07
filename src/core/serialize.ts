@@ -184,4 +184,8 @@ export function deserializeState(data: SerializedGameState): GameState {
  */
 export function loadSnapshotInto(target: GameState, data: SerializedGameState): void {
   Object.assign(target, deserializeState(data))
+  // Transienter, abgeleiteter Cache: der Resync ersetzt die Spieler-Objekte in-place; ein alter
+  // orderedPlayers-Cache hielte sonst veraltete Referenzen (gleiche Länge → nicht selbst-invalidiert).
+  // deserializeState setzt den Key nicht, daher überschreibt Object.assign ihn nicht → hier verwerfen.
+  delete target.orderedPlayersCache
 }
