@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.56.0] – 2026-06-07
+
+### Neu
+
+- **Dein Reich sticht hervor:** Der eigene Nations-Name auf der Karte ist jetzt etwas größer und in
+  hellem Cyan — du findest dich auf einen Blick, unabhängig von der Truppenstärke.
+- **Mehr Soundeffekte:** Dezente Töne beim Angreifen und beim Ausbreiten der eigenen Nation (über den
+  Audio-Regler steuerbar, bewusst nicht aufdringlich).
+
 ## [0.55.3] – 2026-06-07
 
 ### Behoben
