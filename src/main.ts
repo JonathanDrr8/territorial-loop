@@ -935,13 +935,14 @@ function startMatch(
     },
     onBuildModeChange: (mode) => {
       hud.setBuildMode(mode)
-      renderer.setBuildPreview(mode)
+      renderer.setBuildPreview(mode, inputHandler?.getBuildLevel() ?? 1)
       actionWheel.setBuildMode(mode) // Bau-Rad hebt das gewählte Gebäude hervor (Mobile-Cockpit)
     },
-    // Level-Direktbau: gewähltes Bau-Level → beide Stufen-Leisten (HUD + Bau-Rad) synchron halten.
+    // Level-Direktbau: gewähltes Bau-Level → beide Stufen-Leisten (HUD + Bau-Rad) + Vorschau-Ring synchron.
     onBuildLevelChange: (level) => {
       hud.setBuildLevel(level)
       actionWheel.setBuildLevel(level)
+      renderer.setBuildLevel(level)
     },
     onBoatModeChange: (on) => {
       hud.setBoatMode(on)
