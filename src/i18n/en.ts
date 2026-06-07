@@ -79,6 +79,10 @@ export const en: Record<string, string> = {
   'hovermode.both': 'Panel + Tooltip',
   'hovermode.panel': 'Fixed panel only',
   'hovermode.tooltip': 'Cursor tooltip only',
+  'field.mapStyle': 'Map style',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlas',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Allowed buildings',
   'settings.buildings.body':
     'Disabled buildings cannot be built by anyone in the match — not even the AI.',

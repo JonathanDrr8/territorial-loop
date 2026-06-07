@@ -52,6 +52,7 @@ import {
 import { HEIGHT_MASK, IMPASSABLE_HEIGHT, IS_LAND_BIT } from '../world/terrain'
 import { tileNeighbor4, tileRef, torusDistance, type TileRef } from '../world/torus'
 import { t } from '../i18n'
+import { getMapStyle, onMapStyleChange, type MapStyleParams } from '../ui/map-style'
 
 const BUILDING_GLYPH: Record<BuildingType, string> = {
   city: 'C',
@@ -334,15 +335,9 @@ export interface Renderer {
   destroy(): void
 }
 
-// Inland-Tönung: Anteil Eigenfarbe über der Terrain-Basis (Rest = Landschaft sichtbar).
-// Dezenter (0.32 → 0.20), damit das Terrain-Relief stärker durchscheint.
-const INTERIOR_TINT = 0.2
-// Relief-Schattierung (NW-Licht aus Nachbar-Höhen) — als Multiply auf die finale Tile-Farbe,
-// damit Berge/Hänge DURCH die Nationsfarbe sichtbar werden. Zentral justierbar.
-const RELIEF_LIGHT = 0.03 // Hang-Stärke pro Höhen-Differenz der Nachbarn
-const RELIEF_HEIGHT = 0.006 // Höhen-Aufhellung (Gipfel heller, Ebene dunkler)
-const RELIEF_MIN = 0.6
-const RELIEF_MAX = 1.4
+// Inland-Tönung, Relief-Schattierung und die Terrain-Basisfarben sind seit dem Karten-Stil-System
+// (src/ui/map-style.ts) pro Stil variabel — der Renderer liest sie beim Backen aus `getMapStyle()`
+// (rein lokale Darstellung, kein Sim-State). „standard" entspricht bit-genau den früheren Werten.
 /**
  * Ab diesem Zoom werden auch „Neben"-Nationen beschriftet (wilde, oder — bei vielen
  * Nationen auf der Karte — auch KI). Rausgezoomt bleiben nur Mensch + Verbündete + (bei
@@ -351,15 +346,8 @@ const RELIEF_MAX = 1.4
 const MINOR_LABEL_MIN_ZOOM = 2.5
 /** Ab so vielen lebenden Nicht-Mensch-Nationen werden KI-Labels wie wilde gegated. */
 const LABEL_CROWD_THRESHOLD = 14
-const WATER_R = 24
-const WATER_G = 48
-const WATER_B = 92
-// Flachwasser-Saum: Wasser-Tiles, die an Land grenzen, werden heller/türkiser —
-// ergibt eine klare Küstenlinie (Tiefen-Gradient), damit Wasser nie mit dem
-// Gebiet einer Nation verwechselt wird.
-const SHALLOW_R = 64
-const SHALLOW_G = 122
-const SHALLOW_B = 150
+// Wasser-/Flachwasser-/Fels-/Schnee-Farben kommen aus dem aktiven Karten-Stil (map-style.ts).
+// Flachwasser-Saum: Wasser-Tiles, die an Land grenzen, werden heller/türkiser → klare Küstenlinie.
 const BG_FILL = '#0a0a10'
 
 /** Deterministischer 2D-Hash → [0,1) (nur Tile-Koords; nicht im Sim-State, rein kosmetisch). */
@@ -405,16 +393,8 @@ function clamp255(v: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v | 0
 }
 
-// Fels/Schnee-Farben für unpassierbare Gipfel: dunkler Fels (Schatten/Senken) ↔ helle Schneekappe
-// (Grate/Sonnseite). Das Höhenrelief wird synthetisch erzeugt (Terrain hat keine Sub-Höhe).
 /** Leuchtspur-Farbe für Schiffs-Schüsse UND Flak (helles Gelb → überall gut sichtbar). */
 const PROJECTILE_COLOR = '#ffe85c'
-const DARK_ROCK_R = 104
-const DARK_ROCK_G = 112
-const DARK_ROCK_B = 128
-const SNOW_R = 182
-const SNOW_G = 190
-const SNOW_B = 204
 
 /**
  * Pseudo-Höhenfeld [0,1] für unpassierbaren Fels (3 Oktaven, torus-nahtlos). Daraus leiten wir
@@ -558,6 +538,9 @@ export function createRenderer(
   // Lokaler Mensch: explizit übergeben (MP-sicher) — NICHT mehr über isHuman geraten, das im
   // Multiplayer mit mehreren Menschen den falschen Spieler als „du" markieren würde.
   const lutHumanId = localHumanId
+  // Aktiver Karten-Stil (rein lokale Darstellung, map-style.ts). Wird vor jedem Bake aufgefrischt;
+  // ein Stil-Wechsel triggert über `onMapStyleChange` ein Voll-Rebake (Abo weiter unten + destroy()).
+  let mapStyle: MapStyleParams = getMapStyle()
   let bitmapBaked = false
   // Dirty-Tiles AKKUMULIERT über alle Ticks seit dem letzten Bitmap-Update (`collectDirty` sammelt sie
   // pro committetem Tick ein, BEVOR die Sim ihren `dirtyTiles`-Puffer für den nächsten Tick leert).
@@ -715,14 +698,16 @@ export function createRenderer(
       const m = n - 0.5 // [-0.5, 0.5]
       const grain = hash01(wx * 2 + 7, wy * 2 + 3) - 0.5
       if (coastal) {
-        data[o] = clamp255(SHALLOW_R + m * 14 + grain * 6)
-        data[o + 1] = clamp255(SHALLOW_G + m * 16 + grain * 6)
-        data[o + 2] = clamp255(SHALLOW_B + m * 12 + grain * 6)
+        const [sr, sg, sb] = mapStyle.shallow
+        data[o] = clamp255(sr + m * 14 + grain * 6)
+        data[o + 1] = clamp255(sg + m * 16 + grain * 6)
+        data[o + 2] = clamp255(sb + m * 12 + grain * 6)
       } else {
         // Tiefsee variiert stärker in G/B → Flecken changieren zwischen dunklem Navy und Teal.
-        data[o] = clamp255(WATER_R + m * 12 + grain * 4)
-        data[o + 1] = clamp255(WATER_G + m * 24 + grain * 5)
-        data[o + 2] = clamp255(WATER_B + m * 30 + grain * 5)
+        const [wr, wg, wb] = mapStyle.water
+        data[o] = clamp255(wr + m * 12 + grain * 4)
+        data[o + 1] = clamp255(wg + m * 24 + grain * 5)
+        data[o + 2] = clamp255(wb + m * 30 + grain * 5)
       }
       return
     }
@@ -758,21 +743,17 @@ export function createRenderer(
       const grain = (hash01(px * 3 + 5, py * 3 + 1) - 0.5) * 2 // kaum Korn
       // Hart geklemmtes Licht: garantiert KEIN Schwarz/Weiß, nur sanfte Hell-/Dunkelseite.
       const light = Math.max(0.84, Math.min(1.16, 1 + slope * 2.4))
-      tr = clamp255((DARK_ROCK_R + (SNOW_R - DARK_ROCK_R) * sa) * light + grain)
-      tg = clamp255((DARK_ROCK_G + (SNOW_G - DARK_ROCK_G) * sa) * light + grain)
-      tb = clamp255((DARK_ROCK_B + (SNOW_B - DARK_ROCK_B) * sa) * light + grain)
+      const [dr, dg, db] = mapStyle.darkRock
+      const [nr, ng, nb] = mapStyle.snow
+      tr = clamp255((dr + (nr - dr) * sa) * light + grain)
+      tg = clamp255((dg + (ng - dg) * sa) * light + grain)
+      tb = clamp255((db + (nb - db) * sa) * light + grain)
     } else if (tier === 0) {
-      tr = 26
-      tg = 32
-      tb = 28
+      ;[tr, tg, tb] = mapStyle.plain
     } else if (tier === 1) {
-      tr = 58
-      tg = 52
-      tb = 36
+      ;[tr, tg, tb] = mapStyle.hill
     } else {
-      tr = 92
-      tg = 82
-      tb = 66
+      ;[tr, tg, tb] = mapStyle.mountain
     }
 
     const owner = v & OWNER_MASK
@@ -813,7 +794,7 @@ export function createRenderer(
           }
         } else {
           // Inland: Terrain durchscheinen lassen, nur leichte Eigenfarbe drüber.
-          const a = INTERIOR_TINT
+          const a = mapStyle.interiorTint
           r = Math.round(tr * (1 - a) + c.ir * a)
           g = Math.round(tg * (1 - a) + c.ig * a)
           b = Math.round(tb * (1 - a) + c.ib * a)
@@ -840,7 +821,7 @@ export function createRenderer(
       const drop =
         tierOf(hL) < myTier || tierOf(hR) < myTier || tierOf(hU) < myTier || tierOf(hD) < myTier
       if (drop) {
-        const k = myTier === 2 ? 0.4 : 0.72
+        const k = myTier === 2 ? mapStyle.contourMountain : mapStyle.contourHill
         r = Math.round(r * k)
         g = Math.round(g * k)
         b = Math.round(b * k)
@@ -850,8 +831,11 @@ export function createRenderer(
     // dunkler; höheres Gelände insgesamt etwas heller. Multiply → kommt durch die Farbe durch.
     const slope = hL + hU - hR - hD
     const relief = Math.max(
-      RELIEF_MIN,
-      Math.min(RELIEF_MAX, 1 + slope * RELIEF_LIGHT + (height - 12) * RELIEF_HEIGHT),
+      mapStyle.reliefMin,
+      Math.min(
+        mapStyle.reliefMax,
+        1 + slope * mapStyle.reliefLight + (height - 12) * mapStyle.reliefHeight,
+      ),
     )
     data[o] = Math.min(255, Math.round(r * relief))
     data[o + 1] = Math.min(255, Math.round(g * relief))
@@ -884,6 +868,8 @@ export function createRenderer(
    */
   function paintBitmap(): void {
     if (lut === null) buildLut()
+    // Aktiven Karten-Stil auffrischen (billiger Objekt-Lookup) → colorTile liest daraus.
+    mapStyle = getMapStyle()
     // Beziehungs-Tints (Allianz/Angriff/Groll/Gunst) aus Sicht des Menschen neu berechnen.
     computeBorderTints()
     const w = state.map.width
@@ -1127,6 +1113,11 @@ export function createRenderer(
   // Bitmap-Caching: nur neu malen wenn sich der Sim-Tick geändert hat.
   // Render-Loop läuft mit 60 fps, Sim mit 10 Hz → 6× weniger Pixel-Writes.
   let lastBitmapTick: number = -1
+  // Karten-Stil-Wechsel (rein lokal, MP-sicher): Bitmap beim nächsten render() voll neu backen.
+  const unsubMapStyle = onMapStyleChange(() => {
+    bitmapBaked = false
+    lastBitmapTick = -1
+  })
   // Capture-Flash: kurzer Highlight wenn Tile-Owner gewechselt hat — gespeist aus
   // `state.dirtyTiles` (vom Core pro Tick gemeldet), kein O(N)-Diff mehr.
   const flashes: CaptureFlash[] = []
@@ -3199,6 +3190,7 @@ export function createRenderer(
 
   function destroy(): void {
     window.removeEventListener('resize', resizeFromContainer)
+    unsubMapStyle()
     screenCanvas.remove()
   }
 

@@ -77,6 +77,10 @@ export const it: Record<string, string> = {
   'hovermode.both': 'Pannello + tooltip',
   'hovermode.panel': 'Solo pannello fisso',
   'hovermode.tooltip': 'Solo tooltip del cursore',
+  'field.mapStyle': 'Stile mappa',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlante',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Edifici consentiti',
   'settings.buildings.body':
     'Gli edifici disattivati non possono essere costruiti da nessuno nella partita — nemmeno dall’IA.',

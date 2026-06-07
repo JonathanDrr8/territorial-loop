@@ -77,6 +77,10 @@ export const fr: Record<string, string> = {
   'hovermode.both': 'Panneau + infobulle',
   'hovermode.panel': 'Panneau fixe seulement',
   'hovermode.tooltip': 'Infobulle du curseur seulement',
+  'field.mapStyle': 'Style de carte',
+  'mapstyle.standard': 'Standard',
+  'mapstyle.atlas': 'Atlas',
+  'mapstyle.flat': 'Minimal',
   'settings.buildings': 'Bâtiments autorisés',
   'settings.buildings.body':
     'Les bâtiments désactivés ne peuvent être construits par personne dans la partie — pas même l’IA.',

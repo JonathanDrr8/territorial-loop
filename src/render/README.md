@@ -31,6 +31,9 @@ den State aus `core/`, mutiert ihn aber nie.
 - **Camera = Welt-Koords + Zoom** — sehr einfaches Modell, kein eigener
   Render-Tree
 - Torus-Wrap durch wiederholtes `drawImage` mit Offsets, nicht durch Shader
+- **Karten-Stil** (`ui/map-style.ts`): der Renderer LIEST die rein lokale Stil-Config (Terrain-
+  Palette/Relief/Kontur) beim Backen — reine Darstellungs-Präferenz, kein DOM, kein Sim-State,
+  MP-sicher (analog zum i18n-Lookup). Ein Stil-Wechsel triggert per `onMapStyleChange` ein Voll-Rebake.
 
 ## Öffentliche API
 
