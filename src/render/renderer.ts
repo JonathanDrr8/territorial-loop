@@ -329,7 +329,7 @@ export interface Renderer {
    * `screenOffsetY` (CSS-Pixel, positiv) hebt den Schwerpunkt optisch nach oben —
    * nützlich, damit der Start-Spawn nicht vom unteren HUD-Panel verdeckt wird.
    */
-  centerOnPlayer(playerId: number, screenOffsetY?: number): void
+  centerOnPlayer(playerId: number, screenOffsetY?: number, frameZoom?: boolean): void
   /** Stößt den Match-Start-Puls über dem eigenen Gebiet an (reine Präsentation). */
   pulseSpawn(playerId: number): void
   destroy(): void
@@ -1233,7 +1233,7 @@ export function createRenderer(
   }
 
   /** Zentriert die Kamera (torus-sicher) auf den Schwerpunkt eines Spielers. */
-  function centerOnPlayer(playerId: number, screenOffsetY = 0): void {
+  function centerOnPlayer(playerId: number, screenOffsetY = 0, frameZoom = false): void {
     const w = state.map.width
     const h = state.map.height
     const ms = state.map.state
@@ -1244,6 +1244,10 @@ export function createRenderer(
     let sy = 0
     let cy = 0
     let n = 0
+    // Bei frameZoom die Tile-Koords der Nation sammeln (nur eigene → wenige), um danach die Ausdehnung
+    // für den Zoom zu bestimmen. Ohne frameZoom kein Sammeln (kein Overhead).
+    const xs: number[] = []
+    const ys: number[] = []
     for (let i = 0; i < ms.length; i++) {
       if (((ms[i] ?? 0) & OWNER_MASK) !== playerId) continue
       const x = i % w
@@ -1253,6 +1257,10 @@ export function createRenderer(
       sy += Math.sin(y * ky)
       cy += Math.cos(y * ky)
       n++
+      if (frameZoom) {
+        xs.push(x)
+        ys.push(y)
+      }
     }
     if (n === 0) return
     const mx = (Math.atan2(sx, cx) / (2 * Math.PI)) * w
@@ -1260,6 +1268,28 @@ export function createRenderer(
     camera.x = ((mx % w) + w) % w
     // Schwerpunkt optisch nach oben heben: Kamera-Ziel um offset/zoom nach unten.
     camera.y = (((my + screenOffsetY / camera.zoom) % h) + h) % h
+
+    // frameZoom (Klick auf Ranglisten-Nation): passend auf die Nation REINzoomen, damit der Sprung auf
+    // großen/rausgezoomten Karten sichtbar ist (sonst landet man auf einem ununterscheidbaren Punkt).
+    // Nur reinzoomen — wer schon näher dran ist, behält seinen Zoom; große Nationen lassen ihn meist so.
+    if (frameZoom) {
+      let maxDx = 0
+      let maxDy = 0
+      for (let k = 0; k < xs.length; k++) {
+        let dx = Math.abs((xs[k] ?? 0) + 0.5 - camera.x)
+        if (dx > w / 2) dx = w - dx
+        let dy = Math.abs((ys[k] ?? 0) + 0.5 - camera.y)
+        if (dy > h / 2) dy = h - dy
+        if (dx > maxDx) maxDx = dx
+        if (dy > maxDy) maxDy = dy
+      }
+      const PAD_TILES = 8 // etwas Luft um die Nation
+      const zx = viewW / (2 * maxDx + PAD_TILES)
+      const zy = viewH / (2 * maxDy + PAD_TILES)
+      const fit = Math.min(zx, zy)
+      const target = Math.min(12, fit) // nicht extrem nah (winzige Nation sonst auf ZOOM_MAX)
+      if (target > camera.zoom) camera.zoom = target
+    }
   }
 
   /** Welt→Screen, ohne Wrap (Aufrufer repliziert selbst). */
