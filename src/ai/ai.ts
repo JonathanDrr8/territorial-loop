@@ -662,6 +662,11 @@ export function createAI(
         }
       }
     }
+    // Mit Stadt-Mindestabstand (ADR-0033): findet die BFS kein abstandsgerechtes Tile, NICHT auf
+    // pickOwnTile zurückfallen (das ignoriert den Abstand → der Bau würde von canBuildAt eh abgelehnt
+    // → verpufft, und planUpgrade/Gold-Senke spränge nie an). Stattdessen -1 → buildCity gibt null →
+    // planUpgrade übernimmt (rüstet bestehende Städte hoch). Ohne Abstand (Fabrik/Flughafen) wie bisher.
+    if (best < 0 && minCityDist > 0) return -1
     return best >= 0 ? best : pickOwnTile(state, player, false)
   }
 

@@ -1,6 +1,6 @@
 # ADR-0033: Städte als wachsende Siedlungen
 
-**Status:** Proposed (Entwurf zur Abstimmung) — 2026-06-07
+**Status:** Accepted — Scheiben 1 (Stufen + Sprites) + 2 (Mindestabstand + Radius-Ring) umgesetzt & released (0.58.0, 2026-06-07); Scheibe 3 (Politur „zu nah"-Tönung) optional offen.
 **Bezug:** baut auf ADR-0031 (A2-Gold-Senke: Städte bis Level 6, verdoppelnde Kosten — bereits umgesetzt).
 
 ## Kontext
