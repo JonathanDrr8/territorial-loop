@@ -62,6 +62,13 @@ export const MAX_BUILDING_LEVEL = 3
  */
 export const MAX_CITY_LEVEL = 6
 
+/**
+ * Mindestabstand (Torus-Tiles) zwischen zwei eigenen Städten (ADR-0033): Städte breiten sich als
+ * Siedlungen aus, statt sich zu Cap-Clustern zu stapeln. Bau-Regel in `canBuildAt` (deterministisch,
+ * MP-sicher); die KI-Stadtplatzierung respektiert ihn ebenfalls; im Bau-Modus wird der Radius gezeigt.
+ */
+export const CITY_MIN_DISTANCE = 8
+
 /** Höchstes erreichbares Level je Gebäudetyp (Städte tiefer dank Gold-Senke, ADR-0031). */
 export function maxLevel(type: BuildingType): number {
   return type === 'city' ? MAX_CITY_LEVEL : MAX_BUILDING_LEVEL

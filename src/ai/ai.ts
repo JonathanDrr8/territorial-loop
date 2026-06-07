@@ -35,6 +35,7 @@ import {
   isBuildingComplete,
   MAX_BUILDING_LEVEL,
   maxLevel,
+  CITY_MIN_DISTANCE,
   upgradeCost,
   type BuildingType,
 } from '../core/buildings'
@@ -603,8 +604,16 @@ export function createAI(
    * damit es nicht sofort miterobert wird). BFS von der Frontier nach innen; bevorzugt Tiefe ~3
    * mit vielen eigenen Nachbarn. Fallback: irgendein Frontier-Tile.
    */
-  function pickInteriorTile(state: GameState, player: Player): number {
+  function pickInteriorTile(state: GameState, player: Player, minCityDist = 0): number {
     const { width, height } = state.map
+    // Für den Stadt-Mindestabstand (ADR-0033): eigene Stadt-Koords vorberechnen (nur wenn gefordert).
+    const cityXY: Array<readonly [number, number]> = []
+    if (minCityDist > 0) {
+      for (const b of state.buildings.values()) {
+        if (b.ownerId === player.id && b.type === 'city')
+          cityXY.push([b.tile % width, Math.floor(b.tile / width)])
+      }
+    }
     const depth = new Map<number, number>()
     const queue: number[] = []
     for (const f of player.frontier) {
@@ -620,14 +629,28 @@ export function createAI(
       if (cur === undefined) break
       const d = depth.get(cur) ?? 0
       if (d >= 2 && !state.buildings.has(cur)) {
-        let own = 0
-        for (const n of neighbors4(cur, width, height)) {
-          if (getOwner(state.map, n) === player.id) own++
+        // Stadt-Mindestabstand: Kandidaten zu nah an einer eigenen Stadt überspringen.
+        let tooClose = false
+        if (minCityDist > 0) {
+          const cx = cur % width
+          const cy = Math.floor(cur / width)
+          for (const [ox, oy] of cityXY) {
+            if (torusDistance(cx, cy, ox, oy, width, height) < minCityDist) {
+              tooClose = true
+              break
+            }
+          }
         }
-        const score = own - Math.abs(d - 3)
-        if (score > bestScore || (score === bestScore && (best < 0 || cur < best))) {
-          bestScore = score
-          best = cur
+        if (!tooClose) {
+          let own = 0
+          for (const n of neighbors4(cur, width, height)) {
+            if (getOwner(state.map, n) === player.id) own++
+          }
+          const score = own - Math.abs(d - 3)
+          if (score > bestScore || (score === bestScore && (best < 0 || cur < best))) {
+            bestScore = score
+            best = cur
+          }
         }
       }
       if (d < 5) {
@@ -731,7 +754,7 @@ export function createAI(
     // Eigene Fabriken verbinden sich NICHT untereinander — nur mit FREMDEN Fabriken (Auslands-Bonus).
     const factoryTarget = Math.ceil((cities + portsOwned) / FACTORY_CART_LIMIT)
     const buildCity = (): Intent | null => {
-      const tile = pickInteriorTile(state, player)
+      const tile = pickInteriorTile(state, player, CITY_MIN_DISTANCE) // Städte mit Abstand (ADR-0033)
       return tile >= 0
         ? {
             type: 'build',

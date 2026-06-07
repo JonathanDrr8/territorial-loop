@@ -10,6 +10,7 @@ import {
 } from '../src/core/buildings'
 import {
   buildCostFor,
+  canBuildAt,
   createGame,
   tick,
   effectiveMaxTroops,
@@ -51,6 +52,31 @@ describe('building cost functions', () => {
   it('upgrade cost grows linearly with level (Basis ohne buildPrice = Typ-Basiskosten)', () => {
     expect(upgradeCost({ type: 'city', level: 1 })).toBe(50_000)
     expect(upgradeCost({ type: 'city', level: 2 })).toBe(75_000)
+  })
+
+  it('Städte brauchen Mindestabstand (ADR-0033): zu nah abgelehnt, weit genug erlaubt', () => {
+    const state = createGame(cfg())
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('no player')
+    p.gold = 1_000_000
+    const w = state.map.width
+    const row = 10
+    // Horizontalen Streifen dem Spieler geben (kontrollierte Distanzen; flat map = passierbar).
+    for (let x = 0; x < 30; x++) setOwner(state.map, row * w + x, 1)
+    const cityTile = row * w + 5
+    state.buildings.set(cityTile, {
+      type: 'city',
+      ownerId: 1,
+      tile: cityTile,
+      level: 1,
+      completesAtTick: 0,
+    })
+    // 4 Tiles entfernt (< CITY_MIN_DISTANCE 8) → kein Bau
+    expect(canBuildAt(state, 1, row * w + 9, 'city')).toBe(false)
+    // 10 Tiles entfernt (>= 8) → Bau erlaubt
+    expect(canBuildAt(state, 1, row * w + 15, 'city')).toBe(true)
+    // Andere Gebäude (Verteidigung) sind vom Stadt-Abstand NICHT betroffen
+    expect(canBuildAt(state, 1, row * w + 9, 'defense')).toBe(true)
   })
 
   it('cityStageKey: Level → Siedlungs-Stufe (ADR-0033)', () => {

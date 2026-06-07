@@ -52,6 +52,7 @@ import {
   type BuildingType,
   BUILD_TIME_TICKS,
   CITY_CAP_BONUS,
+  CITY_MIN_DISTANCE,
   COST_GROUP,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
@@ -1557,6 +1558,22 @@ function factorySourceTooClose(
   return false
 }
 
+/**
+ * Steht eine neue Stadt zu nah an einer bestehenden EIGENEN Stadt? (ADR-0033: Städte brauchen
+ * {@link CITY_MIN_DISTANCE} Abstand → breiten sich als Siedlungen aus statt zu Cap-Clustern.)
+ */
+function cityTooClose(state: GameState, playerId: number, tile: TileRef): boolean {
+  const { width, height } = state.map
+  const tx = tile % width
+  const ty = Math.floor(tile / width)
+  for (const b of state.buildings.values()) {
+    if (b.ownerId !== playerId || b.type !== 'city') continue
+    const d = torusDistance(tx, ty, b.tile % width, Math.floor(b.tile / width), width, height)
+    if (d < CITY_MIN_DISTANCE) return true
+  }
+  return false
+}
+
 /** Ist dieser Gebäudetyp im aktuellen Match erlaubt? Fehlender Eintrag → erlaubt. */
 export function isBuildingAllowed(config: GameConfig, type: BuildingType): boolean {
   return config.allowedBuildings?.[type] !== false
@@ -1583,6 +1600,8 @@ export function canBuildAt(
   }
   if (type === 'port' && !nearWater(state, tile)) return false
   if (factorySourceTooClose(state, playerId, tile, type)) return false
+  // Städte brauchen Abstand zueinander (ADR-0033) — kein Cap-Cluster.
+  if (type === 'city' && cityTooClose(state, playerId, tile)) return false
   const cost = buildCostFor(state, playerId, type)
   return player.gold >= cost
 }

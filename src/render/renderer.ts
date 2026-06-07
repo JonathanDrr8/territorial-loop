@@ -17,6 +17,7 @@ import { type BuildingType, MAX_BUILDING_LEVEL } from '../core/buildings'
 import {
   airportSlots,
   BUILD_TIME_TICKS,
+  CITY_MIN_DISTANCE,
   defenseRange,
   flakRange,
   isBuildingComplete,
@@ -2651,6 +2652,31 @@ export function createRenderer(
     screenCtx.textAlign = 'center'
     screenCtx.textBaseline = 'middle'
     screenCtx.font = `bold ${Math.round(radius * 1.3).toString()}px ui-monospace, monospace`
+    // Im Stadt-Bau-Modus die Sperrzonen um eigene Städte einblenden (ADR-0033) — man sieht, wo der
+    // Mindestabstand greift (faint gelber Ring, wrap-aware).
+    if (buildPreviewType === 'city') {
+      screenCtx.save()
+      screenCtx.setLineDash([3, 4])
+      screenCtx.strokeStyle = 'rgba(232,200,90,0.28)'
+      screenCtx.lineWidth = 1
+      const rr = CITY_MIN_DISTANCE * z
+      for (const b of state.buildings.values()) {
+        if (b.type !== 'city' || b.ownerId !== humanId) continue
+        const bx = (b.tile % mapW) + 0.5
+        const by = Math.floor(b.tile / mapW) + 0.5
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const sx = worldToScreenX(bx + dx * mapW)
+            const sy = worldToScreenY(by + dy * mapH)
+            if (sx < -rr || sx > cssW + rr || sy < -rr || sy > cssH + rr) continue
+            screenCtx.beginPath()
+            circ(sx, sy, rr, 0, Math.PI * 2)
+            screenCtx.stroke()
+          }
+        }
+      }
+      screenCtx.restore()
+    }
     // Upgrade-Vorschau: steht auf dem Ziel-Tile schon ein Posten desselben Typs, zeigt der
     // Reichweiten-Ring die Reichweite des NÄCHSTEN Levels (nach dem Upgrade), sonst die von Level 1
     // (Neubau). Vorher war es immer Level 1 → beim Upgraden sah man die erhöhte Reichweite nicht.
@@ -2674,7 +2700,10 @@ export function createRenderer(
             ? defenseRange(previewLevel)
             : buildPreviewType === 'flak'
               ? flakRange(previewLevel)
-              : 0
+              : // Städte: Mindestabstand-Ring (ADR-0033) — rot, wenn zu nah an eigener Stadt.
+                buildPreviewType === 'city'
+                ? CITY_MIN_DISTANCE
+                : 0
         if (previewRadiusTiles > 0) {
           screenCtx.beginPath()
           circ(sx, sy, previewRadiusTiles * z, 0, Math.PI * 2)
