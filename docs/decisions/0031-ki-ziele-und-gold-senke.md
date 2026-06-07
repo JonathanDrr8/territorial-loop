@@ -1,6 +1,6 @@
 # ADR-0031: KI-Meilenstein-Ziele + Spätspiel-Gold-Senke
 
-**Status:** Proposed — Diskussionsentwurf, NICHTS umgesetzt. Jonathan entscheidet.
+**Status:** Accepted (Richtung) — Gold-Ventil **A2 + A1** + **ELO-Kopplung** beschlossen (2026-06-07). Umsetzung schrittweise + mit Feel-Abnahme, noch offen.
 **Datum:** 2026-06-07
 
 ## Kontext — der Befund aus dem 10-Stunden-Match
@@ -51,8 +51,12 @@ Reihenfolge wichtig: **Teil A (Mechanik) muss vor Teil B (KI-Ziele) stehen** —
 (Snowball). Gegenmittel: stark **sublineare/eskalierende Kosten** (jeder weitere Cap-Punkt teurer) +
 ggf. Deckel. Alles in `core/` → **muss deterministisch sein** (kein `Math.random`/`Date.now`, MP-genau).
 
-**Empfehlung (Diskussionsbasis):** A1 als schneller KI-Patt-Brecher kurzfristig; A2 oder A3 als
-eigentliche, langfristige Gold-Senke (auch für den Menschen). A1 + A2 sind kombinierbar.
+**Beschlossen: A2 + A1.** Städte werden über Level 3 hinaus aufrüstbar (A2) mit stark eskalierenden
+Kosten — das ist die eigentliche Gold-Senke + Snowball-Bremse in einem; zusätzlich baut die KI bei
+Gold-Überschuss + vollem Gebiet weitere Städte auf Innen-Tiles (A1). Begründung: nutzt die bestehende,
+dem Spieler vertraute Upgrade-Mechanik, ist kompakt (kein Platz nötig), skaliert lange, und die teurer
+werdenden Level halten den Vorsprung des Führenden im Zaum. A3 (ganz neue Mechanik) vorerst verworfen
+(überengineered). Empfehlung weiterhin **symmetrisch für KI + Mensch** (final in der Umsetzung).
 
 ### Teil B — KI-Meilenstein-Ziele statt starrer Solls (Jonathans Idee)
 
@@ -69,6 +73,25 @@ offen → sie gibt ihr gehortetes Gold aus, statt es zu sammeln. Das passt zum g
 („Lage-Bewertung statt starrem Würfel-Menü", vgl. das KI-Rework-Vorhaben) und macht die KI auch sonst
 zielgerichteter. **Setzt Teil A voraus.**
 
+### Teil C — ELO-Kopplung + „normales Match deckt alle Elemente ab" (beschlossen)
+
+Leitprinzip (Jonathan): **Ab ELO 1000 sind ALLE Spielelemente präsent — was mit der ELO skaliert, ist
+nicht _ob_, sondern _wie viel / wie gut_.** Heute schaltet das Stufen-System Elemente erst spät frei
+(z. B. Bomber erst ~ELO 1080, `src/ai/strength.ts:57`) → ein Standard-Spieler erlebt sie nie und lernt
+sie nicht kennen. Künftig: jedes Element immer vorhanden, nur Intensität/Qualität skaliert. So fühlt sich
+jedes Match „vollständig" an und ist lehrreich (man gewöhnt sich an alle Mechaniken).
+
+Konkret skaliert mit der ELO (statt an/aus):
+
+| Achse                                  | ELO 1000 (Anker)             | hohe ELO             |
+| -------------------------------------- | ---------------------------- | -------------------- |
+| Bomber-Budget                          | **wenige** (nicht null)      | viele, gut getimt    |
+| Cap-Ziel `k` (ggü. stärkstem Nachbarn) | moderat (~1,1–1,2)           | ehrgeizig (~1,5+)    |
+| Gold-Ausgabe-Tempo                     | gemächlich (etwas Horten ok) | zügig, kein Leerlauf |
+
+Damit fühlt sich auch die 1000er-KI lebendig an (kauft mal einen Bomber, baut weiter), bleibt aber
+schlagbar. Die Teil-B-Meilensteine und die Teil-A-Gold-Senke werden also **ELO-parametrisiert**.
+
 ## Konsequenzen
 
 - **Positiv:** Spätspiel-Patts werden brechbar; Gold bekommt durchgehend Wert (auch für den Menschen);
@@ -78,10 +101,17 @@ zielgerichteter. **Setzt Teil A voraus.**
 - **Aufwand:** Teil A klein (A1) bis mittel (A2/A3); Teil B mittel (KI-Ziel-System) — zusammen ein
   eigenes Vorhaben, schrittweise + mit Feel-Abnahme.
 
-## Offene Fragen an Jonathan (Entscheidungen)
+## Status der Entscheidungen
 
-1. **Welche Gold-Senke?** A1 (schnell) / A2 (höheres Level) / A3 (eigener Pfad) — oder Kombination?
-2. **Auch für den Menschen** (symmetrisch) oder vorerst nur KI? (Empfehlung: symmetrisch, sonst unfair.)
-3. **Wie stark/teuer?** Snowball-Bremse über die Kostenkurve — wie aggressiv eskalieren?
-4. **Meilenstein-Werte:** konkrete Ziele (Gold/s-Schwelle, Cap-Faktor k, Territorium-%)?
-5. **ELO-1000-Bomber:** zusätzlich die Bomber-Schwelle senken (eigener kleiner Patt-Brecher), oder reicht A+B?
+**Beschlossen (2026-06-07):**
+
+- Gold-Senke **A2 + A1** (Städte über Level 3 mit eskalierenden Kosten + KI baut bei Überschuss mehr Städte).
+- **ELO-Kopplung** + Prinzip „normales Match deckt alle Elemente ab" (Bomber bei ELO 1000 wenige statt null).
+
+**Noch offen (Umsetzungsphase, mit Feel-Abnahme):**
+
+1. **Kostenkurve** der höheren Städte-Level — wie aggressiv eskalierend (Snowball-Bremse)? Konkrete Zahlen.
+2. **MAX_BUILDING_LEVEL:** wie viele neue Level (z. B. bis 5, oder offen mit Kostendeckel)?
+3. **Symmetrie Mensch/KI** final bestätigen (Empfehlung: symmetrisch).
+4. **Meilenstein-Werte:** Gold/s-Schwelle, Cap-Faktor `k` je ELO-Stufe, Territorium-%.
+5. **Reihenfolge der Umsetzung:** erst A2 (Mechanik) + Feel-Test, dann A1 + Teil B (KI-Ziele), dann Teil C feinjustieren.
