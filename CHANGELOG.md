@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.57.1] – 2026-06-07
+
+### Behoben
+
+- **HUD-Fenster bleiben im Bild:** HUD-Panels bleiben jetzt immer vollständig sichtbar — auch
+  wenn man das Fenster verkleinert oder ein Panel im HUD-Editor an den Rand zieht, wandert
+  nichts mehr aus dem Bild.
+- **Schmale Fenster:** Auf sehr schmalen Fenstern (z. B. beim Kacheln) skaliert das HUD weiter
+  herunter, sodass sich die unteren Leisten (Truppen/Gold und Aktionsleiste) nicht mehr überlappen.
+
 ## [0.57.0] – 2026-06-07
 
 ### Neu
