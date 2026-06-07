@@ -705,7 +705,9 @@ function startMatch(
   // verdeckt die offene Rangliste die zentrierte Nation → beim Zentrieren das mobile Rang-Panel
   // schließen, damit man auch sieht, wohin gesprungen wurde.
   function centerCamera(pid: number): void {
-    renderer.centerOnPlayer(pid)
+    // frameZoom: auf die Nation reinzoomen, damit der Sprung auch auf großen/rausgezoomten Karten
+    // sichtbar ist (Klick auf Ranglisten-Namen → „zu ihnen springen").
+    renderer.centerOnPlayer(pid, 0, true)
     if (mobileRankOpen) {
       mobileRankOpen = false
       hud.setMobileRankOpen(false)

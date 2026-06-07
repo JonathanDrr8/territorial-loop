@@ -195,8 +195,11 @@ export function createEventLog(
   container.appendChild(box)
 
   // Klick auf einen Eintrag → Kamera auf das Zentrum der betroffenen Nation.
+  // `pointerdown` statt `click`: die Log-Liste wird per innerHTML neu aufgebaut → ein echter Klick
+  // (down → Pause → up) verliert sein Ziel zwischen den Neuaufbauten → kein `click`. Down feuert
+  // sofort (gleiche Ursache/Fix wie die Rangliste in hud.ts).
   if (onCenterPlayer !== undefined) {
-    box.addEventListener('click', (e) => {
+    box.addEventListener('pointerdown', (e) => {
       const row = (e.target as HTMLElement | null)?.closest('[data-center]')
       if (row instanceof HTMLElement && row.dataset.center !== undefined) {
         onCenterPlayer(Number(row.dataset.center))

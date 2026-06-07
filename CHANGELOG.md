@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.57.2] – 2026-06-07
+
+### Behoben
+
+- **Zu einer Nation springen geht wieder:** Ein Klick auf einen Namen in der Rangliste oder auf
+  einen Eintrag im Ereignislog springt jetzt zuverlässig zu dieser Nation und zoomt sie heran —
+  auf großen Karten reagierte der Klick vorher oft gar nicht.
+
 ## [0.57.1] – 2026-06-07
 
 ### Behoben
