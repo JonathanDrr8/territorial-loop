@@ -56,6 +56,7 @@ import { createMapPreview } from './map-preview'
 import { isGeoMapId } from './geo-loader'
 import { loadAudioVolumes, saveAudioVolumes, saveMenuPrefs } from './preferences'
 import { getTheme, setTheme, THEMES } from './theme'
+import { getHoverMode, HOVER_MODE_OPTIONS, setHoverMode } from './hover-mode'
 import { resetLayout } from './hud-layout'
 import { randomTipIndex, TIP_KEYS } from './tips'
 
@@ -902,6 +903,21 @@ export function createMenuShell(
       values.cameraMode,
     )
     p.appendChild(camera.element)
+
+    // Hover-Info-Modus: festes Panel und/oder mitwandernder Cursor-Tooltip. Reine Client-Präferenz
+    // (hover-mode.ts, localStorage) — wirkt live im laufenden Match, MP-sicher.
+    const hoverRow = makeSelectRow<string>(
+      t('field.hoverMode'),
+      HOVER_MODE_OPTIONS.map(([key, labelKey]) => [key, t(labelKey)] as const),
+      getHoverMode(),
+    )
+    const hoverSelect = hoverRow.element.querySelector('select')
+    if (hoverSelect !== null) {
+      hoverSelect.addEventListener('change', () => {
+        setHoverMode(hoverSelect.value)
+      })
+    }
+    p.appendChild(hoverRow.element)
 
     // Audio: Gesamt-/Effekt-/Musik-Lautstärke als Regler (0 % = aus). Eigenständig persistiert
     // (reine Präsentation, nicht in den Match-Settings/MP) — von startMatch beim Match-Start gelesen.

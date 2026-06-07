@@ -66,6 +66,7 @@ export const en: Record<string, string> = {
   'settings.display': 'Display',
   'settings.audio': 'Audio',
   'field.camera': 'Camera',
+  'field.hoverMode': 'Hover Info',
   'field.master': 'Master',
   'field.sound': 'Sound effects',
   'field.music': 'Music (beta)',
@@ -75,6 +76,9 @@ export const en: Record<string, string> = {
   'camera.period': 'Box (seamless)',
   'camera.fixed': 'Box (fixed)',
   'camera.dynamic': 'Dynamic box',
+  'hovermode.both': 'Panel + Tooltip',
+  'hovermode.panel': 'Fixed panel only',
+  'hovermode.tooltip': 'Cursor tooltip only',
   'settings.buildings': 'Allowed buildings',
   'settings.buildings.body':
     'Disabled buildings cannot be built by anyone in the match — not even the AI.',

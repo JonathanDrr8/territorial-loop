@@ -1,11 +1,16 @@
 /**
- * Festes Hover-Info-Panel. Anders als der mitwandernde Cursor-Tooltip (hover-tooltip.ts) sitzt
- * dieses Panel fest im HUD und zeigt dauerhaft die Infos zum Tile unter dem Mauszeiger:
- *  - Besitzer-Nation (Anzeigename + Farbpunkt in Nationsfarbe), sonst „neutrales Land"/Wasser.
- *  - Truppen der besitzenden Nation (kompakt, wie sonst im HUD).
- *  - Gebäude auf dem Tile (falls vorhanden): Typ + Level.
- * Ohne gültiges Tile (Cursor nicht über der Karte) bleibt es sichtbar und zeigt einen dezenten
- * Leerzustand — das Panel springt nie.
+ * Festes Hover-Info-Panel. Anders als der mitwandernde Cursor-Tooltip ({@link ./hover-tooltip.ts})
+ * sitzt dieses Panel fest im HUD und zeigt dauerhaft — in voller Tiefe — die Infos zum Objekt/Tile
+ * unter dem Mauszeiger: Besitzer-Nation (mit Farbpunkt), Truppen/Cap/%, Ø pro Tile, Beziehung
+ * (Gunst/Groll), Allianz-Countdown, Verräter, Gold-Beute, Angriffs-Chip, Gebäude-Effekt +
+ * Upgrade-Vorschau, sowie Schiffe (Boot/Handels-/Kriegsschiff). Inhalt + Werte kommen aus dem
+ * gemeinsamen Resolver ({@link ./hover-content.ts}) → garantiert identisch zum Tooltip.
+ *
+ * Ohne gültiges Tile (Cursor nicht über der Karte) bleibt das Panel sichtbar und zeigt einen
+ * dezenten Leerzustand — es springt nie.
+ *
+ * Sichtbarkeit: kombiniert den Hover-Modus ({@link ./hover-mode.ts}; im Modus „tooltip" aus) mit
+ * dem HUD-Editor-Status (`getPanel(...).hidden`) — beide leiten aus derselben Quelle ab, kein Fight.
  *
  * Als HUD-Panel (`hover-info`) registriert → über den HUD-Editor verschieb-/skalier-/ausblendbar
  * (ADR-0024). Reine Anzeige: liest den (Schatten-)GameState read-only, mutiert nur DOM. Kein
@@ -13,45 +18,29 @@
  */
 
 import { type GameState } from '../core/game'
-import type { Building, BuildingType } from '../core/buildings'
-import { getOwner } from '../world/map'
-import { isLand } from '../world/terrain'
-import { tileRef } from '../world/torus'
 import { t } from '../i18n'
-import { rgbaToCss } from './colors'
 import { panelStyle } from './theme'
-import { registerPanel, unregisterPanel } from './hud-layout'
+import { getPanel, registerPanel, unregisterPanel } from './hud-layout'
 import { registerScalable } from './ui-scale'
+import { resolveHover, titleHtml, bodyHtml, type HoverHighlight } from './hover-content'
+import { getHoverMode, type HoverMode } from './hover-mode'
 
 /** Eindeutige, stabile Panel-ID fürs Layout-/Editor-System. */
 export const HOVER_INFO_PANEL_ID = 'hover-info'
 
 export interface HoverInfoApi {
   /**
-   * Aktualisiert das Panel auf die Welt-Position unter dem Cursor (oder `null`, wenn der Cursor
-   * nicht über der Karte ist → Leerzustand). Pro Frame aufrufbar; liest live aus dem State.
+   * Aktualisiert das Panel auf die Welt-Position unter dem Cursor (oder `null` → Leerzustand).
+   * `zoom` steuert den Snap-Radius (identisch zum Tooltip). Gibt das gehoverte (gesnappte) Objekt
+   * zurück, damit der Aufrufer im Modus „panel" den Renderer-Ring setzen kann.
    */
-  update(hover: { readonly worldX: number; readonly worldY: number } | null): void
+  update(
+    hover: { readonly worldX: number; readonly worldY: number } | null,
+    zoom: number,
+  ): HoverHighlight | null
+  /** Modus setzen (steuert die Panel-Sichtbarkeit zusammen mit dem HUD-Editor-Status). */
+  setMode(mode: HoverMode): void
   destroy(): void
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"]/g, (c) =>
-    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;',
-  )
-}
-
-/** Kompaktes Zahlenformat (wie sonst im HUD): 1234567 → "1.2M", 12345 → "12k", 842 → "842". */
-function fmtCompact(value: number): string {
-  const v = Math.round(value)
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k'
-  return String(v)
-}
-
-/** Übersetzter Anzeige-Name eines Gebäudetyps. */
-function buildingLabel(type: BuildingType): string {
-  return t(`building.${type}`)
 }
 
 export function createHoverInfo(
@@ -59,6 +48,8 @@ export function createHoverInfo(
   state: GameState,
   /** Spieler-ID des lokalen Menschen — eigene Tiles werden als „Du" beschriftet. */
   humanId: number,
+  /** Truppenzahl, die ein Linksklick gerade losschicken würde (für den Angriffs-Chip). */
+  getAttackTroops: () => number,
 ): HoverInfoApi {
   const box = document.createElement('div')
   box.style.cssText = panelStyle([
@@ -66,11 +57,11 @@ export function createHoverInfo(
     // Linke Spalte, unter dem Info-/Steuerungs-Kasten (top:52). Verschiebbar (HUD-Editor).
     'top: 128px',
     'left: 12px',
-    'width: 196px',
+    'width: 200px',
     'box-sizing: border-box',
     'padding: 8px 11px',
     'font-size: 12px',
-    'line-height: 1.4',
+    'line-height: 1.45',
     // Fixe Mindesthöhe → das Panel kollabiert im Leerzustand nicht / springt nicht.
     'min-height: 86px',
     'pointer-events: auto',
@@ -78,11 +69,11 @@ export function createHoverInfo(
   ])
 
   // Titelzeile (dezent) — kennzeichnet, worauf sich das Panel bezieht.
-  const titleEl = document.createElement('div')
-  titleEl.textContent = t('hover.title')
-  titleEl.style.cssText =
+  const captionEl = document.createElement('div')
+  captionEl.textContent = t('hover.title')
+  captionEl.style.cssText =
     'font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tl-text-dim); margin-bottom: 5px'
-  box.appendChild(titleEl)
+  box.appendChild(captionEl)
 
   // Leerzustand (kein gültiges Tile unter dem Cursor).
   const emptyEl = document.createElement('div')
@@ -90,114 +81,103 @@ export function createHoverInfo(
   emptyEl.style.cssText = 'color: var(--tl-text-faint); font-size: 11px'
   box.appendChild(emptyEl)
 
-  // Detail-Block (Besitzer + Truppen + Gebäude).
+  // Inhalt: Kopfzeile (Farbpunkt + Name + Level/Status) + Detailzeilen.
+  const contentEl = document.createElement('div')
+  contentEl.style.cssText = 'display: none'
+  const headEl = document.createElement('div')
+  headEl.style.cssText = 'margin-bottom: 3px'
   const detailEl = document.createElement('div')
-  detailEl.style.cssText = 'display: none; flex-direction: column; gap: 4px'
+  detailEl.style.cssText = 'font-size: 11px'
+  contentEl.appendChild(headEl)
+  contentEl.appendChild(detailEl)
+  box.appendChild(contentEl)
 
-  // Besitzer-Zeile: Farbpunkt + Name (fett).
-  const ownerEl = document.createElement('div')
-  ownerEl.style.cssText = 'display: flex; align-items: center; gap: 7px; font-weight: bold'
-  detailEl.appendChild(ownerEl)
-
-  const makeRow = (): { row: HTMLElement; label: HTMLElement; value: HTMLElement } => {
-    const row = document.createElement('div')
-    row.style.cssText = 'display: flex; align-items: baseline; gap: 8px; font-size: 11px'
-    const label = document.createElement('span')
-    label.style.cssText = 'color: var(--tl-text-dim); flex: 0 0 auto'
-    const value = document.createElement('span')
-    value.style.cssText = 'margin-left: auto; text-align: right; font-variant-numeric: tabular-nums'
-    row.appendChild(label)
-    row.appendChild(value)
-    return { row, label, value }
-  }
-
-  const troops = makeRow()
-  troops.label.textContent = t('hud.troops')
-  detailEl.appendChild(troops.row)
-
-  const building = makeRow()
-  building.label.textContent = t('hover.building')
-  detailEl.appendChild(building.row)
-
-  box.appendChild(detailEl)
   container.appendChild(box)
   registerScalable(box)
   registerPanel(HOVER_INFO_PANEL_ID, box)
 
-  // Kleiner Farbpunkt in Nationsfarbe (für neutrale Tiles ein dezenter Grau-Punkt).
-  const dot = (color: number | null): string => {
-    const bg = color === null ? 'var(--tl-text-faint)' : rgbaToCss(color)
-    return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${bg};box-shadow:0 0 0 1px rgba(0,0,0,0.35)"></span>`
-  }
-
+  let mode: HoverMode = getHoverMode()
   /** Letzte gerenderte Signatur — DOM-Schreiber nur bei echter Änderung (Frame-schonend). */
   let lastSig = ''
+  /** Throttle: Schlüssel aus Tile + Zoom — Resolver nur bei Wechsel (oder Zeit-Refresh) neu. */
+  let lastKey = ''
+  let lastHighlight: HoverHighlight | null = null
+  let frame = 0
 
-  function update(hover: { readonly worldX: number; readonly worldY: number } | null): void {
+  /** Soll das Panel sichtbar sein? (Modus ≠ tooltip UND nicht per HUD-Editor ausgeblendet). */
+  function visible(): boolean {
+    if (mode === 'tooltip') return false
+    return getPanel(HOVER_INFO_PANEL_ID)?.hidden !== true
+  }
+
+  /** Display aus Modus + Layout-Status ableiten (gleiche Quelle wie der HUD-Editor → kein Fight). */
+  function applyDisplay(): void {
+    if (mode === 'tooltip') box.style.display = 'none'
+    // sonst überlässt das Panel das Ein-/Ausblenden dem Layout-System (HUD-Editor).
+    else if (getPanel(HOVER_INFO_PANEL_ID)?.hidden !== true) box.style.removeProperty('display')
+  }
+
+  function setMode(next: HoverMode): void {
+    if (next === mode) return
+    mode = next
+    applyDisplay()
+    // Bei Re-Aktivierung neu rendern erzwingen.
+    lastKey = ''
+    lastSig = ''
+  }
+
+  function update(
+    hover: { readonly worldX: number; readonly worldY: number } | null,
+    zoom: number,
+  ): HoverHighlight | null {
+    applyDisplay()
+    if (!visible()) {
+      lastHighlight = null
+      return null
+    }
+
     if (hover === null) {
-      if (lastSig === '') return
-      lastSig = ''
-      emptyEl.style.display = ''
-      detailEl.style.display = 'none'
-      return
-    }
-
-    const w = state.map.width
-    const h = state.map.height
-    const ref = tileRef(Math.floor(hover.worldX), Math.floor(hover.worldY), w, h)
-    const land = isLand(state.map.terrain, ref)
-    const owner = getOwner(state.map, ref)
-    const b: Building | undefined = state.buildings.get(ref)
-
-    // Besitzer-Anzeige bestimmen.
-    let ownerColor: number | null = null
-    let ownerName: string
-    let troopsText: string | null = null
-    if (!land) {
-      ownerName = t('hover.water')
-    } else if (owner === 0) {
-      ownerName = t('tip.neutralLand')
-    } else {
-      const player = state.players.get(owner)
-      if (player === undefined) {
-        ownerName = t('tip.neutralLand')
-      } else {
-        ownerColor = player.color
-        ownerName = owner === humanId ? t('tip.you') : player.wild ? t('nation.wild') : player.name
-        troopsText = fmtCompact(player.troops)
+      if (lastSig !== 'empty') {
+        lastSig = 'empty'
+        lastKey = ''
+        emptyEl.style.display = ''
+        contentEl.style.display = 'none'
       }
+      lastHighlight = null
+      return null
     }
 
-    const buildingText =
-      b !== undefined ? `${buildingLabel(b.type)} · ${t('tip.lvl')} ${String(b.level)}` : null
+    frame++
+    // Resolver nur bei Tile-/Zoom-Wechsel neu laufen lassen — plus ~alle 0.5 s für zeitabhängige
+    // Werte (Gold/s, Allianz-Countdown, Angriffs-Chip). Schont die Frames (läuft im renderLoop).
+    const key = `${Math.floor(hover.worldX)},${Math.floor(hover.worldY)},${Math.round(zoom * 4)}`
+    const timeRefresh = frame % 30 === 0
+    if (key === lastKey && !timeRefresh) return lastHighlight
+    lastKey = key
 
-    // Signatur → nur bei Änderung neu schreiben.
-    const sig = `${String(ownerColor)}|${ownerName}|${troopsText ?? ''}|${buildingText ?? ''}`
-    if (sig === lastSig) return
-    lastSig = sig
+    const subject = resolveHover(state, humanId, {
+      worldX: hover.worldX,
+      worldY: hover.worldY,
+      zoom,
+      getAttackTroops,
+    })
+    lastHighlight = subject.highlight
+
+    if (subject.signature === lastSig) return lastHighlight
+    lastSig = subject.signature
 
     emptyEl.style.display = 'none'
-    detailEl.style.display = 'flex'
-
-    ownerEl.innerHTML = `${dot(ownerColor)}<span>${escapeHtml(ownerName)}</span>`
-
-    if (troopsText === null) {
-      troops.row.style.display = 'none'
-    } else {
-      troops.row.style.display = 'flex'
-      troops.value.textContent = troopsText
-    }
-
-    if (buildingText === null) {
-      building.row.style.display = 'none'
-    } else {
-      building.row.style.display = 'flex'
-      building.value.textContent = buildingText
-    }
+    contentEl.style.display = ''
+    headEl.innerHTML = titleHtml(subject, { dot: true })
+    const body = bodyHtml(subject)
+    detailEl.innerHTML = body
+    detailEl.style.display = body === '' ? 'none' : ''
+    return lastHighlight
   }
 
   return {
     update,
+    setMode,
     destroy(): void {
       unregisterPanel(HOVER_INFO_PANEL_ID)
       box.remove()

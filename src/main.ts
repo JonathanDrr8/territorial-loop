@@ -51,6 +51,7 @@ import { createEventLog } from './ui/event-log'
 import { createAlliancePrompt } from './ui/alliance-prompt'
 import { createHoverTooltip } from './ui/hover-tooltip'
 import { createHoverInfo } from './ui/hover-info'
+import { getHoverMode, onHoverModeChange } from './ui/hover-mode'
 import { createHUD } from './ui/hud'
 import { createMinimap } from './ui/minimap'
 import { isGeoMapId, loadGeoMapAsset } from './ui/geo-loader'
@@ -802,17 +803,26 @@ function startMatch(
     mobile: isMobileLayout(),
   })
 
-  const tooltip = createHoverTooltip(
-    container,
-    shadow,
-    humanId,
-    () => Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100),
-    (h) => renderer.setHoverHighlight(h),
+  // Truppen, die ein Linksklick gerade losschicken würde — von Tooltip UND Panel für den
+  // Angriffs-Chip genutzt (identische Anzeige).
+  const hoverAttackTroops = (): number =>
+    Math.floor(((shadow.players.get(humanId)?.troops ?? 0) * sliderPct) / 100)
+
+  const tooltip = createHoverTooltip(container, shadow, humanId, hoverAttackTroops, (h) =>
+    renderer.setHoverHighlight(h),
   )
-  // Festes Hover-Info-Panel (zusätzlich zum mitwandernden Tooltip): zeigt dauerhaft Besitzer/
-  // Truppen/Gebäude des Tiles unter dem Cursor. `hoverWorld` hält die aktuelle Maus-Welt-Position;
-  // der renderLoop füttert das Panel daraus pro Frame (live aus dem Schatten-State).
-  const hoverInfo = createHoverInfo(container, shadow, humanId)
+  // Festes Hover-Info-Panel (gemeinsamer Resolver mit dem Tooltip): zeigt in voller Tiefe die Infos
+  // zum Objekt/Tile unter dem Cursor. `hoverWorld` hält die aktuelle Maus-Welt-Position; der
+  // renderLoop füttert das Panel daraus pro Frame (live aus dem Schatten-State).
+  // Der Hover-Modus (Beide / nur Panel / nur Tooltip) ist eine lokale Präferenz (hover-mode.ts).
+  const hoverInfo = createHoverInfo(container, shadow, humanId, hoverAttackTroops)
+  hoverInfo.setMode(getHoverMode())
+  // Bei Modus-Wechsel (Einstellungen): Panel-Sichtbarkeit nachziehen + Tooltip ggf. ausblenden.
+  const offHoverMode = onHoverModeChange(() => {
+    const m = getHoverMode()
+    hoverInfo.setMode(m)
+    if (m === 'panel') tooltip.hide()
+  })
   let hoverWorld: { worldX: number; worldY: number } | null = null
   // Gemeinsame Feed-Spalte unten rechts, ÜBER der Minimap (klassisches Layout): oben die
   // interaktiven Bündnis-Anfragen, darunter das passive Ereignislog. Anker unten → wächst nach
@@ -946,7 +956,10 @@ function startMatch(
       renderer.addClickMarker(x, y)
     },
     onHover: (worldX, worldY, screenX, screenY) => {
-      tooltip.show(worldX, worldY, screenX, screenY, renderer.camera.zoom)
+      // Im Modus „panel" übernimmt das feste Panel die Anzeige + den Snap-Ring — kein Cursor-Tooltip.
+      if (getHoverMode() !== 'panel') {
+        tooltip.show(worldX, worldY, screenX, screenY, renderer.camera.zoom)
+      }
       renderer.setHoverTile(worldX, worldY)
       hoverWorld = { worldX, worldY }
     },
@@ -1441,7 +1454,9 @@ function startMatch(
     if (!hudEditor.isOpen()) {
       hud.update()
       // Festes Hover-Info-Panel aus der aktuellen Maus-Welt-Position (live aus dem Schatten-State).
-      hoverInfo.update(hoverWorld)
+      // Im Modus „panel" treibt das Panel den Snap-Ring (sonst der Tooltip via onHoverObject).
+      const panelHl = hoverInfo.update(hoverWorld, renderer.camera.zoom)
+      if (getHoverMode() === 'panel') renderer.setHoverHighlight(panelHl)
       // Gemeinsame Feed-Spalte: Bündnis-Karten (oben) + Log (unten). Flex regelt das Stapeln selbst.
       alliancePrompt.update()
       eventLog.update()
@@ -1515,6 +1530,7 @@ function startMatch(
       minimap.destroy()
       tooltip.destroy()
       hoverInfo.destroy()
+      offHoverMode()
       eventLog.destroy()
       alliancePrompt.destroy()
       unregisterPanel('feed')

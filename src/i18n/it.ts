@@ -64,6 +64,7 @@ export const it: Record<string, string> = {
   'settings.display': 'Visualizzazione',
   'settings.audio': 'Audio',
   'field.camera': 'Telecamera',
+  'field.hoverMode': 'Info al passaggio',
   'field.master': 'Generale',
   'field.sound': 'Effetti sonori',
   'field.music': 'Musica (beta)',
@@ -73,6 +74,9 @@ export const it: Record<string, string> = {
   'camera.period': 'Riquadro (senza giunture)',
   'camera.fixed': 'Riquadro (fisso)',
   'camera.dynamic': 'Riquadro dinamico',
+  'hovermode.both': 'Pannello + tooltip',
+  'hovermode.panel': 'Solo pannello fisso',
+  'hovermode.tooltip': 'Solo tooltip del cursore',
   'settings.buildings': 'Edifici consentiti',
   'settings.buildings.body':
     'Gli edifici disattivati non possono essere costruiti da nessuno nella partita — nemmeno dall’IA.',
