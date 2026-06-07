@@ -4,6 +4,21 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.58.1] – 2026-06-07
+
+### Geändert
+
+- **Ruhigeres Truppen-Wachstum:** Truppen füllen nach einem Angriff deutlich langsamer
+  nach — eine leere Armee braucht jetzt rund **26 Sekunden** statt ~15 s bis sie wieder
+  voll ist. Das Tempo orientiert sich an OpenFront. Das Spiel wirkt dadurch weniger hektisch;
+  das Wachstums-Optimum liegt weiterhin bei etwa **42 % des Caps**.
+- **Gebiets-Cap etwas reduziert:** Ein einzelnes Landstück hebt das Truppen-Cap jetzt
+  geringfügig weniger (−15 %). Sehr große Reiche wachsen damit nicht mehr automatisch
+  über alles hinweg; kleine Nationen bleiben länger handlungsfähig.
+- **Standard-Gegner nutzen Bomber:** Auf der Standard-Schwierigkeit setzen KI-Gegner
+  jetzt auch Bomber ein. Vorher gab es Bomber erst ab „Fortgeschritten" — ein normales
+  Match zeigt damit das volle Repertoire an Angriffsoptionen.
+
 ## [0.58.0] – 2026-06-07
 
 ### Neu
