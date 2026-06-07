@@ -1145,10 +1145,13 @@ function applyFactoryDiplomacy(state: GameState): void {
   for (const f of factories) {
     for (const d of dests) {
       if (d.owner === f.owner) continue
-      if (isTradeEmbargoed(state, f.owner, d.owner)) continue
-      if (torusDistance(f.x, f.y, d.x, d.y, width, height) > FACTORY_LINK_RANGE) continue
+      // credited-Check VOR Embargo-/Distanz-Prüfung: ist das Besitzer-Paar in diesem Lauf schon
+      // gutgeschrieben, gibt es nichts mehr zu tun → spart torusDistance je Folge-Paar (bei mehreren
+      // Fabriken desselben Besitzers häufig). Ergebnis identisch: gleiche gutgeschriebene Paar-Menge.
       const pairId = directedKey(Math.min(f.owner, d.owner), Math.max(f.owner, d.owner))
       if (credited.has(pairId)) continue
+      if (isTradeEmbargoed(state, f.owner, d.owner)) continue
+      if (torusDistance(f.x, f.y, d.x, d.y, width, height) > FACTORY_LINK_RANGE) continue
       credited.add(pairId)
       addGoodwill(state, f.owner, d.owner, GOODWILL_PER_FACTORY_NEIGHBOR)
     }
