@@ -4,6 +4,14 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.55.3] – 2026-06-07
+
+### Behoben
+
+- **Reichweiten-Vorschau beim Direktbau:** Platzierst du einen Verteidigungs- oder Flak-Posten direkt
+  auf einem höheren Level, zeigt der Vorschau-Ring jetzt die größere Reichweite dieses Levels (vorher
+  immer die von Stufe 1). Ergänzt den vorigen Fix, der nur das Aufrüsten bestehender Posten betraf.
+
 ## [0.55.2] – 2026-06-07
 
 ### Behoben
