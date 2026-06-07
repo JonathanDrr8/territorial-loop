@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.58.3] – 2026-06-07
+
+### Geändert
+
+- **Flugabwehr trifft jetzt deutlich mehr:** Die Reichweite der **Flak-Türme** wurde stark
+  erhöht (Stufe 1: 10 → 16 Tiles, höhere Stufen entsprechend). Vorher kamen Bomber fast
+  ungehindert durch — jetzt holt schon eine Handvoll Flaks einen guten Teil der Angreifer
+  runter. Wer Bomber einsetzt, muss **Flak-Stellungen** jetzt ernsthaft einrechnen.
+
 ## [0.58.2] – 2026-06-07
 
 ### Behoben
