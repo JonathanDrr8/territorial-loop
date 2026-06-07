@@ -4,6 +4,20 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.58.0] – 2026-06-07
+
+### Neu
+
+- **Städte wachsen mit:** Eine frisch gebaute Stadt beginnt als **Dorf** und lässt sich
+  stufenweise ausbauen: **Kleinstadt → Stadt → Großstadt → Metropole → Weltstadt**. Jede Stufe
+  verändert das Aussehen sichtbar und erhöht das Truppen-Cap um 25.000. Die Kosten steigen stark
+  an (Stufe 4–6 kostet ca. 150k / 300k / 600k Gold) — überschüssiges Gold im Spätspiel hat
+  damit endlich einen klaren Einsatz.
+- **Städte brauchen Abstand:** Zwei eigene Städte müssen jetzt etwas auseinanderliegen — beim
+  Platzieren zeigt ein Ring den Mindestabstand an. Die KI hält sich ebenfalls daran.
+- **Tipp:** Viele verteilt gebaute Städte sind insgesamt günstiger als eine einzige auf hoher
+  Stufe — das Hochrüsten lohnt sich erst, wenn der Platz knapp wird.
+
 ## [0.57.2] – 2026-06-07
 
 ### Behoben
