@@ -22,6 +22,7 @@ import {
   flakRange,
   isBuildingComplete,
   maxLevel,
+  cityStageKey,
   upgradeCost,
   type Building,
   type BuildingType,
@@ -101,9 +102,9 @@ export function fmtCompact(value: number): string {
   return String(v)
 }
 
-/** Übersetzter Anzeige-Name eines Gebäudetyps. */
-function buildingLabel(type: BuildingType): string {
-  return t(`building.${type}`)
+/** Übersetzter Anzeige-Name eines Gebäudes — Städte tragen ihren Siedlungs-Namen je Level (ADR-0033). */
+function buildingLabel(type: BuildingType, level = 1): string {
+  return type === 'city' ? t(cityStageKey(level)) : t(`building.${type}`)
 }
 
 /** Textsegment mit optionaler Farbe — lässt `color` weg, wenn `null` (exactOptionalPropertyTypes). */
@@ -367,7 +368,7 @@ export function resolveHover(
       'building',
       hl,
       null,
-      { text: buildingLabel(building.type), strong: true },
+      { text: buildingLabel(building.type, building.level), strong: true },
       titleExtra,
       lines,
     )

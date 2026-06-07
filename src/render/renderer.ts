@@ -159,6 +159,56 @@ const BUILDING_SPRITES: Record<BuildingType, SpriteDef> = {
   },
 }
 
+/**
+ * Stadt-Sprites je Siedlungs-Stufe (ADR-0033): klein (Dorf/Kleinstadt) → mittel (Stadt/Großstadt) →
+ * Skyline (Metropole/Weltstadt). {@link getCitySprite} mappt das Level auf einen der drei Tiers; die
+ * feinere Abstufung macht der mit dem Level wachsende Marker-Radius in `drawBuildings`.
+ */
+const CITY_STAGE_SPRITES: readonly SpriteDef[] = [
+  // Tier 0 — Dorf/Kleinstadt: kleine Hütte, bodenständig.
+  {
+    rows: [
+      '........',
+      '........',
+      '........',
+      '..RRRR..',
+      '.RRRRRR.',
+      '.WWddWW.',
+      '.WWWWWW.',
+      '........',
+    ],
+    palette: { R: '#c75a4a', W: '#ddd0b0', d: '#36456a' },
+  },
+  // Tier 1 — Stadt/Großstadt: das klassische Stadthaus mit Fenstern.
+  {
+    rows: [
+      '..RRRR..',
+      '.RRRRRR.',
+      'RRRRRRRR',
+      '.WWWWWW.',
+      '.WdWWdW.',
+      '.WWWWWW.',
+      '.WdWWdW.',
+      '.WWWWWW.',
+    ],
+    palette: { R: '#c75a4a', W: '#ddd0b0', d: '#36456a' },
+  },
+  // Tier 2 — Metropole/Weltstadt: dichte Skyline aus mehreren Türmen.
+  {
+    rows: [
+      'R.R..R.R',
+      'WRWRRWRW',
+      'WWWWWWWW',
+      'WdWdWdWd',
+      'WWWWWWWW',
+      'WdWdWdWd',
+      'WWWWWWWW',
+      'WWWWWWWW',
+    ],
+    palette: { R: '#c75a4a', W: '#ddd0b0', d: '#36456a' },
+  },
+]
+
 /** Pixel-Sprite für Kriegsschiffe (grauer Rumpf, Deck, Mast + rote Flagge). */
 const WARSHIP_SPRITE: SpriteDef = {
   rows: [
@@ -1714,6 +1764,18 @@ export function createRenderer(
     spriteCache.set(type, c)
     return c
   }
+
+  // Stadt-Sprite nach Siedlungs-Stufe (ADR-0033): Level 1–2 → Tier 0, 3–4 → Tier 1, 5–6 → Tier 2.
+  const cityStageSpriteCache = new Map<number, HTMLCanvasElement | null>()
+  function getCitySprite(level: number): HTMLCanvasElement | null {
+    const tier = level <= 2 ? 0 : level <= 4 ? 1 : 2
+    const cached = cityStageSpriteCache.get(tier)
+    if (cached !== undefined) return cached
+    const def = CITY_STAGE_SPRITES[tier] ?? CITY_STAGE_SPRITES[1]
+    const c = def !== undefined ? renderSpriteCanvas(def) : null
+    cityStageSpriteCache.set(tier, c)
+    return c
+  }
   let warshipSpriteCache: HTMLCanvasElement | null | undefined
   function getWarshipSprite(): HTMLCanvasElement | null {
     if (warshipSpriteCache === undefined) warshipSpriteCache = renderSpriteCanvas(WARSHIP_SPRITE)
@@ -2007,24 +2069,26 @@ export function createRenderer(
       const buildProgress = inProgress
         ? Math.max(0, Math.min(1, 1 - (b.completesAtTick - state.tick) / BUILD_TIME_TICKS))
         : 1
+      // Stadt-Marker wächst mit der Siedlungs-Stufe (Dorf→Weltstadt, ADR-0033); andere konstant.
+      const r = b.type === 'city' ? radius * (0.82 + 0.06 * b.level) : radius
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
           const sx = worldToScreenX(tx + dx * mapW)
           const sy = worldToScreenY(ty + dy * mapH)
-          if (sx < -radius || sx > cssW + radius || sy < -radius || sy > cssH + radius) continue
+          if (sx < -r || sx > cssW + r || sy < -r || sy > cssH + r) continue
           screenCtx.globalAlpha = inProgress ? 0.55 : 1
           // Marker-Hintergrund + Spielerfarbe-Ring
           screenCtx.beginPath()
-          circ(sx, sy, radius, 0, Math.PI * 2)
+          circ(sx, sy, r, 0, Math.PI * 2)
           screenCtx.fillStyle = 'rgba(15,15,20,0.92)'
           screenCtx.fill()
           screenCtx.lineWidth = 2
           screenCtx.strokeStyle = ring
           screenCtx.stroke()
-          // Pixel-Sprite (statt Buchstabe); Fallback auf Glyph wenn kein Canvas.
-          const spr = getBuildingSprite(b.type)
+          // Pixel-Sprite (statt Buchstabe); Stadt: Sprite je Stufe. Fallback auf Glyph wenn kein Canvas.
+          const spr = b.type === 'city' ? getCitySprite(b.level) : getBuildingSprite(b.type)
           if (spr !== null) {
-            const ss = radius * 1.7
+            const ss = r * 1.7
             const prevSmooth = screenCtx.imageSmoothingEnabled
             screenCtx.imageSmoothingEnabled = false
             screenCtx.drawImage(spr, sx - ss / 2, sy - ss / 2, ss, ss)
@@ -2036,10 +2100,10 @@ export function createRenderer(
           screenCtx.globalAlpha = 1
           // Bau-Fortschrittsleiste unter dem Marker (nur während des Baus).
           if (inProgress) {
-            const bw = radius * 2
+            const bw = r * 2
             const bh = 3
-            const bxl = sx - radius
-            const byl = sy + radius + 2
+            const bxl = sx - r
+            const byl = sy + r + 2
             screenCtx.fillStyle = 'rgba(0,0,0,0.7)'
             screenCtx.fillRect(bxl, byl, bw, bh)
             screenCtx.fillStyle = '#5dd75d'
@@ -2047,9 +2111,9 @@ export function createRenderer(
           }
           // Level-Nummer über dem Marker (ab Stufe 2).
           if (b.level > 1) {
-            const lvFont = `bold ${String(Math.max(9, Math.round(radius)))}px ui-monospace, monospace`
+            const lvFont = `bold ${String(Math.max(9, Math.round(r)))}px ui-monospace, monospace`
             screenCtx.font = lvFont
-            const ly = sy - radius - 4
+            const ly = sy - r - 4
             screenCtx.lineWidth = 3
             screenCtx.strokeStyle = 'rgba(0,0,0,0.85)'
             screenCtx.strokeText(String(b.level), sx, ly)

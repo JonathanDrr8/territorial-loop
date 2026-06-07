@@ -500,6 +500,14 @@ export const ja: Record<string, string> = {
   'building.airport': '空港',
   'building.flak': '対空',
 
+  // ── 集落の段階 ────────────────────────────────────────────────────────────────
+  'citystage.dorf': '村',
+  'citystage.kleinstadt': '町',
+  'citystage.stadt': '都市',
+  'citystage.grossstadt': '大都市',
+  'citystage.metropole': 'メトロポリス',
+  'citystage.weltstadt': '世界都市',
+
   // ── 放射状メニュー ────────────────────────────────────────────────────────────
   'menu.chooseAction': '操作を選択',
   'menu.hint.city': '1 段階ごとに兵力上限 +{cap}',

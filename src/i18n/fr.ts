@@ -553,6 +553,14 @@ export const fr: Record<string, string> = {
   'building.airport': 'Aéroport',
   'building.flak': 'DCA',
 
+  // ── Stades d'urbanisation ─────────────────────────────────────────────────────
+  'citystage.dorf': 'Village',
+  'citystage.kleinstadt': 'Bourg',
+  'citystage.stadt': 'Ville',
+  'citystage.grossstadt': 'Grande ville',
+  'citystage.metropole': 'Métropole',
+  'citystage.weltstadt': 'Ville mondiale',
+
   // ── Menu radial ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Choisir une action',
   'menu.hint.city': '+{cap} de limite de troupes/niveau',

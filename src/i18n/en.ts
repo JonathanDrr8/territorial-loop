@@ -547,6 +547,14 @@ export const en: Record<string, string> = {
   'building.airport': 'Airport',
   'building.flak': 'Anti-air',
 
+  // ── Settlement stages ─────────────────────────────────────────────────────────
+  'citystage.dorf': 'Village',
+  'citystage.kleinstadt': 'Small Town',
+  'citystage.stadt': 'City',
+  'citystage.grossstadt': 'Large City',
+  'citystage.metropole': 'Metropolis',
+  'citystage.weltstadt': 'World City',
+
   // ── Radial menu ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Choose an action',
   'menu.hint.city': '+{cap} troop cap/level',

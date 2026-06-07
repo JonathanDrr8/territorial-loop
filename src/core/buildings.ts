@@ -67,6 +67,25 @@ export function maxLevel(type: BuildingType): number {
   return type === 'city' ? MAX_CITY_LEVEL : MAX_BUILDING_LEVEL
 }
 
+/**
+ * Siedlungs-Stufen einer Stadt nach Level (ADR-0033): eine Stadt startet als Dorf und wächst über die
+ * Level zur Weltstadt. i18n-Keys, Index = Level-1. Wird statt des generischen „Stadt" angezeigt.
+ */
+const CITY_STAGE_KEYS = [
+  'citystage.dorf',
+  'citystage.kleinstadt',
+  'citystage.stadt',
+  'citystage.grossstadt',
+  'citystage.metropole',
+  'citystage.weltstadt',
+] as const
+
+/** i18n-Key für den Siedlungs-Namen einer Stadt nach Level (1..{@link MAX_CITY_LEVEL}). */
+export function cityStageKey(level: number): string {
+  const i = Math.max(1, Math.min(MAX_CITY_LEVEL, Math.floor(level))) - 1
+  return CITY_STAGE_KEYS[i] ?? 'building.city'
+}
+
 /** Bauzeit in Ticks (≈ 5 s bei 10 Ticks/s) — bis dahin wirkt das Gebäude nicht. */
 export const BUILD_TIME_TICKS = 50
 

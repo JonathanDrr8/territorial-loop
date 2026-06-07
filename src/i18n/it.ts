@@ -549,6 +549,14 @@ export const it: Record<string, string> = {
   'building.airport': 'Aeroporto',
   'building.flak': 'Contraerea',
 
+  // ── Fasi di insediamento ──────────────────────────────────────────────────────
+  'citystage.dorf': 'Villaggio',
+  'citystage.kleinstadt': 'Cittadina',
+  'citystage.stadt': 'Città',
+  'citystage.grossstadt': 'Grande città',
+  'citystage.metropole': 'Metropoli',
+  'citystage.weltstadt': 'Città mondiale',
+
   // ── Menu radiale ──────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Scegli un’azione',
   'menu.hint.city': '+{cap} al limite truppe/livello',

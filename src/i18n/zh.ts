@@ -493,6 +493,14 @@ export const zh: Record<string, string> = {
   'building.airport': '机场',
   'building.flak': '防空',
 
+  // ── 聚居地阶段 ────────────────────────────────────────────────────────────────
+  'citystage.dorf': '村庄',
+  'citystage.kleinstadt': '小镇',
+  'citystage.stadt': '城市',
+  'citystage.grossstadt': '大城市',
+  'citystage.metropole': '大都市',
+  'citystage.weltstadt': '国际都市',
+
   // ── 环形菜单 ──────────────────────────────────────────────────────────────────
   'menu.chooseAction': '选择操作',
   'menu.hint.city': '每级 +{cap} 兵力上限',

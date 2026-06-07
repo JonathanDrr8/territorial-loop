@@ -540,6 +540,14 @@ export const ru: Record<string, string> = {
   'building.airport': 'Аэропорт',
   'building.flak': 'Зенитка',
 
+  // ── Стадии развития поселения ─────────────────────────────────────────────────
+  'citystage.dorf': 'Деревня',
+  'citystage.kleinstadt': 'Посёлок',
+  'citystage.stadt': 'Город',
+  'citystage.grossstadt': 'Крупный город',
+  'citystage.metropole': 'Мегаполис',
+  'citystage.weltstadt': 'Мировой город',
+
   // ── Радиальное меню ───────────────────────────────────────────────────────────
   'menu.chooseAction': 'Выбери действие',
   'menu.hint.city': '+{cap} к лимиту войск/уровень',

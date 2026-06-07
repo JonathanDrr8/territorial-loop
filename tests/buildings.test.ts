@@ -6,6 +6,7 @@ import {
   BUILD_TIME_TICKS,
   BUILD_COST_CAP,
   CITY_CAP_BONUS,
+  cityStageKey,
 } from '../src/core/buildings'
 import {
   buildCostFor,
@@ -50,6 +51,14 @@ describe('building cost functions', () => {
   it('upgrade cost grows linearly with level (Basis ohne buildPrice = Typ-Basiskosten)', () => {
     expect(upgradeCost({ type: 'city', level: 1 })).toBe(50_000)
     expect(upgradeCost({ type: 'city', level: 2 })).toBe(75_000)
+  })
+
+  it('cityStageKey: Level → Siedlungs-Stufe (ADR-0033)', () => {
+    expect(cityStageKey(1)).toBe('citystage.dorf')
+    expect(cityStageKey(3)).toBe('citystage.stadt')
+    expect(cityStageKey(6)).toBe('citystage.weltstadt')
+    expect(cityStageKey(99)).toBe('citystage.weltstadt') // über Max → geklemmt
+    expect(cityStageKey(0)).toBe('citystage.dorf') // unter Min → geklemmt
   })
 
   it('Städte-Kosten verdoppeln sich ab Level 3 (ADR-0031 Gold-Senke, Basis 25k)', () => {

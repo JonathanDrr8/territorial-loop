@@ -15,6 +15,7 @@ import {
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
   maxLevel,
+  cityStageKey,
   isBuildingComplete,
   upgradeCost,
   type BuildingType,
@@ -30,9 +31,9 @@ import { rgbaToCss } from './colors'
 import { buildingIcon, icon } from './icons'
 import { getHudPrefs, RADIAL_SCALE } from './hud-prefs'
 
-/** Übersetzter Anzeige-Name eines Gebäudetyps. */
-function buildingLabel(type: BuildingType): string {
-  return t(`building.${type}`)
+/** Übersetzter Anzeige-Name eines Gebäudes — Städte tragen ihren Siedlungs-Namen je Level (ADR-0033). */
+function buildingLabel(type: BuildingType, level = 1): string {
+  return type === 'city' ? t(cityStageKey(level)) : t(`building.${type}`)
 }
 
 /** Kurzbeschreibung pro Typ mit konkretem Effektwert (pro Stufe), übersetzt zur Aufruf-Zeit. */
@@ -556,7 +557,7 @@ export function createBuildMenu(
     if (owner === humanPlayerId) {
       const existing = state.buildings.get(tile)
       if (existing !== undefined) {
-        title = `${buildingLabel(existing.type)} · L${String(existing.level)}`
+        title = `${buildingLabel(existing.type, existing.level)} · L${String(existing.level)}`
         if (existing.level >= maxLevel(existing.type)) {
           actions.push({
             glyph: buildingIcon(existing.type, 19),

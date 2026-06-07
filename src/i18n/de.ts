@@ -554,6 +554,14 @@ export const de: Record<string, string> = {
   'building.airport': 'Flughafen',
   'building.flak': 'Flugabwehr',
 
+  // ── Siedlungs-Stufen ──────────────────────────────────────────────────────────
+  'citystage.dorf': 'Dorf',
+  'citystage.kleinstadt': 'Kleinstadt',
+  'citystage.stadt': 'Stadt',
+  'citystage.grossstadt': 'Großstadt',
+  'citystage.metropole': 'Metropole',
+  'citystage.weltstadt': 'Weltstadt',
+
   // ── Radialmenü ───────────────────────────────────────────────────────────────
   'menu.chooseAction': 'Aktion wählen',
   'menu.hint.city': '+{cap} Truppen-Cap/Stufe',
