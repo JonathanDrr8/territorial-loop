@@ -55,6 +55,7 @@ import {
   COST_GROUP,
   DEFENSE_MAG_MULTIPLIER,
   MAX_BUILDING_LEVEL,
+  maxLevel,
   airportSlots,
   buildCost,
   defenseRange,
@@ -1577,7 +1578,7 @@ export function canBuildAt(
   if (existing !== undefined) {
     // Bauen auf eigenem gleichem Gebäude = Upgrade (wenn nicht max + leistbar).
     if (existing.ownerId !== playerId || existing.type !== type) return false
-    if (existing.level >= MAX_BUILDING_LEVEL) return false
+    if (existing.level >= maxLevel(existing.type)) return false
     return player.gold >= upgradeCost(existing)
   }
   if (type === 'port' && !nearWater(state, tile)) return false
@@ -1624,7 +1625,7 @@ function applyUpgradeIntent(state: GameState, intent: UpgradeIntent): void {
   if (player === undefined || !player.isAlive) return
   const b = state.buildings.get(intent.tile)
   if (b === undefined || b.ownerId !== player.id) return
-  if (b.level >= MAX_BUILDING_LEVEL) return
+  if (b.level >= maxLevel(b.type)) return
   // Tile könnte zwischenzeitlich verloren sein
   if (getOwner(state.map, intent.tile) !== player.id) return
 

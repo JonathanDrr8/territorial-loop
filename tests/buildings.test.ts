@@ -52,6 +52,14 @@ describe('building cost functions', () => {
     expect(upgradeCost({ type: 'city', level: 2 })).toBe(75_000)
   })
 
+  it('Städte-Kosten verdoppeln sich ab Level 3 (ADR-0031 Gold-Senke, Basis 25k)', () => {
+    expect(upgradeCost({ type: 'city', level: 3 })).toBe(150_000) // L3→4 = base×6
+    expect(upgradeCost({ type: 'city', level: 4 })).toBe(300_000) // L4→5 = base×12
+    expect(upgradeCost({ type: 'city', level: 5 })).toBe(600_000) // L5→6 = base×24
+    // Teure Stadt (buildPrice 100k) skaliert ×4 mit.
+    expect(upgradeCost({ type: 'city', level: 3, buildPrice: 100_000 })).toBe(600_000)
+  })
+
   it('upgrade cost skaliert am tatsächlichen Baupreis (Max-Cost-Fabrik teuer)', () => {
     // Erste/billige Fabrik (buildPrice = Basis 25k): unverändert.
     expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 25_000 })).toBe(50_000)
@@ -235,15 +243,41 @@ describe('upgrade intent', () => {
     expect(state.buildings.get(tile)?.level).toBe(2)
   })
 
-  it('caps at MAX_BUILDING_LEVEL', () => {
+  it('Städte rüsten bis Level 6 hoch (ADR-0031 Gold-Senke)', () => {
     const state = createGame(cfg())
     const p = state.players.get(1)
     if (p === undefined) throw new Error('no player')
     p.gold = 10_000_000
     const tile = ownedTile(state, 1)
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
-    for (let i = 0; i < 5; i++) tick(state, [{ type: 'upgrade', playerId: 1, tile }])
+    for (let i = 0; i < 8; i++) tick(state, [{ type: 'upgrade', playerId: 1, tile }])
+    expect(state.buildings.get(tile)?.level).toBe(6)
+  })
+
+  it('andere Gebäude bleiben bei Level 3 gedeckelt', () => {
+    const state = createGame(cfg())
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('no player')
+    p.gold = 10_000_000
+    const tile = ownedTile(state, 1)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'defense' }])
+    for (let i = 0; i < 8; i++) tick(state, [{ type: 'upgrade', playerId: 1, tile }])
     expect(state.buildings.get(tile)?.level).toBe(3)
+  })
+
+  it('eine Level-6-Stadt hebt den Truppen-Cap um 150k (6×25k)', () => {
+    const state = createGame(cfg())
+    const p = state.players.get(1)
+    if (p === undefined) throw new Error('no player')
+    p.gold = 10_000_000
+    const tile = ownedTile(state, 1)
+    const before = effectiveMaxTroops(state, 1)
+    tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
+    for (let i = 0; i < BUILD_TIME_TICKS; i++) tick(state, []) // Stadt fertig bauen (Cap wirkt)
+    for (let i = 0; i < 8; i++) tick(state, [{ type: 'upgrade', playerId: 1, tile }])
+    expect(state.buildings.get(tile)?.level).toBe(6)
+    // Level-6-Stadt = 6×CITY_CAP_BONUS = 150k Cap-Bonus (Tile-Cap ist bei nur einem Bau-Tile stabil).
+    expect(effectiveMaxTroops(state, 1) - before).toBe(6 * CITY_CAP_BONUS)
   })
 })
 

@@ -21,6 +21,7 @@ import {
   defenseRange,
   flakRange,
   isBuildingComplete,
+  maxLevel,
   upgradeCost,
   type Building,
   type BuildingType,
@@ -346,8 +347,8 @@ export function resolveHover(
       : { text: effectText, dim: true }
     const lines: HoverLine[] = [{ segs: [effectSeg] }]
 
-    // Upgrade-Vorschau: was die nächste Stufe brächte (+ Kosten), nur eigene fertige Gebäude.
-    if (isOwn && complete) {
+    // Upgrade-Vorschau: was die nächste Stufe brächte (+ Kosten), nur eigene fertige Gebäude unter Max.
+    if (isOwn && complete && building.level < maxLevel(building.type)) {
       const benefit = upgradeBenefit(state, building)
       if (benefit !== null) {
         const cost = upgradeCost(building)

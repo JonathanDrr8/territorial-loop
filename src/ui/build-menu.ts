@@ -14,7 +14,7 @@
 import {
   CITY_CAP_BONUS,
   DEFENSE_MAG_MULTIPLIER,
-  MAX_BUILDING_LEVEL,
+  maxLevel,
   isBuildingComplete,
   upgradeCost,
   type BuildingType,
@@ -557,7 +557,7 @@ export function createBuildMenu(
       const existing = state.buildings.get(tile)
       if (existing !== undefined) {
         title = `${buildingLabel(existing.type)} · L${String(existing.level)}`
-        if (existing.level >= MAX_BUILDING_LEVEL) {
+        if (existing.level >= maxLevel(existing.type)) {
           actions.push({
             glyph: buildingIcon(existing.type, 19),
             label: t('menu.maxLevel'),

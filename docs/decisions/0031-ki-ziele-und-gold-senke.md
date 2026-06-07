@@ -1,6 +1,6 @@
 # ADR-0031: KI-Meilenstein-Ziele + Spätspiel-Gold-Senke
 
-**Status:** Accepted (Richtung) — Gold-Ventil **A2 + A1** + **ELO-Kopplung** beschlossen (2026-06-07). Umsetzung schrittweise + mit Feel-Abnahme, noch offen.
+**Status:** Accepted (Richtung) — **A2 (Mechanik) umgesetzt** (Städte bis Level 6, verdoppelnde Kosten, 2026-06-07), Feel-Test offen. A1 + Teil B (KI-Ziele) + Teil C (ELO-Kopplung) noch offen.
 **Datum:** 2026-06-07
 
 ## Kontext — der Befund aus dem 10-Stunden-Match
@@ -108,10 +108,19 @@ schlagbar. Die Teil-B-Meilensteine und die Teil-A-Gold-Senke werden also **ELO-p
 - Gold-Senke **A2 + A1** (Städte über Level 3 mit eskalierenden Kosten + KI baut bei Überschuss mehr Städte).
 - **ELO-Kopplung** + Prinzip „normales Match deckt alle Elemente ab" (Bomber bei ELO 1000 wenige statt null).
 
-**Noch offen (Umsetzungsphase, mit Feel-Abnahme):**
+**Umgesetzt (2026-06-07, feature/gold-senke-a2 — Feel-Test offen):**
 
-1. **Kostenkurve** der höheren Städte-Level — wie aggressiv eskalierend (Snowball-Bremse)? Konkrete Zahlen.
-2. **MAX_BUILDING_LEVEL:** wie viele neue Level (z. B. bis 5, oder offen mit Kostendeckel)?
-3. **Symmetrie Mensch/KI** final bestätigen (Empfehlung: symmetrisch).
-4. **Meilenstein-Werte:** Gold/s-Schwelle, Cap-Faktor `k` je ELO-Stufe, Territorium-%.
-5. **Reihenfolge der Umsetzung:** erst A2 (Mechanik) + Feel-Test, dann A1 + Teil B (KI-Ziele), dann Teil C feinjustieren.
+- **A2-Mechanik:** Städte über Level 3 hinaus aufrüstbar bis **Level 6** (`MAX_CITY_LEVEL`, `maxLevel(type)`
+  in `core/buildings.ts`). Upgrade-Kosten **verdoppeln sich je Level** ab Level 3 (`base×3×2^(level-2)`:
+  L3→4 ×6, L4→5 ×12, L5→6 ×24 → Standard-Stadt 150k/300k/600k; teure Stadt ×4). Jedes Level weiter
+  **+25k Cap** (bestehende `cityCapBonus`-Formel, level-linear → L6-Stadt = +150k). Direkt-BAU bleibt ≤3.
+  Symmetrisch Mensch + KI; die KI rüstet im Patt über `planUpgrade` (Stadt-Prio 5) ihr Überschuss-Gold
+  in Städte (drainiert das Horten). Determinismus: Integer-Shift statt `Math.pow` (MP-genau).
+  → klärt die früheren offenen Punkte 1 (Kostenkurve: verdoppelnd), 2 (Deckel: Level 6), 3 (symmetrisch).
+
+**Noch offen (mit Feel-Abnahme):**
+
+1. **A2-Feel-Test:** brechen Spätspiel-Patts jetzt? Deckel/Steilheit ggf. nachziehen (leicht änderbar).
+2. **A1:** KI baut bei Gold-Überschuss + vollem Gebiet zusätzliche Städte auf Innen-Tiles (über `cityTarget`).
+3. **Teil B — Meilenstein-Werte:** Gold/s-Schwelle, Cap-Faktor `k` je ELO-Stufe, Territorium-%.
+4. **Teil C — ELO-Kopplung:** Bomber-Budget/Cap-`k`/Gold-Tempo je ELO (Bomber bei 1000 wenige statt null).

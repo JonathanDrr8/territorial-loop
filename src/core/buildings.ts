@@ -54,6 +54,19 @@ export interface Building {
 
 export const MAX_BUILDING_LEVEL = 3
 
+/**
+ * Städte sind über {@link MAX_BUILDING_LEVEL} hinaus aufrüstbar (ADR-0031, Spätspiel-Gold-Senke):
+ * jedes Level weiter +{@link CITY_CAP_BONUS} Truppen-Cap, aber mit verdoppelnden Kosten
+ * ({@link upgradeCost}) als Snowball-Bremse. Direkt-BAU bleibt bei {@link MAX_BUILDING_LEVEL}; nur
+ * das Hochrüsten vorhandener Städte geht bis hierher.
+ */
+export const MAX_CITY_LEVEL = 6
+
+/** Höchstes erreichbares Level je Gebäudetyp (Städte tiefer dank Gold-Senke, ADR-0031). */
+export function maxLevel(type: BuildingType): number {
+  return type === 'city' ? MAX_CITY_LEVEL : MAX_BUILDING_LEVEL
+}
+
 /** Bauzeit in Ticks (≈ 5 s bei 10 Ticks/s) — bis dahin wirkt das Gebäude nicht. */
 export const BUILD_TIME_TICKS = 50
 
@@ -135,6 +148,12 @@ export function buildCost(type: BuildingType, existingCountInGroup: number): num
  */
 export function upgradeCost(b: Pick<Building, 'type' | 'level' | 'buildPrice'>): number {
   const base = b.buildPrice ?? BASE_BUILD_COST[b.type]
+  // Städte über Level 3 (ADR-0031): Kosten verdoppeln sich je Level — Gold-Senke + Snowball-Bremse.
+  // Multiplikator base×3 × 2^(level-2): L3→4 = ×6, L4→5 = ×12, L5→6 = ×24 (Basis 25k → 150k/300k/600k).
+  // Integer-Shift statt Math.pow → cross-engine-deterministisch (MP, ADR-0009).
+  if (b.type === 'city' && b.level + 1 > MAX_BUILDING_LEVEL) {
+    return Math.round(base * 3 * (1 << (b.level - 2)))
+  }
   return Math.round(base * (b.level + 1))
 }
 

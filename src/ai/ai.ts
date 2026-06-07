@@ -34,6 +34,7 @@ import {
   flakRange,
   isBuildingComplete,
   MAX_BUILDING_LEVEL,
+  maxLevel,
   upgradeCost,
   type BuildingType,
 } from '../core/buildings'
@@ -909,7 +910,8 @@ export function createAI(
     let bestCost = Infinity
     for (const [tile, b] of state.buildings) {
       if (b.ownerId !== player.id) continue
-      if (b.level >= MAX_BUILDING_LEVEL) continue
+      // Städte bis Level 6 (ADR-0031): hier drainiert die KI im Patt ihr Überschuss-Gold in Cap.
+      if (b.level >= maxLevel(b.type)) continue
       if (!isBuildingComplete(b, state.tick)) continue // halbfertige nicht upgraden
       const p = prio(b.type)
       if (p <= 0) continue
