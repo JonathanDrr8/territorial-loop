@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.58.2] – 2026-06-07
+
+### Behoben
+
+- **Städte wieder platzierbar:** Der Mindestabstand zwischen eigenen Städten war zu groß
+  (8 Tiles) — in einem normal großen Reich gab es dadurch oft gar keinen gültigen Platz
+  für eine zweite Stadt. Auf 5 Tiles gesenkt: Städte lassen sich jetzt wieder setzen,
+  bleiben aber sinnvoll verteilt.
+
 ## [0.58.1] – 2026-06-07
 
 ### Geändert
