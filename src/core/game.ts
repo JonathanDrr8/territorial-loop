@@ -951,6 +951,18 @@ export function initializeAllFrontiers(state: GameState): void {
  * ========================================================================== */
 
 /**
+ * Optionaler Phasen-Profiling-Haken (nur fürs `perf-bench`-Skript gesetzt). `tick()` ruft ihn nach
+ * jeder Phasen-Gruppe mit deren Namen auf (und einmal mit `'begin'` als Startmarke). Der Haken liest
+ * im Aufrufer nur die Uhr — er **mutiert keinen State**, ändert also Sim-Verhalten/Determinismus/
+ * Golden-Hash NICHT. In Prod ist er `null` → ein billiger Null-Check pro Phase (vernachlässigbar).
+ */
+export type PhaseProfiler = (phase: string) => void
+let phaseProfiler: PhaseProfiler | null = null
+export function setPhaseProfiler(p: PhaseProfiler | null): void {
+  phaseProfiler = p
+}
+
+/**
  * Führt einen Sim-Tick aus. Mutiert `state` in-place und gibt die gleiche
  * Referenz zurück (Convenience).
  *
@@ -965,33 +977,44 @@ export function initializeAllFrontiers(state: GameState): void {
  *   6. tick++
  */
 export function tick(state: GameState, intents: readonly Intent[]): GameState {
+  const prof = phaseProfiler
+  prof?.('begin')
   state.dirtyTiles.length = 0 // pro Tick frisch sammeln (für inkrementelles Rendering)
   applyIntents(state, intents)
+  prof?.('intents')
   growPopulations(state)
   generateGold(state)
+  prof?.('growth')
   coalesceAttacks(state)
   resolveAttackCollisions(state)
   resolveAttacks(state)
+  prof?.('attacks')
   advanceBoats(state)
   advanceWarships(state)
   resolveNavalCombat(state)
+  prof?.('naval')
   resolveFlak(state)
   advanceBombers(state)
+  prof?.('air')
   spawnTradeShips(state)
   advanceTradeShips(state)
+  prof?.('trade')
   // Gold-Routen amortisiert neu berechnen: nur bei Änderungen (Dirty-Skip), höchstens alle INTERVAL
   // Ticks, und die teure Flut über mehrere Ticks verteilt → kein Tick-Spike (Perf).
   advanceEconomyRoutes(state)
   advanceGoldCarts(state)
   applyFactoryDiplomacy(state)
+  prof?.('economy')
   decayGrudge(state)
   decayGoodwill(state)
   pruneRecentCaptures(state)
   expireAlliances(state)
+  prof?.('relations')
   annexEncircledWilds(state)
   checkEliminations(state)
   checkVictory(state)
   updatePeakStats(state)
+  prof?.('world')
   state.tick++
   return state
 }
