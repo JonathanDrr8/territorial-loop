@@ -25,7 +25,8 @@ describe('profileForStrength', () => {
     expect(profileForStrength(0.1).usesAirDefense).toBe(false)
     expect(profileForStrength(0.1).buildChance).toBe(0)
     expect(profileForStrength(0.5).usesAirDefense).toBe(true)
-    expect(profileForStrength(0.5).usesBombers).toBe(false)
+    expect(profileForStrength(0.35).usesBombers).toBe(false)
+    expect(profileForStrength(0.5).usesBombers).toBe(true)
     expect(profileForStrength(0.7).usesBombers).toBe(true)
   })
 
@@ -60,14 +61,16 @@ describe('benannte Presets', () => {
     expect(PRESET_ELO.advanced).toBeLessThan(PRESET_ELO.expert)
   })
 
-  it('die Fähigkeiten landen passend: Standard=Flak/Krater, Fortgeschritten=Bomber', () => {
+  it('die Fähigkeiten landen passend: Standard=Flak/Krater/Bomber, Anfänger ohne', () => {
     const easy = profileForElo(PRESET_ELO.easy)
     const standard = profileForElo(PRESET_ELO.standard)
     const advanced = profileForElo(PRESET_ELO.advanced)
     expect(easy.usesAirDefense).toBe(false)
+    expect(easy.usesBombers).toBe(false)
     expect(standard.usesAirDefense).toBe(true)
     expect(standard.healsCraters).toBe(true)
-    expect(standard.usesBombers).toBe(false)
+    // ELO 1000 deckt das volle Repertoire ab — inkl. ein paar Bomber (ADR-0031 Teil C, 2026-06-07).
+    expect(standard.usesBombers).toBe(true)
     expect(advanced.usesBombers).toBe(true)
   })
 

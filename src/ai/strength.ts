@@ -54,12 +54,13 @@ export function profileForStrength(sRaw: number): DifficultyProfile {
     diploChance: s < 0.3 ? 0 : lerp(0.1, 0.37, s),
     boatChance: s < 0.25 ? 0 : lerp(0.03, OPTIMUM.boatChance, s),
     warshipChance: s < 0.38 ? 0 : lerp(0.02, OPTIMUM.warshipChance, s),
-    bomberChance: s < 0.58 ? 0 : lerp(0.05, OPTIMUM.bomberChance, s),
+    bomberChance: s < 0.4 ? 0 : lerp(0.05, OPTIMUM.bomberChance, s),
     betrayLeadRatio: s < 0.3 ? Infinity : lerp(2.2, 1.83, s),
-    // Fähigkeits-Schwellen so gelegt, dass die benannten Presets passen: Standard (~s0.41) hat Flak +
-    // Krater-Heilung, aber noch keine offensiven Bomber; Fortgeschritten (~s0.66) bekommt Bomber.
+    // Fähigkeits-Schwellen so gelegt, dass der Standard-Gegner (ELO 1000 ≈ s0.43) das volle
+    // Repertoire abdeckt — inkl. ein paar Bomber (2026-06-07, ADR-0031 Teil C: Bomber-Schwelle
+    // 0.58 → 0.40 gesenkt). Flak + Krater-Heilung + Bomber liegen nun beieinander bei ~s0.40.
     usesAirDefense: s >= 0.38,
-    usesBombers: s >= 0.58,
+    usesBombers: s >= 0.4,
     healsCraters: s >= 0.4,
     tilesPerCity: s < 0.18 ? 0 : Math.round(lerp(190, OPTIMUM.tilesPerCity, s)),
   }

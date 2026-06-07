@@ -156,7 +156,9 @@ describe('createAI', () => {
     const ais = config.players.map((p) => createAI(p.id, state.seed, 'advanced'))
     let interior = 0
     let onBorder = 0
-    for (let t = 0; t < 2500; t++) {
+    // 4000 statt 2500 Ticks: nach der Cap-Senkung (MAX_TROOPS_PER_TILE 950→800, 2026-06-07)
+    // expandieren die AIs langsamer → Feindkontakt + erste Verteidigungsposten kommen später.
+    for (let t = 0; t < 4000; t++) {
       const intents = ais.flatMap((ai) => [...ai.decide(state)])
       for (const i of intents) {
         if (i.type === 'build' && i.buildingType === 'defense') {

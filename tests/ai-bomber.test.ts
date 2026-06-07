@@ -101,7 +101,11 @@ describe('KI-Bomber-Offensive (ADR-0020 Stufe 2)', () => {
     expect(setupOffense('advanced', true).decideBomb()).toBe(false)
   })
 
-  it('normal nutzt keine offensiven Bomber', () => {
-    expect(setupOffense('standard', false).decideBomb()).toBe(false)
+  it('standard nutzt jetzt auch offensive Bomber (ELO 1000 deckt alles ab)', () => {
+    expect(setupOffense('standard', false).decideBomb()).toBe(true)
+  })
+
+  it('schwacher Gegner (easy) nutzt keine offensiven Bomber', () => {
+    expect(setupOffense('easy', false).decideBomb()).toBe(false)
   })
 })

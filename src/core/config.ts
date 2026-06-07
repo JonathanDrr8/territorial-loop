@@ -61,7 +61,12 @@ export const PLAINS_MAG = 80
 
 /** Cap-Sockel (≈ Cap eines winzigen Spawns) und Beitrag pro Tile^0.6. */
 export const MAX_TROOPS_BASE = 4_000
-export const MAX_TROOPS_PER_TILE = 950
+/**
+ * Cap-Beitrag pro Tile^0.6. 2026-06-07 von 950 → 800 gesenkt (−15 %): ein Stück Land gab
+ * gefühlt zu viel Bevölkerung, große Nationen wuchsen zu schnell. Da der feste Sockel
+ * (MAX_TROOPS_BASE) bleibt, bremst die Senkung große Nationen stärker als frische Spawns.
+ */
+export const MAX_TROOPS_PER_TILE = 800
 /** Cap-Faktor für Bots/„Barbaren" (etwas niedriger als beim Menschen). */
 export const BOT_CAP_FACTOR = 0.8
 

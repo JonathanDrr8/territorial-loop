@@ -1,6 +1,6 @@
 # ADR-0031: KI-Meilenstein-Ziele + Spätspiel-Gold-Senke
 
-**Status:** Accepted (Richtung) — **A2 (Mechanik) umgesetzt** (Städte bis Level 6, verdoppelnde Kosten, 2026-06-07), Feel-Test offen. A1 + Teil B (KI-Ziele) + Teil C (ELO-Kopplung) noch offen.
+**Status:** Accepted (Richtung) — **A2 (Mechanik) umgesetzt** (Städte bis Level 6, verdoppelnde Kosten, 2026-06-07), Feel-Test offen. **Teil C — Grundschritt umgesetzt** (Bomber-Schwelle 0.58→0.40 gesenkt, ELO 1000 baut jetzt ein paar Bomber, 2026-06-07). A1 + Teil B (KI-Ziele) + ELO-feinparametrisiertes Bomber-Budget noch offen.
 **Datum:** 2026-06-07
 
 ## Kontext — der Befund aus dem 10-Stunden-Match
@@ -118,9 +118,22 @@ schlagbar. Die Teil-B-Meilensteine und die Teil-A-Gold-Senke werden also **ELO-p
   in Städte (drainiert das Horten). Determinismus: Integer-Shift statt `Math.pow` (MP-genau).
   → klärt die früheren offenen Punkte 1 (Kostenkurve: verdoppelnd), 2 (Deckel: Level 6), 3 (symmetrisch).
 
+**Umgesetzt (2026-06-07, balance/wachstum-und-bomber — Feel-Test offen):**
+
+- **Teil C — Grundschritt (Bomber bei ELO 1000):** Bomber-Schwelle in `src/ai/strength.ts` von
+  `s≥0.58` (≈ELO 1081) auf **`s≥0.40`** gesenkt (`usesBombers` + `bomberChance`-Gate). ELO 1000 ≈ s0.43
+  liegt jetzt drüber → baut mit ~8 % Bau-Chance ein paar Bomber (Ramp `lerp(0.05, 0.12, s)` bleibt). Flak +
+  Krater-Heilung + Bomber liegen nun beieinander bei ~s0.40 → der Standard-Gegner deckt das volle Repertoire ab.
+  Hinweis: hebt die Real-Stärke mittlerer Profile minimal → die ELO-Eichtabelle driftet leicht (bei niedriger
+  Bomber-Chance vernachlässigbar; volle 200-Seed-Neu-Eichung wäre ein eigener Job).
+- **Begleitende Wachstums-Balance (separater Befund):** `MAX_TROOPS_PER_TILE` 950→**800** (−15 %) in
+  `core/config.ts` — ein Stück Land gab gefühlt zu viel Bevölkerung; große Nationen wuchsen zu schnell. Senkt
+  Caps proportional (große Nationen stärker, da der Sockel 4000 bleibt). Deterministisch, MP-genau.
+
 **Noch offen (mit Feel-Abnahme):**
 
 1. **A2-Feel-Test:** brechen Spätspiel-Patts jetzt? Deckel/Steilheit ggf. nachziehen (leicht änderbar).
 2. **A1:** KI baut bei Gold-Überschuss + vollem Gebiet zusätzliche Städte auf Innen-Tiles (über `cityTarget`).
 3. **Teil B — Meilenstein-Werte:** Gold/s-Schwelle, Cap-Faktor `k` je ELO-Stufe, Territorium-%.
-4. **Teil C — ELO-Kopplung:** Bomber-Budget/Cap-`k`/Gold-Tempo je ELO (Bomber bei 1000 wenige statt null).
+4. **Teil C — feine ELO-Kopplung:** Bomber-_Budget_/Cap-`k`/Gold-Tempo je ELO skalieren (über den jetzt
+   gesetzten Grundschritt hinaus: nicht nur _ob_ Bomber, sondern _wie viele_, ELO-parametrisiert).
