@@ -12,7 +12,10 @@ import { t } from '../i18n'
 
 // v2: neuer, größerer Default (1.3) — alte gespeicherte „1.0"-Werte sollen NICHT kleben bleiben.
 const STORAGE_KEY = 'territorial-loop:ui-scale:v2'
-export const UI_SCALE_MIN = 0.9
+// Untergrenze 0.8 (vorher 0.9): auf schmalen Fenstern (z.B. getiltes Halb-/Drittel-Fenster) skaliert
+// das HUD weiter runter, damit die unteren Panels (Ressourcen links / Aktionsleiste Mitte) nicht mehr
+// überlappen. 0.8 ist noch gut lesbar; darunter wird's für sehr schmale Tiles bewusst nicht gedrückt.
+export const UI_SCALE_MIN = 0.8
 export const UI_SCALE_MAX = 2.2
 /** Standard-Größe für neue Spieler (HUD ist sonst auf hochauflösenden Monitoren zu winzig). */
 export const UI_SCALE_DEFAULT = 1.3
