@@ -71,13 +71,24 @@ function clampToViewport(el: HTMLElement): void {
   let dy = 0
   if (rect.bottom > vh) dy = vh - rect.bottom
   if (rect.top + dy < 0) dy = -rect.top
+  // `dx`/`dy` sind in Screen-Pixeln (aus getBoundingClientRect). Viele Panels haben aber `zoom`
+  // (ui-scale) → die CSS-Position `left/top` ist um den Zoom-Faktor kleiner als die Screen-Position.
+  // Beim Anwenden also durch den Zoom teilen, sonst wird nur teilweise reingeschoben (Off-Screen-Bug).
+  const z = parseFloat(getComputedStyle(el).zoom) || 1
+  // Inline-Position aus dem GEMESSENEN Rect ableiten (÷ Zoom), nicht aus `el.style.left`: so greift
+  // der Clamp auch für CSS-/rechts-/unten-verankerte Panels (dort ist `el.style.left` leer → früher
+  // NaN-Guard → Panel blieb draußen). `right`/`bottom` auf auto, damit die neue Inline-Position wirkt.
   if (dx !== 0) {
-    const left = parseFloat(el.style.left)
-    if (!Number.isNaN(left)) el.style.left = `${Math.round(left + dx).toString()}px`
+    const cur = parseFloat(el.style.left)
+    const base = Number.isNaN(cur) ? rect.left / z : cur
+    el.style.left = `${Math.round(base + dx / z).toString()}px`
+    el.style.right = 'auto'
   }
   if (dy !== 0) {
-    const top = parseFloat(el.style.top)
-    if (!Number.isNaN(top)) el.style.top = `${Math.round(top + dy).toString()}px`
+    const cur = parseFloat(el.style.top)
+    const base = Number.isNaN(cur) ? rect.top / z : cur
+    el.style.top = `${Math.round(base + dy / z).toString()}px`
+    el.style.bottom = 'auto'
   }
 }
 
