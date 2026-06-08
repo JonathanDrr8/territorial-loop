@@ -9,15 +9,15 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 
 ## Tracking
 
-| #   | Aufgabe                                           | Status       | Commit   |
-| --- | ------------------------------------------------- | ------------ | -------- |
-| 1   | Off-Screen-Panel-Clamp (zoom-aware)               | ✅ erledigt  | 07b0ef2  |
-| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32          | ✅ erledigt  | (dieser) |
-| 3   | UI-Transparenz-Regler (Einstellungen, 9 Sprachen) | erledigt     | (dieser) |
-| 4   | Hover-Panel-Sprung — geprüft, kein Positions-Bug  | dokumentiert | —        |
-| 5   | Mikro-Hänger — Sim gemessen, nicht sim-gebunden   | dokumentiert | —        |
-| 6   | Gebäude zu günstig (nur messen + Doku)            | offen        | —        |
-| 7   | RTS-Bottom-Panel (experimentell)                  | offen        | —        |
+| #   | Aufgabe                                                    | Status       | Commit   |
+| --- | ---------------------------------------------------------- | ------------ | -------- |
+| 1   | Off-Screen-Panel-Clamp (zoom-aware)                        | ✅ erledigt  | 07b0ef2  |
+| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32                   | ✅ erledigt  | (dieser) |
+| 3   | UI-Transparenz-Regler (Einstellungen, 9 Sprachen)          | erledigt     | (dieser) |
+| 4   | Hover-Panel-Sprung — geprüft, kein Positions-Bug           | dokumentiert | —        |
+| 5   | Mikro-Hänger — Sim gemessen, nicht sim-gebunden            | dokumentiert | —        |
+| 6   | Gebäude zu günstig — gemessen + Vorschlag (keine Änderung) | dokumentiert | —        |
+| 7   | RTS-Bottom-Panel (experimentell)                           | offen        | —        |
 
 ## Notizen
 
@@ -28,7 +28,36 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 
 ## Balance-Vorschläge zur Freigabe (NICHT umgesetzt)
 
-_(wird von #6 gefüllt)_
+### #6 Gebäude zu günstig (Daten + Vorschlag)
+
+Gemessene Einkommens-Rate des Leaders (Standard-Match, headless, seed gold-probe):
+
+| Zeit  | Tiles  | Gold-Konto | Rate     | bis 25k-Gebäude |
+| ----- | ------ | ---------- | -------- | --------------- |
+| 50 s  | 997    | 50k        | 1.000/s  | 25 s            |
+| 100 s | 3.009  | 123k       | 1.964/s  | 13 s            |
+| 150 s | 9.159  | 170k       | 3.455/s  | 7 s             |
+| 200 s | 17.010 | 418k       | 4.965/s  | 5 s             |
+| 300 s | 34.380 | 639k       | 13.469/s | 2 s             |
+| 400 s | 53.473 | 1.045k     | 6.875/s  | 4 s             |
+
+**Befund:** Das FLACHE Gold (`BASE_GOLD_PER_TICK=100` → ~1.000/s) bleibt konstant; die Explosion (bis
+13k/s) kommt aus dem **Fabrik-Netz**, das mit der Reichsgröße skaliert — während die Baukosten bei **100k**
+gedeckelt sind. Mittel/Spätspiel: ein Gebäude alle **2–7 s**, und das Gold-**Konto** staut sich auf **1 Mio.+**
+ungenutzt → „immer viel zu platzieren". Bestätigt.
+
+**Vorschlag (zur Freigabe — eine Konstante je Hebel):**
+
+1. **Baukosten-Basis 25k → 40k** (`BASE_BUILD_COST`, `src/core/buildings.ts`): jedes erste Gebäude ein
+   größerer Schritt (Eskalation dann 40/80/100k). Wirkt v.a. früh/mittel.
+2. **Deckel 100k → 150k** (`BUILD_COST_CAP`): das N-te Gebäude wird teurer (40/80/160→150k) → Spam kostet.
+3. **Optional flaches Gold 100 → 70** (`BASE_GOLD_PER_TICK`): bremst die GANZE Wirtschaft (auch früh).
+   Hinweis: trifft das SPÄTE Pile-up kaum (das ist Fabrik-getrieben), eher das Früh-Tempo.
+4. **Kern des Spätspiel-Pile-ups** ist der bekannte Gold-Senken-Mangel (ADR-0031): Einkommen >> Senken.
+   Echte Lösung wäre eine stärkere Senke (Städte-Leveln teurer/höher) ODER Fabrik-Einkommen flacher.
+
+**Empfehlung:** 1 + 2 zusammen (Baukosten 40k + Deckel 150k) als spürbarer, risikoarmer erster Schritt;
+Fabrik-Einkommen/Senke separat, falls das Spätspiel-Pile-up bleibt.
 
 - **#3 UI-Transparenz:** Regler 40–100 % in den Einstellungen (live), persistiert (localStorage,
   theme-unabhängig), CSS-Var `--tl-ui-opacity` auf `:root`, von `panelStyle()` als Panel-Deckkraft
