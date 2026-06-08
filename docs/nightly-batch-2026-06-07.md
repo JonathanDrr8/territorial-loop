@@ -9,15 +9,15 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 
 ## Tracking
 
-| #   | Aufgabe                                           | Status      | Commit   |
-| --- | ------------------------------------------------- | ----------- | -------- |
-| 1   | Off-Screen-Panel-Clamp (zoom-aware)               | ✅ erledigt | 07b0ef2  |
-| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32          | ✅ erledigt | (dieser) |
-| 3   | UI-Transparenz-Regler (Einstellungen, 9 Sprachen) | erledigt    | (dieser) |
-| 4   | Hover-Panel-Sprung stabilisieren                  | offen       | —        |
-| 5   | Mikro-Hänger (neutrale Perf)                      | offen       | —        |
-| 6   | Gebäude zu günstig (nur messen + Doku)            | offen       | —        |
-| 7   | RTS-Bottom-Panel (experimentell)                  | offen       | —        |
+| #   | Aufgabe                                           | Status       | Commit   |
+| --- | ------------------------------------------------- | ------------ | -------- |
+| 1   | Off-Screen-Panel-Clamp (zoom-aware)               | ✅ erledigt  | 07b0ef2  |
+| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32          | ✅ erledigt  | (dieser) |
+| 3   | UI-Transparenz-Regler (Einstellungen, 9 Sprachen) | erledigt     | (dieser) |
+| 4   | Hover-Panel-Sprung — geprüft, kein Positions-Bug  | dokumentiert | —        |
+| 5   | Mikro-Hänger (neutrale Perf)                      | offen        | —        |
+| 6   | Gebäude zu günstig (nur messen + Doku)            | offen        | —        |
+| 7   | RTS-Bottom-Panel (experimentell)                  | offen        | —        |
 
 ## Notizen
 
@@ -36,3 +36,13 @@ _(wird von #6 gefüllt)_
   panelStyle-basiertes In-Game-HUD (hud.ts, Ereignislog, Hover-Panel, Pause-Menü, …). NOCH NICHT erfasst:
   Panels mit direkter `var(--tl-panel-bg)`-Nutzung (Radialmenü/build-menu, action-wheel/Mobile, einige
   Dialoge) — diese fadest man später analog mit, falls gewünscht.
+
+- **#4 Hover-Panel:** GEPRÜFT (Playwright) — das fixe „Unter dem Cursor"-Panel (hover-info.ts) ist
+  anchored (top:128, left:12) + `min-height:86px` und **wechselt die Position NICHT** (über zwei
+  Hover-Stellen exakt top=115/left=11/h=77). Es wächst höchstens nach unten (Inhalt). Der wahrgenommene
+  „Sprung" ist der **cursor-folgende Tooltip** (hover-tooltip.ts) — der dem Mauszeiger folgt, **gewollt**.
+  → KEINE Code-Änderung (nichts Kaputtes). Hebel, falls das mitwandernde Tooltip stört: Hover-Modus in
+  den Einstellungen auf „nur Panel" stellen (entfernt das mitwandernde Tooltip). Mögliche weitere Ursache
+  von „verschiebt sich oft" auf einem Tiling-WM (Hyprland): bei jedem Fenster-Resize rechnet die ui-scale
+  die Zoom-Stufe neu → das ganze HUD reskaliert sichtbar. Das ist responsives Verhalten; feinere
+  Zoom-Stufen wären ein separater, größerer Eingriff (zur Freigabe vermerkt).
