@@ -46,8 +46,10 @@ export const WARSHIP_SHOT_COOLDOWN = 15
 export const PROJECTILE_SPEED = 0.4
 /** HP-Regeneration pro Tick, wenn ein Kriegsschiff nahe einem eigenen Hafen liegt. */
 export const WARSHIP_HEAL_PER_TICK = 1
-/** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift. */
-export const NAVAL_RANGE = 3
+/** Reichweite (Tiles), in der ein Kriegsschiff feindliche Schiffe angreift.
+ * 2026-06-07 von 3 → 32 erhöht (Jonathan: „massiv hoch"): Kriegsschiffe sollen Routen/Schiffe aus
+ * großer Distanz abfangen, nicht erst auf Tuchfühlung. 48 wäre noch aggressiver (Alternative). */
+export const NAVAL_RANGE = 32
 /** Distanz (Tiles) zu einem eigenen Hafen, innerhalb derer ein Kriegsschiff heilt. */
 export const WARSHIP_HEAL_RANGE = 4
 

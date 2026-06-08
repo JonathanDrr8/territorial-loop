@@ -211,8 +211,11 @@ describe('createAI', () => {
   })
 
   it('lenkt eigene Kriegsschiffe auf feindliche Handels-Routen (Abfangen)', () => {
-    const W = 16
-    const H = 16
+    // Karte groß genug, dass das Ziel > NAVAL_RANGE (32) entfernt ist → die KI muss das Kriegsschiff
+    // erst HINFAHREN (move-warship), statt aus dem Stand zu feuern. (Auf einer Mini-Karte läge alles
+    // innerhalb der erhöhten Reichweite.)
+    const W = 80
+    const H = 80
     const config: GameConfig = {
       mapWidth: W,
       mapHeight: H,
@@ -226,10 +229,10 @@ describe('createAI', () => {
       ],
     }
     const state = createGame(config)
-    // Eine senkrechte Wasser-Spalte bei x=8, sonst Land.
+    // Eine senkrechte Wasser-Spalte bei x=40, sonst Land.
     const t = state.map.terrain
     for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) t[y * W + x] = x === 8 ? 0 : IS_LAND_BIT
+      for (let x = 0; x < W; x++) t[y * W + x] = x === 40 ? 0 : IS_LAND_BIT
     }
     state.waterComponents.set(labelWaterComponents(state.map))
     state.landComponents.set(labelLandComponents(state.map))
@@ -237,7 +240,7 @@ describe('createAI', () => {
     // Eigenes Kriegsschiff (Spieler 2) oben in der Wasser-Spalte.
     state.warships.push({
       ownerId: 2,
-      path: [tileRef(8, 0, W, H)],
+      path: [tileRef(40, 0, W, H)],
       progress: 0,
       dir: 1,
       hp: 99,
@@ -245,16 +248,16 @@ describe('createAI', () => {
       mode: 'patrol',
       returning: false,
     })
-    // Feindliches Handelsschiff (Spieler 1→1, beide ≠ 2) weiter unten in derselben Spalte,
+    // Feindliches Handelsschiff (Spieler 1→1, beide ≠ 2) 40 Tiles weiter unten in derselben Spalte,
     // außerhalb der Reichweite — langlebig (lange Standroute), damit es bis zur KI-Entscheidung lebt.
     state.tradeShips.push({
       fromOwnerId: 1,
       toOwnerId: 1,
-      path: new Array<number>(400).fill(tileRef(8, 12, W, H)),
+      path: new Array<number>(400).fill(tileRef(40, 40, W, H)),
       progress: 0,
       gold: 200,
-      originPort: tileRef(7, 12, W, H),
-      destPort: tileRef(9, 12, W, H),
+      originPort: tileRef(39, 40, W, H),
+      destPort: tileRef(41, 40, W, H),
     })
 
     const ai = createAI(2, state.seed, 'standard')
