@@ -17,7 +17,7 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 | 4   | Hover-Panel-Sprung — geprüft, kein Positions-Bug           | dokumentiert | —        |
 | 5   | Mikro-Hänger — Sim gemessen, nicht sim-gebunden            | dokumentiert | —        |
 | 6   | Gebäude zu günstig — gemessen + Vorschlag (keine Änderung) | dokumentiert | —        |
-| 7   | RTS-Bottom-Panel (experimentell)                           | offen        | —        |
+| 7   | RTS-Bottom-Panel — Design-Entwurf (Mockup + Plan)          | Entwurf      | docs     |
 
 ## Notizen
 
