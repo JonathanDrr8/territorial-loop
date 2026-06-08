@@ -5,7 +5,7 @@
  */
 
 import { t } from '../i18n'
-import { panelStyle } from './theme'
+import { panelStyle, getUiOpacity, setUiOpacity, UI_OPACITY_MIN, UI_OPACITY_MAX } from './theme'
 import { makeSelectRow, makeSliderRow } from './start-menu'
 import { loadAudioVolumes, saveAudioVolumes, type AudioVolumes } from './preferences'
 import {
@@ -112,6 +112,20 @@ export function createGameSettings(
     setHudPref('radialSize', radial.getValue())
   })
   box.appendChild(radial.element)
+
+  // UI-Deckkraft: wie durchscheinend die Panels sind (100 % = voll, niedriger = mehr Karte sichtbar).
+  const uiOpacity = makeSliderRow(
+    t('settings.uiOpacity'),
+    UI_OPACITY_MIN,
+    UI_OPACITY_MAX,
+    5,
+    getUiOpacity(),
+    ' %',
+  )
+  uiOpacity.element.querySelector('input[type=range]')?.addEventListener('input', () => {
+    setUiOpacity(uiOpacity.getValue())
+  })
+  box.appendChild(uiOpacity.element)
 
   // Off-Screen-Nationen-Labels: wie viele der nächsten Nachbarn am Rand gezeigt werden (0 = aus).
   const offLabels = makeSliderRow(

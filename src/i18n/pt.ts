@@ -396,6 +396,7 @@ export const pt: Record<string, string> = {
   'pause.leave': 'Sair da ronda',
   'pause.settings': 'Ajustes',
   'settings.radialSize': 'Tamanho do menu radial',
+  'settings.uiOpacity': 'Opacidade da interface',
   'settings.radialSize.small': 'Pequeno',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grande',

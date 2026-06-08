@@ -345,6 +345,7 @@ export const zh: Record<string, string> = {
   'pause.leave': '离开对局',
   'pause.settings': '设置',
   'settings.radialSize': '环形菜单大小',
+  'settings.uiOpacity': 'çé¢ä¸éæåº¦',
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',

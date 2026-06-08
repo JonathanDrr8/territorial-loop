@@ -401,6 +401,7 @@ export const es: Record<string, string> = {
   'pause.leave': 'Salir de la ronda',
   'pause.settings': 'Ajustes',
   'settings.radialSize': 'Tamaño del menú radial',
+  'settings.uiOpacity': 'Opacidad de la interfaz',
   'settings.radialSize.small': 'Pequeño',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grande',

@@ -351,6 +351,7 @@ export const ja: Record<string, string> = {
   'pause.leave': '対戦を抜ける',
   'pause.settings': '設定',
   'settings.radialSize': '放射状メニューのサイズ',
+  'settings.uiOpacity': 'UIã®ä¸éæåº¦',
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',

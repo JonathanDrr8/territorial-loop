@@ -390,6 +390,7 @@ export const ru: Record<string, string> = {
   'pause.leave': 'Покинуть матч',
   'pause.settings': 'Настройки',
   'settings.radialSize': 'Размер радиального меню',
+  'settings.uiOpacity': 'ÐÐµÐ¿ÑÐ¾Ð·ÑÐ°ÑÐ½Ð¾ÑÑÑ Ð¸Ð½ÑÐµÑÑÐµÐ¹ÑÐ°',
   'settings.radialSize.small': 'Маленький',
   'settings.radialSize.normal': 'Обычный',
   'settings.radialSize.large': 'Большой',

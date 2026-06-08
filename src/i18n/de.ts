@@ -404,6 +404,7 @@ export const de: Record<string, string> = {
   'pause.settings': 'Einstellungen',
   'pause.leave': 'Runde verlassen',
   'settings.radialSize': 'Radialmenü-Größe',
+  'settings.uiOpacity': 'UI-Deckkraft',
   'settings.radialSize.small': 'Klein',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Groß',

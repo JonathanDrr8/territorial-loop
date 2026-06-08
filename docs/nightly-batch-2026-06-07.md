@@ -9,15 +9,15 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 
 ## Tracking
 
-| #   | Aufgabe                                  | Status      | Commit   |
-| --- | ---------------------------------------- | ----------- | -------- |
-| 1   | Off-Screen-Panel-Clamp (zoom-aware)      | ✅ erledigt | 07b0ef2  |
-| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32 | ✅ erledigt | (dieser) |
-| 3   | UI-Transparenz-Regler                    | offen       | —        |
-| 4   | Hover-Panel-Sprung stabilisieren         | offen       | —        |
-| 5   | Mikro-Hänger (neutrale Perf)             | offen       | —        |
-| 6   | Gebäude zu günstig (nur messen + Doku)   | offen       | —        |
-| 7   | RTS-Bottom-Panel (experimentell)         | offen       | —        |
+| #   | Aufgabe                                           | Status      | Commit   |
+| --- | ------------------------------------------------- | ----------- | -------- |
+| 1   | Off-Screen-Panel-Clamp (zoom-aware)               | ✅ erledigt | 07b0ef2  |
+| 2   | Kriegsschiff-Reichweite NAVAL_RANGE 3→32          | ✅ erledigt | (dieser) |
+| 3   | UI-Transparenz-Regler (Einstellungen, 9 Sprachen) | erledigt    | (dieser) |
+| 4   | Hover-Panel-Sprung stabilisieren                  | offen       | —        |
+| 5   | Mikro-Hänger (neutrale Perf)                      | offen       | —        |
+| 6   | Gebäude zu günstig (nur messen + Doku)            | offen       | —        |
+| 7   | RTS-Bottom-Panel (experimentell)                  | offen       | —        |
 
 ## Notizen
 
@@ -29,3 +29,10 @@ Determinismus in core/; Perf-Arbeit nur verhaltensneutral (Golden identisch); Ba
 ## Balance-Vorschläge zur Freigabe (NICHT umgesetzt)
 
 _(wird von #6 gefüllt)_
+
+- **#3 UI-Transparenz:** Regler 40–100 % in den Einstellungen (live), persistiert (localStorage,
+  theme-unabhängig), CSS-Var `--tl-ui-opacity` auf `:root`, von `panelStyle()` als Panel-Deckkraft
+  genutzt. Verifiziert (Playwright): bei 50 % liegen 15/16 Haupt-HUD-Panels auf 0.5. **Abdeckung:**
+  panelStyle-basiertes In-Game-HUD (hud.ts, Ereignislog, Hover-Panel, Pause-Menü, …). NOCH NICHT erfasst:
+  Panels mit direkter `var(--tl-panel-bg)`-Nutzung (Radialmenü/build-menu, action-wheel/Mobile, einige
+  Dialoge) — diese fadest man später analog mit, falls gewünscht.

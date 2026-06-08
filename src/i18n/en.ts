@@ -398,6 +398,7 @@ export const en: Record<string, string> = {
   'pause.leave': 'Leave round',
   'pause.settings': 'Settings',
   'settings.radialSize': 'Radial menu size',
+  'settings.uiOpacity': 'UI opacity',
   'settings.radialSize.small': 'Small',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Large',

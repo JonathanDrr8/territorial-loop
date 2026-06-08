@@ -224,6 +224,53 @@ export function installTheme(): void {
 // Beim Import sofort anwenden, damit `var(--tl-…)` in Inline-Styles überall greift.
 installTheme()
 
+// ── UI-Deckkraft (Spieler-Präferenz, theme-unabhängig) ──────────────────────
+// Eigene `:root`-Variable `--tl-ui-opacity` (0..1), die `panelStyle` als Panel-Deckkraft nutzt.
+// Bewusst NICHT in den Theme-Tokens (sonst würde ein Theme-Wechsel sie zurücksetzen).
+const OPACITY_KEY = 'territorial-loop:ui-opacity:v1'
+export const UI_OPACITY_MIN = 40
+export const UI_OPACITY_MAX = 100
+let uiOpacity = UI_OPACITY_MAX
+
+function clampOpacity(v: number): number {
+  if (!Number.isFinite(v)) return UI_OPACITY_MAX
+  return Math.max(UI_OPACITY_MIN, Math.min(UI_OPACITY_MAX, Math.round(v)))
+}
+
+/** Aktuelle UI-Deckkraft in Prozent (40–100). */
+export function getUiOpacity(): number {
+  return uiOpacity
+}
+
+function applyUiOpacity(): void {
+  document.documentElement.style.setProperty('--tl-ui-opacity', (uiOpacity / 100).toFixed(3))
+}
+
+/** UI-Deckkraft (Prozent) setzen → anwenden + persistieren. */
+export function setUiOpacity(pct: number): void {
+  uiOpacity = clampOpacity(pct)
+  applyUiOpacity()
+  try {
+    window.localStorage.setItem(OPACITY_KEY, String(uiOpacity))
+  } catch {
+    /* ignore */
+  }
+  notifySettingsChanged()
+}
+
+/** Einmalig zu App-Start: gespeicherte UI-Deckkraft anwenden. */
+export function installUiOpacity(): void {
+  try {
+    const v = window.localStorage.getItem(OPACITY_KEY)
+    if (v !== null) uiOpacity = clampOpacity(Number(v))
+  } catch {
+    /* ignore */
+  }
+  applyUiOpacity()
+}
+
+installUiOpacity()
+
 /**
  * Fertiger cssText für eine Standard-Panel-Karte (Hintergrund, Rand, Radius, Schatten, Schrift).
  * `extra` hängt weitere Deklarationen an (Position, Größe, Layout).
@@ -236,6 +283,8 @@ export function panelStyle(extra: readonly string[] = []): string {
     'box-shadow: var(--tl-panel-shadow), var(--tl-panel-inset)',
     'color: var(--tl-text)',
     'font-family: var(--tl-font)',
+    // Spieler-einstellbare UI-Deckkraft (Default 1 = unverändert; Regler in den Einstellungen).
+    'opacity: var(--tl-ui-opacity, 1)',
     ...extra,
   ].join(';')
 }

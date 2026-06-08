@@ -398,6 +398,7 @@ export const it: Record<string, string> = {
   'pause.leave': 'Esci dalla partita',
   'pause.settings': 'Impostazioni',
   'settings.radialSize': 'Dimensione menu radiale',
+  'settings.uiOpacity': 'OpacitÃ  interfaccia',
   'settings.radialSize.small': 'Piccola',
   'settings.radialSize.normal': 'Normale',
   'settings.radialSize.large': 'Grande',
