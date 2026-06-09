@@ -72,6 +72,15 @@ const savedAnchors = new WeakMap<
   { left: string; right: string; top: string; bottom: string; transform: string }
 >()
 
+/**
+ * Gesicherten Clamp-Anker eines Panels verwerfen — für Aufrufer, die ein Panel direkt per
+ * Style-Writes in absolute Koordinaten überführen (z.B. der HUD-Editor beim Öffnen/`arm()`).
+ * Ohne das würde der ResizeObserver-Clamp den alten Anker über die frischen Styles restaurieren.
+ */
+export function invalidateClampAnchor(el: HTMLElement): void {
+  savedAnchors.delete(el)
+}
+
 function clampToViewport(el: HTMLElement): void {
   // Gesicherten Original-Anker zuerst wiederherstellen — gemessen wird gegen den Anker, nicht
   // gegen die zuletzt geklemmte Absolut-Position.

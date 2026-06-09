@@ -1284,9 +1284,11 @@ export function createAI(
     let bestScore = -Infinity
     // Batch-weise durch die sortierte Kandidatenliste: ist die komplette Top-12 flak-geblockt,
     // kommt die nächste 12er-Tranche dran (statt aufzugeben — Audit-Fund: eine stark verflakte
-    // Top-Nation legte die KI-Bomber sonst komplett lahm). Pro Aufruf bleibt die teure Routen-/
-    // Flak-Rechnung auf die Tranchen bis zur ersten mit einem fliegbaren Ziel begrenzt.
-    for (let start = 0; start < cands.length && bestTarget < 0; start += SHORTLIST) {
+    // Top-Nation legte die KI-Bomber sonst komplett lahm). Harter Deckel bei 4 Tranchen (48
+    // Kandidaten): im flak-dichten Spätspiel wäre „alles geblockt" sonst genau dann am teuersten,
+    // wenn die Auswertung pro Kandidat am meisten kostet (korrelierter Worst-Case, Perf).
+    const scanCap = Math.min(cands.length, SHORTLIST * 4)
+    for (let start = 0; start < scanCap && bestTarget < 0; start += SHORTLIST) {
       const end = Math.min(start + SHORTLIST, cands.length)
       for (let i = start; i < end; i++) {
         const c = cands[i]

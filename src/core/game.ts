@@ -2649,6 +2649,9 @@ export function estimateBomberFlakDamage(
     const ticksInRange = tilesInRange / BOMBER_SPEED
     const shots = Math.floor(ticksInRange / FLAK_SHOT_COOLDOWN) + 1
     total += shots * FLAK_DAMAGE
+    // Early-Exit (Perf): alle Nutzer vergleichen nur gegen BOMBER_HP („überlebt er die Route?") —
+    // ist der Abschuss sicher, müssen die restlichen Flaks nicht mehr gerechnet werden.
+    if (total >= BOMBER_HP) return total
   }
   return total
 }

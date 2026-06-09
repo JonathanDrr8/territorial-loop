@@ -12,7 +12,14 @@
  */
 
 import { t } from '../i18n'
-import { getPanel, panelElements, resetLayout, setPanel, type PanelOverride } from './hud-layout'
+import {
+  getPanel,
+  invalidateClampAnchor,
+  panelElements,
+  resetLayout,
+  setPanel,
+  type PanelOverride,
+} from './hud-layout'
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
 import { getMapStyleName, MAP_STYLES, setMapStyle } from './map-style'
@@ -233,6 +240,10 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   function arm(id: string, el: HTMLElement): void {
     const s = scaleOf(id)
     const r = localRect(el)
+    // Der Editor uebernimmt die Position direkt per Style-Writes — ein evtl. vom Clamp
+    // gesicherter Original-Anker darf die frischen Styles nicht restaurieren (Audit-Fund:
+    // das zoom-1-Setzen triggert den ResizeObserver-Clamp).
+    invalidateClampAnchor(el)
     el.style.zoom = '1'
     el.style.transformOrigin = 'top left'
     el.style.left = `${Math.round(r.x).toString()}px`
