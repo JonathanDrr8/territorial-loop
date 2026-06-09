@@ -16,8 +16,15 @@
  *  - `waterComponents`/`landComponents`/`passableLandCount` — statisch aus dem Terrain
  *    ableitbar, werden beim Deserialisieren neu berechnet.
  *  - `player.frontier` — aus der Owner-Karte ableitbar (`initializeAllFrontiers`).
- *  - `projectiles` — kurzlebig, nicht hash-relevant; ein laufender Schuss verpufft beim
- *    Snapshot (höchstens ein kosmetischer Aussetzer, kein Sim-Unterschied).
+ *
+ * Sehr wohl serialisiert (Audit-Funde, Resync-Drift):
+ *  - `projectiles` — Kriegsschiff-Schaden fällt erst beim EINSCHLAG; verworfene Projektile
+ *    schlugen im Original ein, in der Kopie nie → HP-/Gold-Drift. Ziel-Referenzen werden als
+ *    typisierte Indizes geschrieben und beim Laden auf die neuen Objekt-Instanzen zurückgemappt.
+ *  - laufender Econ-Zyklus (`econActive` + eingefrorene Seeds/Sources/Factories + Flut-Arrays) —
+ *    die mehr-Tick-Flut liest die LIVE-Karte, ein Neustart ab Zyklusbeginn wäre also nicht
+ *    bit-identisch; ohne den Zustand drifteten goldCarts/Gold nach einem mid-cycle-Snapshot.
+ *    Nur geschrieben, wenn ein Zyklus aktiv ist (Snapshots sind sonst unverändert klein).
  */
 
 import type { Building } from './buildings'
@@ -39,6 +46,39 @@ import type { TileRef } from '../world/torus'
 
 /** Spieler ohne das ableitbare `frontier`-Set (wird beim Deserialisieren rekonstruiert). */
 type SerializedPlayer = Omit<Player, 'frontier'>
+
+/** Fliegendes Projektil mit Ziel als typisiertem Index (Objekt-Identität überlebt JSON nicht). */
+interface SerializedProjectile {
+  /** Index des Schützen in `warships`. */
+  readonly shooter: number
+  readonly targetKind: 'warship' | 'boat' | 'trade'
+  /** Index des Ziels im Array seiner `targetKind` (warships/boats/tradeShips). */
+  readonly target: number
+  readonly fromX: number
+  readonly fromY: number
+  readonly aimX: number
+  readonly aimY: number
+  readonly travel: number
+  readonly impactAt: number
+}
+
+/** Eingefrorener Stand eines LAUFENDEN Econ-Zyklus (nur bei `econActive` im Snapshot). */
+interface SerializedEcon {
+  readonly seeds: readonly TileRef[]
+  readonly sources: readonly TileRef[]
+  readonly factories: readonly { tile: TileRef; owner: number; level: number }[]
+  readonly flood: {
+    readonly comp: readonly number[]
+    readonly queue: readonly number[]
+    readonly head: number
+    readonly tail: number
+    readonly seedIdx: number
+    readonly nextId: number
+    readonly curOwner: number
+    readonly curId: number
+    readonly done: boolean
+  }
+}
 
 export interface SerializedGameState {
   readonly tick: number
@@ -68,6 +108,12 @@ export interface SerializedGameState {
   readonly goodwill: readonly (readonly [number, number])[]
   readonly recentCaptures: readonly (readonly [TileRef, number])[]
   readonly events: readonly GameEvent[]
+  /** Fliegende Projektile (optional — Alt-Snapshots ohne Feld laden wie bisher: leer). */
+  readonly projectiles?: readonly SerializedProjectile[]
+  /** Laufender Econ-Zyklus (optional — fehlt er, startet die Kopie wie bisher frisch). */
+  readonly econ?: SerializedEcon
+  /** Economy-Dirty-Flag des Originals (optional — fehlt es, gilt das bisherige `true`). */
+  readonly economyDirty?: boolean
 }
 
 /** Kopiert ein Schiff inkl. eigener `path`-Kopie (Snapshot darf nicht mit dem State mutieren). */
@@ -83,7 +129,60 @@ export function serializeState(state: GameState): SerializedGameState {
     players.push({ ...rest, attacks: attacks.map(copyAttack) })
   }
 
+  // Projektile: Objekt-Referenzen → typisierte Indizes (Reihenfolge der Arrays bleibt im
+  // Snapshot exakt erhalten). Schütze/Ziel ohne Index (theoretisch unmöglich) → Projektil entfällt
+  // wie früher (verpufft) statt einen kaputten Verweis zu schreiben.
+  const idxOf = (arr: readonly unknown[], item: unknown): number => arr.indexOf(item)
+  const projectiles: SerializedProjectile[] = []
+  for (const pr of state.projectiles) {
+    const shooter = idxOf(state.warships, pr.shooter)
+    const target =
+      pr.targetKind === 'warship'
+        ? idxOf(state.warships, pr.target)
+        : pr.targetKind === 'boat'
+          ? idxOf(state.boats, pr.target)
+          : idxOf(state.tradeShips, pr.target)
+    if (shooter < 0 || target < 0) continue
+    projectiles.push({
+      shooter,
+      targetKind: pr.targetKind,
+      target,
+      fromX: pr.fromX,
+      fromY: pr.fromY,
+      aimX: pr.aimX,
+      aimY: pr.aimY,
+      travel: pr.travel,
+      impactAt: pr.impactAt,
+    })
+  }
+
+  // Laufenden Econ-Zyklus einfrieren (nur dann — sonst bleibt der Snapshot klein). Die Flut-Arrays
+  // sind n-groß wie die Owner-Karte; gleiche Array-Kodierung wie `map.state`.
+  const fs = state.econFlood
+  const econ: SerializedEcon | undefined =
+    state.econActive && fs !== null
+      ? {
+          seeds: [...state.econSeeds],
+          sources: [...state.econSources],
+          factories: state.econFactories.map((f) => ({ ...f })),
+          flood: {
+            comp: Array.from(fs.comp),
+            queue: Array.from(fs.queue),
+            head: fs.head,
+            tail: fs.tail,
+            seedIdx: fs.seedIdx,
+            nextId: fs.nextId,
+            curOwner: fs.curOwner,
+            curId: fs.curId,
+            done: fs.done,
+          },
+        }
+      : undefined
+
   return {
+    ...(econ !== undefined ? { econ } : {}),
+    projectiles,
+    economyDirty: state.economyDirty,
     tick: state.tick,
     phase: state.phase,
     winner: state.winner,
@@ -129,6 +228,53 @@ export function deserializeState(data: SerializedGameState): GameState {
     players.set(sp.id, { ...sp, attacks: sp.attacks.map(copyAttack), frontier: new Set<TileRef>() })
   }
 
+  const warships = data.warships.map((w) => ({ ...w, path: [...w.path] }))
+  const boats = data.boats.map((b) => ({ ...b, path: [...b.path] }))
+  const tradeShips = data.tradeShips.map((t) => ({ ...t, path: [...t.path] }))
+
+  // Projektile: typisierte Indizes → neue Objekt-Instanzen (gleiche Array-Reihenfolge wie beim
+  // Schreiben). Ungültige Indizes (Alt-/Fremd-Snapshot) → Projektil entfällt wie früher.
+  const projectiles: GameState['projectiles'] = []
+  for (const pr of data.projectiles ?? []) {
+    const shooter = warships[pr.shooter]
+    const target =
+      pr.targetKind === 'warship'
+        ? warships[pr.target]
+        : pr.targetKind === 'boat'
+          ? boats[pr.target]
+          : tradeShips[pr.target]
+    if (shooter === undefined || target === undefined) continue
+    projectiles.push({
+      shooter,
+      target,
+      targetKind: pr.targetKind,
+      fromX: pr.fromX,
+      fromY: pr.fromY,
+      aimX: pr.aimX,
+      aimY: pr.aimY,
+      travel: pr.travel,
+      impactAt: pr.impactAt,
+    })
+  }
+
+  // Laufenden Econ-Zyklus wiederherstellen (Flut-Arrays + eingefrorene Inputs) — die Kopie
+  // setzt die Flut exakt dort fort, wo das Original stand (bit-genau, Audit-Fund Gold-Drift).
+  const econ = data.econ
+  const econFlood =
+    econ !== undefined
+      ? {
+          comp: Int32Array.from(econ.flood.comp),
+          queue: Int32Array.from(econ.flood.queue),
+          head: econ.flood.head,
+          tail: econ.flood.tail,
+          seedIdx: econ.flood.seedIdx,
+          nextId: econ.flood.nextId,
+          curOwner: econ.flood.curOwner,
+          curId: econ.flood.curId,
+          done: econ.flood.done,
+        }
+      : null
+
   const state: GameState = {
     tick: data.tick,
     map,
@@ -145,20 +291,20 @@ export function deserializeState(data: SerializedGameState): GameState {
     landComponents: labelLandComponents(map),
     passableLandCount: countPassableLand(map),
     coastalTiles: null, // lazy beim ersten Boot-Start (Terrain steht hier schon, aber konsistent mit createGame)
-    boats: data.boats.map((b) => ({ ...b, path: [...b.path] })),
-    tradeShips: data.tradeShips.map((t) => ({ ...t, path: [...t.path] })),
+    boats,
+    tradeShips,
     tradeRouteCache: new Map<string, readonly TileRef[] | null>(),
     goldCarts: data.goldCarts.map((c) => ({ ...c, path: [...c.path] })),
     ownerComponents: null,
-    economyDirty: true,
-    econFlood: null,
-    econActive: false,
-    econSeeds: [],
-    econSources: [],
-    econFactories: [],
+    economyDirty: data.economyDirty ?? true,
+    econFlood,
+    econActive: econ !== undefined,
+    econSeeds: econ !== undefined ? [...econ.seeds] : [],
+    econSources: econ !== undefined ? [...econ.sources] : [],
+    econFactories: econ !== undefined ? econ.factories.map((f) => ({ ...f })) : [],
     goldPops: [],
-    warships: data.warships.map((w) => ({ ...w, path: [...w.path] })),
-    projectiles: [],
+    warships,
+    projectiles,
     bombers: data.bombers.map((b) => ({ ...b, path: [...b.path] })),
     bombImpacts: [],
     flakShots: [],
