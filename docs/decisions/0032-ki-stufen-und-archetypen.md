@@ -7,7 +7,9 @@ bei Gold-Überschuss >=250k + 1 Flughafen extra — ADR-0031 A1). Arena-validier
 Rotation gegen Spawn-Bias): Territorium-Anteile 16–26 % (bomber 25,7 / aggressor 20,8 / balanced 19,3 /
 eco 18,1 / turtle 16,2) — Stil spürbar, keiner dominiert. Golden-/Eich-/Tuner-Pfade laufen weiter mit
 'balanced' (unverändert). OFFEN: volles Phasen-Modell (Baustein 1 komplett), Match-Settings-Schalter,
-Feinbalance nach Feel-Test.
+Feinbalance nach Feel-Test, **Ranked-Archetyp-Kompensation** (Audit-Hinweis: Stile streuen die
+Einzelmatch-Schwierigkeit ±~25 % um die Eichstärke — Archetyp-ELO-Offsets messen und in Ranked das
+Ziel-ELO je Stil gegenkompensieren, ODER Ranked auf stärkenähnliche Stile begrenzen).
 **Bezug:** baut auf ADR-0031 (A2-Gold-Senke umgesetzt) + Vorhaben „KI-Rework/Arena".
 
 ## Problem
