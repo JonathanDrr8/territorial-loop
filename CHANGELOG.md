@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.60.0] – 2026-06-10
+
+### Neu
+
+- **Menü auf dem Handy komplett neu:** Auf schmalen Bildschirmen gibt es jetzt eine Bottom-Navigation mit großen Touch-Flächen (Spielen / Online / Rang / Optionen / News / Hilfe), einen großen „Match starten"-Knopf oben und die Voreinstellungen als 2×2-Kacheln — statt der bisher zusammengequetschten Desktop-Ansicht. Auf dem Desktop ändert sich nichts.
+
 ## [0.59.3] – 2026-06-10
 
 ### Behoben
