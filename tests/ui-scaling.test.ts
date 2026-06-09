@@ -96,6 +96,30 @@ describe('ui-scale × hud-layout (Doppel-Skalierungs-Schutz)', () => {
     expect(keep.style.zoom).not.toBe(keepBefore) // skaliert weiter mit
     expect(drop.style.zoom).toBe(dropBefore) // raus aus der Registry — unverändert
   })
+
+  it('persistentes Element mit Override bleibt auch nach Match-Wechsel beim Layout (Audit-Fund)', () => {
+    // Szenario Feedback-Knopf auf Mobile: app-lebenslang registriert, bekommt vom Default-Layout
+    // einen Geometrie-Override — clearScalables (Match 2) darf ihn NICHT zurück in die Registry
+    // holen, sonst schreibt der nächste Resize wieder zoom drauf (Doppel-Skalierung).
+    setViewport(1900, 1060)
+    refreshAutoScale()
+    const el = panel('pfeedback')
+    registerScalable(el, true) // app-lebenslang
+    registerPanel('pfeedback', el)
+    setPanel('pfeedback', { x: 0, y: 0 }) // Geometrie-Override → Layout besitzt die Skalierung
+    expect(el.style.zoom).toBe('1')
+    clearScalables() // Match-Start Nr. 2
+    setViewport(900, 700)
+    refreshAutoScale() // Resize/Rotation
+    expect(el.style.zoom).toBe('1') // bleibt suspendiert — keine Doppel-Skalierung
+    resetLayout() // „Standard" → zurück in die Auto-Skalierung, Persistenz bleibt
+    expect(el.style.zoom).not.toBe('1')
+    clearScalables()
+    setViewport(1900, 1060)
+    const before = el.style.zoom
+    refreshAutoScale()
+    expect(el.style.zoom).not.toBe(before) // überlebt clearScalables weiterhin (persistent)
+  })
 })
 
 describe('clampToViewport mit Prozent-Position (zentrierte Aktionsleiste)', () => {

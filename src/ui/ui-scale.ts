@@ -23,6 +23,13 @@ export const UI_SCALE_DEFAULT = 1.3
 const elements = new Set<HTMLElement>()
 /** App-lebenslange Elemente (z.B. Feedback-Knopf) — überleben `clearScalables()` zu Match-Start. */
 const persistent = new Set<HTMLElement>()
+/**
+ * Persistente Elemente, deren Skalierung gerade das HUD-Layout besitzt (Geometrie-Override →
+ * `unregisterScalable`). Sie dürfen von `clearScalables()` NICHT zurück in die Registry rutschen,
+ * sonst bekämen sie ab Match 2 beim Resize wieder `zoom` (Doppel-Skalierung, Audit-Fund).
+ * `registerScalable` (z.B. via `resetLayout`) hebt die Suspendierung auf.
+ */
+const suspended = new Set<HTMLElement>()
 
 /**
  * Effektive Fensterbreite eines 1920×1080-Fensters → bekommt den bewährten Default 1.3. Das HUD ist
@@ -93,13 +100,14 @@ export function refreshAutoScale(): void {
 export function registerScalable(el: HTMLElement, keepAcrossMatches = false): void {
   elements.add(el)
   if (keepAcrossMatches) persistent.add(el)
+  suspended.delete(el) // explizite (Re-)Registrierung beendet eine Layout-Suspendierung
   el.style.setProperty('zoom', String(scale))
 }
 
 /** Registry leeren (z.B. zu Match-Start, bevor neue Panels sich anmelden). */
 export function clearScalables(): void {
   elements.clear()
-  for (const el of persistent) elements.add(el)
+  for (const el of persistent) if (!suspended.has(el)) elements.add(el)
 }
 
 /**
@@ -109,6 +117,8 @@ export function clearScalables(): void {
  */
 export function unregisterScalable(el: HTMLElement): void {
   elements.delete(el)
+  // Persistente Elemente merken sich die Abmeldung — clearScalables() darf sie nicht reanimieren.
+  if (persistent.has(el)) suspended.add(el)
 }
 
 export function setUiScale(value: number): void {
