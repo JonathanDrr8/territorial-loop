@@ -1643,7 +1643,9 @@ function main(): void {
     version: APP_VERSION,
   })
   // Feedback-Knopf als verschiebbares HUD-Element (im Editor; nicht ausblendbar).
-  registerScalable(feedbackUi.element)
+  // App-lebenslang (true): überlebt clearScalables() zu Match-Start — sonst skalierte der
+  // Feedback-Knopf nach dem ersten Match nicht mehr mit (Audit-Fund).
+  registerScalable(feedbackUi.element, true)
   registerPanel('feedback', feedbackUi.element)
   // UI-Größen-Slider entfernt (ADR-0024): die HUD-Größe regelt künftig der HUD-Editor pro Widget.
   // Die Standard-Skalierung (registerScalable, zoom 1.3) bleibt als Basisgröße bestehen.

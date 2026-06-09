@@ -24,6 +24,7 @@ export interface PanelOverride {
 }
 
 import { notifySettingsChanged } from './account-settings'
+import { registerScalable, unregisterScalable } from './ui-scale'
 
 const KEY = 'territorial-loop:hud-layout:v1'
 
@@ -75,18 +76,32 @@ function clampToViewport(el: HTMLElement): void {
   // (ui-scale) → die CSS-Position `left/top` ist um den Zoom-Faktor kleiner als die Screen-Position.
   // Beim Anwenden also durch den Zoom teilen, sonst wird nur teilweise reingeschoben (Off-Screen-Bug).
   const z = parseFloat(getComputedStyle(el).zoom) || 1
+  // Prozent-Positionen (z.B. `left: 50%` der zentrierten Aktionsleiste) NICHT per parseFloat lesen —
+  // das ergäbe „50 Pixel" (Audit-Fund: Panel verlor seine Mitte). Sie zählen wie „keine px-Position"
+  // → Basis kommt aus dem gemessenen Rect.
+  const pxOf = (v: string): number => (v.endsWith('%') ? NaN : parseFloat(v))
+  const curL = pxOf(el.style.left)
+  const curT = pxOf(el.style.top)
+  // Kommt die Basis aus dem Rect, steckt ein evtl. Translate-Anteil (translateX(-50%)-Zentrierung)
+  // bereits in der Messung — er muss raus, sonst verschöbe er die neue absolute Position ERNEUT.
+  // Scale-Overrides (transform: scale) bleiben unangetastet (ändern die Position bei origin
+  // top-left nicht).
+  if (
+    ((dx !== 0 && Number.isNaN(curL)) || (dy !== 0 && Number.isNaN(curT))) &&
+    el.style.transform.includes('translate')
+  ) {
+    el.style.transform = 'none'
+  }
   // Inline-Position aus dem GEMESSENEN Rect ableiten (÷ Zoom), nicht aus `el.style.left`: so greift
   // der Clamp auch für CSS-/rechts-/unten-verankerte Panels (dort ist `el.style.left` leer → früher
   // NaN-Guard → Panel blieb draußen). `right`/`bottom` auf auto, damit die neue Inline-Position wirkt.
   if (dx !== 0) {
-    const cur = parseFloat(el.style.left)
-    const base = Number.isNaN(cur) ? rect.left / z : cur
+    const base = Number.isNaN(curL) ? rect.left / z : curL
     el.style.left = `${Math.round(base + dx / z).toString()}px`
     el.style.right = 'auto'
   }
   if (dy !== 0) {
-    const cur = parseFloat(el.style.top)
-    const base = Number.isNaN(cur) ? rect.top / z : cur
+    const base = Number.isNaN(curT) ? rect.top / z : curT
     el.style.top = `${Math.round(base + dy / z).toString()}px`
     el.style.bottom = 'auto'
   }
@@ -124,15 +139,32 @@ function armResizeClamp(): void {
   }
 }
 
+/** Hat der Override Geometrie (Position/Scale/Größe) — also übernimmt das Layout die Skalierung? */
+function hasGeometry(o: PanelOverride): boolean {
+  return (
+    o.x !== undefined ||
+    o.y !== undefined ||
+    o.s !== undefined ||
+    o.w !== undefined ||
+    o.h !== undefined
+  )
+}
+
 /** Wendet den (evtl. vorhandenen) Override eines Panels auf sein DOM-Element an. */
 function apply(id: string): void {
   const el = panels.get(id)
   if (el === undefined) return
   const o = layout[id]
   if (o === undefined) return
-  // Sobald ein Override greift, übernimmt der Layout-Speicher die Skalierung per `transform`.
-  // Das per `registerScalable` gesetzte `zoom: 1.3` muss raus, sonst skaliert es doppelt.
-  el.style.zoom = '1'
+  if (hasGeometry(o)) {
+    // Sobald ein Geometrie-Override greift, übernimmt der Layout-Speicher die Skalierung per
+    // `transform`. Das per `registerScalable` gesetzte `zoom: 1.3` muss raus, sonst skaliert es
+    // doppelt — und das Panel muss aus der ui-scale-Registry, sonst schreibt `refreshAutoScale`
+    // beim nächsten Fenster-Resize das `zoom` zurück (Doppel-Skalierung + Positions-Versatz,
+    // der „UI verschiebt sich"-Bug). `resetLayout` registriert es wieder.
+    unregisterScalable(el)
+    el.style.zoom = '1'
+  }
   if (o.x !== undefined) {
     el.style.left = `${o.x.toString()}px`
     el.style.right = 'auto'
@@ -311,5 +343,8 @@ export function resetLayout(): void {
     el.style.removeProperty('max-width')
     el.style.removeProperty('max-height')
     el.style.removeProperty('display')
+    // Zurück in die Auto-Skalierung: `apply()` hatte das Panel aus der ui-scale-Registry
+    // genommen (Layout-Override besaß die Skalierung) — jetzt skaliert es wieder normal mit.
+    registerScalable(el)
   }
 }

@@ -49,7 +49,7 @@ import { buildingIcon, icon } from './icons'
 import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
 import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
-import { getUiScale, registerScalable } from './ui-scale'
+import { getUiScale, registerScalable, unregisterScalable } from './ui-scale'
 
 const DEFAULT_SLIDER_PCT = 30
 const SIM_TICKS_PER_SECOND = 10
@@ -1134,6 +1134,10 @@ export function createHUD(
     } else {
       for (const [id, el] of parts) {
         unregisterPanel(id)
+        // Auch aus der ui-scale-Registry: das Teil wandert zurück INS Eltern-Panel (selbst
+        // gezoomt) — bliebe es registriert, bekäme es beim nächsten refreshAutoScale ein
+        // eigenes `zoom` → zoom × zoom (Doppel-Skalierung, Audit-Fund).
+        unregisterScalable(el)
         asCard(el, false)
         mergeBack(el)
       }

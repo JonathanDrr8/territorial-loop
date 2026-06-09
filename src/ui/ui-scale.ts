@@ -21,6 +21,8 @@ export const UI_SCALE_MAX = 2.2
 export const UI_SCALE_DEFAULT = 1.3
 
 const elements = new Set<HTMLElement>()
+/** App-lebenslange Elemente (z.B. Feedback-Knopf) — überleben `clearScalables()` zu Match-Start. */
+const persistent = new Set<HTMLElement>()
 
 /**
  * Effektive Fensterbreite eines 1920×1080-Fensters → bekommt den bewährten Default 1.3. Das HUD ist
@@ -83,15 +85,21 @@ export function refreshAutoScale(): void {
   for (const el of elements) el.style.setProperty('zoom', String(scale))
 }
 
-/** Panel anmelden — wird sofort auf die aktuelle Größe gesetzt und bei Änderungen mitskaliert. */
-export function registerScalable(el: HTMLElement): void {
+/**
+ * Panel anmelden — wird sofort auf die aktuelle Größe gesetzt und bei Änderungen mitskaliert.
+ * `keepAcrossMatches: true` für app-lebenslange Elemente (z.B. Feedback-Knopf): die überleben
+ * `clearScalables()` zu Match-Start und skalieren dauerhaft mit.
+ */
+export function registerScalable(el: HTMLElement, keepAcrossMatches = false): void {
   elements.add(el)
+  if (keepAcrossMatches) persistent.add(el)
   el.style.setProperty('zoom', String(scale))
 }
 
 /** Registry leeren (z.B. zu Match-Start, bevor neue Panels sich anmelden). */
 export function clearScalables(): void {
   elements.clear()
+  for (const el of persistent) elements.add(el)
 }
 
 /**
