@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.59.2] – 2026-06-09
+
+### Behoben
+
+- **Multiplayer: Wiederverbinden ist jetzt wirklich verlustfrei.** Nach einem Reconnect konnte das Spiel auf dem wiederverbundenen Client minimal anders weiterlaufen als auf dem Server — **Gold** und **Kriegsschiff-Treffer** drifteten still auseinander und führten zu dauerhaftem Desync. Ursache waren zwei fehlende Datenstücke im Spielstand-Snapshot: fliegende Geschosse und eine laufende Wirtschafts-Neuberechnung großer Reiche gingen verloren. Beide werden jetzt vollständig mitübertragen.
+
 ## [0.59.1] – 2026-06-09
 
 ### Behoben
