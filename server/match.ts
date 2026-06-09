@@ -10,6 +10,7 @@
  */
 
 import { createAI, type AI } from '../src/ai/ai'
+import { archetypeFor } from '../src/ai/strength'
 import { createGame, tick, type GameConfig, type GameState } from '../src/core/game'
 import { hashState } from '../src/core/hash'
 import type { Intent } from '../src/core/intent'
@@ -45,7 +46,17 @@ export class ServerMatch {
     this.ais = []
     for (const p of this.state.players.values()) {
       if (p.isHuman) continue
-      this.ais.push(createAI(p.id, this.state.seed, difficulty, p.wild))
+      this.ais.push(
+        createAI(
+          p.id,
+          this.state.seed,
+          difficulty,
+          p.wild,
+          undefined,
+          // Spielstil-Mischung (ADR-0032) — identische Formel wie der SP-Worker (seed-determ.).
+          p.wild === true ? 'balanced' : archetypeFor(this.state.seed, p.id),
+        ),
+      )
     }
   }
 

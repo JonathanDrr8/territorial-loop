@@ -7,7 +7,7 @@
  */
 
 import { createAI, type AI } from './ai/ai'
-import { profileForElo } from './ai/strength'
+import { archetypeFor, profileForElo } from './ai/strength'
 import { loadRanked, recordResult, resetRanked } from './ui/ranked'
 import { submitRank, isRankHidden } from './ui/rank-online'
 import { initAccountSync } from './ui/account-settings'
@@ -595,7 +595,9 @@ function startMatch(
       if (p.isHuman) continue
       // Wilde Nationen: passive KI (expandieren v.a. in Wildnis, greifen zurückhaltend an, bauen nie).
       const override = !p.wild ? rankedProfile : undefined
-      out.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override))
+      // Spielstil-Mischung (ADR-0032): seed-deterministisch je Spieler — Worker/Server rechnen identisch.
+      const archetype = p.wild ? 'balanced' : archetypeFor(state.seed, p.id)
+      out.push(createAI(p.id, state.seed, menu.difficulty, p.wild, override, archetype))
     }
     return out
   }

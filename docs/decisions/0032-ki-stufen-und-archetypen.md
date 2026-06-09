@@ -1,6 +1,13 @@
 # ADR-0032: KI-Stufen-Bauziele + Archetypen (KI-Rework)
 
-**Status:** Proposed (Entwurf zur Abstimmung) — 2026-06-07
+**Status:** Phase 1 umgesetzt (2026-06-10, Nacht-Marathon): Archetypen-Gerüst (alle 5 Stile,
+`applyArchetype`/`archetypeFor` in `ai/strength.ts`, seed-deterministische Mischung als Default in
+SP-Worker/MP-Server/main) + Spätspiel-Gold-Senke (Phase-3-Kern: Städte über das Ratio-Ziel hinaus
+bei Gold-Überschuss >=250k + 1 Flughafen extra — ADR-0031 A1). Arena-validiert (50 Seeds, 5-Wege-FFA,
+Rotation gegen Spawn-Bias): Territorium-Anteile 16–26 % (bomber 25,7 / aggressor 20,8 / balanced 19,3 /
+eco 18,1 / turtle 16,2) — Stil spürbar, keiner dominiert. Golden-/Eich-/Tuner-Pfade laufen weiter mit
+'balanced' (unverändert). OFFEN: volles Phasen-Modell (Baustein 1 komplett), Match-Settings-Schalter,
+Feinbalance nach Feel-Test.
 **Bezug:** baut auf ADR-0031 (A2-Gold-Senke umgesetzt) + Vorhaben „KI-Rework/Arena".
 
 ## Problem

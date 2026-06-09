@@ -9,7 +9,7 @@
  */
 
 import { createAI, type AI } from '../ai/ai'
-import { profileForElo } from '../ai/strength'
+import { archetypeFor, profileForElo } from '../ai/strength'
 import { createGame, type GameState } from '../core/game'
 import { deserializeState, loadSnapshotInto, serializeState } from '../core/serialize'
 import { createSimHost, type SimHost } from './sim-host'
@@ -78,6 +78,8 @@ ctx.onmessage = (ev: MessageEvent<MainToWorker>): void => {
               msg.difficulty,
               cfg.wild,
               cfg.wild ? undefined : override,
+              // Spielstil-Mischung (ADR-0032) — identische Formel wie main.ts/Server (seed-determ.).
+              cfg.wild ? 'balanced' : archetypeFor(s.seed, cfg.playerId),
             ),
           )
         }

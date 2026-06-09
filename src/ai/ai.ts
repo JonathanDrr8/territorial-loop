@@ -48,7 +48,7 @@ import {
   WARSHIP_COST,
   type BomberRoute,
 } from '../core/ships'
-import { PRESET_ELO, profileForElo } from './strength'
+import { applyArchetype, PRESET_ELO, profileForElo, type Archetype } from './strength'
 import type { Intent } from '../core/intent'
 import { createPRNG } from '../core/random'
 import { getOwner } from '../world/map'
@@ -129,6 +129,13 @@ export interface DifficultyProfile {
 // NICHT untereinander, nur mit FREMDEN Fabriken als Auslands-Bonus).
 const PORT_PER_CITY = 0.5
 const AIRPORT_PER_CITY = 0.34
+/**
+ * Gold-Schwelle, ab der die KI im SPÄTSPIEL ist (ADR-0032 Phase 3): die Bauziele lösen sich vom
+ * Gebiet — Städte über das Ratio-Ziel hinaus (ADR-0031 A1), ein Flughafen extra. Bewusst deutlich
+ * über den teuersten Baukosten (100k-Deckel), damit das Frühspiel nie hineinläuft; niedrig genug,
+ * dass der 376-Mio-Hort aus dem 10-h-Match nie wieder entsteht.
+ */
+const PHASE3_GOLD_SURPLUS = 250_000
 
 export const PROFILES: Record<Difficulty, DifficultyProfile> = {
   // Die 5 Presets sind Punkte auf dem kontinuierlichen Stärke-Kontinuum (ADR-0022): jedes Profil
@@ -245,9 +252,18 @@ export function createAI(
   difficulty: Difficulty = 'standard',
   wild = false,
   profileOverride?: DifficultyProfile,
+  /**
+   * Spielstil (ADR-0032, orthogonal zur ELO): formt das aufgelöste Profil deterministisch um.
+   * Default 'balanced' = Identität — Golden-/Eich-/Tuner-Pfade bleiben unverändert; echte Matches
+   * übergeben die seed-deterministische Mischung ({@link archetypeFor}).
+   */
+  archetype: Archetype = 'balanced',
 ): AI {
   // profileOverride: vom Tuner (ADR-0021) eingespeistes Kandidaten-Profil — ersetzt das Stufen-Profil.
-  const profile = profileOverride ?? (wild ? WILD_PROFILE : PROFILES[difficulty])
+  // Der Archetyp wird ÜBER dem aufgelösten Profil angewandt (auch über Ranked-Overrides: Stil ist
+  // orthogonal zur Stärke); Wilde bleiben stil-los (passives Sonderprofil).
+  const baseProfile = profileOverride ?? (wild ? WILD_PROFILE : PROFILES[difficulty])
+  const profile = wild ? baseProfile : applyArchetype(baseProfile, archetype)
   const rng = createPRNG(`ai-${playerId.toString()}-${gameSeed}`)
   let nextDecisionTick = rng.nextInt(profile.cooldownMin, profile.cooldownMax)
 
@@ -872,6 +888,21 @@ export function createAI(
       const c = buildCity()
       if (c !== null) return c
     }
+    // 5b. SPÄTSPIEL-Senke (ADR-0032 Phase 3 + ADR-0031 A1): bei klarem Gold-Überschuss sind die
+    //     Bauziele NICHT mehr tile-gebunden — die KI baut weitere Städte ÜBER das Ratio-Ziel hinaus
+    //     (Mindestabstand begrenzt natürlich) und hebt so dauerhaft ihr Cap, statt zu horten.
+    //     Greift erst, wenn das Gold-Netz steht (Ratios gedeckt) → frisst dem Frühspiel nichts weg.
+    if (
+      profile.tilesPerCity > 0 &&
+      gold >= PHASE3_GOLD_SURPLUS &&
+      cities >= cityTarget &&
+      factoriesOwned >= factoryTarget &&
+      isBuildingAllowed(state.config, 'city') &&
+      gold >= costOf('city')
+    ) {
+      const c = buildCity()
+      if (c !== null) return c
+    }
     // 2c. Luftabwehr-Schutz: NUR wenn ein Gegner überhaupt Luftwaffe hat (Flughafen) — sonst ist
     //     Flak vergeudetes Gold. Dann ein paar Flaks zur Deckung der Wirtschaft (Deckel ~ halbe
     //     Anzahl wertvoller Gebäude → kein Flak-Spam).
@@ -894,14 +925,16 @@ export function createAI(
     }
 
     // 2d. Luftwaffe: einen Flughafen (bei großem Reich zwei) bauen, wenn die KI offensiv fliegt
-    //     und es Gegner gibt. Tief im Reich platzieren (Capture-Schutz).
+    //     und es Gegner gibt. Tief im Reich platzieren (Capture-Schutz). Im Spätspiel (Gold-
+    //     Überschuss) ein Flughafen mehr — Bomber sind der gold-getriebene Patt-Brecher (ADR-0031).
     if (
       profile.usesBombers &&
       isBuildingAllowed(state.config, 'airport') &&
       gold >= costOf('airport')
     ) {
       const airports = countBuildingsOfType(state, player.id, 'airport')
-      const airportTarget = Math.max(1, Math.ceil(base * AIRPORT_PER_CITY))
+      const surplus = gold >= PHASE3_GOLD_SURPLUS ? 1 : 0
+      const airportTarget = Math.max(1, Math.ceil(base * AIRPORT_PER_CITY)) + surplus
       if (airports < airportTarget && hasLivingEnemy(state, player)) {
         const tile = pickInteriorTile(state, player)
         if (tile >= 0) return { type: 'build', playerId: player.id, tile, buildingType: 'airport' }

@@ -123,6 +123,90 @@ export function profileForElo(elo: number): DifficultyProfile {
   return profileForStrength(eloToStrength(elo))
 }
 
+// ── Archetypen (ADR-0032, Baustein 2): Spielstil ORTHOGONAL zur ELO ─────────────────────────────
+// ELO = wie GUT (Skill/APM/Timing), Archetyp = welcher STIL. Ein Archetyp ist ein deterministischer
+// Modifikator auf das fertige Profil — derselbe Stil existiert auf jeder Stärke. 'balanced' ist die
+// Identität (heutiges Verhalten); Eich-/Golden-/Tuner-Pfade laufen weiter mit 'balanced'.
+
+export type Archetype = 'balanced' | 'eco' | 'bomber' | 'turtle' | 'aggressor'
+
+/** Reihenfolge = Verteilungs-Schlüssel von {@link archetypeFor} (Index-stabil halten!). */
+export const ARCHETYPES: readonly Archetype[] = ['balanced', 'eco', 'bomber', 'turtle', 'aggressor']
+
+const clampRange = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v))
+
+/**
+ * Formt das Basis-Profil zum Spielstil um. Bewusst MODERATE Modifikatoren (×0.7–×1.6 + Clamps):
+ * der Stil soll spürbar sein, ohne die geeichte Spielstärke (ELO) zu kippen — Arena-validiert.
+ * Rein deterministisch (keine PRNG-/Zeit-Abhängigkeit) → MP-sicher.
+ */
+export function applyArchetype(p: DifficultyProfile, a: Archetype): DifficultyProfile {
+  switch (a) {
+    case 'balanced':
+      return p
+    case 'eco':
+      // Wirtschaft zuerst: mehr Bauen, dichteres Städtenetz, dafür zurückhaltender im Angriff.
+      return {
+        ...p,
+        buildChance: clampRange(p.buildChance * 1.35, 0, 0.9),
+        tilesPerCity: p.tilesPerCity > 0 ? Math.max(120, Math.round(p.tilesPerCity * 0.75)) : 0,
+        attackPct: clampRange(p.attackPct * 0.8, 5, 100),
+        bomberChance: p.bomberChance * 0.6,
+        warshipChance: p.warshipChance * 1.2,
+      }
+    case 'bomber':
+      // Früh + viel Luftwaffe: hohe Bomber-Quote, Bauen leicht rauf (Flughäfen!), See runter.
+      return {
+        ...p,
+        usesBombers: p.usesBombers,
+        bomberChance: p.usesBombers ? clampRange(p.bomberChance * 2 + 0.04, 0, 0.4) : 0,
+        buildChance: clampRange(p.buildChance * 1.15, 0, 0.85),
+        warshipChance: p.warshipChance * 0.5,
+      }
+    case 'turtle':
+      // Defensiv: kleinere/seltenere Angriffe, kaum PvP-Hunger, dafür Flak/Heilung früh.
+      // (Arena-getunt: ×0.8/×1.1 statt ×0.7/×1.2 — die härteren Werte gewannen nur 4/50.)
+      return {
+        ...p,
+        attackPct: clampRange(p.attackPct * 0.8, 5, 100),
+        cooldownMin: Math.round(p.cooldownMin * 1.1),
+        cooldownMax: Math.round(p.cooldownMax * 1.1),
+        popThresholdForPvp: clampRange(p.popThresholdForPvp * 1.15, 0, 0.95),
+        usesAirDefense: true,
+        healsCraters: true,
+        betrayLeadRatio: p.betrayLeadRatio === Infinity ? Infinity : p.betrayLeadRatio * 1.3,
+      }
+    case 'aggressor':
+      // Expansion/Druck: größere + häufigere Angriffe, Wirtschaft schlanker, früh PvP-bereit.
+      // (Arena-getunt: Eco ×0.8 statt ×0.7 + Angriff ×1.3 statt ×1.4 — sonst verhungert/überdehnt er.)
+      return {
+        ...p,
+        attackPct: clampRange(p.attackPct * 1.3, 5, 100),
+        cooldownMin: Math.max(8, Math.round(p.cooldownMin * 0.85)),
+        cooldownMax: Math.max(12, Math.round(p.cooldownMax * 0.85)),
+        buildChance: clampRange(p.buildChance * 0.8, 0, 1),
+        popThresholdForPvp: clampRange(p.popThresholdForPvp * 0.85, 0.15, 1),
+        bomberChance: p.bomberChance * 0.8,
+      }
+  }
+}
+
+/**
+ * Seed-deterministische Archetyp-Zuweisung für eine KI (ADR-0032: „bunte Mischung" als Default).
+ * Hängt NUR an (gameSeed, playerId) → Client, Server und Worker errechnen identisch denselben Stil
+ * (MP-sicher, ADR-0009). FNV-1a über den kombinierten String, dann gleichverteilt über ARCHETYPES.
+ */
+export function archetypeFor(gameSeed: string, playerId: number): Archetype {
+  const key = `${gameSeed}#${String(playerId)}`
+  let h = 2166136261
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  const idx = (h >>> 0) % ARCHETYPES.length
+  return ARCHETYPES[idx] ?? 'balanced'
+}
+
 /**
  * Die 5 benannten Schwierigkeits-Presets als ELO-Punkte auf dem Kontinuum (gemessen, monoton).
  * So ist das im UI angezeigte ELO die *echte* Spielstärke, und Presets + Ranked teilen sich die
