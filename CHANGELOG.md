@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.59.1] – 2026-06-09
+
+### Behoben
+
+- **HUD-Elemente verschieben sich nicht mehr:** Ein seit Längerem nerviger Fehler ist behoben — zwei Skalierungs-Systeme haben sich beim Fenster-Resize gegenseitig überschrieben. Per **HUD-Editor** angepasste Panels bekamen dabei eine doppelte Skalierung und sprangen an falsche Positionen. Außerdem verlor die zentrierte **Aktionsleiste** beim Klemmen an den Bildschirmrand ihre Mitte, weil die Prozent-Position fälschlich als Pixel-Wert gelesen wurde. Beides ist jetzt korrekt. Auch der **Feedback-Knopf** skaliert nach dem ersten Match wieder sauber mit.
+
 ## [0.59.0] – 2026-06-09
 
 ### Neu
