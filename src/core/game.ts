@@ -384,9 +384,11 @@ export interface GameState {
   economyDirty: boolean
   /**
    * Amortisierter Wirtschafts-Recompute (Perf): die Gebäude-Komponenten-Flut läuft über mehrere
-   * Ticks verteilt (kein Spike auf Riesenkarten). Alles transient/deterministisch (tick-getrieben),
-   * nicht serialisiert. `econActive` = Zyklus läuft; `econFlood` = laufende Flut (Lazy); `econSeeds/
-   * econSources/econFactories` = beim Zyklusstart eingefrorener Gebäude-Stand fürs Routing am Ende.
+   * Ticks verteilt (kein Spike auf Riesenkarten). Deterministisch (tick-getrieben); ein LAUFENDER
+   * Zyklus wird MITSERIALISIERT (sonst driftete Gold nach einem mid-cycle-Resync — die Flut liest
+   * die Live-Karte, Replay ab Zyklusstart wäre nicht bit-identisch). `econActive` = Zyklus läuft;
+   * `econFlood` = laufende Flut (Lazy); `econSeeds/econSources/econFactories` = beim Zyklusstart
+   * eingefrorener Gebäude-Stand fürs Routing am Ende.
    */
   econFlood: EconFloodState | null
   econActive: boolean
