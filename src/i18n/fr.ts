@@ -401,7 +401,7 @@ export const fr: Record<string, string> = {
   'pause.leave': 'Quitter la partie',
   'pause.settings': 'Réglages',
   'settings.radialSize': 'Taille du menu radial',
-  'settings.uiOpacity': 'OpacitÃ© de lâinterface',
+  'settings.uiOpacity': 'Opacité de l’interface',
   'settings.radialSize.small': 'Petit',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grand',
