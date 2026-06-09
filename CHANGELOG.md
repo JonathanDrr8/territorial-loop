@@ -4,6 +4,15 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.59.3] – 2026-06-10
+
+### Behoben
+
+- **HUD-Panels kehren zu ihrem Platz zurück:** Wurde ein Panel wegen eines zu kleinen Fensters an den Rand geklemmt, blieb es bisher dauerhaft dort kleben. Das HUD merkt sich jetzt die ursprüngliche Verankerung (z. B. rechtsbündig oder zentriert) und stellt sie wieder her, sobald das Fenster wieder groß genug ist.
+- **UI-Deckkraft wird mit dem Konto synchronisiert:** Die Einstellung des Deckkraft-Reglers wird jetzt beim Anmelden automatisch übers Konto übertragen. Außerdem wirkt der Regler jetzt auch auf den **Feedback-Knopf**.
+- **KI-Bomber geben nicht mehr auf:** Waren alle wertvollen Ziele vollständig von **Flugabwehr** geschützt, startete die KI gar keine Bomber mehr. Jetzt weicht sie auf die nächstbesten erreichbaren Ziele aus — ohne dabei neue Ruckler zu verursachen.
+- **Rundum-Angriff nach Reconnect stabil:** Ein interner Zufalls-Startpunkt für Rundum-Angriffe ist jetzt nach einem Reconnect garantiert identisch — kein stiller Desync mehr.
+
 ## [0.59.2] – 2026-06-09
 
 ### Behoben
