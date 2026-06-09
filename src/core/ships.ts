@@ -144,11 +144,23 @@ export interface Projectile {
   /** Abfeuer-Position (Welt-Koordinaten, fest) — Startpunkt der Flugbahn. */
   readonly fromX: number
   readonly fromY: number
+  /** Anvisierter Punkt (Ziel-Position beim ABFEUERN, fest) — dorthin fliegt das Projektil. */
+  readonly aimX: number
+  readonly aimY: number
   /** Verstrichene Flug-Ticks. */
   travel: number
   /** Flug-Ticks bis zum Einschlag (= round(Distanz / PROJECTILE_SPEED), bei Abschuss berechnet). */
   readonly impactAt: number
 }
+
+/**
+ * Treffer-Radius (Tiles) um den anvisierten Punkt: beim Einschlag trifft das Projektil nur, wenn
+ * das Ziel noch innerhalb dieses Radius um die ANVISIERTE Position ist — sonst ist es entkommen
+ * (Wasser-Splash). Seit NAVAL_RANGE 32 fliegen Projektile bis zu ~80 Ticks; ohne diesen Check
+ * waren sie zielsuchend („Homing") über beliebige Distanz. Nahschüsse (kurze Flugzeit) treffen
+ * weiterhin praktisch immer.
+ */
+export const PROJECTILE_HIT_RADIUS = 4
 
 // ── Bomber & Bomben (ADR-0019) ──────────────────────────────────────────────
 /** Bomber-Geschwindigkeit (Tiles/Tick) — schneller als Schiffe (fliegt über alles). */

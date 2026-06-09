@@ -591,6 +591,8 @@ describe('warships via tick', () => {
       targetKind: 'warship',
       fromX: 0,
       fromY: 0,
+      aimX: 0.5, // = Ziel-Position (Schiffe stehen praktisch still) → Treffer trotz Flucht-Check
+      aimY: 0.5,
       travel: 3,
       impactAt: 4,
     })
@@ -600,6 +602,8 @@ describe('warships via tick', () => {
       targetKind: 'warship',
       fromX: 0,
       fromY: 0,
+      aimX: 0.5,
+      aimY: 0.5,
       travel: 2,
       impactAt: 4,
     })
@@ -607,6 +611,75 @@ describe('warships via tick', () => {
     expect(state.warships.length).toBe(1)
     expect(state.warships[0]?.ownerId).toBe(1)
     expect(state.warships[0]?.hp).toBe(5) // B's Projektil verpuffte → A unbeschädigt
+  })
+
+  it('feuert NICHT auf Ziele in einem anderen Gewässer (kein Beschuss über Land)', () => {
+    // splitMap erzeugt zwei getrennte Wasser-Spalten (x=0 und x=4) — Distanz 4 liegt klar in
+    // NAVAL_RANGE (32), aber die Komponenten unterscheiden sich → seit dem Komponenten-Check
+    // darf kein Schuss fallen (vorher hätte das Schiff quer über Land gefeuert).
+    const state = createGame(cfg())
+    splitMap(state)
+    own(state, 1, 1, 1)
+    own(state, 5, 1, 2)
+    const mkShip = (ownerId: number, x: number): Warship => ({
+      ownerId,
+      path: [tileRef(x, 0, W, H), tileRef(x, 1, W, H)],
+      progress: 0,
+      dir: 1,
+      hp: 5,
+      cooldown: 0,
+      mode: 'patrol',
+      returning: false,
+    })
+    state.warships.push(mkShip(1, 0), mkShip(2, 4))
+    for (let i = 0; i < 20; i++) tick(state, [])
+    expect(state.projectiles.length).toBe(0)
+    expect(state.warships.length).toBe(2) // beide unversehrt — kein Cross-Sea-Beschuss
+  })
+
+  it('Projektil verpufft, wenn das Ziel dem anvisierten Punkt entkommen ist (kein Homing)', () => {
+    const state = createGame(cfg())
+    splitMap(state)
+    const shooter: Warship = {
+      ownerId: 2,
+      path: [tileRef(0, 0, W, H), tileRef(0, 1, W, H)],
+      progress: 0,
+      dir: 1,
+      hp: 5,
+      cooldown: 99, // keine neuen Schüsse — nur das injizierte Projektil zählt
+      mode: 'patrol',
+      returning: false,
+    }
+    state.warships.push(shooter)
+    const trade = {
+      fromOwnerId: 1,
+      toOwnerId: 1,
+      // Lange Standroute: das Schiff darf während des Tests nicht regulär ankommen (sonst wird es
+      // ausgeliefert und entfernt — das würde wie eine Versenkung aussehen).
+      path: [tileRef(0, 0, W, H), ...new Array<number>(60).fill(tileRef(0, 1, W, H))],
+      progress: 0, // Ziel steht bei (0.5, 0.5) …
+      gold: 300,
+      originPort: tileRef(1, 1, W, H),
+      destPort: tileRef(5, 1, W, H),
+    }
+    state.tradeShips.push(trade)
+    state.projectiles.push({
+      shooter,
+      target: trade,
+      targetKind: 'trade',
+      fromX: 0,
+      fromY: 0,
+      aimX: 4.5, // … aber anvisiert war (4.5, 2.5) — Torus-Distanz ~4.47 > PROJECTILE_HIT_RADIUS (4)
+      aimY: 2.5,
+      travel: 0,
+      impactAt: 1,
+    })
+    const goldBefore = state.players.get(2)?.gold ?? 0
+    tick(state, [])
+    expect(state.tradeShips.length).toBe(1) // entkommen — nicht versenkt
+    // Nur das flache Tick-Einkommen (BASE_GOLD_PER_TICK = 100) — KEINE Piraterie-Beute (wäre +600).
+    expect(state.players.get(2)?.gold ?? 0).toBe(goldBefore + 100)
+    expect(state.projectiles.length).toBe(0) // Projektil ist trotzdem verbraucht
   })
 
   it('blockiertes Eigen-Handelsschiff loggt entgangenes Gold; fremdes loggt nichts', () => {
@@ -642,6 +715,8 @@ describe('warships via tick', () => {
         targetKind: 'trade',
         fromX: 0,
         fromY: 0,
+        aimX: 0.5, // = Position des Handelsschiffs (progress 0) → Treffer trotz Flucht-Check
+        aimY: 0.5,
         travel: 0,
         impactAt: 1,
       })

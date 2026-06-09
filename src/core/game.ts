@@ -129,6 +129,7 @@ import {
   WARSHIP_HP,
   WARSHIP_SHOT_COOLDOWN,
   WARSHIP_SPEED,
+  PROJECTILE_HIT_RADIUS,
   PROJECTILE_SPEED,
   planBomberRoute,
   planWaterRoute,
@@ -2892,6 +2893,15 @@ function resolveNavalCombat(state: GameState): void {
         continue
       }
       if (!arrHas(state.warships, pr.shooter)) continue // Schütze tot → verpufft
+      // Flucht-Check: das Projektil schlägt am ANVISIERTEN Punkt ein — ist das Ziel inzwischen
+      // weiter als PROJECTILE_HIT_RADIUS davon entfernt, ist es entkommen (kein Homing über
+      // lange Flugzeiten; seit NAVAL_RANGE 32 fliegen Projektile bis zu ~80 Ticks).
+      const tnow = shipWorldPos(pr.target, state.map.width, state.map.height)
+      if (
+        torusDistance(tnow.wx, tnow.wy, pr.aimX, pr.aimY, state.map.width, state.map.height) >
+        PROJECTILE_HIT_RADIUS
+      )
+        continue
       const shooterId = pr.shooter.ownerId
       if (pr.targetKind === 'warship') {
         if (arrHas(state.warships, pr.target)) {
@@ -2961,10 +2971,18 @@ function resolveNavalCombat(state: GameState): void {
   if (state.warships.length === 0) return
   const wpos = state.warships.map((ws) => shipWorldPos(ws, w, h))
   const hostile = (a: number, b: number): boolean => a !== b && !areAllied(state.alliances, a, b)
+  // Nur Ziele im SELBEN Gewässer (Wasser-Komponente) — seit der großen Reichweite (NAVAL_RANGE 32)
+  // läge sonst auch ein Schiff hinter einem Kontinent oder in einem fremden Binnenmeer „in Reichweite"
+  // und würde quer über Land beschossen. Gleiche Bedingung wie die KI-Jagd (planWarshipHunts).
+  const comp = state.waterComponents
+  const seaOf = (ship: { path: readonly TileRef[]; progress: number }): number =>
+    comp[shipTile(ship)] ?? -1
   const inRange = (
     pos: { wx: number; wy: number },
+    sea: number,
     ship: { path: readonly TileRef[]; progress: number },
   ): boolean => {
+    if (seaOf(ship) !== sea) return false
     const p = shipWorldPos(ship, w, h)
     return torusDistance(pos.wx, pos.wy, p.wx, p.wy, w, h) <= NAVAL_RANGE
   }
@@ -2984,6 +3002,7 @@ function resolveNavalCombat(state: GameState): void {
     const ws = state.warships[i]
     const pos = wpos[i]
     if (ws === undefined || pos === undefined || ws.cooldown > 0 || ws.returning) continue
+    const sea = seaOf(ws)
     let target: Warship | Boat | TradeShip | null = null
     let kind: 'warship' | 'boat' | 'trade' = 'warship'
     // Priorität: feindliche Kriegsschiffe → Transportboote → Handelsschiffe (Array-Reihenfolge).
@@ -2992,6 +3011,7 @@ function resolveNavalCombat(state: GameState): void {
       const op = wpos[j]
       if (o === undefined || op === undefined || o === ws || !hostile(ws.ownerId, o.ownerId))
         continue
+      if (seaOf(o) !== sea) continue // anderes Gewässer → kein Beschuss über Land
       if (torusDistance(pos.wx, pos.wy, op.wx, op.wy, w, h) <= NAVAL_RANGE) {
         target = o
         kind = 'warship'
@@ -3000,7 +3020,7 @@ function resolveNavalCombat(state: GameState): void {
     }
     if (target === null) {
       for (const b of state.boats) {
-        if (hostile(ws.ownerId, b.ownerId) && inRange(pos, b)) {
+        if (hostile(ws.ownerId, b.ownerId) && inRange(pos, sea, b)) {
           target = b
           kind = 'boat'
           break
@@ -3012,7 +3032,7 @@ function resolveNavalCombat(state: GameState): void {
         if (
           hostile(ws.ownerId, ts.fromOwnerId) &&
           hostile(ws.ownerId, ts.toOwnerId) &&
-          inRange(pos, ts) &&
+          inRange(pos, sea, ts) &&
           !sparesNeutralTrade(ws.ownerId, ts)
         ) {
           target = ts
@@ -3030,6 +3050,8 @@ function resolveNavalCombat(state: GameState): void {
         targetKind: kind,
         fromX: pos.wx,
         fromY: pos.wy,
+        aimX: tp.wx,
+        aimY: tp.wy,
         travel: 0,
         impactAt: Math.max(1, Math.round(dist / PROJECTILE_SPEED)),
       })

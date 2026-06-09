@@ -160,6 +160,8 @@ describe('TickDelta / Schatten-State (ADR-0030 — Sim-auf-Worker-Naht)', () => 
       targetKind: 'warship',
       fromX: 1,
       fromY: 1,
+      aimX: 4,
+      aimY: 2,
       travel: 1,
       impactAt: 5,
     })

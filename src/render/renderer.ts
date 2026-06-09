@@ -2280,11 +2280,11 @@ export function createRenderer(
     screenCtx.save()
     screenCtx.lineCap = 'round'
     for (const pr of state.projectiles) {
-      const tp = shipWorldPos(pr.target)
       const frac = Math.min(1, pr.travel / pr.impactAt)
-      // Interpolation entlang der kürzeren Torus-Richtung von Abfeuer- zu Zielposition.
-      const dx = tp.wx - pr.fromX - mapW * Math.round((tp.wx - pr.fromX) / mapW)
-      const dy = tp.wy - pr.fromY - mapH * Math.round((tp.wy - pr.fromY) / mapH)
+      // Interpolation entlang der kürzeren Torus-Richtung von Abfeuer- zum ANVISIERTEN Punkt
+      // (fest beim Abfeuern — Projektile sind seit dem Flucht-Check nicht mehr zielsuchend).
+      const dx = pr.aimX - pr.fromX - mapW * Math.round((pr.aimX - pr.fromX) / mapW)
+      const dy = pr.aimY - pr.fromY - mapH * Math.round((pr.aimY - pr.fromY) / mapH)
       const wx = pr.fromX + dx * frac
       const wy = pr.fromY + dy * frac
       const { sx, sy } = nearestWrappedScreenPos(wx, wy)
