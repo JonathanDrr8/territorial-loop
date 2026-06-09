@@ -8,6 +8,12 @@ export const fr: Record<string, string> = {
   'nav.settings': 'Réglages',
   'nav.changelog': 'Nouveautés',
   'nav.help': 'Aide',
+  'nav.short.play': 'Jouer',
+  'nav.short.multiplayer': 'En ligne',
+  'nav.short.ranking': 'Rang',
+  'nav.short.settings': 'Réglages',
+  'nav.short.changelog': 'Notes',
+  'nav.short.help': 'Aide',
 
   'header.name': 'Nom',
   'header.namePlaceholder': 'Ton nom',

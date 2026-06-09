@@ -8,6 +8,12 @@ export const ja: Record<string, string> = {
   'nav.settings': '設定',
   'nav.changelog': '更新情報',
   'nav.help': 'ヘルプ',
+  'nav.short.play': 'プレイ',
+  'nav.short.multiplayer': 'オンライン',
+  'nav.short.ranking': '順位',
+  'nav.short.settings': '設定',
+  'nav.short.changelog': '更新',
+  'nav.short.help': 'ヘルプ',
 
   'header.name': '名前',
   'header.namePlaceholder': 'あなたの名前',

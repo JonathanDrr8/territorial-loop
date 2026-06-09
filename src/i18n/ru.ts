@@ -8,6 +8,12 @@ export const ru: Record<string, string> = {
   'nav.settings': 'Настройки',
   'nav.changelog': 'Что нового',
   'nav.help': 'Помощь',
+  'nav.short.play': 'Играть',
+  'nav.short.multiplayer': 'Онлайн',
+  'nav.short.ranking': 'Ранг',
+  'nav.short.settings': 'Опции',
+  'nav.short.changelog': 'Новости',
+  'nav.short.help': 'Помощь',
 
   'header.name': 'Имя',
   'header.namePlaceholder': 'Твоё имя',

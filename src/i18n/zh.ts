@@ -8,6 +8,12 @@ export const zh: Record<string, string> = {
   'nav.settings': '设置',
   'nav.changelog': '更新',
   'nav.help': '帮助',
+  'nav.short.play': '开始',
+  'nav.short.multiplayer': '联机',
+  'nav.short.ranking': '排名',
+  'nav.short.settings': '设置',
+  'nav.short.changelog': '更新',
+  'nav.short.help': '帮助',
 
   'header.name': '名字',
   'header.namePlaceholder': '你的名字',

@@ -8,6 +8,12 @@ export const pt: Record<string, string> = {
   'nav.settings': 'Ajustes',
   'nav.changelog': 'Novidades',
   'nav.help': 'Ajuda',
+  'nav.short.play': 'Jogar',
+  'nav.short.multiplayer': 'Online',
+  'nav.short.ranking': 'Ranking',
+  'nav.short.settings': 'Opções',
+  'nav.short.changelog': 'Notas',
+  'nav.short.help': 'Ajuda',
 
   'header.name': 'Nome',
   'header.namePlaceholder': 'Seu nome',

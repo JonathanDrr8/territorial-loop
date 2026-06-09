@@ -251,16 +251,50 @@ export const MENU_CSS = `
      hält sie auf Tablets noch in lesbarer Breite, margin:auto zentriert. */
   .tl-menu .tl-cols > * { width: 100% !important; min-width: 0 !important; max-width: 520px !important; margin-left: auto !important; margin-right: auto !important }
 }
-/* Schmale Screens (Handy im Hochformat): Header stapeln + Tabs umbrechen, und die Feld-Zeilen
-   von „Label | Feld" auf gestapelt (Label über Feld, Feld volle Breite) umstellen — sonst
-   erzwingt die feste 150px-Label-Spalte eine Zeilenbreite, die nicht aufs Handy passt.
+/* Die Bottom-Navigation existiert immer im DOM, ist aber ein reines Handy-Element. */
+.tl-bottomnav { display: none }
+/* Schmale Screens (Handy im Hochformat): eigener App-Wurf statt geschrumpfter Desktop-Seite —
+   Header-Tabs und Footer verschwinden, unten übernimmt eine feste Tab-Leiste (App-Navigation),
+   Inhalte werden einspaltig mit großen Touch-Zielen (>=44px) und großem Start-CTA.
    !important schlägt die Inline-Layout-Styles. */
 @media (max-width: 640px) {
-  .tl-menu .tl-header { gap: 10px !important; padding: 12px 14px !important; justify-content: center }
+  .tl-menu .tl-header { gap: 8px !important; padding: 10px 12px !important; justify-content: center }
   .tl-menu .tl-header > * { flex: 1 1 100% !important }
-  .tl-menu .tl-header nav { justify-content: center !important }
-  .tl-menu .tl-header > div:last-child { justify-content: center !important }
-  .tl-tab { padding: 8px 12px; font-size: 14px }
+  .tl-menu .tl-header > div:last-child { justify-content: center !important; flex-wrap: wrap !important; gap: 8px !important }
+  .tl-menu .tl-header input[type=text] { flex: 1 1 auto; width: auto !important; min-width: 0 }
+  .tl-menu .tl-header label { flex: 1 1 100%; min-width: 0 }
+  /* Header-Tabs + Footer raus — die Bottom-Navigation übernimmt. */
+  .tl-menu .tl-nav { display: none !important }
+  .tl-menu .tl-footer { display: none !important }
+  .tl-bottomnav {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 70;
+    display: flex; align-items: stretch;
+    background: var(--tl-panel-bg);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    padding: 0 2px calc(4px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.45);
+  }
+  .tl-bottomtab {
+    flex: 1 1 0; min-width: 0; min-height: 54px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; border-top: 2px solid transparent;
+    color: rgba(255,255,255,0.6); font-family: var(--tl-font);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.2px; cursor: pointer;
+    padding: 6px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tl-bottomtab.tl-bottomtab-active { color: var(--tl-accent); border-top-color: var(--tl-accent); background: rgba(255,255,255,0.05) }
+  /* Inhalt: volle Breite, Platz für die Bottom-Leiste, kompakte Karten. */
+  .tl-menu .tl-content { padding: 12px 10px calc(76px + env(safe-area-inset-bottom, 0px)) !important }
+  /* App-Reihenfolge im Play-Tab: Setup-Karte (Start-CTA) ZUERST, dann Lobbys/Tutorial, dann Tipps. */
+  .tl-menu .tl-cols > *:nth-child(2) { order: -1 }
+  .tl-menu .tl-card { padding: 18px 14px !important; border-radius: 12px !important; max-width: 100% !important }
+  /* Großer Start-CTA + Presets als 2x2-Kacheln mit App-Touch-Zielen. */
+  .tl-menu .tl-start { width: 100% !important; min-height: 56px !important; font-size: 18px !important }
+  .tl-menu .tl-presets { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important }
+  .tl-menu .tl-presets > button { min-height: 62px; width: auto !important }
+  /* Touch-Ziele: alles Bedienbare mindestens 44px hoch. */
+  .tl-menu button, .tl-menu select { min-height: 44px }
+  .tl-menu input[type=text] { min-height: 42px; box-sizing: border-box }
   .tl-menu .tl-field { grid-template-columns: 1fr !important; align-items: stretch !important; gap: 6px !important; margin-bottom: 15px !important }
   .tl-menu .tl-field > label { opacity: 0.8; font-size: 14px }
 }

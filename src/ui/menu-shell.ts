@@ -221,6 +221,7 @@ export function createMenuShell(
 
     // Scrollbarer Inhaltsbereich (Banner + aktiver Tab).
     const contentScroll = document.createElement('div')
+    contentScroll.className = 'tl-content'
     contentScroll.style.cssText =
       'flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding: 28px 20px'
 
@@ -237,9 +238,31 @@ export function createMenuShell(
 
     overlay.appendChild(contentScroll)
     overlay.appendChild(buildFooter())
+    // App-artige Bottom-Navigation für Handys (per CSS nur <=640px sichtbar; ersetzt dort
+    // Header-Tabs + Footer). Immer mitgerendert → kein Resize-Listener nötig, der Breakpoint
+    // lebt komplett im Menü-CSS.
+    overlay.appendChild(buildBottomNav())
 
     container.appendChild(overlay)
     updateBanner()
+  }
+
+  /** Untere Tab-Leiste (Mobile): große Touch-Ziele, kurze Labels, aktiver Tab mit Akzent. */
+  function buildBottomNav(): HTMLElement {
+    const bar = document.createElement('nav')
+    bar.className = 'tl-bottomnav'
+    for (const [id] of TABS) {
+      const btn = document.createElement('button')
+      btn.className = id === activeTab ? 'tl-bottomtab tl-bottomtab-active' : 'tl-bottomtab'
+      btn.textContent = t(`nav.short.${id}`)
+      btn.addEventListener('click', () => {
+        if (activeTab === id) return
+        activeTab = id
+        render()
+      })
+      bar.appendChild(btn)
+    }
+    return bar
   }
 
   // ── Header ──────────────────────────────────────────────────────────────────
@@ -269,8 +292,10 @@ export function createMenuShell(
     brand.appendChild(version)
     header.appendChild(brand)
 
-    // Tabs (mittig, nimmt den freien Platz)
+    // Tabs (mittig, nimmt den freien Platz). Auf Handys (<=640px) versteckt das Menü-CSS diese
+    // Leiste — dort übernimmt die App-artige Bottom-Navigation (buildBottomNav).
     const nav = document.createElement('nav')
+    nav.className = 'tl-nav'
     nav.style.cssText =
       'flex: 0 0 auto; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap'
     for (const [id, labelKey] of TABS) {
@@ -351,6 +376,7 @@ export function createMenuShell(
   // ── Footer ──────────────────────────────────────────────────────────────────
   function buildFooter(): HTMLElement {
     const footer = document.createElement('div')
+    footer.className = 'tl-footer'
     footer.style.cssText = [
       'display: flex',
       'align-items: center',
@@ -400,6 +426,7 @@ export function createMenuShell(
   /** Karten-Panel mit dezenter Rahmung — gemeinsame Hülle für die Tab-Inhalte. */
   function panel(): HTMLDivElement {
     const p = document.createElement('div')
+    p.className = 'tl-card'
     p.style.cssText = [
       // Theme-Karte (ADR-0024): Look folgt dem gewählten Theme, größerer Radius/Padding fürs Menü.
       'background: var(--tl-panel-bg)',
@@ -524,6 +551,7 @@ export function createMenuShell(
     // kann man weiter feintunen. Die Knöpfe werden weiter unten verdrahtet (brauchen die Felder).
     section(p, t('preset.title'))
     const presetRow = document.createElement('div')
+    presetRow.className = 'tl-presets'
     presetRow.style.cssText =
       'display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 6px'
     p.appendChild(presetRow)
