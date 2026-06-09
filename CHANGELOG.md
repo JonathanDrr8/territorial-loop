@@ -4,6 +4,31 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.59.0] – 2026-06-09
+
+### Neu
+
+- **HUD-Deckkraft einstellbar:** In den Einstellungen gibt es jetzt einen Regler (40–100 %) für
+  die Transparenz der HUD-Panels. Wer mehr Karte sehen will, schiebt ihn runter — die Panels
+  werden durchscheinend. Die Einstellung wird gespeichert und bleibt auch nach einem Theme-Wechsel
+  erhalten.
+
+### Geändert
+
+- **Kriegsschiffe greifen jetzt aus großer Entfernung an:** Die Reichweite wurde von 3 auf
+  32 Tiles erhöht — Handelsrouten werden damit wirklich abgefangen. Dafür schießen
+  **Kriegsschiffe** nur noch auf Ziele im selben Gewässer; Schüsse quer über Land gibt es nicht
+  mehr. Ein Schiff, das rechtzeitig ausweicht, kann dem Einschlag jetzt entkommen.
+- **Flüssigere Simulation bei vielen Nationen:** Ein KI-Ruckler (bis zu 0,4 Sekunden Standbild
+  bei großen Karten) wurde beseitigt; Ticks laufen nun rund 20 % schneller.
+
+### Behoben
+
+- **HUD-Panels bleiben im Bild:** Panels konnten außerhalb des Fensters geraten und ließen sich
+  nicht mehr zurückholen. Der Rand-Klemm-Mechanismus greift jetzt zuverlässig — auch bei
+  skalierten und rechtsbündigen Panels.
+- Übersetzungs-Fehler des Deckkraft-Reglers in fünf Sprachen behoben.
+
 ## [0.58.3] – 2026-06-07
 
 ### Geändert
