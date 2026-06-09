@@ -1282,25 +1282,32 @@ export function createAI(
     let bestTarget = -1
     let bestRoute: BomberRoute = 'direct'
     let bestScore = -Infinity
-    for (let i = 0; i < Math.min(SHORTLIST, cands.length); i++) {
-      const c = cands[i]
-      if (c === undefined) continue
-      let routeDmg = Infinity
-      let route: BomberRoute = 'direct'
-      for (const r of routes) {
-        const path = planBomberRoute(width, height, c.airport, c.tile, r)
-        const dmg = estimateBomberFlakDamage(state, player.id, path)
-        if (dmg < routeDmg) {
-          routeDmg = dmg
-          route = r
+    // Batch-weise durch die sortierte Kandidatenliste: ist die komplette Top-12 flak-geblockt,
+    // kommt die nächste 12er-Tranche dran (statt aufzugeben — Audit-Fund: eine stark verflakte
+    // Top-Nation legte die KI-Bomber sonst komplett lahm). Pro Aufruf bleibt die teure Routen-/
+    // Flak-Rechnung auf die Tranchen bis zur ersten mit einem fliegbaren Ziel begrenzt.
+    for (let start = 0; start < cands.length && bestTarget < 0; start += SHORTLIST) {
+      const end = Math.min(start + SHORTLIST, cands.length)
+      for (let i = start; i < end; i++) {
+        const c = cands[i]
+        if (c === undefined) continue
+        let routeDmg = Infinity
+        let route: BomberRoute = 'direct'
+        for (const r of routes) {
+          const path = planBomberRoute(width, height, c.airport, c.tile, r)
+          const dmg = estimateBomberFlakDamage(state, player.id, path)
+          if (dmg < routeDmg) {
+            routeDmg = dmg
+            route = r
+          }
         }
-      }
-      if (routeDmg >= BOMBER_HP) continue // würde abgeschossen → Ziel überspringen
-      const score = c.pre - routeDmg
-      if (score > bestScore || (score === bestScore && (bestTarget < 0 || c.tile < bestTarget))) {
-        bestScore = score
-        bestTarget = c.tile
-        bestRoute = route
+        if (routeDmg >= BOMBER_HP) continue // würde abgeschossen → Ziel überspringen
+        const score = c.pre - routeDmg
+        if (score > bestScore || (score === bestScore && (bestTarget < 0 || c.tile < bestTarget))) {
+          bestScore = score
+          bestTarget = c.tile
+          bestRoute = route
+        }
       }
     }
     if (bestTarget < 0) return null

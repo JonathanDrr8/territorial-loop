@@ -123,6 +123,45 @@ describe('ui-scale × hud-layout (Doppel-Skalierungs-Schutz)', () => {
 })
 
 describe('clampToViewport mit Prozent-Position (zentrierte Aktionsleiste)', () => {
+  it('kehrt nach einem Überlauf zu seinem Anker zurück, sobald wieder Platz ist', () => {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.style.left = '50%'
+    el.style.transform = 'translateX(-50%)'
+    const W = 400 // Panel-Breite
+    // Dynamisches Rect: spiegelt die AKTUELLEN Styles (Anker-Zentrierung vs. absolute px).
+    el.getBoundingClientRect = () => {
+      const vw = window.innerWidth
+      const left = el.style.left.endsWith('%')
+        ? (vw * parseFloat(el.style.left)) / 100 -
+          (el.style.transform.includes('translate') ? W / 2 : 0)
+        : parseFloat(el.style.left) || 0
+      return {
+        width: W,
+        height: 60,
+        top: 100,
+        left,
+        right: left + W,
+        bottom: 160,
+        x: left,
+        y: 100,
+        toJSON: () => ({}),
+      } as DOMRect
+    }
+    created.push('anchor')
+    registerPanel('anchor', el)
+    // 1) Schmales Fenster → Überlauf → Clamp konvertiert auf absolute px (Anker gesichert).
+    setViewport(300, 600)
+    window.dispatchEvent(new Event('resize'))
+    expect(el.style.left).toBe('0px')
+    expect(el.style.transform).toBe('none')
+    // 2) Fenster wieder breit → Anker wird wiederhergestellt (Zentrierung kehrt zurück).
+    setViewport(800, 600)
+    window.dispatchEvent(new Event('resize'))
+    expect(el.style.left).toBe('50%')
+    expect(el.style.transform).toBe('translateX(-50%)')
+  })
+
   it('liest left:50% nicht als 50px und neutralisiert den Translate-Anteil', () => {
     setViewport(300, 600)
     const el = document.createElement('div')

@@ -39,10 +39,15 @@ export function createFeedbackUi(
     'padding: 6px 10px',
     'font-size: 12px',
     'cursor: pointer',
-    'opacity: 0.82',
+    // Leicht gedimmt, aber MULTIPLIKATIV mit dem UI-Deckkraft-Regler (ein nackter Wert würde die
+    // panelStyle-eigene `opacity: var(--tl-ui-opacity)` übersteuern — Audit-Fund).
+    'opacity: calc(var(--tl-ui-opacity, 1) * 0.82)',
   ])
-  trigger.addEventListener('mouseenter', () => (trigger.style.opacity = '1'))
-  trigger.addEventListener('mouseleave', () => (trigger.style.opacity = '0.82'))
+  trigger.addEventListener('mouseenter', () => (trigger.style.opacity = 'var(--tl-ui-opacity, 1)'))
+  trigger.addEventListener(
+    'mouseleave',
+    () => (trigger.style.opacity = 'calc(var(--tl-ui-opacity, 1) * 0.82)'),
+  )
 
   let overlay: HTMLElement | null = null
 

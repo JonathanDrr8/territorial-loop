@@ -61,7 +61,28 @@ function save(): void {
  * `left`/`top` zurückgerechnet. Panels, die größer als der Viewport sind, werden oben/links bündig
  * gesetzt (sie decken ihn ab, kein großer Rand).
  */
+/**
+ * Vor dem ERSTEN Klemmen gesicherte Anker-Styles eines Panels. Jeder Clamp-Durchlauf stellt sie
+ * zuerst wieder her und misst dann neu: passt das Panel wieder an seinen ursprünglichen Anker
+ * (rechts-/unten-verankert, `left: 50%`-Zentrierung), kehrt es dorthin ZURÜCK — ein einmaliger
+ * Überlauf konvertiert es nicht mehr dauerhaft in eine absolute Position (Audit-Fund E3).
+ */
+const savedAnchors = new WeakMap<
+  HTMLElement,
+  { left: string; right: string; top: string; bottom: string; transform: string }
+>()
+
 function clampToViewport(el: HTMLElement): void {
+  // Gesicherten Original-Anker zuerst wiederherstellen — gemessen wird gegen den Anker, nicht
+  // gegen die zuletzt geklemmte Absolut-Position.
+  const saved = savedAnchors.get(el)
+  if (saved !== undefined) {
+    el.style.left = saved.left
+    el.style.right = saved.right
+    el.style.top = saved.top
+    el.style.bottom = saved.bottom
+    el.style.transform = saved.transform
+  }
   const rect = el.getBoundingClientRect()
   if (rect.width === 0 && rect.height === 0) return // noch nicht gerendert/gemessen
   const vw = window.innerWidth
@@ -72,6 +93,20 @@ function clampToViewport(el: HTMLElement): void {
   let dy = 0
   if (rect.bottom > vh) dy = vh - rect.bottom
   if (rect.top + dy < 0) dy = -rect.top
+  if (dx === 0 && dy === 0) {
+    savedAnchors.delete(el) // passt (wieder) — der Original-Anker gilt
+    return
+  }
+  // Erstes Klemmen: Anker sichern, damit spätere Durchläufe ihn wiederherstellen können.
+  if (saved === undefined) {
+    savedAnchors.set(el, {
+      left: el.style.left,
+      right: el.style.right,
+      top: el.style.top,
+      bottom: el.style.bottom,
+      transform: el.style.transform,
+    })
+  }
   // `dx`/`dy` sind in Screen-Pixeln (aus getBoundingClientRect). Viele Panels haben aber `zoom`
   // (ui-scale) → die CSS-Position `left/top` ist um den Zoom-Faktor kleiner als die Screen-Position.
   // Beim Anwenden also durch den Zoom teilen, sonst wird nur teilweise reingeschoben (Off-Screen-Bug).
@@ -164,6 +199,9 @@ function apply(id: string): void {
     // der „UI verschiebt sich"-Bug). `resetLayout` registriert es wieder.
     unregisterScalable(el)
     el.style.zoom = '1'
+    // Der Override ist die neue Positions-Wahrheit — ein evtl. vor dem Override gesicherter
+    // CSS-Anker (Clamp-Wiederherstellung) ist damit hinfällig.
+    savedAnchors.delete(el)
   }
   if (o.x !== undefined) {
     el.style.left = `${o.x.toString()}px`
@@ -343,6 +381,7 @@ export function resetLayout(): void {
     el.style.removeProperty('max-width')
     el.style.removeProperty('max-height')
     el.style.removeProperty('display')
+    savedAnchors.delete(el) // Styles sind frisch zurückgesetzt — alter Anker-Snapshot ist hinfällig
     // Zurück in die Auto-Skalierung: `apply()` hatte das Panel aus der ui-scale-Registry
     // genommen (Layout-Override besaß die Skalierung) — jetzt skaliert es wieder normal mit.
     registerScalable(el)

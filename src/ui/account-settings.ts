@@ -19,6 +19,7 @@ const SYNCED_KEYS: readonly string[] = [
   'territorial-loop:locale:v1',
   'territorial-loop:audio:v1',
   'territorial-loop:menu-prefs:v1',
+  'territorial-loop:ui-opacity:v1',
 ]
 
 const USERNAME_KEY = 'territorial-loop:account-username:v1'

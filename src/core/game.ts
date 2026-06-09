@@ -1988,7 +1988,17 @@ function applyAttackIntent(state: GameState, intent: AttackIntent): void {
       existing.omni = true
       return
     }
-    const seed = omniTarget === 0 ? (player.frontier.values().next().value ?? 0) : intent.targetTile
+    // Seed deterministisch als MINIMUM der Frontier-Tiles — `values().next()` hinge an der
+    // Set-Einfüge-Reihenfolge, die nach einem Resync (initializeAllFrontiers baut aufsteigend)
+    // anders ist als die inkrementell gepflegte Capture-Historie → Client/Server könnten beim
+    // nächsten Omni-Angriff divergieren (Audit-Fund). O(n) nur bei Omni-Intents.
+    let seed = intent.targetTile
+    if (omniTarget === 0) {
+      seed = 0
+      let min = Infinity
+      for (const t of player.frontier) if (t < min) min = t
+      if (min !== Infinity) seed = min
+    }
     player.attacks.push({
       targetPlayerId: omniTarget,
       reserveTroops: troopsOmni,

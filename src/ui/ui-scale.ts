@@ -8,8 +8,6 @@
  * `clearScalables()` zu Match-Start leert die Registry (alte, zerstörte Panels fallen raus).
  */
 
-import { t } from '../i18n'
-
 // v2: neuer, größerer Default (1.3) — alte gespeicherte „1.0"-Werte sollen NICHT kleben bleiben.
 const STORAGE_KEY = 'territorial-loop:ui-scale:v2'
 // Untergrenze 0.7 (vorher 0.9 → 0.8 → 0.7): auf schmalen Fenstern (z.B. getiltes Drittel-/Viertel-
@@ -132,63 +130,5 @@ export function setUiScale(value: number): void {
   for (const el of elements) el.style.setProperty('zoom', String(scale))
 }
 
-/** Kleiner Slider oben links (neben dem Feedback-Knopf), der die UI-Größe steuert. */
-export function createUiScaleSlider(container: HTMLElement): { destroy(): void } {
-  const wrap = document.createElement('div')
-  wrap.style.cssText = [
-    'position: absolute',
-    // Chrome-Zeile oben links (zusammen mit dem Feedback-Knopf rechts daneben), damit die
-    // untere linke Ecke ganz dem Ressourcen-Block gehört.
-    'left: 12px',
-    'top: 12px',
-    'z-index: 45',
-    'display: flex',
-    'align-items: center',
-    'gap: 7px',
-    'background: rgba(20,20,28,0.8)',
-    'border: 1px solid rgba(255,255,255,0.2)',
-    'border-radius: 8px',
-    'padding: 5px 9px',
-    'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-    'font-size: 11px',
-    'color: rgba(255,255,255,0.85)',
-    'pointer-events: auto',
-  ].join(';')
-
-  const label = document.createElement('span')
-  label.textContent = 'UI'
-  label.style.opacity = '0.8'
-
-  const slider = document.createElement('input')
-  slider.type = 'range'
-  slider.min = String(UI_SCALE_MIN)
-  slider.max = String(UI_SCALE_MAX)
-  slider.step = '0.05'
-  slider.value = String(scale)
-  slider.title = t('uiscale.title')
-  slider.style.width = '92px'
-  slider.style.accentColor = '#46d9e6'
-  slider.style.cursor = 'pointer'
-
-  const val = document.createElement('span')
-  val.style.cssText = 'min-width: 34px; text-align: right; font-variant-numeric: tabular-nums'
-  const pct = (s: number): string => `${String(Math.round(s * 100))}%`
-  val.textContent = pct(scale)
-
-  slider.addEventListener('input', () => {
-    const s = Number(slider.value)
-    setUiScale(s)
-    val.textContent = pct(s)
-  })
-
-  wrap.appendChild(label)
-  wrap.appendChild(slider)
-  wrap.appendChild(val)
-  container.appendChild(wrap)
-
-  return {
-    destroy(): void {
-      wrap.remove()
-    },
-  }
-}
+// (Der frühere UI-Größen-Slider `createUiScaleSlider` ist entfernt — er war seit dem HUD-Editor
+// (ADR-0024) ohne Aufrufer. `setUiScale` bleibt als API für einen künftigen manuellen Override.)
