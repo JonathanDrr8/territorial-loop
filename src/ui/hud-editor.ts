@@ -1017,6 +1017,19 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
           (v) => setHudPref('actionSplit', v === 'split'),
         ),
       )
+      // RTS-Kommandoleiste: Truppen/Gold + Aktions-Block als durchgehende Leiste unten
+      // (gleiche Pref wie der Schalter in den In-Game-Einstellungen, live).
+      layoutRow.appendChild(
+        segmented(
+          t('settings.commandBar'),
+          getHudPrefs().commandBar ? 'on' : 'off',
+          [
+            ['off', t('toggle.off')],
+            ['on', t('toggle.on')],
+          ],
+          (v) => setHudPref('commandBar', v === 'on'),
+        ),
+      )
       // Truppen-Anzeige: klassischer Balken oder füllende Kugel (live über hud-prefs).
       layoutRow.appendChild(
         segmented(
@@ -1258,11 +1271,19 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   }
 
   // Split/Merge (und andere Layout-Prefs) ändern den Panel-Satz → Rahmen + Werkzeugleiste neu.
+  // Aufs nächste Frame verschoben: andere Pref-Listener (HUD setCommandBar, main applyMobileLayout)
+  // verschieben Panels erst NACH diesem Listener — sofortiges buildFrames sähe alte Positionen
+  // (Listener-Reihenfolge im Set ist Registrier-Reihenfolge, der Editor ist nicht der Letzte).
+  let rebuildPending = false
   const offPrefs = onHudPrefsChange(() => {
-    if (open) {
+    if (!open || rebuildPending) return
+    rebuildPending = true
+    requestAnimationFrame(() => {
+      rebuildPending = false
+      if (!open) return
       buildFrames()
       buildToolbar()
-    }
+    })
   })
 
   return {
