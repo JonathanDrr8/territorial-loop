@@ -111,19 +111,23 @@ export function isBuildingComplete(b: Building, tick: number): boolean {
  * → im frühen Spiel ein „entweder-oder" (Schiffe/Handel ODER Gold-Netz), nicht beides billig.
  */
 const BASE_BUILD_COST: Record<BuildingType, number> = {
-  city: 25_000,
-  defense: 25_000,
-  port: 25_000,
-  factory: 25_000,
+  // 2026-06-10 von 25k auf 40k angehoben (Balance #6, gemessen): das Fabrik-Netz-Einkommen
+  // explodierte mit der Reichsgröße (Leader bis ~10k Gold/s), während Gebäude bei 25k-Basis +
+  // 100k-Deckel quasi Dauer-bezahlbar waren („immer viel zu platzieren", Gold-Konten 250k+ Stau).
+  city: 40_000,
+  defense: 40_000,
+  port: 40_000,
+  factory: 40_000,
   // Flughafen: eigene Eskalations-Gruppe (offensive Infrastruktur ist eine Investition).
   airport: 50_000,
   // Flak: flach wie der Verteidigungsposten (man soll mehrere zur Abdeckung verteilen können).
-  flak: 35_000,
+  flak: 45_000,
 }
 
 /** Obergrenze der eskalierenden Baukosten — nach genug Gebäuden wird's nicht teurer.
- * 100k: Stadt/Hafen/Fabrik eskalieren 25k→50k→100k und bleiben dann fest (Flughafen 50k→100k). */
-export const BUILD_COST_CAP = 100_000
+ * 150k (2026-06-10 von 100k angehoben, Balance #6): Stadt/Hafen/Fabrik eskalieren 40k→80k→150k
+ * und bleiben dann fest (Flughafen 50k→100k→150k) — das N-te Gebäude kostet wieder etwas. */
+export const BUILD_COST_CAP = 150_000
 
 /**
  * Eskalations-Gruppen: Gebäude derselben Gruppe teilen sich den Kosten-Multiplikator

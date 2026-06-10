@@ -38,7 +38,9 @@ function cfg(): GameConfig {
  * bewusst → neue (deterministisch reproduzierte) Hashes. Der Test bleibt der Tripwire für
  * ungewollte Hotpath-Algorithmus-Änderungen.
  */
-const GOLDEN: Record<number, number> = { 100: 2954437461, 200: 711772432, 300: 649858908 }
+// 300er neu am 2026-06-10 (Balance #6: Baukosten 40k + Deckel 150k — KIs bauen ab ~Tick 250 anders;
+// 100/200 unverändert). 2× deterministisch reproduziert.
+const GOLDEN: Record<number, number> = { 100: 2954437461, 200: 711772432, 300: 1897628166 }
 
 describe('Angriffs-Hotpath — golden hash', () => {
   it('deterministisches Selbstspiel bleibt bit-identisch (collectAttackableTiles & Co.)', () => {

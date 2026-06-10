@@ -44,14 +44,14 @@ function ownedTile(state: ReturnType<typeof createGame>, playerId: number): numb
 
 describe('building cost functions', () => {
   it('build cost escalates by powers of two', () => {
-    expect(buildCost('city', 0)).toBe(25_000)
-    expect(buildCost('city', 1)).toBe(50_000)
-    expect(buildCost('city', 2)).toBe(100_000)
+    expect(buildCost('city', 0)).toBe(40_000)
+    expect(buildCost('city', 1)).toBe(80_000)
+    expect(buildCost('city', 2)).toBe(150_000) // Deckel (BUILD_COST_CAP)
   })
 
   it('upgrade cost grows linearly with level (Basis ohne buildPrice = Typ-Basiskosten)', () => {
-    expect(upgradeCost({ type: 'city', level: 1 })).toBe(50_000)
-    expect(upgradeCost({ type: 'city', level: 2 })).toBe(75_000)
+    expect(upgradeCost({ type: 'city', level: 1 })).toBe(80_000)
+    expect(upgradeCost({ type: 'city', level: 2 })).toBe(120_000)
   })
 
   it('Städte brauchen Mindestabstand (ADR-0033): zu nah abgelehnt, weit genug erlaubt', () => {
@@ -88,9 +88,9 @@ describe('building cost functions', () => {
   })
 
   it('Städte-Kosten verdoppeln sich ab Level 3 (ADR-0031 Gold-Senke, Basis 25k)', () => {
-    expect(upgradeCost({ type: 'city', level: 3 })).toBe(150_000) // L3→4 = base×6
-    expect(upgradeCost({ type: 'city', level: 4 })).toBe(300_000) // L4→5 = base×12
-    expect(upgradeCost({ type: 'city', level: 5 })).toBe(600_000) // L5→6 = base×24
+    expect(upgradeCost({ type: 'city', level: 3 })).toBe(240_000) // L3→4 = base×6
+    expect(upgradeCost({ type: 'city', level: 4 })).toBe(480_000) // L4→5 = base×12
+    expect(upgradeCost({ type: 'city', level: 5 })).toBe(960_000) // L5→6 = base×24
     // Teure Stadt (buildPrice 100k) skaliert ×4 mit.
     expect(upgradeCost({ type: 'city', level: 3, buildPrice: 100_000 })).toBe(600_000)
   })
@@ -128,10 +128,10 @@ describe('buildCostFor — Eskalations-Gruppen (pro Spieler)', () => {
     setOwner(state.map, t2, 1)
     state.buildings.set(t2, { type: 'factory', ownerId: 1, tile: t2, level: 1, completesAtTick: 0 })
     // Gleiche Basis (25k) + geteilter Zähler 2 → Hafen und Fabrik kosten identisch: 25k × 2^2.
-    expect(buildCostFor(state, 1, 'port')).toBe(100_000)
-    expect(buildCostFor(state, 1, 'factory')).toBe(100_000)
+    expect(buildCostFor(state, 1, 'port')).toBe(150_000) // 40k×4 = 160k → Deckel
+    expect(buildCostFor(state, 1, 'factory')).toBe(150_000)
     // Stadt bleibt eigene Gruppe (Zähler 0) → Basispreis.
-    expect(buildCostFor(state, 1, 'city')).toBe(25_000)
+    expect(buildCostFor(state, 1, 'city')).toBe(40_000)
   })
 
   it('zählt nur eigene Gebäude (pro Spieler, nicht pro Spiel)', () => {
@@ -146,7 +146,7 @@ describe('buildCostFor — Eskalations-Gruppen (pro Spieler)', () => {
       completesAtTick: 0,
     })
     // Spieler 1 hat selbst keinen Hafen → Basispreis, unbeeinflusst von Spieler 2.
-    expect(buildCostFor(state, 1, 'port')).toBe(25_000)
+    expect(buildCostFor(state, 1, 'port')).toBe(40_000)
   })
 })
 

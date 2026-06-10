@@ -523,12 +523,12 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(p.goldEarned).toBeGreaterThan(0)
     expect(p.gold).toBe(p.goldEarned) // ohne Ausgaben identisch
 
-    // Kauf: eine Stadt bauen (kostet Gold). goldEarned darf dabei NICHT fallen.
-    p.gold = 30_000
+    // Kauf: eine Stadt bauen (kostet Gold, Basis 40k). goldEarned darf dabei NICHT fallen.
+    p.gold = 45_000
     const earnedBefore = p.goldEarned
     const tile = findOwnedTile(state, 1)
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'city' }])
-    expect(p.gold).toBeLessThan(30_000) // Gold wurde ausgegeben
+    expect(p.gold).toBeLessThan(45_000) // Gold wurde ausgegeben
     expect(p.goldEarned).toBeGreaterThanOrEqual(earnedBefore) // Einkommen zählt weiter, Ausgabe nicht
   })
 
@@ -572,7 +572,7 @@ describe('tick — Fabrik-Netzwerk-Wirtschaft', () => {
     expect(buildCostFor(state, 1, 'airport')).toBe(50_000)
     // Flugabwehr: flach wie Verteidigung (35k).
     expect(canBuildAt(state, 1, tile, 'flak')).toBe(true)
-    expect(buildCostFor(state, 1, 'flak')).toBe(35_000)
+    expect(buildCostFor(state, 1, 'flak')).toBe(45_000)
     // Bauen klappt.
     tick(state, [{ type: 'build', playerId: 1, tile, buildingType: 'airport' }])
     expect(state.buildings.get(tile)?.type).toBe('airport')
