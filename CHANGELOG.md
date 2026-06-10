@@ -4,6 +4,22 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.63.0] – 2026-06-10
+
+### Neu
+
+- **Kommandoleiste nimmt jetzt alle HUD-Blöcke auf:** Im **HUD-Editor** trägt jedes leisten-fähige Panel einen neuen Knopf „In die Leiste" direkt an seinem Rahmen — und „Aus der Leiste", wenn es bereits unten steckt. Damit lassen sich **Zeit**, **Truppen/Gold**, **Aktionen**, **Meldungen**, **Rangliste** (kompakt, scrollt intern) und **Minimap** flexibel ein- und ausbauen. Die Leiste wächst bei Bedarf mit. Standard bleibt unverändert (Truppen/Gold + Aktionen).
+
+### Geändert
+
+- **Leisten-Schalter jetzt auch im HUD-Editor:** Die Option „Kommandoleiste ein/aus" erscheint jetzt direkt im Layout-Tab des **HUD-Editors** — ein Weg über die Einstellungen entfällt.
+
+### Behoben
+
+- **„Standard"-Knopf stellt das HUD jetzt wirklich wieder her:** Panels kehrten nach dem Zurücksetzen im **HUD-Editor** an falsche Positionen zurück und standen erst nach dem nächsten Match-Start wieder richtig. Das HUD wirkte unmittelbar nach dem Reset verschoben oder asymmetrisch. Jetzt landen alle Panels sofort an ihren vorgesehenen Plätzen.
+- **Panels bleiben nicht mehr falsch hängen:** Das Zusammenspiel von **HUD-Editor** und **Kommandoleiste** konnte Panels dauerhaft an eine falsche Position verschieben. Der Fehler ist behoben.
+- **Leiste verhält sich bei jeder Fenstergröße korrekt:** Auf schmalen Fenstern (unter 900 px) blendet sich die Leiste jetzt automatisch aus, statt einen leeren Streifen zu hinterlassen; die Leistenhöhe passt sich live an den Inhalt an.
+
 ## [0.62.0] – 2026-06-10
 
 ### Neu
