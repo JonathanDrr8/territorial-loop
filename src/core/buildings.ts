@@ -157,7 +157,7 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
 /**
  * Baukosten. Verteidigungsposten kosten immer gleich viel (flach); alle anderen
  * eskalieren — jedes weitere Gebäude der Gruppe kostet doppelt (Stadt: 40k/80k/150k…),
- * gedeckelt bei [[BUILD_COST_CAP]] (100k). `existingCountInGroup` ist die Anzahl bereits
+ * gedeckelt bei [[BUILD_COST_CAP]] (150k). `existingCountInGroup` ist die Anzahl bereits
  * gebauter Gebäude der Eskalations-Gruppe (siehe [[COST_GROUP]]).
  */
 export function buildCost(type: BuildingType, existingCountInGroup: number): number {
