@@ -24,6 +24,26 @@ export type ControlMode = 'auto' | 'desktop' | 'touch'
 /** Größe des radialen Kontextmenüs (Rechtsklick/Long-Press) + Eck-Rad. */
 export type RadialSize = 'small' | 'normal' | 'large'
 
+/**
+ * Leisten-fähige HUD-Blöcke (RTS-Kommandoleiste): Zeit-Box, Truppen/Gold, Aktions-Block,
+ * Meldungs-Spalte, Rangliste, Minimap. `feed`/`minimap` gehören main.ts (Re-Parenting über
+ * die HUD-Slot-API), der Rest dem HUD selbst.
+ */
+export type CommandBarPanelId = 'info' | 'resource' | 'action' | 'feed' | 'rank' | 'minimap'
+
+/** Feste Anzeige-Reihenfolge der Blöcke in der Leiste (links → rechts). */
+export const COMMAND_BAR_ORDER: readonly CommandBarPanelId[] = [
+  'info',
+  'resource',
+  'action',
+  'feed',
+  'rank',
+  'minimap',
+]
+
+/** Default-Mitglieder der Leiste (wie Schritt 1: Truppen/Gold + Aktionen). */
+export const COMMAND_BAR_DEFAULT: readonly CommandBarPanelId[] = ['resource', 'action']
+
 /** Skalierungsfaktor je Radialgröße. */
 export const RADIAL_SCALE: Record<RadialSize, number> = { small: 0.82, normal: 1, large: 1.25 }
 
@@ -53,11 +73,17 @@ export interface HudPrefs {
    */
   tapAttackDelayMs: number
   /**
-   * RTS-Kommandoleiste (ADR-0010/Design-Doc, Opt-in): Truppen/Gold + Aktions-Block wandern in eine
+   * RTS-Kommandoleiste (ADR-0010/Design-Doc, Opt-in): gewählte HUD-Blöcke wandern in eine
    * durchgehende Leiste am unteren Rand (klassisches RTS-Layout). Default aus — bestehendes HUD
    * unverändert. Nur Desktop (breite Viewports); reine Client-Präferenz, kein Sim-Einfluss.
    */
   commandBar: boolean
+  /**
+   * Welche Blöcke in der Leiste leben (pro Panel wählbar, Jonathans „alle Elemente, aber
+   * anpassbar"). Reihenfolge in der Leiste ist FEST ([[COMMAND_BAR_ORDER]]) — das Set hier
+   * bestimmt nur die Mitgliedschaft. Default: Truppen/Gold + Aktions-Block (wie Schritt 1).
+   */
+  commandBarPanels: CommandBarPanelId[]
   /**
    * Zuletzt gewähltes Bau-Level (Level-Direktbau): 1..MAX_BUILDING_LEVEL. Wird gemerkt und beim
    * nächsten Bau-Modus vorgewählt (Jonathans „merkt sich, was man zuletzt gedrückt hat"). Reine
@@ -105,6 +131,18 @@ const DEFAULTS: HudPrefs = {
   tapAttackDelayMs: TAP_ATTACK_DELAY_DEFAULT,
   buildLevel: BUILD_LEVEL_DEFAULT,
   commandBar: false,
+  commandBarPanels: [...COMMAND_BAR_DEFAULT],
+}
+
+/** Validierte Leisten-Mitglieder aus rohem Input: nur bekannte IDs, dedupliziert, in fester
+ *  [[COMMAND_BAR_ORDER]]-Reihenfolge (Fallback = Default). */
+function clampBarPanels(v: unknown): CommandBarPanelId[] {
+  if (!Array.isArray(v)) return [...COMMAND_BAR_DEFAULT]
+  const known = new Set<string>(COMMAND_BAR_ORDER)
+  const set = new Set(
+    v.filter((x): x is CommandBarPanelId => typeof x === 'string' && known.has(x)),
+  )
+  return COMMAND_BAR_ORDER.filter((id) => set.has(id))
 }
 
 /** Clamped/validierter Off-Screen-Label-Wert aus rohem Input (Fallback = Default). */
@@ -158,6 +196,7 @@ function load(): HudPrefs {
         tapAttackDelayMs: clampTapDelay(parsed.tapAttackDelayMs),
         buildLevel: clampBuildLevel(parsed.buildLevel),
         commandBar: parsed.commandBar === true,
+        commandBarPanels: clampBarPanels(parsed.commandBarPanels),
       }
     }
   } catch {
@@ -176,14 +215,22 @@ function save(): void {
   }
 }
 
-/** Aktuelle Präferenzen (Kopie). */
+/** Aktuelle Präferenzen (Kopie — auch das Panels-Array, damit niemand hineinmutiert). */
 export function getHudPrefs(): HudPrefs {
-  return { ...prefs }
+  return { ...prefs, commandBarPanels: [...prefs.commandBarPanels] }
+}
+
+/** Wert-Gleichheit inkl. Array-Inhalt (commandBarPanels) — Referenzvergleich reicht dort nicht. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((x, i) => x === b[i])
+  return false
 }
 
 /** Eine Präferenz setzen + persistieren + alle Listener benachrichtigen. */
 export function setHudPref<K extends keyof HudPrefs>(key: K, value: HudPrefs[K]): void {
-  if (prefs[key] === value) return
+  if (sameValue(prefs[key], value)) return
   prefs = { ...prefs, [key]: value }
   save()
   for (const fn of listeners) fn(getHudPrefs())
@@ -194,7 +241,7 @@ export function setHudPrefs(patch: Partial<HudPrefs>): void {
   const next = { ...prefs, ...patch }
   let changed = false
   for (const k of Object.keys(next) as (keyof HudPrefs)[]) {
-    if (prefs[k] !== next[k]) changed = true
+    if (!sameValue(prefs[k], next[k])) changed = true
   }
   if (!changed) return
   prefs = next

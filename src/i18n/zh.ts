@@ -353,6 +353,8 @@ export const zh: Record<string, string> = {
   'settings.radialSize': '环形菜单大小',
   'settings.uiOpacity': '界面不透明度',
   'settings.commandBar': 'RTS指挥栏（底部）',
+  'hud.editor.toBar': '移入栏',
+  'hud.editor.fromBar': '移出栏',
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',

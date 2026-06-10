@@ -398,6 +398,8 @@ export const ru: Record<string, string> = {
   'settings.radialSize': 'Размер радиального меню',
   'settings.uiOpacity': 'Непрозрачность интерфейса',
   'settings.commandBar': 'Командная панель RTS (внизу)',
+  'hud.editor.toBar': 'В панель',
+  'hud.editor.fromBar': 'Из панели',
   'settings.radialSize.small': 'Маленький',
   'settings.radialSize.normal': 'Обычный',
   'settings.radialSize.large': 'Большой',

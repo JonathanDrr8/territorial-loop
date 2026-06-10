@@ -857,6 +857,10 @@ function startMatch(
   container.appendChild(feedColumn)
   registerScalable(feedColumn)
   registerPanel('feed', feedColumn)
+  // Sauberer Heimat-Zustand (inkl. zoom) — Restore-Ziel nach einem Aufenthalt in der
+  // RTS-Kommandoleiste. Ein Laufzeit-Snapshot wäre verschmutzt, sobald der HUD-Editor offen
+  // war (der „armiert" Panels mit transform/left/top).
+  const feedHomeCss = feedColumn.style.cssText
 
   // Reihenfolge zählt: Bündnis-Karten zuerst (oben), Log danach (unten, direkt über der Minimap).
   const alliancePrompt = createAlliancePrompt(
@@ -882,6 +886,7 @@ function startMatch(
   const editorOpts: HudEditorOptions = {
     isCockpit: () => isMobileLayout() && !spectator,
     onClose: () => applyMobileLayout(),
+    commandBarMembers: () => hud.commandBarMembers(),
   }
   const hudEditor =
     hudSandbox === true
@@ -1198,6 +1203,17 @@ function startMatch(
     attackBar.style.display = show ? 'flex' : 'none'
   }
 
+  // Feed in der RTS-Kommandoleiste? Restore geht auf den Heimat-Zustand (feedHomeCss).
+  let feedInBar = false
+  /** Stellt die Feed-Spalte aus der Leiste wieder her (vor Cockpit-/Desktop-Platzierung). */
+  const restoreFeedFromBar = (): void => {
+    if (!feedInBar) return
+    feedInBar = false
+    feedColumn.style.cssText = feedHomeCss
+    registerScalable(feedColumn) // re-anwenden: aktueller UI-Maßstab (zoom) statt Snapshot-Stand
+    registerPanel('feed', feedColumn)
+  }
+
   const applyMobileLayout = (): void => {
     const m = isMobileLayout()
     const cockpit = m && !spectator
@@ -1218,7 +1234,12 @@ function startMatch(
     // „Meldungen"-Tab IN der Rangliste (in deren Slot eingehängt), auf Desktop als eigenes Panel
     // unten rechts über der Minimap.
     alliancePrompt.setCompact(cockpit)
+    // RTS-Kommandoleiste (Desktop): hud.setMobile oben hat die Leiste frisch auf-/abgebaut —
+    // jetzt die main-eigenen Blöcke (Feed/Minimap) in ihre Slots hängen bzw. zurückholen.
+    const feedBarSlot = cockpit ? null : hud.commandBarSlot('feed')
+    minimap.setCommandBarSlot(cockpit ? null : hud.commandBarSlot('minimap'))
     if (cockpit) {
+      restoreFeedFromBar()
       // In den Rangliste-Slot: fließend (nicht absolut), volle Breite, eigenes Zoom aus (das
       // Rangliste-Panel skaliert bereits → sonst doppeltes `zoom`), scrollbar wenn viel ansteht.
       unregisterScalable(feedColumn)
@@ -1236,7 +1257,28 @@ function startMatch(
       feedColumn.style.maxHeight = '52vh'
       feedColumn.style.overflowY = 'auto'
       hud.getMobileFeedSlot().appendChild(feedColumn)
+    } else if (feedBarSlot !== null) {
+      // In die RTS-Leiste: eigener Slot (Breite über den Slot-Flex), intern scrollbar;
+      // kein Clamp/Editor-Drag in der Leiste (abgemeldet), Zoom wie die anderen Leisten-Blöcke.
+      feedInBar = true
+      unregisterPanel('feed')
+      feedBarSlot.appendChild(feedColumn)
+      registerScalable(feedColumn)
+      feedColumn.style.zoom = String(getUiScale())
+      feedColumn.style.transform = 'none'
+      feedColumn.style.position = 'static'
+      feedColumn.style.top = 'auto'
+      feedColumn.style.bottom = 'auto'
+      feedColumn.style.left = 'auto'
+      feedColumn.style.right = 'auto'
+      feedColumn.style.marginLeft = '0'
+      feedColumn.style.marginRight = '0'
+      feedColumn.style.width = '100%'
+      feedColumn.style.maxWidth = 'none'
+      feedColumn.style.maxHeight = '240px'
+      feedColumn.style.overflowY = 'auto'
     } else {
+      restoreFeedFromBar()
       // Zurück als eigenes Desktop-Panel. Editor-Override (falls gesetzt) erst danach wieder anwenden.
       container.appendChild(feedColumn)
       registerScalable(feedColumn)

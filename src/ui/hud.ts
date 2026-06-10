@@ -47,7 +47,13 @@ import { rgbaToCss } from './colors'
 import { createBuildLevelStrip } from './build-level-strip'
 import { buildingIcon, icon } from './icons'
 import { setBottomInset, getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
-import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
+import {
+  COMMAND_BAR_ORDER,
+  getHudPrefs,
+  onHudPrefsChange,
+  type CommandBarPanelId,
+  type HudPrefs,
+} from './hud-prefs'
 import { panelStyle } from './theme'
 import { getUiScale, registerScalable, unregisterScalable } from './ui-scale'
 
@@ -131,6 +137,17 @@ export interface HUDApi {
    * (Bündnis-Anfragen + Ereignislog) einhängt. Auf Desktop ungenutzt (Feed bleibt eigenes Panel).
    */
   getMobileFeedSlot(): HTMLElement
+  /**
+   * Slot der RTS-Kommandoleiste für main-eigene Blöcke (Meldungs-Spalte/Minimap).
+   * `null` wenn die Leiste aus ist oder der Block nicht als Mitglied gewählt wurde —
+   * dann gehört das Element an seinen normalen Platz zurück.
+   */
+  commandBarSlot(id: 'feed' | 'minimap'): HTMLElement | null
+  /**
+   * Aktive Leisten-Mitglieder mit ihren Elementen (in Leisten-Reihenfolge) — für den
+   * HUD-Editor („aus Leiste"-Rahmen über den Blöcken in der Leiste).
+   */
+  commandBarMembers(): Array<[CommandBarPanelId, HTMLElement]>
   destroy(): void
 }
 
@@ -1035,19 +1052,58 @@ export function createHUD(
     'pointer-events: auto',
   ])
   container.appendChild(cmdBar)
-  /** Original-Inline-Styles der re-homed Panels — fürs exakte Zurückbauen beim Ausschalten. */
-  const cmdBarSaved = new Map<HTMLElement, string>()
+
+  // Slots in fester Leisten-Reihenfolge (COMMAND_BAR_ORDER). HUD-eigene Blöcke ziehen per
+  // Re-Parenting in ihren Slot; `feed`/`minimap` gehören main.ts und werden dort über
+  // `commandBarSlot()` eingehängt. Nicht gewählte Slots bleiben display:none.
+  const cmdBarSlots = new Map<CommandBarPanelId, HTMLElement>()
+  for (const id of COMMAND_BAR_ORDER) {
+    const slot = document.createElement('div')
+    slot.style.cssText = 'display: none; align-items: stretch; min-width: 0'
+    cmdBarSlots.set(id, slot)
+    cmdBar.appendChild(slot)
+  }
+  /** HUD-eigene Leisten-Blöcke (feed/minimap fehlen bewusst — die gehören main.ts). */
+  const cmdBarOwn = new Map<CommandBarPanelId, HTMLElement>([
+    ['info', infoBox],
+    ['resource', troopBadge],
+    ['action', actionBar],
+    ['rank', rankPanel],
+  ])
+  /** Flex-Verhalten des Slots je Block (Aktions-Block füllt die Restbreite). */
+  const CMD_BAR_FLEX: Record<CommandBarPanelId, string> = {
+    info: '0 0 auto',
+    resource: '0 0 280px',
+    action: '1 1 auto',
+    feed: '0 0 300px',
+    rank: '0 0 auto',
+    minimap: '0 0 auto',
+  }
+  /**
+   * Sauberer Heimat-Zustand (inkl. zoom) je Leisten-Block — Restore-Ziel beim Ausschalten.
+   * Zur Bauzeit erfasst: ein Laufzeit-Snapshot wäre verschmutzt, sobald der HUD-Editor offen
+   * war (der „armiert" Panels mit transform/left/top).
+   */
+  const cmdBarHome = new Map<HTMLElement, string>()
+  for (const el of cmdBarOwn.values()) cmdBarHome.set(el, el.style.cssText)
   let cmdBarActive = false
+  let cmdBarMemberIds: CommandBarPanelId[] = []
 
   function setCommandBar(on: boolean): void {
     if (on === cmdBarActive) return
     cmdBarActive = on
     if (on) {
-      for (const el of [troopBadge, actionBar]) {
-        cmdBarSaved.set(el, el.style.cssText)
+      cmdBarMemberIds = getHudPrefs().commandBarPanels
+      for (const id of cmdBarMemberIds) {
+        const slot = cmdBarSlots.get(id)
+        if (slot === undefined) continue
+        slot.style.display = 'flex'
+        slot.style.flex = CMD_BAR_FLEX[id]
+        const el = cmdBarOwn.get(id)
+        if (el === undefined) continue // feed/minimap: main.ts hängt sie ein
         // Aus dem Layout-/Editor-System nehmen (kein Clamp/Drag in der Leiste) …
-        unregisterPanel(el === troopBadge ? 'resource' : 'action')
-        cmdBar.appendChild(el)
+        unregisterPanel(id)
+        slot.appendChild(el)
         // … und vom Absolut-Anker auf Flex-Kind umstellen (Look/Innenleben bleiben).
         el.style.position = 'static'
         el.style.left = 'auto'
@@ -1057,26 +1113,43 @@ export function createHUD(
         el.style.transform = 'none'
         el.style.margin = '0'
         el.style.maxWidth = 'none'
+        el.style.flex = '1 1 auto'
+        registerScalable(el) // zoom auf aktuellen UI-Maßstab (der Editor setzt ihn auf 1)
+        if (id === 'rank') {
+          // Rangliste kompakt: „Alle zeigen" darf die Leiste nicht aufblähen → intern scrollen.
+          el.style.maxHeight = '240px'
+          el.style.overflowY = 'auto'
+        }
       }
-      actionBar.style.flex = '1 1 auto'
-      troopBadge.style.flex = '0 0 280px'
       cmdBar.style.display = 'flex'
       // Andere unten-verankerte Panels (Minimap, Angriffs-Panel, Feed) über die Leiste heben —
-      // wirkt auch auf Panels, die sich erst NACH dem HUD registrieren (Minimap).
+      // wirkt auch auf Panels, die sich erst NACH dem HUD registrieren (Minimap). Die Höhe
+      // wird zusätzlich vom ResizeObserver unten nachgeführt (Leiste wächst z.B. mit Minimap).
       setBottomInset(cmdBar.offsetHeight + 8)
     } else {
       setBottomInset(0)
       cmdBar.style.display = 'none'
-      for (const el of [troopBadge, actionBar]) {
-        const saved = cmdBarSaved.get(el)
-        if (saved !== undefined) el.style.cssText = saved
+      for (const id of cmdBarMemberIds) {
+        const slot = cmdBarSlots.get(id)
+        if (slot !== undefined) slot.style.display = 'none'
+        const el = cmdBarOwn.get(id)
+        if (el === undefined) continue
+        const home = cmdBarHome.get(el)
+        if (home !== undefined) el.style.cssText = home
         container.appendChild(el)
+        registerScalable(el) // re-anwenden: aktueller UI-Maßstab (zoom) statt Snapshot-Stand
+        registerPanel(id, el)
       }
-      cmdBarSaved.clear()
-      registerPanel('resource', troopBadge)
-      registerPanel('action', actionBar)
+      cmdBarMemberIds = []
     }
   }
+
+  // Leisten-Höhe lebt: main.ts hängt feed/minimap erst NACH diesem Listener ein, und
+  // Hinweis-Banner (Boot/Bomber) togglen im Spiel — den Unterkanten-Versatz nachführen.
+  const cmdBarResize = new ResizeObserver(() => {
+    if (cmdBarActive) setBottomInset(cmdBar.offsetHeight + 8)
+  })
+  cmdBarResize.observe(cmdBar)
 
   // ---- HUD-Layout-Präferenzen anwenden (Slider/Numpad/Split, ADR-0024) -----------------------
   // Wird einmal beim Bau und danach bei jeder Editor-Umschaltung (onHudPrefsChange) ausgeführt.
@@ -1211,15 +1284,21 @@ export function createHUD(
   }
 
   function applyLayoutPrefs(p: HudPrefs): void {
-    // RTS-Kommandoleiste: nur Desktop-Breiten; in der Leiste sind die Blöcke immer zusammengefügt
+    // RTS-Kommandoleiste: nur Desktop-Breiten; Blöcke IN der Leiste sind immer zusammengefügt
     // (Split-Teile würden aus der Leiste „ausbrechen") und beim Layout-/Editor-System abgemeldet.
-    const wantBar = p.commandBar && window.innerWidth >= 900
+    const wantBar =
+      p.commandBar && !mobile && window.innerWidth >= 900 && p.commandBarPanels.length > 0
+    // Immer ZUERST komplett zurückbauen (Mitglieder können sich geändert haben) — die Schritte
+    // unten registrieren neu, am Ende zieht setCommandBar(true) den neuen Satz ein. Synchron,
+    // dazwischen wird nicht gemalt → kein Flackern.
+    setCommandBar(false)
     if (!wantBar) {
-      setCommandBar(false) // ZUERST zurückbauen — die Schritte unten registrieren neu
       setBottomInset(0) // auch nach Match-Neustart (frische Closure, Modul-Inset evtl. noch aktiv)
     }
-    const resourceSplit = wantBar ? false : p.resourceSplit
-    const actionSplit = wantBar ? false : p.actionSplit
+    const resInBar = wantBar && p.commandBarPanels.includes('resource')
+    const actInBar = wantBar && p.commandBarPanels.includes('action')
+    const resourceSplit = resInBar ? false : p.resourceSplit
+    const actionSplit = actInBar ? false : p.actionSplit
 
     // 0) Truppen-Anzeige-Stil: Balken oder Kugel (beide liegen in partBar; nur Sichtbarkeit).
     const orbMode = p.troopStyle === 'orb'
@@ -1247,7 +1326,7 @@ export function createHUD(
     const resourceEmpty = resourceSplit && p.sliderHome !== 'resource'
     troopBadge.style.display = resourceEmpty ? 'none' : ''
     if (resourceEmpty) unregisterPanel('resource')
-    else if (!wantBar) registerPanel('resource', troopBadge)
+    else if (!resInBar) registerPanel('resource', troopBadge)
 
     // 5) Aktions-Gruppe (Käufe/Boot). Beim Zusammenfügen Inhalte vor die Hinweis-Banner zurück.
     setGroupSplit(actionSplit, ACT_PARTS, actionBar, 'action', () => {
@@ -1263,7 +1342,7 @@ export function createHUD(
     const actionEmpty = actionSplit && p.sliderHome !== 'action'
     actionBar.style.display = actionEmpty ? 'none' : ''
     if (actionEmpty) unregisterPanel('action')
-    else if (!wantBar) registerPanel('action', actionBar)
+    else if (!actInBar) registerPanel('action', actionBar)
 
     // 6) Zum Schluss in die Leiste umziehen (Schritte 4/5 haben die Blöcke zusammengefügt).
     if (wantBar) setCommandBar(true)
@@ -1799,6 +1878,11 @@ export function createHUD(
     setMobile(on: boolean): void {
       mobile = on
       mobileRankOpen = false // beim Moduswechsel die Mobile-Rangliste zuklappen
+      // Leiste + 900px-Gate neu bewerten (läuft via applyMobileLayout auch bei jedem Resize):
+      // im Cockpit-Modus baut das die Leiste ab (sonst bliebe ein leerer Streifen — Tablets!),
+      // und Fenster über/unter 900px schalten sie live um. VOR den display-Zeilen unten, damit
+      // der Cockpit-Modus zuletzt entscheidet, was sichtbar ist.
+      applyLayoutPrefs(getHudPrefs())
       infoBox.style.display = on ? 'none' : ''
       rankPanel.style.display = on ? 'none' : ''
       // Tab-Leiste nur auf dem Handy (dort liegt der Feed im Rangliste-Panel); auf Desktop aus,
@@ -1827,6 +1911,20 @@ export function createHUD(
     },
     getMobileFeedSlot(): HTMLElement {
       return feedSlot
+    },
+    commandBarSlot(id: 'feed' | 'minimap'): HTMLElement | null {
+      if (!cmdBarActive || !cmdBarMemberIds.includes(id)) return null
+      return cmdBarSlots.get(id) ?? null
+    },
+    commandBarMembers(): Array<[CommandBarPanelId, HTMLElement]> {
+      if (!cmdBarActive) return []
+      const out: Array<[CommandBarPanelId, HTMLElement]> = []
+      for (const id of cmdBarMemberIds) {
+        // Eigene Blöcke direkt; feed/minimap über das von main.ts eingehängte Slot-Kind.
+        const el = cmdBarOwn.get(id) ?? cmdBarSlots.get(id)?.firstElementChild
+        if (el instanceof HTMLElement) out.push([id, el])
+      }
+      return out
     },
     setSpeed(speed: SpeedMultiplier): void {
       currentSpeed = speed
@@ -1912,7 +2010,8 @@ export function createHUD(
       attackPanel.remove()
       rankPanel.remove()
       actionBar.remove()
-      cmdBar.remove() // RTS-Kommandoleiste (enthält ggf. troopBadge/actionBar — beide oben entfernt)
+      cmdBarResize.disconnect()
+      cmdBar.remove() // RTS-Kommandoleiste (enthält ggf. re-homed Blöcke — eigene oben entfernt)
       // Modul-Inset zurücksetzen — sonst bekämen die Panels des NÄCHSTEN Matches beim Registrieren
       // den stalen Versatz aufgerechnet (Audit W1: verschmutzter cssText-Snapshot über Match-Grenzen).
       setBottomInset(0)

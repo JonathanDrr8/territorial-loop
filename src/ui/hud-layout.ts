@@ -268,6 +268,15 @@ export function setBottomInset(px: number): void {
 }
 
 /**
+ * Unverschobener `bottom`-Wert eines aktuell vom Inset verschobenen Panels (sonst `null`).
+ * Der HUD-Editor erfasst damit beim Armieren den kanonischen Zustand — sein Vor-Arm-Snapshot
+ * darf den temporären Leisten-Versatz nicht enthalten (sonst restauriert er ihn später als Anker).
+ */
+export function insetOriginalBottom(el: HTMLElement): string | null {
+  return insetApplied.get(el) ?? null
+}
+
+/**
  * Externe Style-Resets einsammeln: Code außerhalb des Layout-Systems schreibt `bottom` teils hart
  * neu (z. B. `applyMobileLayout` beim Moduswechsel: Minimap `12px`, Feed `224px`) und wischt damit
  * einen aktiven Inset weg. Hier nach solchen Resets aufrufen — Panels, deren `bottom` wieder auf

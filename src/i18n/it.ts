@@ -406,6 +406,8 @@ export const it: Record<string, string> = {
   'settings.radialSize': 'Dimensione menu radiale',
   'settings.uiOpacity': 'Opacità interfaccia',
   'settings.commandBar': 'Barra di comando RTS (in basso)',
+  'hud.editor.toBar': 'Nella barra',
+  'hud.editor.fromBar': 'Fuori dalla barra',
   'settings.radialSize.small': 'Piccola',
   'settings.radialSize.normal': 'Normale',
   'settings.radialSize.large': 'Grande',

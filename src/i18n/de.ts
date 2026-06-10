@@ -412,6 +412,8 @@ export const de: Record<string, string> = {
   'settings.radialSize': 'Radialmenü-Größe',
   'settings.uiOpacity': 'UI-Deckkraft',
   'settings.commandBar': 'RTS-Kommandoleiste (unten)',
+  'hud.editor.toBar': 'In die Leiste',
+  'hud.editor.fromBar': 'Aus der Leiste',
   'settings.radialSize.small': 'Klein',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Groß',

@@ -14,8 +14,11 @@
 import { t } from '../i18n'
 import {
   getPanel,
+  insetOriginalBottom,
   invalidateClampAnchor,
   panelElements,
+  refreshBottomInset,
+  registerPanel,
   resetLayout,
   setPanel,
   type PanelOverride,
@@ -23,7 +26,7 @@ import {
 import { getUiScale } from './ui-scale'
 import { getTheme, panelStyle, setTheme, THEMES } from './theme'
 import { getMapStyleName, MAP_STYLES, setMapStyle } from './map-style'
-import { getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
+import { COMMAND_BAR_ORDER, getHudPrefs, onHudPrefsChange, setHudPref } from './hud-prefs'
 import {
   FIXED_PRESET_IDS,
   applyFixedPreset,
@@ -96,6 +99,9 @@ export interface HudEditorOptions {
   /** Bei jedem Schließen aufgerufen (auch ohne „Fertig") — z. B. um die Cockpit-Sichtbarkeit
    *  nach Aus-/Einblenden im Editor neu anzuwenden. */
   onClose?: () => void
+  /** Aktive Blöcke der RTS-Kommandoleiste (hud.commandBarMembers) — der Editor legt über sie
+   *  „Aus der Leiste"-Rahmen. Fehlt der Hook, zeigt der Editor keine Leisten-Rahmen. */
+  commandBarMembers?: () => Array<[string, HTMLElement]>
 }
 
 export function createHudEditor(container: HTMLElement, opts: HudEditorOptions = {}): HudEditorApi {
@@ -236,8 +242,43 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     return getPanel(id)?.s ?? getUiScale()
   }
 
+  /**
+   * Vor-Arm-Zustand je Panel (cssText): arm() bäckt die AKTUELLE visuelle Position in left/top —
+   * inklusive eines temporären Kommandoleisten-Versatzes (setBottomInset). Ohne Rückbau blieben
+   * Panels nach Leiste-aus an der verschobenen Position „gestrandet". Deshalb wird vor jedem
+   * Frames-Neubau und beim Schließen dis-armiert (Zustand zurück, Overrides erneut anwenden).
+   */
+  const armSaved = new Map<string, { el: HTMLElement; css: string }>()
+
+  /** Alle armierten Panels auf ihren Vor-Arm-Zustand zurück; Overrides erneut anwenden. */
+  function disarmAll(): void {
+    for (const [id, saved] of armSaved) {
+      saved.el.style.cssText = saved.css
+      // Während der Session geänderte/bestehende Overrides erneut anwenden (Drag/Resize hat sie
+      // via setPanel gespeichert; der Vor-Arm-Zustand kann älter sein). Re-Register ist idempotent.
+      if (getPanel(id) !== undefined) registerPanel(id, saved.el)
+    }
+    armSaved.clear()
+    // Panels sind wieder anker-basiert → aktiven Kommandoleisten-Versatz erneut anwenden.
+    refreshBottomInset()
+  }
+
   /** Panel ins absolute Editor-Modell überführen (zoom raus, left/top/scale gesetzt). */
   function arm(id: string, el: HTMLElement): void {
+    if (!armSaved.has(id)) {
+      // Kanonischen Zustand erfassen: ein aktiver Kommandoleisten-Versatz steckt im aktuellen
+      // `bottom` — für den Snapshot kurz auf den Original-Wert zurück (sonst würde der Versatz
+      // beim Dis-Armieren als fester Anker restauriert).
+      const orig = insetOriginalBottom(el)
+      if (orig !== null) {
+        const shifted = el.style.bottom
+        el.style.bottom = orig
+        armSaved.set(id, { el, css: el.style.cssText })
+        el.style.bottom = shifted
+      } else {
+        armSaved.set(id, { el, css: el.style.cssText })
+      }
+    }
     const s = scaleOf(id)
     const r = localRect(el)
     // Der Editor uebernimmt die Position direkt per Style-Writes — ein evtl. vom Clamp
@@ -516,6 +557,40 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       hint.style.cssText = 'font-size: 10px; opacity: 0.6; color: var(--tl-text)'
       nameTag.appendChild(hint)
     }
+    // „In die Leiste"-Chip: nur wenn die RTS-Kommandoleiste an ist und dieses Panel
+    // leisten-fähig, aber (noch) kein Mitglied ist. Klick → Mitglied; der Pref-Listener
+    // baut Rahmen + Leiste neu (das Panel wandert sichtbar in die Leiste).
+    const prefs = getHudPrefs()
+    const known = new Set<string>(COMMAND_BAR_ORDER)
+    const memberSet = new Set<string>(prefs.commandBarPanels)
+    if (prefs.commandBar && known.has(id) && !memberSet.has(id)) {
+      const toBar = document.createElement('button')
+      toBar.type = 'button'
+      toBar.textContent = t('hud.editor.toBar')
+      toBar.style.cssText = [
+        'margin-top: 2px',
+        'padding: 2px 8px',
+        'font-family: var(--tl-font)',
+        'font-size: 10px',
+        'font-weight: 700',
+        'cursor: pointer',
+        'border-radius: 4px',
+        'border: 1px solid var(--tl-accent)',
+        'background: rgba(0,0,0,0.55)',
+        'color: var(--tl-accent)',
+        'pointer-events: auto',
+      ].join(';')
+      toBar.addEventListener('pointerdown', (e) => {
+        e.stopPropagation()
+      })
+      toBar.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const cur = getHudPrefs().commandBarPanels
+        const next = COMMAND_BAR_ORDER.filter((p) => p === id || cur.includes(p))
+        setHudPref('commandBarPanels', next)
+      })
+      nameTag.appendChild(toBar)
+    }
     frame.appendChild(nameTag)
 
     // ×-Knopf zum Ausblenden (oben rechts, innen) — außer bei nicht-ausblendbaren Elementen
@@ -605,6 +680,70 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     container.appendChild(frame)
     frames.set(id, frame)
     layoutFrame(id)
+  }
+
+  /**
+   * Schlichter Rahmen über einem Block IN der RTS-Kommandoleiste: kein Drag/Resize/Hide (die
+   * Leiste layoutet selbst), nur ein „Aus der Leiste"-Chip. Schlüssel `bar:<id>` in `frames`,
+   * damit der normale Rebuild-/Aufräum-Pfad sie mit entfernt.
+   */
+  function buildBarFrame(id: string, el: HTMLElement): void {
+    const r = localRect(el)
+    const frame = document.createElement('div')
+    frame.style.cssText = [
+      'position: absolute',
+      `left: ${Math.round(r.x).toString()}px`,
+      `top: ${Math.round(r.y).toString()}px`,
+      `width: ${Math.round(r.w).toString()}px`,
+      `height: ${Math.round(r.h).toString()}px`,
+      'z-index: 57',
+      'box-sizing: border-box',
+      'border: 2px dashed var(--tl-accent)',
+      'border-radius: 8px',
+      'background: rgba(70,217,230,0.06)',
+      'pointer-events: none',
+    ].join(';')
+    const tag = document.createElement('div')
+    tag.style.cssText = [
+      'position: absolute',
+      'inset: 0',
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'justify-content: center',
+      'gap: 3px',
+      'text-align: center',
+      'pointer-events: none',
+    ].join(';')
+    const name = document.createElement('div')
+    name.textContent = t(PANEL_LABEL[id] ?? id)
+    name.style.cssText =
+      'font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: var(--tl-accent); text-shadow: 0 1px 3px rgba(0,0,0,0.8)'
+    tag.appendChild(name)
+    const fromBar = document.createElement('button')
+    fromBar.type = 'button'
+    fromBar.textContent = t('hud.editor.fromBar')
+    fromBar.style.cssText = [
+      'padding: 2px 8px',
+      'font-family: var(--tl-font)',
+      'font-size: 10px',
+      'font-weight: 700',
+      'cursor: pointer',
+      'border-radius: 4px',
+      'border: 1px solid var(--tl-accent)',
+      'background: rgba(0,0,0,0.55)',
+      'color: var(--tl-accent)',
+      'pointer-events: auto',
+    ].join(';')
+    fromBar.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const next = getHudPrefs().commandBarPanels.filter((p) => p !== id)
+      setHudPref('commandBarPanels', next)
+    })
+    tag.appendChild(fromBar)
+    frame.appendChild(tag)
+    container.appendChild(frame)
+    frames.set(`bar:${id}`, frame)
   }
 
   // ---- Element-Liste in der Werkzeugleiste ---------------------------------------------------
@@ -1210,6 +1349,9 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
   function buildFrames(): void {
     for (const [, frame] of frames) frame.remove()
     frames.clear()
+    // Erst dis-armieren: arm() unten soll von frischen, anker-basierten Positionen ausgehen
+    // (sonst bäckt es z. B. einen inzwischen geänderten Kommandoleisten-Versatz fest).
+    disarmAll()
     panelMap.clear()
     forcedShown.clear()
     // Nur die Panels des aktiven Modus bearbeiten: im Cockpit-/Maus-Modus die Cockpit-Elemente
@@ -1241,6 +1383,11 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
         if (frame !== undefined) frame.style.display = 'none'
       }
     }
+    // Blöcke IN der RTS-Kommandoleiste: eigener Rahmen mit „Aus der Leiste"-Chip (kein Drag —
+    // die Leiste layoutet selbst). Nur Desktop (die Leiste existiert im Cockpit-Modus nicht).
+    if (!cockpit) {
+      for (const [id, el] of opts.commandBarMembers?.() ?? []) buildBarFrame(id, el)
+    }
   }
 
   // ---- Öffnen / Schließen --------------------------------------------------------------------
@@ -1263,6 +1410,9 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
     forcedShown.clear()
     for (const [, frame] of frames) frame.remove()
     frames.clear()
+    // Armierte Panels zurückbauen: Anker (bottom/right) statt eingefrorener left/top-Positionen —
+    // sonst stranden sie, wenn sich der Kommandoleisten-Versatz später ändert (Leiste aus).
+    disarmAll()
     panelMap.clear()
     toolbar.style.display = 'none'
     hideGuides()

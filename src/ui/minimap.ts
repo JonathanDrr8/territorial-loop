@@ -23,6 +23,11 @@ export interface MinimapApi {
   setMobile(on: boolean): void
   /** Komplett ein-/ausblenden (Mobile-Cockpit: Minimap aus, das Eck-Rad übernimmt). */
   setVisible(on: boolean): void
+  /**
+   * In die RTS-Kommandoleiste einhängen (`slot`) bzw. zurück an den normalen Eck-Platz (`null`).
+   * Klick-Mapping bleibt korrekt (rechnet über getBoundingClientRect). Idempotent.
+   */
+  setCommandBarSlot(slot: HTMLElement | null): void
   destroy(): void
 }
 
@@ -111,6 +116,9 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
   container.appendChild(wrapper)
   registerScalable(wrapper)
   registerPanel('minimap', wrapper)
+  // Sauberer Heimat-Zustand (inkl. zoom) — Restore-Ziel nach einem Aufenthalt in der
+  // RTS-Kommandoleiste (ein Laufzeit-Snapshot wäre durch den HUD-Editor „armiert").
+  const homeCss = wrapper.style.cssText
 
   const ctx = canvas.getContext('2d')
   if (ctx === null) throw new Error('Minimap: 2D context not available')
@@ -196,10 +204,14 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
     }
   }
 
+  // Gerade in der Kommandoleiste eingehängt?
+  let inBar = false
+
   return {
     update,
     /** Position live umschalten (Steuerungs-Modus): Mobile = oben rechts, sonst unten rechts. */
     setMobile(on: boolean): void {
+      if (inBar) return // in der Leiste: Eck-Anker nicht anfassen (relative Position!)
       if (on) {
         wrapper.style.top = `${String(MARGIN)}px`
         wrapper.style.bottom = 'auto'
@@ -210,6 +222,28 @@ export function createMinimap(deps: MinimapDeps): MinimapApi {
     },
     setVisible(on: boolean): void {
       wrapper.style.display = on ? '' : 'none'
+    },
+    setCommandBarSlot(slot: HTMLElement | null): void {
+      if (slot !== null) {
+        inBar = true
+        unregisterPanel('minimap') // kein Clamp/Editor-Drag in der Leiste
+        slot.appendChild(wrapper)
+        // Relativ statt absolut: bleibt Anker für den Einklapp-Knopf (position:absolute).
+        // Editor-Arm-Reste (transform/zoom/left/top) mit überschreiben.
+        wrapper.style.position = 'relative'
+        wrapper.style.top = 'auto'
+        wrapper.style.bottom = 'auto'
+        wrapper.style.left = 'auto'
+        wrapper.style.right = 'auto'
+        wrapper.style.transform = 'none'
+        registerScalable(wrapper) // zoom auf aktuellen UI-Maßstab (Editor setzt ihn auf 1)
+      } else if (inBar) {
+        inBar = false
+        wrapper.style.cssText = homeCss
+        container.appendChild(wrapper)
+        registerScalable(wrapper) // re-anwenden: aktueller UI-Maßstab statt Snapshot-Stand
+        registerPanel('minimap', wrapper)
+      }
     },
     destroy(): void {
       unregisterPanel('minimap')
