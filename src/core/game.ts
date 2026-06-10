@@ -463,7 +463,9 @@ const SPAWN_HALF_SIZE = 2 // 5×5-Kern muss Land sein (Zentrums-Validierung)
 const SPAWN_TARGET_TILES = 100
 /** Start-Größe wilder Nationen — größer als zuvor (mehr Land/Beute), dafür dünn besiedelt
  * (niedriger Cap-Faktor), und beim Einschließen sofort annektierbar (eroberbarer Puffer). */
-const WILD_SPAWN_TILES = 48
+// 2026-06-10 von 48 verdoppelt: die Karte soll ab der ersten Minute nach Wildnis aussehen
+// (Jonathans „früher war die Map viel voller"), nicht erst nach Ausbreitungs-Minuten.
+const WILD_SPAWN_TILES = 96
 /** Alle wie viele Ticks geprüft wird, ob eine wilde Nation eingeschlossen wurde (→ Annexion). */
 const WILD_ENCIRCLE_INTERVAL = 12
 /**
@@ -3102,7 +3104,8 @@ function growPopulations(state: GameState): void {
     // gebundene Angriffstruppen das Wachstum nicht — und sie produzieren nicht selbst.
     const committed = committedTroops(player)
     const freeCap = Math.max(0, max - committed)
-    const rate = troopIncreaseRate(player.troops, freeCap)
+    // Wilde wachsen ohne den OpenFront-Tempo-Faktor (volle Wildnis trotz Spieler-Nerf).
+    const rate = troopIncreaseRate(player.troops, freeCap, { wild: player.wild })
     if (rate < 0) {
       // Über dem freien Cap (z.B. nach Gebietsverlust): Überschuss langsam abschmelzen.
       player.troops = Math.max(0, player.troops + rate)

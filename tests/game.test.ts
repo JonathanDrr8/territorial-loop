@@ -1098,7 +1098,7 @@ describe('wilde Nationen', () => {
     const ai = state.players.get(1)
     const wild = state.players.get(2)
     if (ai === undefined || wild === undefined) throw new Error('players missing')
-    expect(wild.tilesOwned).toBeLessThanOrEqual(48)
+    expect(wild.tilesOwned).toBeLessThanOrEqual(96) // WILD_SPAWN_TILES (2026-06-10: 48→96)
     expect(wild.tilesOwned).toBeLessThan(ai.tilesOwned)
   })
 

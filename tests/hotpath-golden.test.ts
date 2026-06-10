@@ -40,7 +40,9 @@ function cfg(): GameConfig {
  */
 // 300er neu am 2026-06-10 (Balance #6: Baukosten 40k + Deckel 150k — KIs bauen ab ~Tick 250 anders;
 // 100/200 unverändert). 2× deterministisch reproduziert.
-const GOLDEN: Record<number, number> = { 100: 2954437461, 200: 711772432, 300: 1897628166 }
+// Alle neu am 2026-06-10 abends (Wildnis-Fülle: WILD_SPAWN_TILES 48→96 + Wilde ohne
+// TROOP_GROWTH_FACTOR — Spawns/Wild-Wachstum ändern den State ab Tick 0). 2× reproduziert.
+const GOLDEN: Record<number, number> = { 100: 992732541, 200: 2632781601, 300: 1149245088 }
 
 describe('Angriffs-Hotpath — golden hash', () => {
   it('deterministisches Selbstspiel bleibt bit-identisch (collectAttackableTiles & Co.)', () => {

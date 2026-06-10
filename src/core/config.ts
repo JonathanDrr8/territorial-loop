@@ -119,7 +119,7 @@ export const TROOP_GROWTH_FACTOR = 0.6
 export function troopIncreaseRate(
   troops: number,
   max: number,
-  opts: { readonly bot?: boolean } = {},
+  opts: { readonly bot?: boolean; readonly wild?: boolean } = {},
 ): number {
   if (troops < 0) throw new RangeError(`troops must be >= 0, got ${troops}`)
   if (max < 0) throw new RangeError(`max must be >= 0, got ${max}`)
@@ -131,7 +131,11 @@ export function troopIncreaseRate(
   // dieselbe Größe `troops`. Der Aufrufer entscheidet, welche Bevölkerung das ist —
   // für Wachstum: die FREIE Bevölkerung gegen ihren freien Cap-Platz (siehe
   // growPopulations), damit gebundene Angriffstruppen das Wachstum nicht verzerren.
-  let toAdd = (10 + detPow(troops, 0.73) / 4) * TROOP_GROWTH_FACTOR
+  //
+  // Wilde sind vom OpenFront-Tempo-Faktor ausgenommen (2026-06-10): der ×0.6-Nerf
+  // zielte auf das Spieler-/KI-Tempo, bremste aber als Nebenwirkung die Wildnis-
+  // Ausbreitung um ~10-20% in der Frühphase — die Karte wirkte leer (Jonathans Befund).
+  let toAdd = (10 + detPow(troops, 0.73) / 4) * (opts.wild === true ? 1 : TROOP_GROWTH_FACTOR)
   if (opts.bot === true) toAdd *= 0.5
   const ratio = 1 - troops / max
   return Math.floor(toAdd * ratio)
