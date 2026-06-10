@@ -4,6 +4,16 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.61.0] – 2026-06-10
+
+### Neu
+
+- **KI-Gegner haben jetzt Spielstile:** Jedes Match bekommt eine bunte Mischung aus fünf Charakteren — Allrounder, Wirtschafts-Fokus, Bomber-Fan, defensiver Turtle und Aggressor. Dieselbe Schwierigkeit, aber spürbar unterschiedliche Gegner: manche rüsten Luftwaffe auf, manche igeln sich ein, manche drücken früh. Gilt im Einzelspieler, Multiplayer und Ranked.
+
+### Geändert
+
+- **Die KI hortet im Spätspiel kein Gold mehr:** Bei großem Überschuss baut sie jetzt weiter aus (zusätzliche Städte, mehr Luftwaffe), statt Hunderte Millionen ungenutzt zu stapeln — Spätspiel-Patts werden dadurch brechbarer.
+
 ## [0.60.0] – 2026-06-10
 
 ### Neu
