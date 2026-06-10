@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.61.2] – 2026-06-10
+
+### Geändert
+
+- **Handelsschiffe verursachen keine Hänger mehr:** Die Routenberechnung der Handelsschiffe ist jetzt rund 6× schneller — kurze Aussetzer auf großen Karten entfallen. Die berechneten Routen sind exakt dieselben wie vorher.
+
 ## [0.61.1] – 2026-06-10
 
 ### Geändert
