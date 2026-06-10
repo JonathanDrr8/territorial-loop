@@ -63,6 +63,15 @@ export function loadMenuPrefs(defaults: StartMenuValues): StartMenuValues {
     if (raw === null) return defaults
     const parsed = JSON.parse(raw) as Record<string, unknown>
 
+    // Migration „vergiftete Dev-Defaults": Das frühere DEFAULT_MENU (3 KI / 2 Wilde) wurde auf
+    // frischen Geräten vom Eager-Persist gespeichert und per Konto-Sync auf alle Geräte verteilt —
+    // Matches starteten fast leer („Wilde tauchen nicht auf"). Exakt dieses Wertepaar ist als
+    // bewusste Spieler-Wahl praktisch ausgeschlossen → auf die echten Standards heben.
+    if (parsed.aiCount === 3 && parsed.wildCount === 2) {
+      delete parsed.aiCount
+      delete parsed.wildCount
+    }
+
     const result: StartMenuValues = { ...defaults }
     if (typeof parsed.playerName === 'string' && parsed.playerName.trim().length > 0) {
       result.playerName = parsed.playerName.slice(0, 16)

@@ -137,10 +137,13 @@ function defaultPlayerName(): string {
 
 const DEFAULT_MENU: StartMenuValues = {
   playerName: defaultPlayerName(),
+  // Entspricht dem „Standard"-Preset (MATCH_PRESETS). Die früheren Dev-Werte (3 KI / 2 Wilde)
+  // machten frische Geräte fast leer — und der Konto-Sync verteilte sie auf ALLE Geräte des
+  // Spielers, sobald das Menü sie einmal persistierte („die Wilden tauchen nicht mehr auf").
   mapWidth: 1024,
   mapHeight: 1024,
-  aiCount: 3,
-  wildCount: 2,
+  aiCount: 50,
+  wildCount: 300,
   victoryPct: 90,
   attackPct: DEFAULT_SLIDER_PCT,
   difficulty: 'standard',

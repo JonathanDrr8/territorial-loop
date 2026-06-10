@@ -6,8 +6,8 @@ const DEFAULTS: StartMenuValues = {
   playerName: 'Du',
   mapWidth: 1024,
   mapHeight: 1024,
-  aiCount: 3,
-  wildCount: 2,
+  aiCount: 50,
+  wildCount: 300,
   victoryPct: 90,
   attackPct: 30,
   difficulty: 'standard',
@@ -107,6 +107,29 @@ describe('preferences', () => {
       JSON.stringify({ ...DEFAULTS, aiCount: 999 }),
     )
     expect(loadMenuPrefs(DEFAULTS).aiCount).toBe(DEFAULTS.aiCount)
+  })
+
+  it('migriert die vergifteten Dev-Defaults (3 KI / 2 Wilde) auf die echten Standards', () => {
+    // Das alte DEFAULT_MENU wurde vom Eager-Persist gespeichert + per Konto-Sync verteilt —
+    // genau dieses Wertepaar wird beim Laden auf die Defaults gehoben (andere Felder bleiben).
+    window.localStorage.setItem(
+      'territorial-loop:menu-prefs:v1',
+      JSON.stringify({ ...DEFAULTS, aiCount: 3, wildCount: 2, victoryPct: 80 }),
+    )
+    const loaded = loadMenuPrefs(DEFAULTS)
+    expect(loaded.aiCount).toBe(50)
+    expect(loaded.wildCount).toBe(300)
+    expect(loaded.victoryPct).toBe(80)
+  })
+
+  it('lässt bewusst kleine, NICHT exakt vergiftete Werte unangetastet', () => {
+    window.localStorage.setItem(
+      'territorial-loop:menu-prefs:v1',
+      JSON.stringify({ ...DEFAULTS, aiCount: 3, wildCount: 100 }),
+    )
+    const loaded = loadMenuPrefs(DEFAULTS)
+    expect(loaded.aiCount).toBe(3)
+    expect(loaded.wildCount).toBe(100)
   })
 
   it('ignores out-of-range attackPct, falls back to default', () => {
