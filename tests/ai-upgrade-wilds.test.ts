@@ -185,6 +185,9 @@ describe('Mop-up: kleine, dominierte wilde Reste aufräumen', () => {
   }
 
   function tickUntilAnnexedOrGiveUp(state: ReturnType<typeof createGame>): void {
+    // Mop-up isoliert prüfen: den passiven Wildnis-Wuchs hier ausschalten (würde die kleinen
+    // Test-Wilden ins umgebende Neutralland wachsen lassen und das Setup verfälschen).
+    state.wildGrowthIntervalCache = 1_000_000
     for (let t = 0; t < 30; t++) tick(state, [])
   }
 
@@ -237,6 +240,7 @@ describe('Mop-up: kleine, dominierte wilde Reste aufräumen', () => {
     }
     initializeAllFrontiers(state)
     for (const p of state.players.values()) p.troops = 1000
+    state.wildGrowthIntervalCache = 1_000_000 // Mop-up isoliert: Wildnis-Wuchs hier aus
     for (let t = 0; t < 30; t++) tick(state, [])
     expect(state.players.get(3)?.tilesOwned).toBe(16) // bleibt (Mop-up nur für kleine Reste)
   })

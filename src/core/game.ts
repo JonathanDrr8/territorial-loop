@@ -35,6 +35,7 @@ import {
   type TerrainType,
 } from '../world/terrain'
 import { type TileRef, neighbors4, tileNeighbor4, tileRef, torusDistance } from '../world/torus'
+import { detPow } from './det-math'
 import {
   ATTACK_CANCEL_TICKS,
   BASE_GOLD_PER_TICK,
@@ -365,6 +366,12 @@ export interface GameState {
    * serialisiert (nach Deserialize lazy neu); identische Reihenfolge → verhaltensneutral, MP-sicher.
    */
   orderedPlayersCache?: Player[]
+  /**
+   * Transienter Cache des berechneten Wildnis-Wuchs-Intervalls (Ticks). Hängt nur an Landfläche +
+   * Nationenzahl — beide über die Partie invariant → einmal berechnet, dann wiederverwendet. Nicht
+   * serialisiert (nach Deserialize lazy neu; deterministisch identisch → MP-sicher, [[growWildlands]]).
+   */
+  wildGrowthIntervalCache?: number
   /** Aktive Gold-Fuhren (pendeln Stadt/Hafen ↔ Fabrik über Land, ADR-0018). */
   goldCarts: GoldCart[]
   /** Aktive Kriegsschiffe. */
@@ -466,6 +473,27 @@ const SPAWN_TARGET_TILES = 100
 const WILD_SPAWN_TILES = 48
 /** Alle wie viele Ticks geprüft wird, ob eine wilde Nation eingeschlossen wurde (→ Annexion). */
 const WILD_ENCIRCLE_INTERVAL = 12
+
+/* ---- Passiver Wildnis-Wuchs („volle Welt wie OpenFront", 2026-06-10) -------------------------
+ * Wilde wachsen — unabhängig von ihrer trägen KI — Tile für Tile in FREIES Land, bis die Welt
+ * aufgeteilt ist (keine schwarzen Neutral-Flächen mehr). Der Wuchs gibt nur LAND, keine Truppen
+ * → die Wilden bleiben hauchdünn besiedelt und damit billige Beute (die KI verliert kaum Raum).
+ *
+ * Tempo ist an die KARTEN-DICHTE gekoppelt (Landfläche ÷ Nationenzahl), nicht fest: so füllt sich
+ * jede Welt in ~derselben Zeit, egal ob klein/dünn oder riesig/voll. Geeicht am Anker „400 Wilde
+ * + 75 KI ≈ 30 s" (WILD_FILL_REACH). Jede Wilde wächst eine Tile-Schicht je `interval` Ticks,
+ * per `(tick + id) % interval` über die Nationen GESTAFFELT → glatte Optik + verteilte CPU-Last. */
+/** Zielzeit, in der sich eine Welt füllen soll (Ticks; 300 = ~30 s bei 10 Ticks/s). */
+const WILD_FILL_TARGET_TICKS = 300
+/** Geometrie-/Eich-Faktor: mittlere Zell-Lücke (√(Land/Nationen)) → nötige Wachstums-Schichten.
+ * Empirisch geeicht (2026-06-10): 1.5 trifft „~voll nach 30 s" über alle Dichten/Kartengrößen —
+ * die naive Geometrie (0.5) unterschätzte Hindernisse/Sättigung um ~Faktor 3. */
+const WILD_FILL_REACH = 1.5
+/** Grober Start-Radius eines Wild-Spawns (Tiles) — Schichten, die schon „stehen". */
+const WILD_SPAWN_RADIUS_EST = 4
+/** Härte-Grenzen fürs berechnete Wuchs-Intervall (Ticks). */
+const WILD_GROWTH_MIN_INTERVAL = 2
+const WILD_GROWTH_MAX_INTERVAL = 120
 /**
  * Mop-up wilder Reste (Jonathans „Wilde überleben zu lange"): Eine wilde Nation, die schon klein
  * geschrumpft ist (≤ WILD_MOP_MAX_TILES) und deren Grenze klar von EINEM Spieler dominiert wird
@@ -1020,6 +1048,7 @@ export function tick(state: GameState, intents: readonly Intent[]): GameState {
   pruneRecentCaptures(state)
   expireAlliances(state)
   prof?.('relations')
+  growWildlands(state)
   annexEncircledWilds(state)
   checkEliminations(state)
   checkVictory(state)
@@ -4263,6 +4292,57 @@ function collectAttackableTiles(
   attackableScratch.length = 0
   for (const t of attackableSet) attackableScratch.push(t)
   return { frontWidth, tiles: attackableScratch }
+}
+
+/**
+ * Wuchs-Intervall der Wildnis (Ticks je Tile-Schicht), dichte-gekoppelt: Aus der mittleren
+ * Zell-Lücke `√(Landfläche / Nationenzahl)` ergeben sich die nötigen Wachstums-Schichten, bis sich
+ * die Wilden treffen; das Intervall verteilt sie auf [[WILD_FILL_TARGET_TICKS]]. Einmal berechnet
+ * (Cache) — Land + Nationenzahl sind über die Partie invariant. Deterministisch (`detPow`, Integer).
+ */
+function wildGrowthInterval(state: GameState): number {
+  const cached = state.wildGrowthIntervalCache
+  if (cached !== undefined) return cached
+  const { map, players } = state
+  // Begehbare Land-Tiles zählen (Wasser/Berge sind nicht füllbar).
+  let land = 0
+  const tiles = map.width * map.height
+  for (let ref = 0; ref < tiles; ref++) if (isPassable(map.terrain, ref)) land++
+  const nations = Math.max(1, players.size)
+  const meanGap = detPow(land / nations, 0.5) // Wurzel der Fläche je Nation
+  const layers = Math.max(1, Math.round(WILD_FILL_REACH * meanGap) - WILD_SPAWN_RADIUS_EST)
+  const interval = Math.max(
+    WILD_GROWTH_MIN_INTERVAL,
+    Math.min(WILD_GROWTH_MAX_INTERVAL, Math.round(WILD_FILL_TARGET_TICKS / layers)),
+  )
+  state.wildGrowthIntervalCache = interval
+  return interval
+}
+
+/**
+ * Passiver Wildnis-Wuchs: jede wilde Nation schluckt — gestaffelt nach `(tick + id) % interval` —
+ * je fälligem Schritt eine Tile-Schicht angrenzendes FREIES Land (Owner 0, begehbar). Nur Land,
+ * keine Truppen → die Wilden bleiben dünn besiedelt. Trifft eine Wilde auf belegtes Land (Spieler,
+ * KI, andere Wilde), wächst sie dort nicht weiter. Determinismus: feste Spieler-Reihenfolge
+ * ([[orderedPlayers]]) + feste Nachbar-Reihenfolge (neighbors4), kein RNG. Ein Frontier-Schnappschuss
+ * je Schritt verhindert, dass frisch geschlucktes Land im selben Tick weiterwächst (sonst Flood).
+ */
+function growWildlands(state: GameState): void {
+  const interval = wildGrowthInterval(state)
+  const { map } = state
+  const { width, height } = map
+  for (const w of orderedPlayers(state)) {
+    if (!w.wild || !w.isAlive || w.frontier.size === 0) continue
+    if ((state.tick + w.id) % interval !== 0) continue // gestaffelt → glatt + last-verteilt
+    const fringe = [...w.frontier] // Schnappschuss: kein Weiterwachsen über frisch genommenes Land
+    for (const ref of fringe) {
+      for (const n of neighbors4(ref, width, height)) {
+        if (getOwner(map, n) !== 0) continue // nur herrenloses Land
+        if (!isPassable(map.terrain, n)) continue // kein Wasser/Berg
+        captureTile(state, n, w.id)
+      }
+    }
+  }
 }
 
 /** Erobert ein Tile für `attackerId`, aktualisiert tilesOwned und Frontier-Sets. */
