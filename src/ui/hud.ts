@@ -1913,6 +1913,9 @@ export function createHUD(
       rankPanel.remove()
       actionBar.remove()
       cmdBar.remove() // RTS-Kommandoleiste (enthält ggf. troopBadge/actionBar — beide oben entfernt)
+      // Modul-Inset zurücksetzen — sonst bekämen die Panels des NÄCHSTEN Matches beim Registrieren
+      // den stalen Versatz aufgerechnet (Audit W1: verschmutzter cssText-Snapshot über Match-Grenzen).
+      setBottomInset(0)
       banner.remove()
       pauseOverlay.remove()
       dangerVignette.remove()
