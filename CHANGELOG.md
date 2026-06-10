@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.61.1] – 2026-06-10
+
+### Geändert
+
+- **Bauen kostet wieder etwas:** Die Baukosten steigen spürbar — Basisgebäude (Stadt/Hafen/Fabrik) von 25k auf 40k, **Flugabwehr** auf 45k; der Deckel für weitere Bauten liegt jetzt bei 150k statt 100k. Im Mittel- und Spätspiel ist Bauen damit wieder eine Entscheidung statt Dauerzustand. Auch hohe Stadt-Stufen werden entsprechend teurer. KI-Gegner bauen schlanker, bleiben aber voll konkurrenzfähig.
+
 ## [0.61.0] – 2026-06-10
 
 ### Neu
