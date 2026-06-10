@@ -14,7 +14,7 @@ Bau-Modus → [Stadt] [Hafen] [Abbrechen]; Angriff läuft → [Abbrechen] [Abweh
 Daumen-erreichbar, kein Ziel-Genauigkeits-Problem wie beim Radial auf kleinen Flächen.
 (Re-homed bestehende Renderer, analog RTS-Kommandoleisten-Plan.)
 
-## 2. Auto-Zoom-Stufen + „Zur Aktion springen" — Wirkung HOCH, Aufwand klein
+## 2. ~~Auto-Zoom-Stufen~~ — VERWORFEN (Jonathan 2026-06-10: „unnötig")
 
 Doppeltipp wechselt heute Zoom; zusätzlich: **drei feste Zoom-Stufen** (Welt / Region / Front)
 per Knopf in der Top-Leiste durchschalten + der bestehende ⌖-Sprung prominent als Floating-Button,
