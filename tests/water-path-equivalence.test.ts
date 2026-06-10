@@ -195,6 +195,10 @@ describe('findWaterPath — Scratch-Optimierung ist bit-identisch zur Map-Refere
       }
       const w1 = water[Math.floor(water.length / 2)] ?? w0
       expect(findWaterPath(map, w0, w1)).toEqual(refFindWaterPath(map, w0, w1))
+      // Budget-Abbruch: beide Varianten zählen Expansionen identisch → gleicher Abbruchpunkt.
+      expect(findWaterPath(map, w0, w1, undefined, 10)).toEqual(
+        refFindWaterPath(map, w0, w1, undefined, 10),
+      )
     })
   }
 })
