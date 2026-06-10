@@ -179,6 +179,36 @@ class MinHeap {
 }
 
 /**
+ * Wiederverwendete A*-Scratch-Puffer (Perf): statt pro Aufruf zwei frische Maps zu füllen
+ * (Hash-Kosten + GC-Druck — der Trade-Routen-Warmup auf großen Karten spike'te bis ~85 ms),
+ * markiert ein Epochen-Stempel je Tile, ob sein Eintrag zum AKTUELLEN Aufruf gehört —
+ * O(1)-„Leeren" ohne `fill()`. Semantik ist BIT-IDENTISCH zur Map-Variante (gleiche Vergleiche,
+ * gleiche Heap-Reihenfolge → exakt dieselben Pfade; per Äquivalenztest abgesichert).
+ *
+ * Single-threaded sicher: die Puffer werden innerhalb EINES `findWaterPath`-Aufrufs benutzt
+ * (Sim/Worker/Server ticken sequenziell). Größe folgt lazy der größten gesehenen Karte.
+ */
+let scratchEpoch = 0
+let scratchStamp = new Int32Array(0)
+let scratchG = new Int32Array(0)
+let scratchFrom = new Int32Array(0)
+
+function ensureScratch(n: number): void {
+  if (scratchStamp.length < n) {
+    scratchStamp = new Int32Array(n)
+    scratchG = new Int32Array(n)
+    scratchFrom = new Int32Array(n)
+    scratchEpoch = 0
+  }
+  scratchEpoch++
+  if (scratchEpoch === 0x7fffffff) {
+    // Epoch-Überlauf (praktisch unerreichbar): Stempel zurücksetzen und neu beginnen.
+    scratchStamp.fill(0)
+    scratchEpoch = 1
+  }
+}
+
+/**
  * A*-Pfad über Wasser-Tiles von `start` nach `goal` (beides Wasser-Tiles,
  * inklusive). Liefert die Tile-Folge oder `null` wenn keine Route existiert
  * (oder das Expansions-Budget überschritten wird).
@@ -198,25 +228,31 @@ export function findWaterPath(
   if (start === goal) return [start]
   if (comp !== undefined && !sameWaterComponent(comp, start, goal)) return null
 
-  const gScore = new Map<number, number>()
-  const cameFrom = new Map<number, number>()
+  ensureScratch(width * height)
+  const epoch = scratchEpoch
   const open = new MinHeap()
-  gScore.set(start, 0)
+  // gScore(start) = 0; start hat keinen Vorgänger (-1 = Pfad-Anfang beim Rekonstruieren).
+  scratchG[start] = 0
+  scratchFrom[start] = -1
+  scratchStamp[start] = epoch
   open.push(torusManhattan(start, goal, width, height), start)
 
   let expansions = 0
   while (open.size > 0) {
     const current = open.pop()
-    if (current === goal) return reconstruct(cameFrom, current)
+    if (current === goal) return reconstruct(current)
     if (++expansions > maxExpansions) return null
 
-    const cg = gScore.get(current) ?? Infinity
+    // Entspricht `gScore.get(current) ?? Infinity` — current ist immer gestempelt (wurde gepusht).
+    const cg = scratchStamp[current] === epoch ? (scratchG[current] ?? 0) : Infinity
     for (const nb of neighbors4(current, width, height)) {
       if (isLand(terrain, nb)) continue
       const tentative = cg + 1
-      if (tentative < (gScore.get(nb) ?? Infinity)) {
-        cameFrom.set(nb, current)
-        gScore.set(nb, tentative)
+      const known = scratchStamp[nb] === epoch ? (scratchG[nb] ?? 0) : Infinity
+      if (tentative < known) {
+        scratchFrom[nb] = current
+        scratchG[nb] = tentative
+        scratchStamp[nb] = epoch
         open.push(tentative + torusManhattan(nb, goal, width, height), nb)
       }
     }
@@ -224,12 +260,12 @@ export function findWaterPath(
   return null
 }
 
-function reconstruct(cameFrom: Map<number, number>, goal: number): TileRef[] {
+function reconstruct(goal: number): TileRef[] {
   const path: TileRef[] = [goal]
   let cur = goal
   for (;;) {
-    const prev = cameFrom.get(cur)
-    if (prev === undefined) break
+    const prev = scratchFrom[cur] ?? -1
+    if (prev < 0) break
     path.push(prev)
     cur = prev
   }
