@@ -4,6 +4,12 @@ Was sich im Spiel geändert hat — nur Dinge, die du beim Spielen merkst.
 
 ## [Unreleased]
 
+## [0.62.0] – 2026-06-10
+
+### Neu
+
+- **RTS-Kommandoleiste (Opt-in):** In den In-Game-Einstellungen (Esc → Einstellungen) lässt sich jetzt eine durchgehende Leiste am unteren Bildschirmrand aktivieren. Sie fasst den **Truppen- und Gold-Block** sowie den kompletten **Aktions-Block** (Angriffs-Slider, Bau-Knöpfe, Boot/Bomber/Kriegsschiff) zusammen — klassisches RTS-Layout. **Minimap** und **Meldungs-Spalte** rücken automatisch darüber. Standard ist aus; das gewohnte HUD bleibt unverändert. Nur auf dem Desktop (Fenster ab 900 px Breite).
+
 ## [0.61.2] – 2026-06-10
 
 ### Geändert
