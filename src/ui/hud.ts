@@ -46,7 +46,7 @@ import { t } from '../i18n'
 import { rgbaToCss } from './colors'
 import { createBuildLevelStrip } from './build-level-strip'
 import { buildingIcon, icon } from './icons'
-import { getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
+import { setBottomInset, getPanel, registerPanel, setPanel, unregisterPanel } from './hud-layout'
 import { getHudPrefs, onHudPrefsChange, type HudPrefs } from './hud-prefs'
 import { panelStyle } from './theme'
 import { getUiScale, registerScalable, unregisterScalable } from './ui-scale'
@@ -1012,6 +1012,72 @@ export function createHUD(
   registerScalable(actionBar)
   registerPanel('action', actionBar)
 
+  // ---- RTS-Kommandoleiste (Opt-in, Schritt 1: Status + Aktions-Block) ------------------------
+  // Eine durchgehende Leiste am unteren Rand (klassisches RTS-Layout). Ist sie an, wandern der
+  // Truppen-/Gold-Block und der Aktions-Block per Re-Parenting HINEIN (alle Updater behalten ihre
+  // Element-Referenzen — keine Logik-Duplikate) und melden sich beim Layout-/Editor-System ab.
+  // Reine Client-Darstellung; Desktop-only (schmale Viewports behalten das normale HUD).
+  const cmdBar = document.createElement('div')
+  cmdBar.style.cssText = panelStyle([
+    'position: absolute',
+    'left: 0',
+    'right: 0',
+    'bottom: 0',
+    'display: none',
+    'gap: 14px',
+    'align-items: stretch',
+    'padding: 8px 12px',
+    'border-radius: 0',
+    'border-left: none',
+    'border-right: none',
+    'border-bottom: none',
+    'z-index: 12',
+    'pointer-events: auto',
+  ])
+  container.appendChild(cmdBar)
+  /** Original-Inline-Styles der re-homed Panels — fürs exakte Zurückbauen beim Ausschalten. */
+  const cmdBarSaved = new Map<HTMLElement, string>()
+  let cmdBarActive = false
+
+  function setCommandBar(on: boolean): void {
+    if (on === cmdBarActive) return
+    cmdBarActive = on
+    if (on) {
+      for (const el of [troopBadge, actionBar]) {
+        cmdBarSaved.set(el, el.style.cssText)
+        // Aus dem Layout-/Editor-System nehmen (kein Clamp/Drag in der Leiste) …
+        unregisterPanel(el === troopBadge ? 'resource' : 'action')
+        cmdBar.appendChild(el)
+        // … und vom Absolut-Anker auf Flex-Kind umstellen (Look/Innenleben bleiben).
+        el.style.position = 'static'
+        el.style.left = 'auto'
+        el.style.right = 'auto'
+        el.style.top = 'auto'
+        el.style.bottom = 'auto'
+        el.style.transform = 'none'
+        el.style.margin = '0'
+        el.style.maxWidth = 'none'
+      }
+      actionBar.style.flex = '1 1 auto'
+      troopBadge.style.flex = '0 0 280px'
+      cmdBar.style.display = 'flex'
+      // Andere unten-verankerte Panels (Minimap, Angriffs-Panel, Feed) über die Leiste heben —
+      // wirkt auch auf Panels, die sich erst NACH dem HUD registrieren (Minimap).
+      setBottomInset(cmdBar.offsetHeight + 8)
+    } else {
+      setBottomInset(0)
+      cmdBar.style.display = 'none'
+      for (const el of [troopBadge, actionBar]) {
+        const saved = cmdBarSaved.get(el)
+        if (saved !== undefined) el.style.cssText = saved
+        container.appendChild(el)
+      }
+      cmdBarSaved.clear()
+      registerPanel('resource', troopBadge)
+      registerPanel('action', actionBar)
+    }
+  }
+
   // ---- HUD-Layout-Präferenzen anwenden (Slider/Numpad/Split, ADR-0024) -----------------------
   // Wird einmal beim Bau und danach bei jeder Editor-Umschaltung (onHudPrefsChange) ausgeführt.
   //
@@ -1145,6 +1211,16 @@ export function createHUD(
   }
 
   function applyLayoutPrefs(p: HudPrefs): void {
+    // RTS-Kommandoleiste: nur Desktop-Breiten; in der Leiste sind die Blöcke immer zusammengefügt
+    // (Split-Teile würden aus der Leiste „ausbrechen") und beim Layout-/Editor-System abgemeldet.
+    const wantBar = p.commandBar && window.innerWidth >= 900
+    if (!wantBar) {
+      setCommandBar(false) // ZUERST zurückbauen — die Schritte unten registrieren neu
+      setBottomInset(0) // auch nach Match-Neustart (frische Closure, Modul-Inset evtl. noch aktiv)
+    }
+    const resourceSplit = wantBar ? false : p.resourceSplit
+    const actionSplit = wantBar ? false : p.actionSplit
+
     // 0) Truppen-Anzeige-Stil: Balken oder Kugel (beide liegen in partBar; nur Sichtbarkeit).
     const orbMode = p.troopStyle === 'orb'
     barWrap.style.display = orbMode ? 'none' : ''
@@ -1155,7 +1231,7 @@ export function createHUD(
     else actionBar.insertBefore(sliderWrap, actionBar.firstChild)
 
     // 2) Knopf-Anordnung füllen.
-    placeButtons(p.buttonsLayout === 'numpad', p.actionSplit)
+    placeButtons(p.buttonsLayout === 'numpad', actionSplit)
 
     // 3) Aktions-Teile bestücken (vor dem Split/Merge, damit der Inhalt steht).
     if (p.buttonsLayout === 'numpad') partBuys.append(numpadGrid)
@@ -1163,18 +1239,18 @@ export function createHUD(
     partBoat.append(boatRow)
 
     // 4) Truppen-Gruppe.
-    setGroupSplit(p.resourceSplit, RES_PARTS, troopBadge, 'resource', (el) =>
+    setGroupSplit(resourceSplit, RES_PARTS, troopBadge, 'resource', (el) =>
       troopBadge.appendChild(el),
     )
     // troopBadge zeigt im Split nur noch den (evtl.) Slider — sonst leer → ausblenden + abmelden,
     // damit der Editor keinen leeren Geister-Rahmen zeigt.
-    const resourceEmpty = p.resourceSplit && p.sliderHome !== 'resource'
+    const resourceEmpty = resourceSplit && p.sliderHome !== 'resource'
     troopBadge.style.display = resourceEmpty ? 'none' : ''
     if (resourceEmpty) unregisterPanel('resource')
-    else registerPanel('resource', troopBadge)
+    else if (!wantBar) registerPanel('resource', troopBadge)
 
     // 5) Aktions-Gruppe (Käufe/Boot). Beim Zusammenfügen Inhalte vor die Hinweis-Banner zurück.
-    setGroupSplit(p.actionSplit, ACT_PARTS, actionBar, 'action', () => {
+    setGroupSplit(actionSplit, ACT_PARTS, actionBar, 'action', () => {
       if (p.buttonsLayout === 'numpad') {
         actionBar.insertBefore(numpadGrid, boatHint)
         actionBar.insertBefore(boatRow, boatHint)
@@ -1184,10 +1260,13 @@ export function createHUD(
       }
     })
     // actionBar zeigt im Split nur noch den (evtl.) Slider + Hinweise — sonst leer → ausblenden.
-    const actionEmpty = p.actionSplit && p.sliderHome !== 'action'
+    const actionEmpty = actionSplit && p.sliderHome !== 'action'
     actionBar.style.display = actionEmpty ? 'none' : ''
     if (actionEmpty) unregisterPanel('action')
-    else registerPanel('action', actionBar)
+    else if (!wantBar) registerPanel('action', actionBar)
+
+    // 6) Zum Schluss in die Leiste umziehen (Schritte 4/5 haben die Blöcke zusammengefügt).
+    if (wantBar) setCommandBar(true)
   }
   applyLayoutPrefs(getHudPrefs())
   const offHudPrefs = onHudPrefsChange(applyLayoutPrefs)
@@ -1833,6 +1912,7 @@ export function createHUD(
       attackPanel.remove()
       rankPanel.remove()
       actionBar.remove()
+      cmdBar.remove() // RTS-Kommandoleiste (enthält ggf. troopBadge/actionBar — beide oben entfernt)
       banner.remove()
       pauseOverlay.remove()
       dangerVignette.remove()

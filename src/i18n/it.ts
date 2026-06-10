@@ -405,6 +405,7 @@ export const it: Record<string, string> = {
   'pause.settings': 'Impostazioni',
   'settings.radialSize': 'Dimensione menu radiale',
   'settings.uiOpacity': 'Opacità interfaccia',
+  'settings.commandBar': 'Barra di comando RTS (in basso)',
   'settings.radialSize.small': 'Piccola',
   'settings.radialSize.normal': 'Normale',
   'settings.radialSize.large': 'Grande',

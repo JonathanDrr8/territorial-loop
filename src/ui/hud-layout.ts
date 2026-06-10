@@ -241,10 +241,60 @@ function apply(id: string): void {
   if (o.x !== undefined || o.y !== undefined) clampToViewport(el)
 }
 
+/**
+ * Globaler Unterkanten-Versatz (px, Screen) für unten-verankerte Panels — z.B. wenn die
+ * RTS-Kommandoleiste den unteren Rand belegt. Wirkt auf alle aktuell registrierten Panels mit
+ * Inline-`bottom: Xpx` UND auf spätere Registrierungen (Minimap entsteht nach dem HUD).
+ * Zoom-bewusst (CSS-bottom ist in gezoomten Einheiten). `setBottomInset(0)` stellt alles zurück.
+ */
+let bottomInset = 0
+const insetApplied = new Map<HTMLElement, string>()
+
+function applyBottomInset(el: HTMLElement): void {
+  if (bottomInset <= 0 || insetApplied.has(el)) return
+  const b = el.style.bottom
+  if (!b.endsWith('px')) return // nur unten-verankerte Panels; top-/Override-Panels unberührt
+  const z = parseFloat(getComputedStyle(el).zoom) || 1
+  insetApplied.set(el, b)
+  el.style.bottom = `${String(Math.round(parseFloat(b) + bottomInset / z))}px`
+}
+
+export function setBottomInset(px: number): void {
+  if (px === bottomInset) return
+  for (const [el, orig] of insetApplied) el.style.bottom = orig
+  insetApplied.clear()
+  bottomInset = px
+  if (px > 0) for (const el of panels.values()) applyBottomInset(el)
+}
+
+/**
+ * Externe Style-Resets einsammeln: Code außerhalb des Layout-Systems schreibt `bottom` teils hart
+ * neu (z. B. `applyMobileLayout` beim Moduswechsel: Minimap `12px`, Feed `224px`) und wischt damit
+ * einen aktiven Inset weg. Hier nach solchen Resets aufrufen — Panels, deren `bottom` wieder auf
+ * dem Original-Wert steht (oder die neu unten-verankert sind), bekommen den Inset erneut.
+ */
+export function refreshBottomInset(): void {
+  if (bottomInset <= 0) return
+  for (const el of panels.values()) {
+    const orig = insetApplied.get(el)
+    if (orig !== undefined) {
+      // Steht `bottom` wieder auf dem Wert von vor dem Inset, wurde es extern zurückgesetzt.
+      // (Einen extern bewusst ANDERS gesetzten Wert nicht anfassen.)
+      if (el.style.bottom === orig) {
+        insetApplied.delete(el)
+        applyBottomInset(el)
+      }
+    } else {
+      applyBottomInset(el)
+    }
+  }
+}
+
 /** Panel anmelden — bekommt sofort seinen gespeicherten Override (falls vorhanden). */
 export function registerPanel(id: string, el: HTMLElement): void {
   panels.set(id, el)
   apply(id)
+  applyBottomInset(el) // Spät-Registrierer (z.B. Minimap) respektieren einen aktiven Inset
   armResizeClamp()
   panelResizeObserver?.observe(el) // bei Größen-Settle/-Wachstum nachklemmen
 }
@@ -252,7 +302,14 @@ export function registerPanel(id: string, el: HTMLElement): void {
 /** Panel abmelden (z. B. zu Match-Ende). */
 export function unregisterPanel(id: string): void {
   const el = panels.get(id)
-  if (el !== undefined) panelResizeObserver?.unobserve(el)
+  if (el !== undefined) {
+    panelResizeObserver?.unobserve(el)
+    const orig = insetApplied.get(el)
+    if (orig !== undefined) {
+      el.style.bottom = orig
+      insetApplied.delete(el)
+    }
+  }
   panels.delete(id)
 }
 

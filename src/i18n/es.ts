@@ -408,6 +408,7 @@ export const es: Record<string, string> = {
   'pause.settings': 'Ajustes',
   'settings.radialSize': 'Tamaño del menú radial',
   'settings.uiOpacity': 'Opacidad de la interfaz',
+  'settings.commandBar': 'Barra de mando RTS (abajo)',
   'settings.radialSize.small': 'Pequeño',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Grande',

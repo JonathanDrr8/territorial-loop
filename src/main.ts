@@ -61,7 +61,13 @@ import { createFeedbackUi } from './ui/feedback-dialog'
 import { icon } from './ui/icons'
 import { panelStyle } from './ui/theme'
 import './ui/theme' // Theme-Variablen + gebündelte Schriften früh laden (ADR-0024)
-import { applyMobileDefaultLayout, getPanel, registerPanel, unregisterPanel } from './ui/hud-layout'
+import {
+  applyMobileDefaultLayout,
+  getPanel,
+  refreshBottomInset,
+  registerPanel,
+  unregisterPanel,
+} from './ui/hud-layout'
 import { getHudPrefs, onHudPrefsChange } from './ui/hud-prefs'
 import { createHudEditor, type HudEditorOptions } from './ui/hud-editor'
 import { randomTipIndex, TIP_KEYS } from './ui/tips'
@@ -1255,6 +1261,9 @@ function startMatch(
       mobileRankOpen = false
       mobileTopbar.setRankActive(false)
     }
+    // Die harten bottom-Resets oben (Minimap 12px, Feed 224px) würden einen aktiven
+    // Kommandoleisten-Inset wegwischen — wieder anwenden.
+    refreshBottomInset()
   }
   // Eingebautes Mobile-Standard-Layout (einmalig, proportional zur Bildschirmgröße) für frische
   // Mobile-Spieler. Nur im Cockpit-Modus (die Anordnung betrifft Cockpit-Panels) und nur, wenn der

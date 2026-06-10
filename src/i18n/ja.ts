@@ -358,6 +358,7 @@ export const ja: Record<string, string> = {
   'pause.settings': '設定',
   'settings.radialSize': '放射状メニューのサイズ',
   'settings.uiOpacity': 'UIの不透明度',
+  'settings.commandBar': 'RTSコマンドバー（下部）',
   'settings.radialSize.small': '小',
   'settings.radialSize.normal': '中',
   'settings.radialSize.large': '大',

@@ -53,6 +53,12 @@ export interface HudPrefs {
    */
   tapAttackDelayMs: number
   /**
+   * RTS-Kommandoleiste (ADR-0010/Design-Doc, Opt-in): Truppen/Gold + Aktions-Block wandern in eine
+   * durchgehende Leiste am unteren Rand (klassisches RTS-Layout). Default aus — bestehendes HUD
+   * unverändert. Nur Desktop (breite Viewports); reine Client-Präferenz, kein Sim-Einfluss.
+   */
+  commandBar: boolean
+  /**
    * Zuletzt gewähltes Bau-Level (Level-Direktbau): 1..MAX_BUILDING_LEVEL. Wird gemerkt und beim
    * nächsten Bau-Modus vorgewählt (Jonathans „merkt sich, was man zuletzt gedrückt hat"). Reine
    * Client-Präferenz — geht nicht in den Sim-State (jeder Build-Intent trägt sein Level explizit).
@@ -98,6 +104,7 @@ const DEFAULTS: HudPrefs = {
   offscreenLabelCount: OFFSCREEN_LABEL_DEFAULT,
   tapAttackDelayMs: TAP_ATTACK_DELAY_DEFAULT,
   buildLevel: BUILD_LEVEL_DEFAULT,
+  commandBar: false,
 }
 
 /** Clamped/validierter Off-Screen-Label-Wert aus rohem Input (Fallback = Default). */
@@ -150,6 +157,7 @@ function load(): HudPrefs {
         offscreenLabelCount: clampOffscreen(parsed.offscreenLabelCount),
         tapAttackDelayMs: clampTapDelay(parsed.tapAttackDelayMs),
         buildLevel: clampBuildLevel(parsed.buildLevel),
+        commandBar: parsed.commandBar === true,
       }
     }
   } catch {

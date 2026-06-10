@@ -411,6 +411,7 @@ export const de: Record<string, string> = {
   'pause.leave': 'Runde verlassen',
   'settings.radialSize': 'Radialmenü-Größe',
   'settings.uiOpacity': 'UI-Deckkraft',
+  'settings.commandBar': 'RTS-Kommandoleiste (unten)',
   'settings.radialSize.small': 'Klein',
   'settings.radialSize.normal': 'Normal',
   'settings.radialSize.large': 'Groß',

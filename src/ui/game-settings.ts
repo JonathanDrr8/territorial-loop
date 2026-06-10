@@ -6,7 +6,7 @@
 
 import { t } from '../i18n'
 import { panelStyle, getUiOpacity, setUiOpacity, UI_OPACITY_MIN, UI_OPACITY_MAX } from './theme'
-import { makeSelectRow, makeSliderRow } from './start-menu'
+import { makeCheckRow, makeSelectRow, makeSliderRow } from './start-menu'
 import { loadAudioVolumes, saveAudioVolumes, type AudioVolumes } from './preferences'
 import {
   getHudPrefs,
@@ -126,6 +126,18 @@ export function createGameSettings(
     setUiOpacity(uiOpacity.getValue())
   })
   box.appendChild(uiOpacity.element)
+
+  // RTS-Kommandoleiste (Opt-in, Desktop): Truppen/Gold + Aktions-Block als durchgehende Leiste unten.
+  const cmdBar = makeCheckRow(
+    t('settings.commandBar'),
+    getHudPrefs().commandBar,
+    t('toggle.on'),
+    t('toggle.off'),
+  )
+  cmdBar.element.querySelector('input')?.addEventListener('change', () => {
+    setHudPref('commandBar', cmdBar.getValue())
+  })
+  box.appendChild(cmdBar.element)
 
   // Off-Screen-Nationen-Labels: wie viele der nächsten Nachbarn am Rand gezeigt werden (0 = aus).
   const offLabels = makeSliderRow(

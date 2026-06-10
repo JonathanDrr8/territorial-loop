@@ -397,6 +397,7 @@ export const ru: Record<string, string> = {
   'pause.settings': 'Настройки',
   'settings.radialSize': 'Размер радиального меню',
   'settings.uiOpacity': 'Непрозрачность интерфейса',
+  'settings.commandBar': 'Командная панель RTS (внизу)',
   'settings.radialSize.small': 'Маленький',
   'settings.radialSize.normal': 'Обычный',
   'settings.radialSize.large': 'Большой',
