@@ -299,8 +299,17 @@ export function refreshBottomInset(): void {
   }
 }
 
+/**
+ * Heimat-Zustand je Panel (Inline-Styles bei der ERSTEN Registrierung — da sind sie frisch
+ * gestylt, vor jedem Override/Clamp/Inset). `resetLayout` restauriert daraus die echten
+ * Standard-Anker; das bloße Entfernen der Override-Properties ließe Panels anker-los an ihrer
+ * Static-Flow-Position zurückfallen („Standard"-Knopf wirkte verschoben/asymmetrisch).
+ */
+const homeCss = new WeakMap<HTMLElement, string>()
+
 /** Panel anmelden — bekommt sofort seinen gespeicherten Override (falls vorhanden). */
 export function registerPanel(id: string, el: HTMLElement): void {
+  if (!homeCss.has(el)) homeCss.set(el, el.style.cssText)
   panels.set(id, el)
   apply(id)
   applyBottomInset(el) // Spät-Registrierer (z.B. Minimap) respektieren einen aktiven Inset
@@ -444,21 +453,32 @@ export function resetLayout(): void {
   for (const id of ids) {
     const el = panels.get(id)
     if (el === undefined) continue
-    el.style.removeProperty('left')
-    el.style.removeProperty('top')
-    el.style.removeProperty('right')
-    el.style.removeProperty('bottom')
-    el.style.removeProperty('transform')
-    el.style.removeProperty('transform-origin')
-    el.style.removeProperty('zoom')
-    el.style.removeProperty('width')
-    el.style.removeProperty('height')
-    el.style.removeProperty('max-width')
-    el.style.removeProperty('max-height')
-    el.style.removeProperty('display')
+    const home = homeCss.get(el)
+    if (home !== undefined) {
+      // Echte Standard-Anker wiederherstellen (Zustand der ersten Registrierung) — nur die
+      // Override-Properties zu entfernen ließe das Panel anker-los zurückfallen.
+      el.style.cssText = home
+    } else {
+      el.style.removeProperty('left')
+      el.style.removeProperty('top')
+      el.style.removeProperty('right')
+      el.style.removeProperty('bottom')
+      el.style.removeProperty('transform')
+      el.style.removeProperty('transform-origin')
+      el.style.removeProperty('zoom')
+      el.style.removeProperty('width')
+      el.style.removeProperty('height')
+      el.style.removeProperty('max-width')
+      el.style.removeProperty('max-height')
+      el.style.removeProperty('display')
+    }
     savedAnchors.delete(el) // Styles sind frisch zurückgesetzt — alter Anker-Snapshot ist hinfällig
     // Zurück in die Auto-Skalierung: `apply()` hatte das Panel aus der ui-scale-Registry
     // genommen (Layout-Override besaß die Skalierung) — jetzt skaliert es wieder normal mit.
+    // (Setzt auch das zoom des Heimat-Snapshots auf den aktuellen UI-Maßstab.)
     registerScalable(el)
+    // Ein aktiver Kommandoleisten-Versatz steckt nicht im Heimat-Snapshot → erneut anwenden.
+    insetApplied.delete(el)
+    applyBottomInset(el)
   }
 }

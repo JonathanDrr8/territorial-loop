@@ -252,7 +252,13 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
 
   /** Alle armierten Panels auf ihren Vor-Arm-Zustand zurück; Overrides erneut anwenden. */
   function disarmAll(): void {
+    // Leisten-Bewohner NICHT anfassen: ihr Element lebt gerade im Flex-Slot der RTS-Kommando-
+    // leiste — Heimat-CSS (absolute Anker) dorthin zu restaurieren kollabiert den Slot und
+    // lässt das Panel aus dem Viewport ragen (Audit B1). Ihren Heimat-Zustand stellt
+    // setCommandBar(false) bzw. der jeweilige Restore-Pfad selbst wieder her.
+    const inBar = new Set((opts.commandBarMembers?.() ?? []).map(([, el]) => el))
     for (const [id, saved] of armSaved) {
+      if (inBar.has(saved.el)) continue
       saved.el.style.cssText = saved.css
       // Während der Session geänderte/bestehende Overrides erneut anwenden (Drag/Resize hat sie
       // via setPanel gespeichert; der Vor-Arm-Zustand kann älter sein). Re-Register ist idempotent.
@@ -972,6 +978,9 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
       load.style.cssText =
         'flex:1;min-width:0;text-align:left;font-size:11px;padding:5px 9px;border-radius:5px;border:1px solid var(--tl-panel-border-color);background:rgba(0,0,0,0.25);color:var(--tl-text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
       load.addEventListener('click', () => {
+        // Erst dis-armieren: das Preset soll auf anker-basierte Panels wirken, und die
+        // Vor-Arm-Snapshots dürfen den Vor-Preset-Zustand nicht überleben (Audit B2).
+        disarmAll()
         onLoad()
         buildFrames() // Panels sind umgesprungen → Editor-Rahmen neu setzen
       })
@@ -1313,18 +1322,12 @@ export function createHudEditor(container: HTMLElement, opts: HudEditorOptions =
 
   // ---- Reset (zurück auf Standard, danach neu armieren) --------------------------------------
   function doReset(): void {
+    // Erst dis-armieren: stellt für alle Panels die Anker-Styles wieder her und flusht die
+    // Vor-Arm-Snapshots — sonst restaurierte „Fertig" später den Vor-Reset-Zustand (Audit B2).
+    disarmAll()
+    // Überschriebene Panels auf ihre Heimat-Styles zurück (resetLayout restauriert echte
+    // Standard-Anker — der frühere Property-Strip ließ Panels anker-los zurückfallen).
     resetLayout()
-    // Standard-Basisgröße (zoom) wiederherstellen, Editor-Inline-Styles weg.
-    for (const [, el] of panelMap) {
-      el.style.removeProperty('left')
-      el.style.removeProperty('top')
-      el.style.removeProperty('right')
-      el.style.removeProperty('bottom')
-      el.style.removeProperty('transform')
-      el.style.removeProperty('transform-origin')
-      el.style.display = ''
-      el.style.setProperty('zoom', getUiScale().toString())
-    }
     // Neu messen + Rahmen aktualisieren.
     for (const [id, el] of panelMap) arm(id, el)
     for (const id of panelMap.keys()) layoutFrame(id)
