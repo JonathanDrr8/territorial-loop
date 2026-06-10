@@ -57,7 +57,7 @@ Stand: v0.29.1.
 - **Gold über Fabrik-Netzwerke** — Wirtschaft hängt an Fabriken, nicht an Gebietsgröße
 - **Physische Gold-Fuhren** — Gold pendelt auf grauen Straßen zwischen Städten/Häfen und der nächsten Fabrik; näher = mehr Gold/Zeit
 - **Auslands-Verbindungen** — nur Fabrik↔Fabrik über gemeinsames Land, bringen das 3-fache Gold
-- **Baukosten-Eskalation** — 25k → 50k → 100k pro Bau, bei 100.000 gedeckelt; Hafen & Fabrik teilen sich die Basis (frühes „Entweder-Oder")
+- **Baukosten-Eskalation** — 40k → 80k → 150k pro Bau, bei 150.000 gedeckelt; Hafen & Fabrik teilen sich die Basis (frühes „Entweder-Oder")
 - **Economy-Aufschlüsselung** — aufklappbares HUD-Panel + Live-Tooltips (Fabrik-Beitrag, Upgrade-Nutzen); Gold-Rate zählt nur Einnahmen
 
 ## Gebäude

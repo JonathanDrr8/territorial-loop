@@ -154,7 +154,7 @@ describe('serializeState / deserializeState', () => {
     // Ein Tile dem Menschen geben und dort eine Stadt bauen.
     const p = s.players.get(1)
     if (p === undefined) throw new Error('player 1 missing')
-    p.gold = 100_000 // Stadt kostet 25k
+    p.gold = 100_000 // Stadt kostet 40k
     const homeTile = [...p.frontier][0] ?? 0
     tick(s, [{ type: 'build', playerId: 1, tile: homeTile, buildingType: 'city' }])
 

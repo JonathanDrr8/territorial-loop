@@ -87,7 +87,7 @@ describe('building cost functions', () => {
     expect(cityStageKey(0)).toBe('citystage.dorf') // unter Min → geklemmt
   })
 
-  it('Städte-Kosten verdoppeln sich ab Level 3 (ADR-0031 Gold-Senke, Basis 25k)', () => {
+  it('Städte-Kosten verdoppeln sich ab Level 3 (ADR-0031 Gold-Senke, Basis 40k)', () => {
     expect(upgradeCost({ type: 'city', level: 3 })).toBe(240_000) // L3→4 = base×6
     expect(upgradeCost({ type: 'city', level: 4 })).toBe(480_000) // L4→5 = base×12
     expect(upgradeCost({ type: 'city', level: 5 })).toBe(960_000) // L5→6 = base×24
@@ -96,7 +96,7 @@ describe('building cost functions', () => {
   })
 
   it('upgrade cost skaliert am tatsächlichen Baupreis (Max-Cost-Fabrik teuer)', () => {
-    // Erste/billige Fabrik (buildPrice = Basis 25k): unverändert.
+    // Erste/billige Fabrik (buildPrice = Basis 40k): unverändert.
     expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 25_000 })).toBe(50_000)
     // Max-Cost-Fabrik (100k gebaut): Upgrade skaliert mit → deutlich teurer als der L1-Preis.
     expect(upgradeCost({ type: 'factory', level: 1, buildPrice: 100_000 })).toBe(200_000)
@@ -104,7 +104,7 @@ describe('building cost functions', () => {
   })
 
   it('build cost is capped at BUILD_COST_CAP (100k)', () => {
-    // Basis 25k × 2^n; 2^6 = 64 → 1.6 Mio → gedeckelt.
+    // Basis 40k × 2^n; 2^6 = 64 → 1.6 Mio → gedeckelt.
     expect(buildCost('city', 6)).toBe(BUILD_COST_CAP)
     expect(buildCost('city', 20)).toBe(BUILD_COST_CAP)
     expect(buildCost('factory', 6)).toBe(BUILD_COST_CAP)
@@ -127,7 +127,7 @@ describe('buildCostFor — Eskalations-Gruppen (pro Spieler)', () => {
     const t2 = t1 + 1
     setOwner(state.map, t2, 1)
     state.buildings.set(t2, { type: 'factory', ownerId: 1, tile: t2, level: 1, completesAtTick: 0 })
-    // Gleiche Basis (25k) + geteilter Zähler 2 → Hafen und Fabrik kosten identisch: 25k × 2^2.
+    // Gleiche Basis (40k) + geteilter Zähler 2 → Hafen und Fabrik kosten identisch: 25k × 2^2.
     expect(buildCostFor(state, 1, 'port')).toBe(150_000) // 40k×4 = 160k → Deckel
     expect(buildCostFor(state, 1, 'factory')).toBe(150_000)
     // Stadt bleibt eigene Gruppe (Zähler 0) → Basispreis.

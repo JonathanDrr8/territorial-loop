@@ -156,7 +156,7 @@ export const BUILDING_LABEL: Record<BuildingType, string> = {
 
 /**
  * Baukosten. Verteidigungsposten kosten immer gleich viel (flach); alle anderen
- * eskalieren — jedes weitere Gebäude der Gruppe kostet doppelt (Stadt: 25k/50k/100k…),
+ * eskalieren — jedes weitere Gebäude der Gruppe kostet doppelt (Stadt: 40k/80k/150k…),
  * gedeckelt bei [[BUILD_COST_CAP]] (100k). `existingCountInGroup` ist die Anzahl bereits
  * gebauter Gebäude der Eskalations-Gruppe (siehe [[COST_GROUP]]).
  */
@@ -183,7 +183,7 @@ export function buildCost(type: BuildingType, existingCountInGroup: number): num
 export function upgradeCost(b: Pick<Building, 'type' | 'level' | 'buildPrice'>): number {
   const base = b.buildPrice ?? BASE_BUILD_COST[b.type]
   // Städte über Level 3 (ADR-0031): Kosten verdoppeln sich je Level — Gold-Senke + Snowball-Bremse.
-  // Multiplikator base×3 × 2^(level-2): L3→4 = ×6, L4→5 = ×12, L5→6 = ×24 (Basis 25k → 150k/300k/600k).
+  // Multiplikator base×3 × 2^(level-2): L3→4 = ×6, L4→5 = ×12, L5→6 = ×24 (Basis 40k → 240k/480k/960k).
   // Integer-Shift statt Math.pow → cross-engine-deterministisch (MP, ADR-0009).
   if (b.type === 'city' && b.level + 1 > MAX_BUILDING_LEVEL) {
     return Math.round(base * 3 * (1 << (b.level - 2)))
